@@ -1,0 +1,27 @@
+$impeccable polish Food Service SaaS inteiro como produto pronto para venda. Faça uma única passada visual completa e limitada cobrindo Admin, onboarding, catálogo administrativo, cadastro de produto/grupos de opções, pedidos, analytics, configurações, Storefront, detalhe do produto, carrinho, Checkout, sucesso do pedido, Admin Master, lojas, planos, diagnóstico, login, primeiro acesso e MFA.
+
+Antes de editar, leia AGENTS.md, PRODUCT.md, DESIGN.md e .impeccable/surfaces/foodservice-completo.md. Considere o código atual a verdade funcional. A identidade deve ser refinada, não substituída.
+
+Objetivo comercial: a plataforma precisa parecer específica para operação de Food Service sem virar um sistema exclusivo de pizzaria ou hamburgueria. Storefront deve vender comida rapidamente; Admin deve ser operacional; Master deve funcionar como cockpit comercial do SaaS.
+
+Priorize, nesta ordem:
+1. hierarquia e clareza das tarefas;
+2. consistência de layout, espaçamento, tipografia, inputs, botões, tabelas, badges e estados;
+3. responsividade real em 1366x768, 390x844 e largura intermediária;
+4. Storefront orientado a cardápio e conversão mobile;
+5. grupos de opções fáceis de entender e operar;
+6. Checkout com baixa ansiedade, total evidente e CTA persistente sem cobrir Turnstile;
+7. Pedidos com status operacional evidente;
+8. Admin Master focado em pagantes, demos, implantação e atenção;
+9. acessibilidade: contraste, foco visível, labels, teclado e touch targets;
+10. limpeza de CSS redundante e estilos one-off.
+
+Pode alterar apenas apresentação: src/**/*.tsx na estrutura visual, componentes de apresentação, classes, src/styles.css e assets visuais estritamente necessários. Preserve assinaturas de props, estados funcionais, handlers, rotas e contratos.
+
+PROIBIDO alterar supabase/**, src/services/**, src/lib/**, Auth/MFA, chamadas de API, useEffects de dados, regras de negócio, preços, grupos/opções, payload do pedido, analytics de coleta, Turnstile, rate limit, planos, isolamento multiloja, wrangler, variáveis de ambiente ou dependências sem necessidade estritamente visual. Não remova validações para simplificar a interface.
+
+Não adicione bibliotecas visuais pesadas nem fontes externas. Use CSS/componentes existentes. Imagens de produto devem ter mais peso que decoração.
+
+Ao final execute npm run validate. Se não houver dependências/rede, reporte isso explicitamente e não invente resultado de build.
+
+Entregue resumo objetivo das mudanças visuais, arquivos alterados, riscos funcionais evitados, resultado da validação e melhorias não feitas por exigirem backend/regra de negócio.
