@@ -1,0 +1,30 @@
+FOODWEB v0.5.3 - PARIDADE VISUAL COM FLORIWEB
+
+OBJETIVO
+- Replicar no Admin e Admin Master do FoodWeb o mesmo design system do FloriWeb.
+- Manter a identidade FoodWeb com paleta quente ligada a alimentacao.
+- Nao alterar regras de negocio, tabelas, migrations ou Supabase.
+
+ALTERACOES VISUAIS
+- Mesma estrutura de sidebar do FloriWeb.
+- Mesma organizacao por Operacao / Catalogo / Gestao / Conta.
+- Mesmo padrao de topbar, status da loja e mensalidade.
+- Mesmo padrao de cards, KPIs, tabelas, filtros e formularios.
+- Mesmo padrao de Admin Master.
+- Responsividade e menu mobile alinhados ao FloriWeb.
+- FoodWeb continua com identidade propria em tons quentes/terracota.
+
+REGRAS FOODWEB PRESERVADAS
+- Analytics continua condicionado ao plano.
+- Financeiro continua condicionado ao plano.
+- Fluxo operacional de pedidos permanece FoodWeb.
+- PIX, cobranca, renovacao, planos e recebimento permanecem inalterados.
+- Storefront publico do FoodWeb continua com linguagem visual propria de food service.
+
+INSTALACAO
+1. Extraia este ZIP diretamente na raiz atual do FoodWeb.
+2. Execute APLICAR_V053_NA_RAIZ.bat.
+3. Opcional: execute TESTAR_LOCALHOST_V053.bat.
+4. Execute PUBLICAR_V053.bat para producao.
+
+NAO HA MIGRATION NOVA.

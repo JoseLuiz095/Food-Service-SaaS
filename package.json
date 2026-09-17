@@ -1,7 +1,7 @@
 {
   "name": "foodservice-saas",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.5.5",
   "type": "module",
   "engines": {
     "node": ">=22.18.0"
@@ -13,21 +13,24 @@
     "preview": "vite preview",
     "validate": "npm run smoke && npm run test:critical && npm run build",
     "smoke": "node scripts/smoke.mjs",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "npm run check:env && npm run build && wrangler deploy",
     "design:setup": "npx --yes impeccable@3.6.0 skills install -y --providers=codex --scope=project",
     "design:help": "node scripts/impeccable-help.mjs",
     "design:update": "npx --yes impeccable@3.6.0 skills update -y",
     "design:verify": "node scripts/verify-impeccable.mjs",
     "design:detect": "npx --yes impeccable@3.6.0 detect src/",
     "design:context": "node .agents/skills/impeccable/scripts/context.mjs --target src/App.tsx",
-    "test:critical": "node scripts/critical-flow.mjs"
+    "test:critical": "node scripts/critical-flow.mjs",
+    "check:env": "node scripts/check-env.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.112.4",
     "lucide-react": "1.34.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "react-router-dom": "7.18.2"
+    "react-router-dom": "7.18.2",
+    "pdfjs-dist": "6.3.289",
+    "tesseract.js": "7.0.0"
   },
   "devDependencies": {
     "@types/react": "19.2.18",

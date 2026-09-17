@@ -39,8 +39,6 @@ Autorize uma conta do `auth.users` em `food_platform_admins` conforme `SUPABASE_
 ```bash
 supabase functions deploy food-platform-create-store --project-ref SEU_PROJECT_REF
 supabase functions deploy food-public-checkout --project-ref SEU_PROJECT_REF --no-verify-jwt
-supabase functions deploy food-billing-create-pix --project-ref SEU_PROJECT_REF
-supabase functions deploy food-billing-asaas-webhook --project-ref SEU_PROJECT_REF --no-verify-jwt
 supabase functions deploy food-finance-document-extract --project-ref SEU_PROJECT_REF
 ```
 

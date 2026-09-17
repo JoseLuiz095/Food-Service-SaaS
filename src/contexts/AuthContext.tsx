@@ -25,7 +25,7 @@ type AuthContextValue = {
   error: string;
   mode: 'demo' | 'supabase';
   mfaLevel: MfaLevel;
-  signIn: (email: string, password: string, scope?: SignInScope) => Promise<boolean>;
+  signIn: (email: string, password: string, scope?: SignInScope, captchaToken?: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   refreshAccess: () => Promise<void>;
   refreshMfaLevel: () => Promise<MfaLevel>;
@@ -166,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, [clearAccess, loadAccess]);
 
-  const signIn = useCallback(async (email: string, password: string, scope: SignInScope = 'any') => {
+  const signIn = useCallback(async (email: string, password: string, scope: SignInScope = 'any', captchaToken = '') => {
     setError(''); setLoading(true);
     try {
       if (isDemoMode) {
@@ -183,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const supabase = getSupabaseClient();
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password, options: captchaToken ? { captchaToken } : undefined });
       if (authError) throw authError;
       if (!data.user) throw new Error('Supabase não retornou o usuário autenticado.');
       const authUser = mapAuthUser(data.user);

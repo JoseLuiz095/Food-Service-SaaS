@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({
         ok: Boolean(url && anon && service),
         function: 'food-platform-create-store',
-        version: 'foodservice-0.2.0',
+        version: 'foodweb-0.4.0',
         configured: Boolean(url && anon && service),
       }), { status:200, headers:{...corsHeaders,'Content-Type':'application/json'} });
     }

@@ -1,0 +1,15 @@
+FOODWEB V0.5.5 - CORRECAO DO GITHUB SEM POWERSHELL
+
+Copie os 3 arquivos para a raiz atual do FoodWeb:
+- corrigir_foodweb_v055.mjs
+- CORRIGIR_FOODWEB_V055_SEM_POWERSHELL.bat
+- PUBLICAR_FOODWEB_GITHUB_V055_SEM_POWERSHELL.bat
+
+ORDEM:
+1. Execute CORRIGIR_FOODWEB_V055_SEM_POWERSHELL.bat
+2. Somente se npm run validate concluir sem falhas, execute:
+   PUBLICAR_FOODWEB_GITHUB_V055_SEM_POWERSHELL.bat
+
+O pacote nao usa PowerShell.
+O publicador nao altera a main automaticamente.
+Nao usa force push.

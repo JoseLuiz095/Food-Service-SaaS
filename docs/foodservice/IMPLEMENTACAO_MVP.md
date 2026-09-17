@@ -49,8 +49,6 @@ supabase/migrations/202608280400_foodservice_shared_database.sql
 supabase/migrations/202608310900_foodservice_commercial_finance_v030.sql
 supabase/functions/food-platform-create-store/index.ts
 supabase/functions/food-public-checkout/index.ts
-supabase/functions/food-billing-create-pix/index.ts
-supabase/functions/food-billing-asaas-webhook/index.ts
 supabase/functions/food-finance-document-extract/index.ts
 supabase/seed/seed_demo.sql
 ```

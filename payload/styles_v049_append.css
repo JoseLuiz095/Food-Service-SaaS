@@ -1,0 +1,27 @@
+/* FoodWeb v0.4.9 - confirmacao de recebimento do pedido */
+.order-payment-confirm-button{
+  min-height:36px;
+  padding:0 11px;
+  border:1px solid #b9dcc8;
+  border-radius:10px;
+  background:#f2fbf5;
+  color:var(--green);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  font-size:.72rem;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:.18s ease;
+}
+.order-payment-confirm-button:hover{background:var(--green);color:#fff;border-color:var(--green);transform:translateY(-1px)}
+.order-payment-confirm-button:disabled{opacity:.55;cursor:wait;transform:none}
+.order-payment-received{display:inline-flex;align-items:flex-start;gap:7px;color:var(--green);font-size:.72rem}
+.order-payment-received>svg{margin-top:1px;flex:0 0 auto}
+.order-payment-received>span{display:grid;gap:1px}
+.order-payment-received strong{font-size:.72rem}
+.order-payment-received small{color:var(--muted);font-size:.62rem;white-space:nowrap}
+.order-payment-cancelled{display:inline-flex;color:#9b3434;background:#fff1f0;border:1px solid #f1cfcb;border-radius:999px;padding:6px 9px;font-size:.65rem;font-weight:800;white-space:nowrap}
+@media(max-width:760px){.order-payment-confirm-button{width:100%;min-width:154px}}

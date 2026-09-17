@@ -159,6 +159,9 @@ export type EdgeFunctionHealth = {
   configured: boolean;
   turnstileConfigured?: boolean;
   turnstileRequired?: boolean;
+  originAllowed?: boolean;
+  originsConfigured?: boolean;
+  aiConfigured?: boolean;
 };
 
 export const edgeFunctionHealth = async (name: string): Promise<EdgeFunctionHealth> => {
