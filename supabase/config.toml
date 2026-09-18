@@ -1,16 +1,14 @@
-# Food Service SaaS compartilhando o mesmo projeto Supabase do FloriWeb.
-# As Edge Functions usam namespace food-* para nao sobrescrever funcoes do FloriWeb.
+# FoodWeb compartilhando o mesmo projeto Supabase do FloriWeb.
+# Todas as Edge Functions usam namespace food-*.
+
 [functions.food-public-checkout]
 verify_jwt = false
 
 [functions.food-platform-create-store]
 verify_jwt = true
 
-[functions.food-billing-create-pix]
-verify_jwt = true
-
-[functions.food-billing-asaas-webhook]
-verify_jwt = false
-
 [functions.food-finance-document-extract]
 verify_jwt = true
+
+[functions.food-public-contact]
+verify_jwt = false

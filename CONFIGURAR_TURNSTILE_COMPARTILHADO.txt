@@ -1,0 +1,23 @@
+CORRECAO DO TURNSTILE COMPARTILHADO - FLORIWEB + FOODWEB
+
+Cenario atual:
+- FloriWeb funciona.
+- FoodWeb retorna: captcha protection: request disallowed (invalid-input-secret).
+- Os dois sistemas compartilham o mesmo projeto Supabase Auth.
+
+Configuracao recomendada:
+1. Cloudflare Turnstile -> abra o widget que ja funciona no FloriWeb.
+   Site Key conhecida: 0x4AAAAAAEeGYovN4CVuiF_x
+2. Em Hostname Management, mantenha/adicone:
+   floriweb.joseluizacama.workers.dev
+   foodweb.joseluizacama.workers.dev
+   localhost (se quiser testar o mesmo widget no Vite local)
+   127.0.0.1 (opcional para desenvolvimento)
+3. Cloudflare Workers/Build do FoodWeb -> Build variables:
+   VITE_TURNSTILE_SITE_KEY=0x4AAAAAAEeGYovN4CVuiF_x
+4. Supabase -> Authentication -> Bot and Abuse Protection:
+   mantenha o Secret do MESMO widget acima. Como o FloriWeb funciona, nao troque o Secret por um widget diferente.
+5. Redeploy do FoodWeb.
+
+Motivo:
+Cada widget Turnstile possui seu proprio par Site Key + Secret. O Supabase Auth do projeto usa o Secret configurado para validar o captcha. Se FoodWeb gerar token com outro widget/site key, mas o Supabase estiver com o Secret do FloriWeb, a verificacao pode retornar invalid-input-secret.

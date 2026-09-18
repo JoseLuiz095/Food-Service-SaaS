@@ -51,8 +51,6 @@ food_platform_settings
 ```text
 food-platform-create-store        JWT obrigatório
 food-public-checkout              comprador anônimo / Turnstile
-food-billing-create-pix           JWT obrigatório / Asaas server-side
-food-billing-asaas-webhook        webhook público autenticado por token
 food-finance-document-extract     JWT obrigatório / Cloudflare Workers AI
 ```
 

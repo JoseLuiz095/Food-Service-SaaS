@@ -1,0 +1,32 @@
+FOODWEB v0.5.1 - PLANOS ALINHADOS
+
+DECISAO DE PRODUTO
+- Nao foi implementada gestao de varios usuarios administrativos por estabelecimento.
+- Cada estabelecimento continua com um acesso principal.
+- A estrutura tecnica continua preparada para uma futura evolucao de papeis e permissoes.
+
+PLANOS
+- Essencial: R$ 49,90/mes
+- Profissional: R$ 89,90/mes
+- Premium: R$ 149,90/mes
+- Business: valor sob consulta, definido conforme o escopo
+
+O FoodWeb preserva os IDs e codigos internos dos planos existentes para nao quebrar assinaturas:
+- ESSENTIAL = Essencial
+- STARTER = Profissional
+- PROFESSIONAL = Premium
+
+BUSINESS
+- Dominio proprio incluido.
+- Multiunidade, ERP/PDV, APIs, automacoes, relatorios e processos personalizados podem compor o escopo.
+- Nao entra no fluxo automatico de PIX porque nao possui preco fixo.
+
+INSTALACAO
+1. Extraia este ZIP na raiz atual do FoodWeb.
+2. Execute APLICAR_V051_NA_RAIZ.bat.
+3. No Supabase SQL Editor execute:
+   supabase/migrations/202609151340_foodweb_v051_plan_alignment.sql
+4. Execute supabase/VALIDAR_V051.sql.
+5. Execute PUBLICAR_V051.bat.
+
+O patch nao contem .env, .env.local, .env.production, wrangler.jsonc nem supabase/config.toml.

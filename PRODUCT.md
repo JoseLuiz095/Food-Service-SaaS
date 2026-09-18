@@ -1,4 +1,4 @@
-# FoodWeb — Produto v0.3
+# FoodWeb — Produto v0.4
 
 FoodWeb é um SaaS multempresa para negócios de alimentação. A vitrine pública é a porta de entrada; o produto evolui para pedidos, inteligência comercial, financeiro gerencial e operação.
 
@@ -38,8 +38,9 @@ FoodWeb é um SaaS multempresa para negócios de alimentação. A vitrine públi
 
 Todos os planos pagos podem ser renovados via PIX.
 
-- modo manual: chave/copia e cola + comprovante enviado pelo WhatsApp + conferência do Master;
-- modo Asaas opcional: PIX dinâmico e renovação após webhook `PAYMENT_RECEIVED`;
+- cobrança exclusivamente manual: PIX Copia e Cola com o valor do plano + comprovante via WhatsApp + conferência do Master;
+- o Master cadastra chave PIX, titular, cidade e WhatsApp financeiro;
+- mudança de plano e renovação ficam auditadas separadamente;
 - pagamento é separado do checkout do consumidor;
 - assinatura vencida é suspensa após a carência configurada, sem apagar dados.
 

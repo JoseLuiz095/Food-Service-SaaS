@@ -15,17 +15,23 @@ const jsonHeaders = (origin: string) => ({
   'Content-Type': 'application/json',
 });
 
-const allowedOrigins = () => new Set(
-  String(Deno.env.get('PUBLIC_APP_ORIGINS') || '')
+const DEFAULT_PUBLIC_ORIGINS = [
+  'https://foodweb.joseluizacama.workers.dev',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
+
+const allowedOrigins = () => new Set([
+  ...DEFAULT_PUBLIC_ORIGINS,
+  ...String(Deno.env.get('PUBLIC_APP_ORIGINS') || '')
     .split(',')
     .map((value) => value.trim().replace(/\/$/, ''))
     .filter(Boolean),
-);
+]);
 
 const allowedOrigin = (origin: string) => {
-  const configured = allowedOrigins();
-  if (!origin || configured.size === 0) return true;
-  return configured.has(origin.replace(/\/$/, ''));
+  if (!origin) return true;
+  return allowedOrigins().has(origin.replace(/\/$/, ''));
 };
 
 const activeStoreDomainAllowsOrigin = async (adminClient: ReturnType<typeof createClient>, storeId: string, origin: string) => {
@@ -106,16 +112,16 @@ Deno.serve(async (req) => {
   const turnstileRequired = String(Deno.env.get('TURNSTILE_REQUIRED') || '').toLowerCase() === 'true';
 
   if (req.method === 'GET') {
-    if (!allowedOrigin(origin)) {
-      return new Response(JSON.stringify({ error: 'Origem não autorizada.', code: 'ORIGIN_NOT_ALLOWED' }), { status: 403, headers });
-    }
+    const origins = allowedOrigins();
     return new Response(JSON.stringify({
       ok: Boolean(url && service),
       function: 'food-public-checkout',
-      version: 'foodservice-0.2.0',
+      version: 'foodweb-0.4.0',
       configured: Boolean(url && service),
       turnstileConfigured,
       turnstileRequired,
+      originAllowed: allowedOrigin(origin),
+      originsConfigured: origins.size > 0,
     }), { status: 200, headers });
   }
 

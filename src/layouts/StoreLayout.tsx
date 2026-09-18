@@ -5,12 +5,16 @@ import { useCart } from '../contexts/CartContext';
 import { useStore } from '../contexts/StoreContext';
 import { currency } from '../utils/format';
 import { storefrontPath } from '../utils/storefrontRoute';
+import { isFoodWebMarketingRoot } from '../lib/config';
 
 export default function StoreLayout(){
   const location=useLocation();
+  const marketingRoot=typeof window!=='undefined'&&isFoodWebMarketingRoot(location.pathname,window.location.hostname);
   const {storeUnavailable,unavailableStoreName,storeBasePath}=useStore();
   const {totalItems,subtotal}=useCart();
   useEffect(()=>{window.scrollTo({top:0,left:0,behavior:'auto'})},[location.pathname]);
+
+  if(marketingRoot)return <main className="store-layout marketing-root-layout"><Outlet/></main>;
 
   if(storeUnavailable){
     return <main className="store-layout storefront-unavailable-page">
@@ -20,7 +24,7 @@ export default function StoreLayout(){
         <h1>{unavailableStoreName||'Estabelecimento'}</h1>
         <p>Esta loja está passando por uma pausa temporária no catálogo online.</p>
         <div className="storefront-unavailable-note"><Clock3 size={18}/><span>Tente novamente mais tarde. Nenhum dado do estabelecimento ou dos pedidos anteriores foi removido.</span></div>
-        <small>Food Service SaaS · pedidos online</small>
+        <small>FoodWeb · pedidos online</small>
       </section>
     </main>;
   }

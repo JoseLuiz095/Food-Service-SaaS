@@ -25,12 +25,15 @@ const MasterLogin=lazy(()=>import('./pages/master/Login'));
 const MasterMfa=lazy(()=>import('./pages/master/Mfa'));
 const MasterDashboard=lazy(()=>import('./pages/master/Dashboard'));
 const MasterStores=lazy(()=>import('./pages/master/Stores'));
+const MasterSignupRequests=lazy(()=>import('./pages/master/SignupRequests'));
 const MasterPlans=lazy(()=>import('./pages/master/Plans'));
 const MasterPayments=lazy(()=>import('./pages/master/Payments'));
 const MasterDiagnostics=lazy(()=>import('./pages/master/Diagnostics'));
 const Cart=lazy(()=>import('./pages/store/Cart'));
 const Checkout=lazy(()=>import('./pages/store/Checkout'));
 const Home=lazy(()=>import('./pages/store/Home'));
+const SelfSignup=lazy(()=>import('./pages/store/SelfSignup'));
+const SignupComplete=lazy(()=>import('./pages/store/SignupComplete'));
 const ProductDetail=lazy(()=>import('./pages/store/ProductDetail'));
 const OrderSuccess=lazy(()=>import('./pages/store/OrderSuccess'));
 const NotFound=lazy(()=>import('./pages/NotFound'));
@@ -42,6 +45,11 @@ function ProtectedAdmin() {
   if (!user) return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
   if (!membership) return <div className="access-denied"><h1>Acesso indisponível</h1><p>Este usuário não possui vínculo administrativo ativo ou a loja está temporariamente indisponível.</p><a href="/admin/login">Voltar ao login</a></div>;
   if (membership.mustChangePassword && location.pathname !== '/admin/primeiro-acesso') return <Navigate to="/admin/primeiro-acesso" replace />;
+  const preparationRouteAllowed = location.pathname === '/admin'
+    || location.pathname === '/admin/primeiros-passos'
+    || location.pathname.startsWith('/admin/produtos')
+    || ['/admin/categorias','/admin/entregas','/admin/configuracoes'].includes(location.pathname);
+  if (membership.limitedAccess && !preparationRouteAllowed) return <Navigate to="/admin/primeiros-passos" replace />;
   return <AdminLayout />;
 }
 
@@ -73,6 +81,9 @@ export default function App() {
     <Route path="/pedido/:orderId" element={<OrderSuccess />} />
     <Route path="/:storeSlug/pedido/:orderId" element={<OrderSuccess />} />
 
+    <Route path="/cadastro" element={<SelfSignup />} />
+    <Route path="/cadastro/confirmar" element={<SignupComplete />} />
+
     <Route path="/admin/login" element={<AdminLogin />} />
     <Route path="/admin/esqueci-senha" element={<ForgotPassword />} />
     <Route path="/admin/redefinir-senha" element={<ResetPassword />} />
@@ -97,6 +108,7 @@ export default function App() {
       <Route path="/admin-master/mfa" element={<MasterMfa />} />
       <Route path="/admin-master" element={<MasterDashboard />} />
       <Route path="/admin-master/lojas" element={<MasterStores />} />
+      <Route path="/admin-master/solicitacoes" element={<MasterSignupRequests />} />
       <Route path="/admin-master/planos" element={<MasterPlans />} />
       <Route path="/admin-master/pagamentos" element={<MasterPayments />} />
       <Route path="/admin-master/diagnostico" element={<MasterDiagnostics />} />

@@ -9,9 +9,9 @@ const STORE_SELECTION_KEY = 'foodservice.admin.selected-store.v1';
 export const DEMO_CREDENTIALS = { email: 'admin@foodservice.demo', password: 'Food@2026' };
 
 export type SignInScope = 'any' | 'store' | 'platform';
-export type Membership = { id: string; storeId: string; role: Role; active: boolean; storeName?: string; mustChangePassword: boolean };
+export type Membership = { id: string; storeId: string; role: Role; active: boolean; storeName?: string; mustChangePassword: boolean; approvalStatus?: 'pending' | 'approved' | 'rejected'; limitedAccess?: boolean };
 type StoreUserRow = { id: string; store_id: string; user_id: string; role: Role; active: boolean; must_change_password?: boolean };
-type StoreRow = { id: string; name: string; active: boolean; access_status?: 'online' | 'suspended' };
+type StoreRow = { id: string; name: string; active: boolean; access_status?: 'online' | 'suspended'; approval_status?: 'pending' | 'approved' | 'rejected' };
 type PlatformAdminRow = { id: string; user_id: string; name: string; active: boolean };
 type LoadedAccess = { memberships: Membership[]; membership: Membership | null; platformAdmin: PlatformAdmin | null };
 export type MfaLevel = 'aal1' | 'aal2' | null;
@@ -25,7 +25,7 @@ type AuthContextValue = {
   error: string;
   mode: 'demo' | 'supabase';
   mfaLevel: MfaLevel;
-  signIn: (email: string, password: string, scope?: SignInScope) => Promise<boolean>;
+  signIn: (email: string, password: string, scope?: SignInScope, captchaToken?: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   refreshAccess: () => Promise<void>;
   refreshMfaLevel: () => Promise<MfaLevel>;
@@ -83,11 +83,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let nextMemberships: Membership[] = [];
     if (eligibleRows.length) {
       const ids = eligibleRows.map((row) => row.store_id).join(',');
-      const stores = await restFetch<StoreRow[]>(`food_stores?select=id,name,active,access_status&id=in.(${ids})&order=name.asc`);
+      const stores = await restFetch<StoreRow[]>(`food_stores?select=id,name,active,access_status,approval_status&id=in.(${ids})&order=name.asc`);
       const byId = new Map(stores.map((store) => [store.id, store]));
       nextMemberships = eligibleRows.flatMap((row) => {
         const store = byId.get(row.store_id);
-        if (!store?.active || (store.access_status ?? 'online') !== 'online') return [];
+        if (!store?.active) return [];
+        const pendingWorkspace = store.approval_status === 'pending';
+        if ((store.access_status ?? 'online') !== 'online' && !pendingWorkspace) return [];
         return [{
           id: row.id,
           storeId: row.store_id,
@@ -95,6 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           active: row.active,
           storeName: store.name,
           mustChangePassword: Boolean(row.must_change_password),
+          approvalStatus: store.approval_status || 'approved',
+          limitedAccess: store.approval_status === 'pending' && (store.access_status ?? 'online') !== 'online',
         }];
       }).sort((a, b) => (a.storeName || '').localeCompare(b.storeName || '', 'pt-BR'));
     }
@@ -166,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, [clearAccess, loadAccess]);
 
-  const signIn = useCallback(async (email: string, password: string, scope: SignInScope = 'any') => {
+  const signIn = useCallback(async (email: string, password: string, scope: SignInScope = 'any', captchaToken = '') => {
     setError(''); setLoading(true);
     try {
       if (isDemoMode) {
@@ -183,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const supabase = getSupabaseClient();
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password, options: captchaToken ? { captchaToken } : undefined });
       if (authError) throw authError;
       if (!data.user) throw new Error('Supabase não retornou o usuário autenticado.');
       const authUser = mapAuthUser(data.user);

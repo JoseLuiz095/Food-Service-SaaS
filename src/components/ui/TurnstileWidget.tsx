@@ -21,7 +21,7 @@ declare global {
   }
 }
 
-const SCRIPT_ID = 'foodservice-turnstile-script';
+const SCRIPT_ID = 'foodweb-turnstile-script';
 const SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
 const ensureScript = () => new Promise<void>((resolve, reject) => {
@@ -29,7 +29,7 @@ const ensureScript = () => new Promise<void>((resolve, reject) => {
   const existing = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
   if (existing) {
     existing.addEventListener('load', () => resolve(), { once: true });
-    existing.addEventListener('error', () => reject(new Error('Falha ao carregar a proteção anti-spam.')), { once: true });
+    existing.addEventListener('error', () => reject(new Error('Falha ao carregar a proteção anti-robô.')), { once: true });
     return;
   }
   const script = document.createElement('script');
@@ -38,7 +38,7 @@ const ensureScript = () => new Promise<void>((resolve, reject) => {
   script.async = true;
   script.defer = true;
   script.onload = () => resolve();
-  script.onerror = () => reject(new Error('Falha ao carregar a proteção anti-spam.'));
+  script.onerror = () => reject(new Error('Falha ao carregar a proteção anti-robô.'));
   document.head.appendChild(script);
 });
 
@@ -46,14 +46,21 @@ export function TurnstileWidget({
   siteKey,
   onToken,
   resetSignal = 0,
+  action = 'checkout',
+  compact = false,
 }: {
   siteKey: string;
   onToken: (token: string) => void;
   resetSignal?: number;
+  action?: string;
+  compact?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string>('');
+  const onTokenRef = useRef(onToken);
   const [error, setError] = useState('');
+
+  useEffect(() => { onTokenRef.current = onToken; }, [onToken]);
 
   useEffect(() => {
     if (!siteKey || !containerRef.current) return;
@@ -64,15 +71,15 @@ export function TurnstileWidget({
       widgetIdRef.current = window.turnstile.render(containerRef.current, {
         sitekey: siteKey,
         theme: 'auto',
-        size: 'flexible',
-        action: 'checkout',
-        callback: (token) => { setError(''); onToken(token); },
-        'error-callback': () => { onToken(''); setError('Não foi possível validar a proteção anti-spam. Tente novamente.'); },
-        'expired-callback': () => { onToken(''); },
-        'timeout-callback': () => { onToken(''); setError('A validação expirou. Conclua novamente antes de finalizar o pedido.'); },
+        size: compact ? 'compact' : 'flexible',
+        action,
+        callback: (token) => { setError(''); onTokenRef.current(token); },
+        'error-callback': () => { onTokenRef.current(''); setError('Não foi possível validar a proteção anti-robô. Tente novamente.'); },
+        'expired-callback': () => { onTokenRef.current(''); },
+        'timeout-callback': () => { onTokenRef.current(''); setError('A validação expirou. Faça a verificação novamente.'); },
       });
     }).catch((scriptError: unknown) => {
-      if (!cancelled) setError(scriptError instanceof Error ? scriptError.message : 'Falha ao carregar a proteção anti-spam.');
+      if (!cancelled) setError(scriptError instanceof Error ? scriptError.message : 'Falha ao carregar a proteção anti-robô.');
     });
 
     return () => {
@@ -82,14 +89,14 @@ export function TurnstileWidget({
         widgetIdRef.current = '';
       }
     };
-  }, [siteKey, onToken]);
+  }, [siteKey, action, compact]);
 
   useEffect(() => {
     if (!resetSignal || !widgetIdRef.current || !window.turnstile) return;
-    onToken('');
+    onTokenRef.current('');
     window.turnstile.reset(widgetIdRef.current);
-  }, [resetSignal, onToken]);
+  }, [resetSignal]);
 
   if (!siteKey) return null;
-  return <div className="turnstile-shell"><div ref={containerRef} className="turnstile-container" />{error && <small className="turnstile-error">{error}</small>}</div>;
+  return <div className={`turnstile-shell ${compact ? 'is-compact' : ''}`}><div ref={containerRef} className="turnstile-container" />{error && <small className="turnstile-error">{error}</small>}</div>;
 }

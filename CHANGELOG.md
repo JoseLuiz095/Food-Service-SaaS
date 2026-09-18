@@ -1,4 +1,48 @@
+
+## 0.4.4 - 2026-09-03
+
+- Leitura financeira de boletos com parser deterministico (linha digitavel, valor, vencimento, beneficiario e documento) + IA como complemento.
+- Diagnostico visual da leitura sem gravacao automatica no financeiro.
+- Contato comercial publico protegido por Turnstile, origem autorizada e rate limit por fingerprint SHA-256.
+- WhatsApp de suporte removido das paginas publicas e restrito a owner/admin/Admin Master autenticados.
+- CAPTCHA Turnstile adicionado aos logins Admin e Admin Master e encaminhado ao Supabase Auth.
+- Checkout reorganizado visualmente e sem suporte interno exposto ao cliente.
+- Landing comercial atualizada e favicon FoodWeb diferenciado.
 # Changelog
+
+## 0.4.2
+- Corrige login/admin quando o build e publicado sem `.env`, usando apenas identificadores publicos do Supabase como fallback.
+- Adiciona landing page comercial na raiz oficial do FoodWeb, com demonstracao, lojas publicadas e planos reais.
+- Preserva custom domains: a landing aparece somente no host oficial FoodWeb/localhost.
+- Adiciona RPC publico `food_get_public_landing_v1` sem expor dados privados.
+- Deploy passa a validar ambiente e avisar separadamente sobre Turnstile.
+
+## 0.4.1
+
+- Corrige os valores iniciais de `PlatformSettings` no Admin Master após a inclusão dos campos de cobrança PIX.
+- Centraliza os defaults da plataforma em `src/data/platformDefaults.ts` para evitar novos erros quando o tipo evoluir.
+- Nenhuma migration adicional é necessária em relação à v0.4.0.
+
+# Changelog
+
+## 0.4.0 — Identidade FoodWeb, PIX manual e financeiro útil
+
+- Redesign público mais profundo para linguagem de delivery/marketplace alimentar.
+- Nova identidade FoodWeb e favicon vermelho próprio.
+- Busca/categorias sticky, destaques, cards alimentares e sacola fixa no mobile.
+- Cobrança ativa simplificada para PIX manual; integração Asaas removida do pacote operacional.
+- Admin Master cadastra chave PIX, titular, cidade, WhatsApp e valores dos planos.
+- PIX Copia e Cola gerado com o preço real do plano consultado no servidor.
+- Renovação e alteração de plano registradas separadamente, com plano anterior auditável.
+- Comprovante via WhatsApp obrigatório e confirmação exclusiva do Admin Master.
+- Financeiro com resultado gerencial, pendências, ranking de despesas e evolução de seis meses.
+- OCR/IA não escolhe Entrada/Saída e não grava lançamento automaticamente.
+- Validação server-side de documento por loja, tamanho, MIME e assinatura real do arquivo.
+- Checkout reconhece a origem oficial `foodweb.joseluizacama.workers.dev` e health check informa estado da origem.
+- Diagnóstico passou a indicar explicitamente que Wrangler não publica Edge Functions do Supabase.
+- `food_platform_system_check()` passa a consultar o `pg_cron` real para o agendamento da Demo.
+- 43 smoke checks e 45 verificações de fluxo crítico específicas da v0.4.
+
 
 
 ## 0.3.0 — Comercial, marketplace alimentar e financeiro
@@ -60,3 +104,12 @@ Primeiro MVP Food Service derivado do núcleo SaaS existente.
 
 - Tabelas legadas `product_variants`, `addons` e `product_addons` permanecem no banco durante o rollout.
 - Headers de segurança antigos continuam aceitos internamente durante a transição, sem aparecer na interface.
+
+## v0.4.3 - 02/09/2026
+- Redesign da vitrine pública com perfil compacto da loja, banner, badges operacionais e cards de produtos maiores.
+- Landing comercial reforçada com imagens reais de prévia da plataforma e seções de demonstração.
+- CTA de teste do Plano Profissional por 30 dias via WhatsApp configurável no Admin Master.
+- WhatsApp comercial e WhatsApp de suporte/Ajuda independentes do número de comprovantes de mensalidade.
+- Botão flutuante de ajuda via WhatsApp na landing e nas lojas públicas.
+- Migration incremental adiciona `marketing_whatsapp` e `support_whatsapp` em `food_platform_settings` e atualiza a RPC pública sem expor dados de PIX.
+- Teste padrão passa de 14 para 30 dias apenas quando a configuração ainda estava no padrão antigo de 14 dias.
