@@ -2278,3 +2278,417 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .self-signup-card{background:#fff;border:1px solid #eadfd9;border-radius:22px;box-shadow:0 22px 60px rgba(86,45,28,.10);overflow:hidden}.self-signup-mode{display:grid;grid-template-columns:1fr 1fr;background:#faf6f3;border-bottom:1px solid #eadfd9}.self-signup-mode button{padding:14px;border:0;background:transparent;font-weight:800;cursor:pointer}.self-signup-mode button.active{background:#fff;color:var(--food-admin-accent-dark,#8d3f27)}.self-signup-card form{padding:24px;display:grid;gap:16px}.self-signup-heading{display:flex;gap:12px;align-items:flex-start}.self-signup-heading h2{margin:0}.self-signup-heading p{margin:3px 0 0;color:#75645c;font-size:.9rem}.self-signup-card label{display:grid;gap:6px;font-size:.84rem;font-weight:750}.self-signup-card input{width:100%;min-height:44px;border:1px solid #dccfc8;border-radius:11px;padding:0 12px;font:inherit}.self-signup-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.self-signup-password{display:flex;border:1px solid #dccfc8;border-radius:11px;overflow:hidden}.self-signup-password input{border:0}.self-signup-password button{width:44px;border:0;background:#fff;display:grid;place-items:center}.self-signup-plans{border:0;padding:0;margin:2px 0;display:grid;gap:9px}.self-signup-plans legend{font-weight:850;margin-bottom:8px}.self-signup-plans>label{grid-template-columns:auto 1fr auto;align-items:center;padding:12px;border:1px solid #e5d8d1;border-radius:12px;cursor:pointer}.self-signup-plans>label.selected{border-color:var(--food-admin-accent,#b95734);background:#fff7f2}.self-signup-plans input{width:auto;min-height:0}.self-signup-plans div{display:grid}.self-signup-plans span{font-size:.82rem;color:#75645c}.self-signup-notice,.self-service-approval-banner{display:flex;gap:10px;align-items:flex-start;border-radius:12px;padding:12px 14px;background:#fff6df;border:1px solid #f1d08b;font-size:.88rem}.self-signup-submit{width:100%;justify-content:center}.self-signup-footnote{color:#78665e;line-height:1.5;text-align:center}.self-signup-success{padding:12px;border-radius:10px;background:#edf9f1;color:#166534}.signup-complete-page{min-height:100vh;display:grid;place-items:center;background:#fffaf6;padding:24px}.signup-complete-card{max-width:560px;text-align:center;background:#fff;border:1px solid #eadfd9;border-radius:22px;padding:36px;box-shadow:0 22px 60px rgba(86,45,28,.10)}.signup-complete-card>svg{width:38px;height:38px}.signup-complete-card .spin{animation:selfspin 1s linear infinite}.signup-complete-actions{display:flex;gap:10px;justify-content:center;margin-top:20px}@keyframes selfspin{to{transform:rotate(360deg)}}
 .signup-request-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.signup-request-summary article{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:14px;padding:16px}.signup-request-summary strong{font-size:1.4rem}.signup-request-summary div{display:grid}.signup-request-summary span{font-size:.82rem;color:#6b7280}.signup-request-filters{display:flex;gap:8px;margin-bottom:12px}.signup-request-filters button{border:1px solid var(--border,#e5e7eb);background:#fff;border-radius:999px;padding:8px 12px;font-weight:750}.signup-request-filters button.active{background:#281b16;color:#fff}.signup-request-table td small{display:block;margin-top:4px;color:#6b7280}.signup-request-actions{display:flex;gap:7px}.signup-status-chip,.signup-access-chip{display:inline-flex;border-radius:999px;padding:5px 8px;font-size:.76rem;font-weight:850}.signup-status-chip.pending{background:#fff6df;color:#8a5a00}.signup-status-chip.approved,.signup-access-chip.online{background:#eaf8ef;color:#17633d}.signup-status-chip.rejected,.signup-access-chip.limited{background:#fdecec;color:#a12828}.signup-request-empty{text-align:center;padding:44px 20px}.self-service-approval-banner{margin:14px 22px 0}.self-service-approval-banner div{display:grid;gap:2px}.self-service-approval-banner span{font-size:.86rem}.self-service-approval-banner.is-trial{background:#edf9f1;border-color:#b8e3c8}
 @media(max-width:850px){.self-signup-shell{grid-template-columns:1fr;padding-top:28px}.self-signup-grid{grid-template-columns:1fr}.signup-request-summary{grid-template-columns:1fr}.self-signup-topbar{padding:0 16px}}
+
+
+
+/* ============================================================
+   HOTFIX EXTRA — CONTRASTE DOS PLANOS + BOTAO "TENHO INTERESSE"
+   Cole no FINAL do src/styles.css
+   ============================================================ */
+
+/* ---------------------------------
+   1) Contraste mais forte nos textos
+   dos cards de plano
+--------------------------------- */
+
+/* FoodWeb / admin / meu plano */
+.plan-tier p,
+.plan-tier-head p,
+.plan-tier-price span,
+.plan-tier-features > span,
+.customer-plan-card .customer-plan-setup,
+.customer-plan-card .customer-plan-footer,
+.customer-plan-card .customer-plan-price > span:not(.price-prefix),
+.customer-plan-card .customer-plan-features > div,
+.sales-plan-card > small,
+.sales-plan-card li,
+.sales-plan-price span,
+.food-current-plan-v046 p,
+.billing-explainer p,
+.subscription-charge p,
+.subscription-charge small {
+  color: #5f524d !important;
+}
+
+/* títulos dos planos claros */
+.plan-tier h2,
+.customer-plan-card h2,
+.sales-plan-card h3 {
+  color: #2f221d !important;
+}
+
+/* nome do plano / etiqueta */
+.plan-tier-name,
+.customer-plan-badge:not(.business),
+.sales-plan-card > small {
+  color: #b33d29 !important;
+}
+
+/* cards business/escuros continuam com texto claro */
+.customer-plan-card.business-anchor .customer-plan-setup,
+.customer-plan-card.business-anchor .customer-plan-footer,
+.customer-plan-card.business-anchor .customer-plan-price > span:not(.price-prefix),
+.customer-plan-card.business-anchor .customer-plan-features > div,
+.food-business-plan-v051 p,
+.food-business-plan-v051 small,
+.food-business-sales-v051 small,
+.food-business-sales-v051 .sales-plan-price span,
+.food-business-sales-v051 li {
+  color: #d6e5dc !important;
+}
+
+.customer-plan-card.business-anchor h2,
+.customer-plan-card.business-anchor strong,
+.food-business-plan-v051 h2,
+.food-business-plan-v051 strong,
+.food-business-sales-v051 h3 {
+  color: #ffffff !important;
+}
+
+/* ---------------------------------
+   2) Melhorar visual do botão
+   "Tenho interesse no Essencial"
+--------------------------------- */
+
+/* botão secundário dentro de card de plano */
+.plan-tier-action .secondary-button,
+.customer-plan-card .secondary-button,
+.sales-plan-card .secondary-button {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 12px;
+  border: 1px solid #d9b8ab !important;
+  background: linear-gradient(180deg, #fffaf8 0%, #fff3ee 100%) !important;
+  color: #8f3f28 !important;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(143, 63, 40, 0.08);
+  transition: all 0.18s ease;
+}
+
+/* hover */
+.plan-tier-action .secondary-button:hover,
+.customer-plan-card .secondary-button:hover,
+.sales-plan-card .secondary-button:hover {
+  background: linear-gradient(180deg, #fff4ef 0%, #ffe9df 100%) !important;
+  border-color: #c97d60 !important;
+  color: #7d341f !important;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(143, 63, 40, 0.12);
+}
+
+/* foco/acessibilidade */
+.plan-tier-action .secondary-button:focus-visible,
+.customer-plan-card .secondary-button:focus-visible,
+.sales-plan-card .secondary-button:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(200, 93, 55, 0.18),
+    0 8px 18px rgba(143, 63, 40, 0.12);
+}
+
+/* ícones dentro do botão secundário */
+.plan-tier-action .secondary-button svg,
+.customer-plan-card .secondary-button svg,
+.sales-plan-card .secondary-button svg {
+  color: #b54d2d !important;
+  flex: 0 0 auto;
+}
+
+/* se esse botão for o "Tenho interesse..." ele ganha destaque suave */
+.plan-tier-action .secondary-button {
+  position: relative;
+}
+
+.plan-tier-action .secondary-button::before,
+.customer-plan-card .secondary-button::before,
+.sales-plan-card .secondary-button::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #d97a57;
+  box-shadow: 0 0 0 4px rgba(217, 122, 87, 0.12);
+  display: inline-block;
+  margin-right: 2px;
+}
+
+/* botão principal continua forte */
+.plan-tier-action .primary-button,
+.customer-plan-card .primary-button,
+.sales-plan-card .primary-button {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 13px;
+  font-weight: 850;
+  box-shadow: 0 10px 22px rgba(200, 93, 55, 0.16);
+}
+
+/* ---------------------------------
+   3) Espaçamento e leitura no card
+--------------------------------- */
+
+.plan-tier-action,
+.customer-plan-card .plan-tier-action {
+  gap: 10px !important;
+}
+
+.plan-tier p {
+  line-height: 1.55;
+}
+
+.customer-plan-card .customer-plan-features,
+.plan-tier-features {
+  gap: 10px;
+}
+
+/* melhora legibilidade do texto pequeno abaixo do preço */
+.customer-plan-setup,
+.plan-tier-head p,
+.sales-plan-card > small {
+  opacity: 1 !important;
+}
+
+/* ---------------------------------
+   4) Mobile
+--------------------------------- */
+@media (max-width: 640px) {
+  .plan-tier-action .secondary-button,
+  .customer-plan-card .secondary-button,
+  .sales-plan-card .secondary-button {
+    min-height: 44px;
+    font-size: 0.95rem;
+    padding: 0 14px;
+  }
+
+  .plan-tier-action .primary-button,
+  .customer-plan-card .primary-button,
+  .sales-plan-card .primary-button {
+    min-height: 46px;
+    font-size: 0.96rem;
+  }
+
+  .plan-tier p,
+  .customer-plan-card .customer-plan-setup,
+  .sales-plan-card li {
+    font-size: 0.82rem;
+  }
+}
+
+/* ============================================================
+   FOODWEB V0.5.6 - HOTFIX VISUAL DE CONTRASTE E PLANOS
+   ============================================================ */
+:root{
+  color-scheme:light;
+  --food-contrast-ink:#2b211e;
+  --food-contrast-muted:#5f524d;
+  --food-contrast-dark:#112e22;
+  --food-contrast-dark-2:#173f2d;
+  --food-contrast-muted-on-dark:#d6e5dc;
+}
+
+/* Superficies claras */
+.admin-card,
+.stat-card,
+.analytics-stat,
+.plan-tier,
+.billing-explainer,
+.subscription-charge,
+.food-current-plan-v046,
+.food-last-payment-v046,
+.food-payment-history-v046,
+.signup-request-summary article,
+.self-signup-card,
+.signup-complete-card,
+.master-business-v051,
+.unified-business-card{
+  color:var(--food-contrast-ink);
+}
+
+.admin-card h1,.admin-card h2,.admin-card h3,.admin-card h4,.admin-card strong,
+.stat-card strong,.analytics-stat strong,
+.plan-tier h1,.plan-tier h2,.plan-tier h3,.plan-tier strong,
+.billing-explainer h1,.billing-explainer h2,.billing-explainer h3,.billing-explainer strong,
+.subscription-charge h1,.subscription-charge h2,.subscription-charge h3,.subscription-charge strong,
+.signup-request-summary strong,
+.self-signup-card h1,.self-signup-card h2,.self-signup-card h3,
+.signup-complete-card h1,.signup-complete-card h2,.signup-complete-card h3{
+  color:var(--food-contrast-ink);
+}
+
+.admin-card p,.admin-card small,.stat-card p,.stat-card small,
+.analytics-stat p,.analytics-stat small,
+.plan-tier p,.plan-tier small,
+.billing-explainer p,.billing-explainer small,
+.subscription-charge p,.subscription-charge small,
+.self-signup-card p,.self-signup-card small,
+.signup-complete-card p,.signup-complete-card small{
+  color:var(--food-contrast-muted);
+}
+
+/* Formularios e tabelas */
+.admin-page input,.admin-page textarea,.admin-page select,
+.master-content input,.master-content textarea,.master-content select,
+.self-signup-page input,.self-signup-page textarea,.self-signup-page select{
+  color:var(--food-contrast-ink);
+  background-color:#fff;
+}
+.admin-page input::placeholder,.admin-page textarea::placeholder,
+.master-content input::placeholder,.master-content textarea::placeholder,
+.self-signup-page input::placeholder,.self-signup-page textarea::placeholder{
+  color:#81746f;
+  opacity:1;
+}
+.admin-page select option,.master-content select option,.self-signup-page select option{
+  color:var(--food-contrast-ink);
+  background:#fff;
+}
+.admin-page table td,.master-content table td{color:#443936}
+.admin-page table th,.master-content table th{color:#5f524d}
+
+/* Business - corrige conflito .admin-card x .food-business-plan-v051 */
+.admin-card.food-business-plan-v051{
+  background:linear-gradient(150deg,var(--food-contrast-dark),var(--food-contrast-dark-2))!important;
+  border-color:var(--food-contrast-dark-2)!important;
+  color:#fff!important;
+}
+.food-business-plan-v051 h1,.food-business-plan-v051 h2,.food-business-plan-v051 h3,.food-business-plan-v051 h4,
+.food-business-plan-v051 strong,.food-business-plan-v051 .food-business-plan-head-v051>span,
+.food-business-plan-v051 .food-business-features-v051 span{color:#fff!important}
+.food-business-plan-v051 p,.food-business-plan-v051 small{color:var(--food-contrast-muted-on-dark)!important}
+.food-business-plan-v051 .eyebrow{color:#ffae94!important}
+.food-business-plan-v051 .food-business-features-v051 span{
+  background:rgba(255,255,255,.045);
+  border-color:rgba(255,255,255,.16);
+}
+.food-business-plan-v051 svg{color:#a7dfbe!important}
+
+.customer-plan-card.business-anchor,.food-business-sales-v051{
+  background:linear-gradient(150deg,var(--food-contrast-dark),var(--food-contrast-dark-2))!important;
+  border-color:var(--food-contrast-dark-2)!important;
+  color:#fff!important;
+}
+.customer-plan-card.business-anchor h1,.customer-plan-card.business-anchor h2,
+.customer-plan-card.business-anchor h3,.customer-plan-card.business-anchor strong,
+.customer-plan-card.business-anchor li,.customer-plan-card.business-anchor .customer-plan-features>div,
+.food-business-sales-v051 h1,.food-business-sales-v051 h2,.food-business-sales-v051 h3,
+.food-business-sales-v051 strong,.food-business-sales-v051 li{color:#fff!important}
+.customer-plan-card.business-anchor p,.customer-plan-card.business-anchor small,
+.customer-plan-card.business-anchor .customer-plan-setup,
+.customer-plan-card.business-anchor .customer-plan-footer,
+.customer-plan-card.business-anchor .customer-plan-price>span,
+.food-business-sales-v051 p,.food-business-sales-v051 small,
+.food-business-sales-v051 .sales-plan-price span{color:var(--food-contrast-muted-on-dark)!important}
+
+/* Cards de plano claros */
+.plan-tier p,.plan-tier-head p,.plan-tier-price span,.plan-tier-features>span,
+.customer-plan-card:not(.business-anchor) .customer-plan-setup,
+.customer-plan-card:not(.business-anchor) .customer-plan-footer,
+.customer-plan-card:not(.business-anchor) .customer-plan-price>span:not(.price-prefix),
+.customer-plan-card:not(.business-anchor) .customer-plan-features>div,
+.sales-plan-card:not(.food-business-sales-v051)>small,
+.sales-plan-card:not(.food-business-sales-v051) li,
+.sales-plan-card:not(.food-business-sales-v051) .sales-plan-price span{
+  color:#5f524d!important;
+}
+.plan-tier h2,.customer-plan-card:not(.business-anchor) h2,
+.sales-plan-card:not(.food-business-sales-v051) h3{
+  color:#2f221d!important;
+}
+.plan-tier-name,.customer-plan-badge:not(.business),
+.sales-plan-card:not(.food-business-sales-v051)>small{
+  color:#b33d29!important;
+}
+
+/* CTA secundario dos planos - visual refinado */
+.plan-tier-action .secondary-button,
+.customer-plan-card:not(.business-anchor) .secondary-button,
+.sales-plan-card:not(.food-business-sales-v051) .secondary-button{
+  width:100%;
+  min-height:46px;
+  border-radius:12px;
+  border:1px solid #d9b8ab!important;
+  background:linear-gradient(180deg,#fffaf8 0%,#fff3ee 100%)!important;
+  color:#8f3f28!important;
+  font-weight:800;
+  box-shadow:0 4px 14px rgba(143,63,40,.08);
+  transition:background .18s ease,border-color .18s ease,color .18s ease,transform .18s ease,box-shadow .18s ease;
+}
+.plan-tier-action .secondary-button:hover,
+.customer-plan-card:not(.business-anchor) .secondary-button:hover,
+.sales-plan-card:not(.food-business-sales-v051) .secondary-button:hover{
+  background:linear-gradient(180deg,#fff4ef 0%,#ffe9df 100%)!important;
+  border-color:#c97d60!important;
+  color:#7d341f!important;
+  transform:translateY(-1px);
+  box-shadow:0 8px 18px rgba(143,63,40,.12);
+}
+.plan-tier-action .secondary-button:focus-visible,
+.customer-plan-card:not(.business-anchor) .secondary-button:focus-visible,
+.sales-plan-card:not(.food-business-sales-v051) .secondary-button:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 3px rgba(200,93,55,.18),0 8px 18px rgba(143,63,40,.12);
+}
+.plan-tier-action .secondary-button svg,
+.customer-plan-card:not(.business-anchor) .secondary-button svg,
+.sales-plan-card:not(.food-business-sales-v051) .secondary-button svg{
+  color:#b54d2d!important;
+}
+.plan-tier-action .primary-button,
+.customer-plan-card:not(.business-anchor) .primary-button,
+.sales-plan-card:not(.food-business-sales-v051) .primary-button{
+  width:100%;
+  min-height:48px;
+  border-radius:13px;
+  font-weight:850;
+  box-shadow:0 10px 22px rgba(200,93,55,.16);
+}
+
+/* Auto cadastro - CTA "Criar conta neste plano" */
+.sales-plan-self-service,
+.self-signup-plan-card a,
+.self-signup-plan-card button{
+  color:#8f3f28!important;
+}
+.sales-plan-self-service{
+  min-height:46px;
+  border-radius:12px!important;
+  border:1px solid #d9b8ab!important;
+  background:#fff!important;
+  font-weight:850!important;
+}
+.sales-plan-self-service:hover{
+  background:#fff3ee!important;
+  border-color:#c97d60!important;
+}
+
+/* Superficies escuras */
+.sales-hero-v43,.sales-demo-strip,.sales-final-cta,.login-brand-panel,.admin-sidebar,.master-sidebar{color:#fff}
+.sales-hero-v43 h1,.sales-hero-v43 h2,.sales-hero-v43 h3,
+.sales-demo-strip h1,.sales-demo-strip h2,.sales-demo-strip h3,
+.sales-final-cta h1,.sales-final-cta h2,.sales-final-cta h3,
+.login-brand-panel h1,.login-brand-panel h2,.login-brand-panel h3,
+.admin-sidebar strong,.master-sidebar strong{color:#fff}
+.sales-hero-v43 p,.sales-demo-strip p,.sales-final-cta p,.login-brand-panel p{color:#f0e9e7}
+
+.primary-button,.sales-nav-primary,.sales-cta-primary,.sales-plan-trial-link,
+.whatsapp-proof-button,.food-cart-dock,.food-store-actions .cart-action,
+.admin-sidebar .nav-link.active,.signup-request-filters button.active{color:#fff!important}
+
+button:disabled,input:disabled,textarea:disabled,select:disabled{opacity:.72}
+
+@media(max-width:640px){
+  .plan-tier-action .secondary-button,
+  .customer-plan-card:not(.business-anchor) .secondary-button,
+  .sales-plan-card:not(.food-business-sales-v051) .secondary-button{
+    min-height:44px;
+    font-size:.95rem;
+    padding:0 14px;
+  }
+  .plan-tier-action .primary-button,
+  .customer-plan-card:not(.business-anchor) .primary-button,
+  .sales-plan-card:not(.food-business-sales-v051) .primary-button{
+    min-height:46px;
+    font-size:.96rem;
+  }
+}
+
