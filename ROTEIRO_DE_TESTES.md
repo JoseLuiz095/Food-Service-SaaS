@@ -1,4 +1,4 @@
-# Roteiro de testes — FoodWeb v0.3.0
+# Roteiro de testes — FoodWeb v0.4.1
 
 ## 1. Regressão do núcleo
 
@@ -60,16 +60,16 @@ Testar em 390x844, tablet e desktop:
 - pagamento antecipado preserva período já pago;
 - vencimento + carência suspende automaticamente.
 
-## 5. Mensalidade PIX Asaas
+## 5. Mudança de plano por PIX manual
 
-Usar sandbox:
-
-- criar cliente/cobrança sem expor API key no browser;
-- QR Code/copia e cola retornam ao lojista;
-- webhook sem token deve retornar 401;
-- `PAYMENT_RECEIVED` renova assinatura;
-- replay do mesmo evento não renova duas vezes;
-- evento vencido marca cobrança como vencida.
+- Meu Plano exibe Essencial, Starter e Profissional com valores atuais do banco;
+- gerar PIX para renovação usa o valor retornado pela cobrança do servidor;
+- gerar PIX para mudança de plano registra `plan_change`;
+- mensagem do WhatsApp identifica plano atual, novo plano, valor e cobrança;
+- comprovante continua obrigatório;
+- Master visualiza plano anterior → plano solicitado antes de confirmar;
+- confirmação altera o plano, renova um mês e reativa a loja;
+- cobrança pendente antiga não pode provocar mudança de plano ambígua.
 
 ## 6. Financeiro
 

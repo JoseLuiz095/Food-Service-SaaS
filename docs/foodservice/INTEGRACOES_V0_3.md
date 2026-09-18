@@ -1,3 +1,5 @@
+> **Documento histórico da v0.3.** O FoodWeb v0.4 removeu o Asaas do fluxo ativo e utiliza somente PIX manual + comprovante via WhatsApp. Consulte `ATUALIZAR_V0_4_0.md` para a configuração atual.
+
 # Integrações opcionais da v0.3
 
 ## PIX da mensalidade

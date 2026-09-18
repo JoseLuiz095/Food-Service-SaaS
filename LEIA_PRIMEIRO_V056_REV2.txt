@@ -1,0 +1,32 @@
+FOODWEB V0.5.6 - HOTFIX REV2 DE ELEGIBILIDADE DO DEMO
+
+Use este pacote APOS o V0.5.6 de auto cadastro que ja foi aplicado.
+
+ALTERACOES
+- Troca a mensagem publica por: teste gratuito sujeito a validacao cadastral.
+- WhatsApp comercial passa a ser obrigatorio no cadastro.
+- CNPJ e opcional e ajuda na validacao do negocio.
+- Demo nao e mais controlado apenas pelo e-mail.
+- O banco compara chaves SHA-256 de e-mail, WhatsApp e CNPJ (quando informado).
+- A elegibilidade so e consumida depois que o Admin Master aprova.
+- Criterios tecnicos nao sao expostos ao cliente.
+
+APLICACAO
+1. Extraia na raiz do FoodWeb V0.5.6 ja ajustado.
+2. Execute APLICAR_FOODWEB_V056_HOTFIX_TRIAL_REV2.bat.
+3. Execute no Supabase:
+   supabase/migrations/202609180810_foodweb_v056_trial_eligibility_hardening.sql
+4. Execute supabase/VALIDAR_V056_REV2.sql e confirme todos os campos true.
+
+TURNSTILE - IMPORTANTE
+FloriWeb e FoodWeb compartilham o mesmo Supabase Auth. O Supabase possui a configuracao CAPTCHA do projeto e valida os tokens com o Secret configurado ali. Se cada frontend usar um widget Turnstile diferente, o token do FoodWeb pode ser validado com o Secret do widget do FloriWeb e retornar invalid-input-secret.
+
+Como o FloriWeb esta funcionando:
+1. Abra o widget Turnstile usado pelo FloriWeb (Site Key 0x4AAAAAAEeGYovN4CVuiF_x).
+2. Adicione foodweb.joseluizacama.workers.dev nos hostnames permitidos desse MESMO widget.
+3. No Cloudflare Build do FoodWeb configure:
+   VITE_TURNSTILE_SITE_KEY=0x4AAAAAAEeGYovN4CVuiF_x
+4. Mantenha no Supabase Auth o Secret do widget que ja funciona no FloriWeb.
+5. Gere novo deployment do FoodWeb.
+
+Nao coloque o Secret em VITE_* nem no GitHub.

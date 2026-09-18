@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowLeft, Banknote, CheckCircle2, CreditCard, LoaderCircle, MapPin, Phone, QrCode, ShoppingBag, Store, Truck, UserRound } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Banknote, CheckCircle2, CreditCard, LockKeyhole, LoaderCircle, MapPin, QrCode, ShieldCheck, ShoppingBag, Store, Truck, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TurnstileWidget } from '../../components/ui/TurnstileWidget';
@@ -163,9 +163,10 @@ export default function Checkout() {
   if (loading) return <div className="page-center"><LoaderCircle className="spin"/>Carregando checkout...</div>;
   if (!items.length) return <div className="simple-page"><header className="simple-topbar container"><a href={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</a></header><div className="cart-empty"><ShoppingBag size={48}/><h1>Seu carrinho está vazio</h1><a className="primary-button" href={storefrontPath(storeBasePath)}>Ver cardápio</a></div></div>;
 
-  return <div className="simple-page checkout-page">
-    <header className="simple-topbar container"><a href={storefrontPath(storeBasePath, '/carrinho')}><ArrowLeft size={19}/>Voltar ao carrinho</a><span>Finalizar pedido</span></header>
-    <form className="container checkout-layout" onSubmit={submit}>
+  return <div className="simple-page checkout-page checkout-page-v44">
+    <header className="simple-topbar checkout-topbar-v44 container"><a href={storefrontPath(storeBasePath, '/carrinho')}><ArrowLeft size={19}/>Voltar ao carrinho</a><strong>FoodWeb</strong><span>{settings.name}</span></header>
+    <div className="checkout-trustbar-v44 container"><span><ShieldCheck size={17}/><b>Pedido protegido</b><small>Turnstile e validação no servidor</small></span><span><LockKeyhole size={17}/><b>Dados usados só no pedido</b><small>Sem exposição do suporte interno</small></span><span><CheckCircle2 size={17}/><b>Pedido salvo primeiro</b><small>WhatsApp vem depois do registro</small></span></div>
+    <form className="container checkout-layout checkout-layout--premium" onSubmit={submit}>
       <section className="checkout-main">
         <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Finalize seu pedido</h1><p>O pedido será salvo antes de qualquer abertura do WhatsApp.</p></div>
 
@@ -182,7 +183,9 @@ export default function Checkout() {
           {form.paymentMethod === 'cash' && <div className="cash-change-box"><label className="switch-row"><span><strong>Precisa de troco?</strong><small>Informe o valor que será entregue.</small></span><input type="checkbox" checked={form.needsChange} onChange={(event) => { update('needsChange', event.target.checked); if (!event.target.checked) update('changeFor', null); }}/></label>{form.needsChange && <label>Troco para<input type="number" min="0" step="0.01" value={form.changeFor ?? ''} onChange={(event) => update('changeFor', event.target.value ? Number(event.target.value) : null)} placeholder="Ex.: 100,00"/></label>}{form.needsChange && form.changeFor != null && changeAmount > 0 && <div className="change-result"><span>Troco calculado</span><strong>{currency.format(changeAmount)}</strong></div>}</div>}
         </section>
 
-        <section className="checkout-card"><div className="checkout-card__title"><Phone size={20}/><div><strong>Observações</strong><span>Ex.: tocar interfone, preferência de embalagem.</span></div></div><textarea rows={4} maxLength={500} value={form.notes} onChange={(event) => update('notes', event.target.value)} placeholder="Observação opcional"/></section>
+        <section className="checkout-card"><div className="checkout-card__title"><ShoppingBag size={20}/><div><strong>Observações do pedido</strong><span>Informações úteis para o estabelecimento, se necessário.</span></div></div><textarea rows={4} maxLength={500} value={form.notes} onChange={(event) => update('notes', event.target.value)} placeholder="Ex.: sem cebola, tocar interfone, preferência de embalagem..."/></section>
+
+        <section className="checkout-card checkout-security-panel-v44"><div className="checkout-card__title"><ShieldCheck size={20}/><div><strong>Verificação de segurança</strong><span>Proteção contra pedidos automatizados e abusivos.</span></div></div><div className="checkout-security-check"><div><strong>Confirme que esta ação é humana</strong><span>Nenhum dado do pedido é enviado ao Turnstile. A validação retorna apenas um token de segurança.</span></div>{appConfig.turnstileSiteKey?<TurnstileWidget siteKey={appConfig.turnstileSiteKey} action="checkout" onToken={onTurnstileToken} resetSignal={turnstileReset}/>:<div className="checkout-security-missing"><AlertCircle size={17}/><span>Proteção anti-robô não configurada neste build.</span></div>}</div></section>
       </section>
 
       <aside className="order-summary checkout-summary">
@@ -192,8 +195,7 @@ export default function Checkout() {
         {form.fulfillment === 'delivery' && <div className="summary-line"><span>Entrega</span><strong>{deliveryFee === 0 ? 'Grátis' : currency.format(deliveryFee)}</strong></div>}
         <div className="summary-total"><span>Total</span><strong>{currency.format(total)}</strong></div>
         <div className="preparation-summary"><CheckCircle2 size={18}/><div><strong>Previsão atual</strong><span>{estimatedMin}–{estimatedMax} minutos</span></div></div>
-        <label className="checkout-review-check"><input type="checkbox" checked={form.reviewConfirmed} onChange={(event) => update('reviewConfirmed', event.target.checked)}/><span>Revisei os itens, endereço e pagamento.</span></label>
-        <TurnstileWidget siteKey={appConfig.turnstileSiteKey} onToken={onTurnstileToken} resetSignal={turnstileReset}/>
+        <label className="checkout-review-check checkout-review-check-v44"><input type="checkbox" checked={form.reviewConfirmed} onChange={(event) => update('reviewConfirmed', event.target.checked)}/><span><strong>Confirmo que revisei o pedido.</strong><small>Confira itens, telefone, endereço e pagamento antes de registrar.</small></span></label>
         <button className="primary-button checkout-submit" disabled={saving || (!openStatus.open && !settings.allowScheduledOrders) || (!openStatus.open && settings.allowScheduledOrders && !form.scheduledFor)} type="submit">{saving ? <><LoaderCircle className="spin" size={18}/>Registrando...</> : <><CheckCircle2 size={18}/>Registrar pedido · {currency.format(total)}</>}</button>
         <small className="checkout-security-note">O navegador envia IDs e escolhas. Preços, opções e taxa são recalculados no servidor.</small>
       </aside>

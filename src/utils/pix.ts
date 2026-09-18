@@ -86,3 +86,49 @@ export const buildPixCopyPasteWithAmount = (raw: string, amount: number) => {
   const withoutCrc = fields.map(serializeField).join('') + '6304';
   return withoutCrc + crc16CcittFalse(withoutCrc);
 };
+
+const pixSafeText = (value: string, max: number) => value
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^A-Za-z0-9 ]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .toUpperCase()
+  .slice(0, max);
+
+export type StaticPixInput = {
+  key: string;
+  receiver: string;
+  city: string;
+  amount: number;
+  txid?: string;
+};
+
+export const buildStaticPixCopyPaste = ({ key, receiver, city, amount, txid = '***' }: StaticPixInput) => {
+  const normalizedKey = key.trim();
+  if (!normalizedKey) throw new Error('Informe a chave PIX da plataforma.');
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('Valor do PIX inválido.');
+  const merchantName = pixSafeText(receiver, 25);
+  const merchantCity = pixSafeText(city, 15);
+  if (!merchantName) throw new Error('Informe o titular do PIX no Admin Master.');
+  if (!merchantCity) throw new Error('Informe a cidade do recebedor do PIX no Admin Master.');
+
+  const merchantAccount = [
+    serializeField({ id: '00', value: 'BR.GOV.BCB.PIX' }),
+    serializeField({ id: '01', value: normalizedKey }),
+  ].join('');
+  const additional = serializeField({ id: '05', value: pixSafeText(txid, 25) || '***' });
+  const fields: TlvField[] = [
+    { id: '00', value: '01' },
+    { id: '26', value: merchantAccount },
+    { id: '52', value: '0000' },
+    { id: '53', value: '986' },
+    { id: '54', value: amount.toFixed(2) },
+    { id: '58', value: 'BR' },
+    { id: '59', value: merchantName },
+    { id: '60', value: merchantCity },
+    { id: '62', value: additional },
+  ];
+  const withoutCrc = fields.map(serializeField).join('') + '6304';
+  return withoutCrc + crc16CcittFalse(withoutCrc);
+};

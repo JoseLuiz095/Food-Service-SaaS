@@ -1,0 +1,52 @@
+FoodWeb v0.4.6 - Mensalidade, vencimento e acesso do lojista
+================================================================
+
+OBJETIVO
+- Admin Master pode alterar o e-mail de login e redefinir a senha do lojista.
+- Tabela de estabelecimentos mostra Dia de vencimento e proximo vencimento.
+- Pagamentos/alteracoes de plano possuem decisao "Nao confirmar renovacao".
+- Mensalidade em dia aparece VERDE no topo do Admin do lojista.
+- Mensalidade vencida sem pagamento confirmado aparece VERMELHA.
+- Pagamento confirmado registra paid_at com a data/hora real da confirmacao.
+- Enquanto nao houver pagamento confirmado, next_due_date nao avanca.
+- O proximo vencimento sempre continua ancorado no due_day configurado pelo Admin Master.
+- A pagina Meu plano do lojista mostra detalhes do ultimo pagamento e historico recente.
+
+COMO APLICAR
+1. Extraia TODO o ZIP diretamente dentro da pasta atual do FoodWeb.
+2. Execute APLICAR_V046_NA_RAIZ.bat.
+3. No Supabase SQL Editor, execute:
+   supabase\migrations\202609032230_foodweb_v046_billing_access.sql
+4. Ainda no SQL Editor, execute:
+   supabase\VALIDAR_V046.sql
+5. Se a validacao estiver correta, execute PUBLICAR_V046.bat.
+
+O PUBLICAR_V046.bat publica automaticamente a nova Edge Function
+food-platform-manage-store-user antes do frontend.
+
+NAO E NECESSARIO RECRIAR
+- .env
+- VITE_SUPABASE_URL / chave publica
+- VITE_TURNSTILE_SITE_KEY
+- PUBLIC_APP_ORIGINS
+- wrangler.jsonc
+- supabase/config.toml
+- secrets existentes
+
+SEGURANCA DO E-MAIL/SENHA
+A alteracao de credenciais nao usa service_role no navegador. O frontend chama
+food-platform-manage-store-user. A Edge Function valida Admin Master + MFA AAL2
+e somente entao usa Supabase Admin API no servidor.
+
+REGRA DE VENCIMENTO
+Exemplo: Admin Master configurou Dia 3.
+- next_due_date fica sempre no dia 3.
+- se chegou dia 4 e nao confirmou pagamento: continua com a referencia vencida
+  e o painel fica vermelho.
+- quando o Admin Master confirma o pagamento: paid_at recebe a data/hora atual,
+  e next_due_date avanca para o dia 3 do mes seguinte.
+- pagar atrasado nao muda a mensalidade para o dia em que o pagamento aconteceu.
+
+OBSERVACAO
+O hotfix PDF.js da v0.4.5 e preservado automaticamente e o favicon FoodWeb e
+forcado para /favicon-foodweb-v046.svg para evitar cache do icone antigo.

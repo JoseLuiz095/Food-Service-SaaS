@@ -1,0 +1,36 @@
+FOODWEB v0.5.6 - AUTO CADASTRO
+
+O que entra:
+- /cadastro com Criar nova conta e Ja tenho conta
+- escolha de Demo/Essencial/Profissional/Premium
+- Demo de 30 dias somente uma vez por e-mail no FoodWeb; o prazo comeca apenas quando o Admin Master aprova
+- plano pago cria workspace de preparacao; vitrine fica bloqueada ate o Admin Master aprovar
+- no workspace pending ficam disponiveis: Visao geral, Primeiros passos, Produtos, Categorias, Entregas e Configuracoes
+- ficam bloqueados ate aprovacao: Pedidos, Analytics, Financeiro, Meu Plano/cobranca e vitrine publica
+- Admin Master ganha /admin-master/solicitacoes
+- aprovacao libera a loja; rejeicao suspende
+- Turnstile obrigatorio no cadastro
+- nenhum secret vai para o frontend
+
+ORDEM:
+1. Extraia o ZIP na raiz do FoodWeb atual.
+2. Rode APLICAR_FOODWEB_V056_SELF_SERVICE.bat
+3. No SQL Editor do Supabase rode:
+   supabase/migrations/202609171935_foodweb_v056_self_service_signup.sql
+4. Rode supabase/VALIDAR_V056_SELF_SERVICE.sql e confirme todos true.
+5. No Supabase Auth > URL Configuration, permita https://SEU-DOMINIO/cadastro/confirmar.
+6. Confirme VITE_TURNSTILE_SITE_KEY no ambiente de BUILD do Cloudflare.
+7. Rode npm run validate.
+8. Teste o cadastro com um e-mail novo e um e-mail existente.
+9. Publique somente depois.
+
+IMPORTANTE:
+- O Demo e controlado por food_trial_claims; excluir usuario/loja nao devolve o Demo ao mesmo e-mail.
+- Enquanto aguarda aprovacao, o usuario pode preparar o sistema sem consumir os 30 dias do Demo.
+- E-mails de clientes ja existentes sao marcados na migration e nao recebem um novo Demo de primeiro acesso.
+- O controle e por produto: usar Demo no FloriWeb nao consome automaticamente o Demo do FoodWeb.
+- Plano Business continua comercial/sob consulta e nao entra no auto cadastro.
+
+OBSERVACAO IMPORTANTE SOBRE TURNSTILE + SUPABASE COMPARTILHADO:
+FloriWeb e FoodWeb usam o mesmo Supabase Auth. O Supabase possui uma configuracao CAPTCHA/secret para o projeto.
+Para evitar invalid-input-secret, use o MESMO widget Turnstile para os dois sistemas, autorize os dois dominios nesse widget e configure a mesma Site Key como VITE_TURNSTILE_SITE_KEY nos dois builds. O Secret desse widget fica somente no Supabase Auth.
