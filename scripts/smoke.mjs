@@ -51,7 +51,7 @@ const home=read('src/pages/store/Home.tsx');
 const header=read('src/components/StoreHeader.tsx');
 const billingStatus=read('src/utils/billingStatus.ts');
 
-ok('Pacote FoodWeb v0.5.6',pkg.name==='foodservice-saas'&&pkg.version==='0.5.6');
+ok('Pacote FoodWeb v0.5.7',pkg.name==='foodservice-saas'&&pkg.version==='0.5.7');
 const selfSignup = read('src/pages/store/SelfSignup.tsx');
 const selfSignupService = read('src/services/selfServiceSignup.ts');
 const signupRequests = read('src/pages/master/SignupRequests.tsx');
@@ -191,12 +191,19 @@ ok('v0.5.1 Master explica Business sob medida',masterPlans.includes('master-busi
 ok('v0.5.1 migration alinha planos e desabilita multi_user',v051Migration.includes("name='Profissional'")&&v051Migration.includes('monthly_price=89.90')&&v051Migration.includes("name='Premium'")&&v051Migration.includes('monthly_price=149.90')&&v051Migration.includes("feature_code='multi_user'"));
 ok('v0.5.1 Premium possui dominio proprio',v051Migration.includes('custom_domain=true'));
 
+
+const interactiveV057=read('src/components/marketing/InteractiveShowcase.tsx');
+const marketV057=read('supabase/migrations/202609211600_foodweb_v057_market_positioning.sql');
+ok('v0.5.7 demonstracao cliente + gestao', landing.includes('InteractiveShowcase') && interactiveV057.includes('Experiência do cliente') && interactiveV057.includes('Painel de gestão'));
+ok('v0.5.7 precos de teste comercial', marketV057.includes("when 'STARTER' then 79.90") && marketV057.includes("when 'PROFESSIONAL' then 129.90"));
+ok('v0.5.7 Demo futuro de 14 dias', marketV057.includes('demo_duration_days = 14'));
+
 if(failures.length){
   console.error(`\n${failures.length} falha(s):`);
   for(const failure of failures)console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log(`\nSmoke FoodWeb v0.5.6 concluído: ${checks.length} verificações + ${sourceFiles.length} arquivos TS/TSX.`);
+console.log(`\nSmoke FoodWeb v0.5.7 concluído: ${checks.length} verificações + ${sourceFiles.length} arquivos TS/TSX.`);
 
 
 // FoodWeb v0.5.4 - paridade visual com FloriWeb no Admin/Admin Master
