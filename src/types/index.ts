@@ -179,6 +179,7 @@ export type StoreSettings = {
   averagePreparationMin: number;
   averagePreparationMax: number;
   allowScheduledOrders: boolean;
+  kdsEnabled: boolean;
   openingHours: string;
   openingSchedule: OpeningSchedule;
   active: boolean;

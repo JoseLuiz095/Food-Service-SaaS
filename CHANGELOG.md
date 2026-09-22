@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.1 — 2026-09-22
+- Recuperação de vendas integrada à tela de Pedidos, usando pedidos registrados cujo WhatsApp ainda não foi aberto.
+- CRM simples derivado dos pedidos existentes, com frequência, valor acumulado, última compra e mensagem de recompra.
+- Modo cozinha/KDS opcional, ativado nas Configurações e exibido dentro da própria tela de Pedidos.
+- Mudança de status do KDS oferece botão manual com mensagem pronta para o cliente no WhatsApp.
+- Carrinho ganhou upsell automático com produtos disponíveis e acesso à personalização quando necessário.
+- Cliente pode usar “Pedir novamente” no mesmo dispositivo, sem criar conta.
+- Landing comercial passou a destacar recuperação, KDS, upsell e CRM/recompra.
+- Migration aditiva `202609222000_foodweb_v061_growth_tools.sql` adiciona apenas `food_stores.kds_enabled`; CRM, recuperação, upsell e recompra reaproveitam dados já existentes.
+
 ## 0.6.0 — 2026-09-22
 - Pacote de publicação REV2: release cumulativa baseada diretamente na `main` 0.5.8/0.5.9.
 - Promoção para produção passa a limpar artefatos legados da raiz e remover branches remotas `release/foodweb-v*` após sucesso.

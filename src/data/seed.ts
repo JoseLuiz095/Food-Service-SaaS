@@ -179,7 +179,7 @@ export const seedSettings: StoreSettings = {
   address: 'Centro, Linhares - ES', logoUrl: '/assets/food-logo.svg', heroUrl: '/assets/food-hero.svg',
   pixEnabled: true, pixReceiptMode: 'key', pixKeyType: 'E-mail', pixKey: 'pix@centralfood.demo', pixCopyPaste: '', pixReceiver: 'Central Food',
   showPixBeforeConfirmation: true, confirmationPaymentEnabled: false, cardPaymentEnabled: true, cashPaymentEnabled: true, paymentMethodOrder: ['pix', 'card', 'cash', 'confirm'], deliveryEnabled: true, pickupEnabled: true, minimumOrder: 20,
-  averagePreparationMin: 30, averagePreparationMax: 45, allowScheduledOrders: true,
+  averagePreparationMin: 30, averagePreparationMax: 45, allowScheduledOrders: true, kdsEnabled: true,
   openingHours: 'Seg 18:00–23:00 · Ter 18:00–23:00 · Qui 18:00–23:30 · Sex 18:00–00:30 · Sáb 18:00–00:30 · Dom 18:00–23:00',
   openingSchedule: { timezone: 'America/Sao_Paulo', days: [
     { day: 0, enabled: true, open: '18:00', close: '23:00' },

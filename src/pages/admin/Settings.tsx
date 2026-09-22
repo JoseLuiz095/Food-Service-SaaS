@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Banknote, Clock3, CreditCard, ImagePlus, Info, QrCode, RotateCcw, Save } from 'lucide-react';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { useStore } from '../../contexts/StoreContext';
@@ -17,6 +17,7 @@ export default function SettingsAdmin() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const pixCopyPasteRef = useRef<HTMLTextAreaElement | null>(null);
   const canCustomBanner = planHasFeature(planUsage.plan, 'custom_banner');
 
   useEffect(() => setForm(structuredClone(settings)), [settings]);
@@ -26,6 +27,15 @@ export default function SettingsAdmin() {
   useEffect(() => () => { if (coverFile) URL.revokeObjectURL(coverPreview); }, [coverFile, coverPreview]);
 
   const update = <K extends keyof StoreSettings>(key: K, value: StoreSettings[K]) => setForm((current) => ({ ...current, [key]: value }));
+  const activatePixReceiptMode = (mode: StoreSettings['pixReceiptMode']) => {
+    update('pixReceiptMode', mode);
+    if (mode === 'copy_paste') {
+      window.setTimeout(() => {
+        pixCopyPasteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        pixCopyPasteRef.current?.focus();
+      }, 80);
+    }
+  };
   const movePaymentMethod = (method: PaymentMethod, direction: -1 | 1) => setForm((current) => {
     const order = [...current.paymentMethodOrder];
     const index = order.indexOf(method);
@@ -164,6 +174,7 @@ export default function SettingsAdmin() {
             <label className="switch-row"><span><strong>Retirada</strong><small>Permitir retirada na loja</small></span><input type="checkbox" checked={form.pickupEnabled} onChange={(e) => update('pickupEnabled', e.target.checked)} /></label>
             <div className="form-grid preparation-config"><label>Preparo mínimo (min)<input type="number" min="0" max="600" value={form.averagePreparationMin} onChange={(e)=>update('averagePreparationMin',Math.max(0,Number(e.target.value)))} /></label><label>Preparo máximo (min)<input type="number" min="0" max="600" value={form.averagePreparationMax} onChange={(e)=>update('averagePreparationMax',Math.max(0,Number(e.target.value)))} /></label></div>
             <label className="switch-row"><span><strong>Permitir pedido agendado</strong><small>Quando a loja estiver fechada, o cliente poderá selecionar um horário futuro.</small></span><input type="checkbox" checked={form.allowScheduledOrders} onChange={(e)=>update('allowScheduledOrders',e.target.checked)} /></label>
+            <label className="switch-row"><span><strong>Modo cozinha / KDS</strong><small>Exibe um quadro operacional dentro de Pedidos e libera mensagens prontas de atualização para o cliente.</small></span><input type="checkbox" checked={form.kdsEnabled} onChange={(e)=>update('kdsEnabled',e.target.checked)} /></label>
           </section>
 
           <section className="admin-card form-section payment-admin-section">
@@ -181,11 +192,11 @@ export default function SettingsAdmin() {
 
                 <div className="pix-mode-admin">
                   <span className="admin-field-label">Como o cliente receberá o PIX?</span>
-                  <button type="button" className={form.pixReceiptMode === 'copy_paste' ? 'pix-mode-option selected' : 'pix-mode-option'} onClick={() => update('pixReceiptMode', 'copy_paste')}>
+                  <button type="button" className={form.pixReceiptMode === 'copy_paste' ? 'pix-mode-option selected' : 'pix-mode-option'} onClick={() => activatePixReceiptMode('copy_paste')}>
                     <QrCode size={22} />
                     <span><strong>PIX Copia e Cola <em>Recomendado</em></strong><small>O sistema coloca automaticamente o total do carrinho no código PIX.</small></span>
                   </button>
-                  <button type="button" className={form.pixReceiptMode === 'key' ? 'pix-mode-option selected' : 'pix-mode-option'} onClick={() => update('pixReceiptMode', 'key')}>
+                  <button type="button" className={form.pixReceiptMode === 'key' ? 'pix-mode-option selected' : 'pix-mode-option'} onClick={() => activatePixReceiptMode('key')}>
                     <CreditCard size={22} />
                     <span><strong>Chave PIX</strong><small>O cliente copia a chave e informa o valor manualmente no banco.</small></span>
                   </button>
@@ -193,7 +204,7 @@ export default function SettingsAdmin() {
 
                 {form.pixReceiptMode === 'copy_paste' ? (
                   <>
-                    <label>PIX Copia e Cola base<textarea rows={5} value={form.pixCopyPaste} onChange={(e) => update('pixCopyPaste', e.target.value)} placeholder="Cole aqui o código PIX Copia e Cola gerado pelo seu banco" /></label>
+                    <label className="pix-copy-paste-field">PIX Copia e Cola base<textarea ref={pixCopyPasteRef} rows={5} value={form.pixCopyPaste} onChange={(e) => update('pixCopyPaste', e.target.value)} placeholder="Cole aqui o código PIX Copia e Cola gerado pelo seu banco" /></label>
                     <details className="payment-help">
                       <summary><Info size={16} />Como obter este código no banco?</summary>
                       <div>

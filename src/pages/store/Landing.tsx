@@ -1,4 +1,4 @@
-import { ArrowRight, BarChart3, Check, LockKeyhole, MessageCircle, ShieldCheck, ShoppingBag, Sparkles, Store, Wallet } from 'lucide-react';
+import { ArrowRight, BarChart3, Check, ChefHat, LockKeyhole, MessageCircle, RefreshCw, ShieldCheck, ShoppingBag, Sparkles, Store, TrendingUp, Users, Wallet } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { ProtectedContactButton } from '../../components/ProtectedContactButton';
 import { LoadingState } from '../../components/ui/AsyncState';
@@ -137,6 +137,8 @@ export default function Landing() {
       <section id="recursos" className="sales-benefits sales-benefits-v43"><div className="sales-shell"><div className="sales-section-heading center"><span>POR QUE FOODWEB?</span><h2>Uma experiência melhor para quem compra e mais controle para quem administra.</h2></div><div className="sales-benefit-grid sales-benefit-grid-v43"><article><span><ShoppingBag /></span><h3>Cardápio que dá vontade de pedir</h3><p>Fotos em destaque, busca, categorias, adicionais e carrinho pensado para celular.</p></article><article><span><BarChart3 /></span><h3>Entenda o que realmente vende</h3><p>Analytics para acompanhar visualizações, conversão e comportamento de compra.</p></article><article><span><Wallet /></span><h3>Financeiro simples e útil</h3><p>Entradas, saídas, categorias, vencimentos e leitura local de boletos, cupons e documentos.</p></article><article><span><ShieldCheck /></span><h3>Suporte reservado ao lojista</h3><p>O canal de suporte da plataforma fica disponível apenas dentro das áreas autenticadas de Admin e Master.</p></article></div></div></section>
 
       <ExistingValueSection variant="food" />
+
+      <section className="sales-growth-v061"><div className="sales-shell"><div className="sales-section-heading center"><span>VENDA MAIS COM A BASE QUE VOCÊ JÁ TEM</span><h2>O FoodWeb agora ajuda a recuperar oportunidades, organizar a cozinha e estimular novas compras.</h2><p>Recursos simples, integrados ao fluxo atual, sem transformar sua operação em um ERP pesado.</p></div><div className="sales-growth-v061__grid"><article><span><RefreshCw/></span><h3>Recuperação de vendas</h3><p>Identifique pedidos registrados que não seguiram para o WhatsApp e retome o contato com uma mensagem pronta.</p></article><article><span><ChefHat/></span><h3>Cozinha / KDS opcional</h3><p>Acompanhe pedidos em etapas de produção e envie atualizações prontas ao cliente a cada mudança de status.</p></article><article><span><TrendingUp/></span><h3>Upsell no carrinho</h3><p>Sugestões de produtos complementares aparecem no momento certo para aumentar o ticket sem atrapalhar a compra.</p></article><article><span><Users/></span><h3>CRM simples + pedir novamente</h3><p>Veja frequência e valor dos clientes recentes e facilite a recompra no dispositivo do próprio consumidor.</p></article></div></div></section>
 
       <InteractiveShowcase variant="food" demoHref={demoHref} />
 

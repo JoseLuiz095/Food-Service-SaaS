@@ -15,6 +15,7 @@ import { buildWhatsAppMessage } from '../../utils/whatsapp';
 import { storefrontPath } from '../../utils/storefrontRoute';
 import { normalizeText } from '../../utils/text';
 import { getStoreOpenStatus } from '../../utils/storeHours';
+import { saveRecentOrder } from '../../utils/customerSales';
 
 const initial: CheckoutData = {
   customerName: '', customerPhone: '', customerEmail: '', fulfillment: 'delivery', zipCode: '', street: '', addressNumber: '', complement: '',
@@ -151,6 +152,7 @@ export default function Checkout() {
         createdAt: new Date().toISOString(),
       };
       saveOrderConfirmation(confirmation);
+      saveRecentOrder(settings.id, items, form.customerName, form.customerPhone);
       clear();
       try { sessionStorage.removeItem(requestKey(settings.id)); } catch { /* sem storage */ }
       navigate(storefrontPath(storeBasePath, `/pedido/${result.orderId}`), { state: confirmation });

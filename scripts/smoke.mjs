@@ -51,7 +51,7 @@ const home=read('src/pages/store/Home.tsx');
 const header=read('src/components/StoreHeader.tsx');
 const billingStatus=read('src/utils/billingStatus.ts');
 
-ok('Pacote FoodWeb v0.6.0',pkg.name==='foodservice-saas'&&pkg.version==='0.6.0');
+ok('Pacote FoodWeb v0.6.1',pkg.name==='foodservice-saas'&&pkg.version==='0.6.1');
 const selfSignup = read('src/pages/store/SelfSignup.tsx');
 const selfSignupService = read('src/services/selfServiceSignup.ts');
 const signupRequests = read('src/pages/master/SignupRequests.tsx');
@@ -229,7 +229,19 @@ if(failures.length){
   for(const failure of failures)console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log(`\nSmoke FoodWeb v0.6.0 concluído: ${checks.length} verificações + ${sourceFiles.length} arquivos TS/TSX.`);
+const ordersV061=read('src/pages/admin/Orders.tsx');
+const cartV061=read('src/pages/store/Cart.tsx');
+const settingsV061=read('src/pages/admin/Settings.tsx');
+const landingV061=read('src/pages/store/Landing.tsx');
+const growthMigrationV061=read('supabase/migrations/202609222000_foodweb_v061_growth_tools.sql');
+ok('v0.6.1 recuperacao de vendas manual',ordersV061.includes('Recuperação de vendas')&&ordersV061.includes('buildSalesRecoveryMessage'));
+ok('v0.6.1 CRM simples de clientes',ordersV061.includes('CRM simples de clientes')&&ordersV061.includes('Mensagem de recompra'));
+ok('v0.6.1 KDS opcional em Pedidos',settingsV061.includes('Modo cozinha / KDS')&&ordersV061.includes('COZINHA / KDS')&&growthMigrationV061.includes('kds_enabled'));
+ok('v0.6.1 upsell no carrinho',cartV061.includes('Que tal levar também?')&&cartV061.includes('cart-upsell-v061'));
+ok('v0.6.1 pedir novamente local',cartV061.includes('Pedir novamente')&&read('src/pages/store/Checkout.tsx').includes('saveRecentOrder'));
+ok('v0.6.1 landing comunica novas ferramentas',landingV061.includes('Recuperação de vendas')&&landingV061.includes('Cozinha / KDS opcional')&&landingV061.includes('CRM simples + pedir novamente'));
+ok('v0.6.1 SQL de validacao existe',exists('supabase/VALIDAR_V061.sql'));
+console.log(`\nSmoke FoodWeb v0.6.1 concluído: ${checks.length} verificações + ${sourceFiles.length} arquivos TS/TSX.`);
 
 
 // FoodWeb v0.5.4 - paridade visual com FloriWeb no Admin/Admin Master
@@ -250,3 +262,10 @@ ok('v0.5.2 popover fecha ao clicar fora',header.includes('pointerdown')&&header.
 ok('v0.5.2 pausa de almoco configuravel',settingsV052.includes('breakStart')&&settingsV052.includes('breakEnd')&&settingsV052.includes('Fechar para almoço'));
 ok('v0.5.2 PIX possui botao textual para copiar',orderSuccessV052.includes('Copiar PIX'));
 ok('v0.5.2 admin segue padrao estrutural do FloriWeb',masterLayout.includes('master-admin-mini')&&css.includes('text-overflow:ellipsis'));
+
+if(failures.length){
+  console.error(`\n${failures.length} falha(s) apos as verificacoes v0.6.1:`);
+  for(const failure of failures)console.error(`- ${failure}`);
+  process.exit(1);
+}
+console.log(`Smoke final FoodWeb v0.6.1: ${checks.length} verificações aprovadas.`);
