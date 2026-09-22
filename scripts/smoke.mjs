@@ -51,7 +51,7 @@ const home=read('src/pages/store/Home.tsx');
 const header=read('src/components/StoreHeader.tsx');
 const billingStatus=read('src/utils/billingStatus.ts');
 
-ok('Pacote FoodWeb v0.5.7',pkg.name==='foodservice-saas'&&pkg.version==='0.5.7');
+ok('Pacote FoodWeb v0.5.8',pkg.name==='foodservice-saas'&&pkg.version==='0.5.8');
 const selfSignup = read('src/pages/store/SelfSignup.tsx');
 const selfSignupService = read('src/services/selfServiceSignup.ts');
 const signupRequests = read('src/pages/master/SignupRequests.tsx');
@@ -129,8 +129,8 @@ for(const file of sourceFiles){
 ok('CSS com chaves balanceadas',(css.match(/\{/g)||[]).length===(css.match(/\}/g)||[]).length);
 
 ok('Supabase publico possui fallback de producao', read('src/lib/config.ts').includes('FOODWEB_DEFAULT_SUPABASE_URL'));
-ok('Landing comercial FoodWeb v0.4.5 criada',landing.includes('Seu cardápio profissional')&&landing.includes('sales-ops-preview-v45')&&css.includes('FoodWeb v0.4.5'));
-ok('Teste Profissional 30 dias destacado', read('src/pages/store/Landing.tsx').includes('Testar o Profissional por')&&read('src/data/platformDefaults.ts').includes('demoDurationDays: 30'));
+ok('Landing comercial FoodWeb preservada',landing.includes('Seu cardápio profissional')&&landing.includes('InteractiveShowcase')&&landing.includes('ExistingValueSection'));
+ok('Teste de 14 dias com CTA para criar conta', read('src/pages/store/Landing.tsx').includes('Criar conta e testar por {trialDays} dias')&&read('src/data/platformDefaults.ts').includes('demoDurationDays: 14'));
 ok('WhatsApp comercial e suporte configuráveis', masterPlans.includes('marketingWhatsapp')&&masterPlans.includes('supportWhatsapp')&&read('src/services/platformApi.ts').includes('support_whatsapp'));
 ok('Suporte flutuante restrito ao Admin',helpButton.includes('loadAdminSupportContact')&&(adminLayout.includes('<PlatformHelpButton/>')||adminLayout.includes('<PlatformHelpButton />'))&&(masterLayout.includes('<PlatformHelpButton/>')||masterLayout.includes('<PlatformHelpButton />'))&&!home.includes('PlatformHelpButton'));
 ok('Previews visuais otimizados incluídos', exists('public/assets/marketing/storefront-preview.webp')&&exists('public/assets/marketing/storefront-products.webp')&&exists('public/assets/marketing/storefront-hero.webp'));
@@ -198,12 +198,23 @@ ok('v0.5.7 demonstracao cliente + gestao', landing.includes('InteractiveShowcase
 ok('v0.5.7 precos de teste comercial', marketV057.includes("when 'STARTER' then 79.90") && marketV057.includes("when 'PROFESSIONAL' then 129.90"));
 ok('v0.5.7 Demo futuro de 14 dias', marketV057.includes('demo_duration_days = 14'));
 
+
+const interactiveV058=read('src/components/marketing/InteractiveShowcase.tsx');
+const valueV058=read('src/components/marketing/ExistingValueSection.tsx');
+const landingV058=read('src/pages/store/Landing.tsx');
+ok('v0.5.8 pedido demo localStorage',interactiveV058.includes('foodweb_interactive_demo_v058')&&interactiveV058.includes('Finalizar pedido demonstrativo')&&interactiveV058.includes('Ver no painel de gestão'));
+ok('v0.5.8 pedido aparece na gestao',interactiveV058.includes('setOrders((current)=>[order,...current])')&&interactiveV058.includes('Confirmar recebimento')&&interactiveV058.includes('foodStatuses'));
+ok('v0.5.8 CTAs priorizam auto cadastro',landingV058.includes('Criar conta e testar')&&landingV058.includes('href="#demonstracao"')&&landingV058.includes('sales-plan-self-service--primary'));
+ok('v0.5.8 remove demo estatica e texto explicativo',!landingV058.includes('demonstracao-legado')&&!interactiveV058.includes('Não é um slide:'));
+ok('v0.5.8 valor real do produto',valueV058.includes('Venda sem comissão por pedido')&&valueV058.includes('Financeiro ligado ao recebimento')&&valueV058.includes('Leitura assistida de documentos'));
+ok('v0.5.8 fallback global de produto',read('public/assets/placeholder-food.svg').includes('PRODUCT_IMAGE_FALLBACK_V058'));
+
 if(failures.length){
   console.error(`\n${failures.length} falha(s):`);
   for(const failure of failures)console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log(`\nSmoke FoodWeb v0.5.7 concluído: ${checks.length} verificações + ${sourceFiles.length} arquivos TS/TSX.`);
+console.log(`\nSmoke FoodWeb v0.5.8 concluído: ${checks.length} verificações + ${sourceFiles.length} arquivos TS/TSX.`);
 
 
 // FoodWeb v0.5.4 - paridade visual com FloriWeb no Admin/Admin Master

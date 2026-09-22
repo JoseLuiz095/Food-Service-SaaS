@@ -1,1 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420"><rect width="600" height="420" fill="#f3f4f6"/><circle cx="300" cy="210" r="90" fill="#e5e7eb"/><path d="M245 230h110" stroke="#9ca3af" stroke-width="18" stroke-linecap="round"/><path d="M265 185h70" stroke="#9ca3af" stroke-width="18" stroke-linecap="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="Produto sem imagem">
+  <!-- PRODUCT_IMAGE_FALLBACK_V058 -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fff4ee"/>
+      <stop offset="1" stop-color="#f3e6df"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" rx="32" fill="url(#bg)"/>
+  <circle cx="400" cy="290" r="118" fill="#fff" stroke="#e7cfc2" stroke-width="10"/>
+  <circle cx="400" cy="290" r="72" fill="none" stroke="#c85d37" stroke-width="14"/>
+  <path d="M259 171v238M235 171v90c0 30 48 30 48 0v-90M541 171v238M541 171c46 20 52 82 0 118" fill="none" stroke="#8f3f28" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M341 292h118" stroke="#c85d37" stroke-width="14" stroke-linecap="round"/>
+  <text x="400" y="500" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#744536">Produto sem imagem</text>
+</svg>
