@@ -1,6 +1,6 @@
 import { AlertCircle, ArrowLeft, ArrowRight, ShoppingBag, Trash2 } from 'lucide-react';
 import { useEffect } from 'react';
-import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
+import { ProductMedia } from '../../components/ProductMedia';
 import { LoadingState } from '../../components/ui/AsyncState';
 import { QuantityControl } from '../../components/QuantityControl';
 import { cartItemUnitTotal, useCart } from '../../contexts/CartContext';
@@ -28,11 +28,11 @@ export default function Cart() {
       <section>
         <div className="page-title"><span className="eyebrow">SEU PEDIDO</span><h1>Revise os itens</h1><p>Confira tamanhos, escolhas, adicionais e remoções antes de avançar.</p></div>
         <div className="cart-list">{items.map((item) => <article key={item.id} className="cart-item">
-          <ImageWithFallback src={item.imageUrl} alt={item.productName}/>
+          <ProductMedia src={item.imageUrl} emoji={item.visualEmoji} alt={item.productName} emojiClassName="cart-item__emoji-v060"/>
           <div className="cart-item__main"><strong>{item.productName}</strong>
             {item.options.length > 0 && <div className="cart-option-summary">{Array.from(new Set(item.options.map((option) => option.groupId))).map((groupId) => {
               const groupOptions = item.options.filter((option) => option.groupId === groupId);
-              return <span key={groupId}><b>{groupOptions[0].groupName}:</b> {groupOptions.map((option) => option.itemName).join(', ')}</span>;
+              return <span key={groupId}><b>{groupOptions[0].groupName}:</b> {groupOptions.map((option) => `${option.itemName}${option.quantity > 1 ? ` ×${option.quantity}` : ''}`).join(', ')}</span>;
             })}</div>}
             <b>{currency.format(cartItemUnitTotal(item))} / un.</b>
           </div>

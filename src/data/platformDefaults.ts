@@ -2,7 +2,7 @@ import type { PlatformSettings } from '../types';
 
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   demoEnabled: true,
-  demoDurationDays: 30,
+  demoDurationDays: 14,
   demoWarningDays: 3,
   billingProvider: 'manual',
   billingPixKeyType: '',

@@ -8,6 +8,14 @@ dist
 .vscode/
 .idea/
 
+# Artefatos locais de atualizacao/backup - nao devem voltar para o Git
+_backup_v*/
+payload/
+payload_v*/
+*.backup_visual_*
+FoodWeb_*.zip
+foodweb.zip
+
 # impeccable-ignore-start
 # Ephemeral output, runtime state and local overrides.
 .impeccable/config.local.json

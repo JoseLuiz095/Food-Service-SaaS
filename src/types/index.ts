@@ -109,6 +109,7 @@ export type Product = {
   price: number;
   promotionalPrice?: number;
   imageUrl: string;
+  visualEmoji?: string;
   gallery: string[];
   images: ProductImage[];
   featured: boolean;
@@ -310,6 +311,7 @@ export type CartItem = {
   productId: string;
   productName: string;
   imageUrl: string;
+  visualEmoji?: string;
   unitPrice: number;
   quantity: number;
   options: SelectedOption[];

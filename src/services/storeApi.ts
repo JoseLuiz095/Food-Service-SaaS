@@ -63,7 +63,7 @@ type CategoryRow = { id: string; store_id: string; name: string; slug: string; d
 type ProductRow = {
   id: string; store_id: string; category_id: string; name: string; slug: string; description: string; price: number | string;
   promotional_price: number | string | null; active: boolean; featured: boolean; made_to_order: boolean; production_days: number | null;
-  stock_status: Product['stockStatus']; internal_code?: string | null; availability_status?: Product['availabilityStatus'] | null;
+  stock_status: Product['stockStatus']; internal_code?: string | null; visual_emoji?: string | null; availability_status?: Product['availabilityStatus'] | null;
   track_stock?: boolean | null; stock_quantity?: number | null; preparation_time_minutes?: number | null; sort_order?: number | null;
 };
 type ProductImageRow = { id: string; product_id: string; url: string; storage_path: string | null; alt_text: string | null; sort_order: number; is_primary: boolean };
@@ -169,7 +169,7 @@ const buildProducts = (
       stockLabel:row.stock_status === 'low_stock' ? 'Últimas unidades' : row.stock_status === 'unavailable' ? 'Indisponível' : undefined,
       internalCode:row.internal_code || undefined, availabilityStatus:row.availability_status || (row.stock_status === 'unavailable' ? 'unavailable' : 'available'),
       trackStock:row.track_stock ?? false, stockQuantity:row.stock_quantity ?? undefined, preparationTimeMinutes:row.preparation_time_minutes ?? 0, sortOrder:row.sort_order ?? 0,
-      images:productImages, imageUrl:primary?.url || '/assets/placeholder-food.svg', gallery:productImages.map((image) => image.url), optionGroups:productGroups,
+      images:productImages, imageUrl:primary?.url || '/assets/placeholder-food.svg', visualEmoji:row.visual_emoji || undefined, gallery:productImages.map((image) => image.url), optionGroups:productGroups,
       variations:legacyVariants.filter((variant) => variant.product_id === row.id).map((variant) => ({ id:variant.id, productId:variant.product_id, name:variant.name, priceDelta:toNumber(variant.price_delta), active:variant.active, sortOrder:variant.sort_order })),
       addons:legacyAddons.filter((addon) => legacyProductAddonIds.has(addon.id)),
     };
@@ -362,7 +362,7 @@ export const storeApi = {
 
   async saveProduct(product: Product): Promise<Product> {
     if(isDemoMode){const db=readDemo();const existing=db.products.find((item)=>item.id===product.id);const activeCount=db.products.filter((item)=>item.active&&item.id!==product.id).length;const limit=db.planUsage.plan.productLimit;if(product.active&&limit!=null&&activeCount>=limit)throw new Error(`Seu plano permite até ${limit} produtos ativos.`);db.products=existing?db.products.map((item)=>item.id===product.id?clone(product):item):[clone(product),...db.products];writeDemo(db);return product;}
-    const payload={id:product.id,store_id:product.storeId,category_id:product.categoryId,name:product.name,slug:product.slug||slugify(product.name),description:product.description,price:product.price,promotional_price:product.promotionalPrice??null,active:product.active,featured:product.featured,made_to_order:false,production_days:0,stock_status:product.availabilityStatus==='available'?'available':'unavailable',internal_code:product.internalCode||null,availability_status:product.availabilityStatus,track_stock:product.trackStock,stock_quantity:product.trackStock?product.stockQuantity??0:null,preparation_time_minutes:product.preparationTimeMinutes,sort_order:product.sortOrder};
+    const payload={id:product.id,store_id:product.storeId,category_id:product.categoryId,name:product.name,slug:product.slug||slugify(product.name),description:product.description,price:product.price,promotional_price:product.promotionalPrice??null,active:product.active,featured:product.featured,made_to_order:false,production_days:0,stock_status:product.availabilityStatus==='available'?'available':'unavailable',internal_code:product.internalCode||null,visual_emoji:product.visualEmoji?.trim()||null,availability_status:product.availabilityStatus,track_stock:product.trackStock,stock_quantity:product.trackStock?product.stockQuantity??0:null,preparation_time_minutes:product.preparationTimeMinutes,sort_order:product.sortOrder};
     await restFetch<ProductRow[]>('food_products?on_conflict=id&select=*',{method:'POST',body:payload,prefer:'resolution=merge-duplicates,return=representation'});
 
     await restFetch<unknown>(`food_product_option_groups?product_id=eq.${encode(product.id)}`,{method:'DELETE'});

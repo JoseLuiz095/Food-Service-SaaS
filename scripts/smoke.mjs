@@ -51,7 +51,7 @@ const home=read('src/pages/store/Home.tsx');
 const header=read('src/components/StoreHeader.tsx');
 const billingStatus=read('src/utils/billingStatus.ts');
 
-ok('Pacote FoodWeb v0.5.8',pkg.name==='foodservice-saas'&&pkg.version==='0.5.8');
+ok('Pacote FoodWeb v0.6.0',pkg.name==='foodservice-saas'&&pkg.version==='0.6.0');
 const selfSignup = read('src/pages/store/SelfSignup.tsx');
 const selfSignupService = read('src/services/selfServiceSignup.ts');
 const signupRequests = read('src/pages/master/SignupRequests.tsx');
@@ -130,7 +130,7 @@ ok('CSS com chaves balanceadas',(css.match(/\{/g)||[]).length===(css.match(/\}/g
 
 ok('Supabase publico possui fallback de producao', read('src/lib/config.ts').includes('FOODWEB_DEFAULT_SUPABASE_URL'));
 ok('Landing comercial FoodWeb preservada',landing.includes('Seu cardápio profissional')&&landing.includes('InteractiveShowcase')&&landing.includes('ExistingValueSection'));
-ok('Teste de 14 dias com CTA para criar conta', read('src/pages/store/Landing.tsx').includes('Criar conta e testar por {trialDays} dias')&&read('src/data/platformDefaults.ts').includes('demoDurationDays: 14'));
+ok('Teste de 14 dias com CTA para criar conta', read('src/pages/store/Landing.tsx').includes('Criar conta e testar')&&read('src/pages/store/Landing.tsx').includes('{trialDays} dias')&&read('src/data/platformDefaults.ts').includes('demoDurationDays: 14'));
 ok('WhatsApp comercial e suporte configuráveis', masterPlans.includes('marketingWhatsapp')&&masterPlans.includes('supportWhatsapp')&&read('src/services/platformApi.ts').includes('support_whatsapp'));
 ok('Suporte flutuante restrito ao Admin',helpButton.includes('loadAdminSupportContact')&&(adminLayout.includes('<PlatformHelpButton/>')||adminLayout.includes('<PlatformHelpButton />'))&&(masterLayout.includes('<PlatformHelpButton/>')||masterLayout.includes('<PlatformHelpButton />'))&&!home.includes('PlatformHelpButton'));
 ok('Previews visuais otimizados incluídos', exists('public/assets/marketing/storefront-preview.webp')&&exists('public/assets/marketing/storefront-products.webp')&&exists('public/assets/marketing/storefront-hero.webp'));
@@ -202,19 +202,34 @@ ok('v0.5.7 Demo futuro de 14 dias', marketV057.includes('demo_duration_days = 14
 const interactiveV058=read('src/components/marketing/InteractiveShowcase.tsx');
 const valueV058=read('src/components/marketing/ExistingValueSection.tsx');
 const landingV058=read('src/pages/store/Landing.tsx');
-ok('v0.5.8 pedido demo localStorage',interactiveV058.includes('foodweb_interactive_demo_v058')&&interactiveV058.includes('Finalizar pedido demonstrativo')&&interactiveV058.includes('Ver no painel de gestão'));
+ok('v0.5.8 pedido demo localStorage',interactiveV058.includes('foodweb_interactive_demo_v060')&&interactiveV058.includes('Finalizar pedido demonstrativo')&&interactiveV058.includes('Ver no painel de gestão'));
 ok('v0.5.8 pedido aparece na gestao',interactiveV058.includes('setOrders((current)=>[order,...current])')&&interactiveV058.includes('Confirmar recebimento')&&interactiveV058.includes('foodStatuses'));
-ok('v0.5.8 CTAs priorizam auto cadastro',landingV058.includes('Criar conta e testar')&&landingV058.includes('href="#demonstracao"')&&landingV058.includes('sales-plan-self-service--primary'));
+ok('v0.5.9 CTA principal preserva teste',landingV058.includes('Criar conta e testar')&&landingV058.includes('href="#demonstracao"'));
+ok('v0.5.9 remove CTA criar conta duplicado',!landingV058.includes('sales-nav-self-service')&&!landingV058.includes('sales-cta-self-service'));
+ok('v0.5.9 planos usam contato comercial',!landingV058.includes('sales-plan-self-service--primary')&&landingV058.includes('sales-plan-contact-v59'));
+ok('v0.5.9 Profissional detalhado',landingV058.includes('Até 120 produtos no cardápio')&&landingV058.includes('Até 30 categorias e 120 adicionais')&&landingV058.includes('Leitura local de boletos, cupons e comprovantes'));
+ok('v0.5.9 CTA final WhatsApp',landingV058.includes('Entrar em contato no WhatsApp')&&landingV058.includes('sales-cta-contact-v59'));
+ok('v0.5.9 visual de planos aplicado',css.includes('FOODWEB_LANDING_PLANOS_V059'));
 ok('v0.5.8 remove demo estatica e texto explicativo',!landingV058.includes('demonstracao-legado')&&!interactiveV058.includes('Não é um slide:'));
 ok('v0.5.8 valor real do produto',valueV058.includes('Venda sem comissão por pedido')&&valueV058.includes('Financeiro ligado ao recebimento')&&valueV058.includes('Leitura assistida de documentos'));
 ok('v0.5.8 fallback global de produto',read('public/assets/placeholder-food.svg').includes('PRODUCT_IMAGE_FALLBACK_V058'));
+const v060Migration=read('supabase/migrations/202609221300_foodweb_v060_product_personalization.sql');
+const productMediaV060=read('src/components/ProductMedia.tsx');
+ok('v0.6.0 emoji persistido no produto',v060Migration.includes('visual_emoji')&&storeApi.includes('visual_emoji:product.visualEmoji')&&types.includes('visualEmoji?: string'));
+ok('v0.6.0 admin oferece emoji sem foto',productForm.includes('Visual sem foto')&&productForm.includes('productEmojiOptions')&&productForm.includes('product.visualEmoji'));
+ok('v0.6.0 admin possui atalhos de personalizacao',productForm.includes('groupPresets')&&productForm.includes('Remover ingredientes')&&productForm.includes('Ponto da carne')&&productForm.includes('Banana'));
+ok('v0.6.0 adicionais aceitam quantidade no cliente',productDetail.includes('changeAddonQuantity')&&productDetail.includes('addon-quantity-v060')&&cart.includes('option.quantity'));
+ok('v0.6.0 midia usa emoji quando nao ha imagem',productMediaV060.includes('hasProductImage')&&productMediaV060.includes('product-emoji-visual')&&read('src/components/ProductCard.tsx').includes('visualEmoji'));
+ok('v0.6.0 demonstracao mostra adicionais reais',interactiveV058.includes('selectedAddons')&&interactiveV058.includes('Bacon extra')&&interactiveV058.includes('Banana')&&interactiveV058.includes('Cadastro com imagem ou emoji'));
+ok('v0.6.0 possui SQL de validacao',exists('supabase/VALIDAR_V060.sql'));
+
 
 if(failures.length){
   console.error(`\n${failures.length} falha(s):`);
   for(const failure of failures)console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log(`\nSmoke FoodWeb v0.5.8 concluído: ${checks.length} verificações + ${sourceFiles.length} arquivos TS/TSX.`);
+console.log(`\nSmoke FoodWeb v0.6.0 concluído: ${checks.length} verificações + ${sourceFiles.length} arquivos TS/TSX.`);
 
 
 // FoodWeb v0.5.4 - paridade visual com FloriWeb no Admin/Admin Master

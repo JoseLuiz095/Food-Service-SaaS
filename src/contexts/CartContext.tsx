@@ -79,6 +79,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           productId: product.id,
           productName: product.name,
           imageUrl: product.imageUrl,
+          visualEmoji: product.visualEmoji,
           unitPrice: roundMoney(base),
           quantity,
           options: normalizedOptions,
@@ -107,7 +108,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         });
       }
       const unitPrice = roundMoney(product.promotionalPrice ?? product.price);
-      return [{ ...item, productName: product.name, imageUrl: product.imageUrl, unitPrice, options: nextOptions }];
+      return [{ ...item, productName: product.name, imageUrl: product.imageUrl, visualEmoji: product.visualEmoji, unitPrice, options: nextOptions }];
     })),
   }), [items]);
 

@@ -25,6 +25,8 @@ type DemoView = 'catalog' | 'cart' | 'checkout' | 'success';
 type PaymentMethod = 'pix' | 'card' | 'cash' | 'confirm';
 type Fulfillment = 'delivery' | 'pickup';
 
+type DemoAddon = { id: string; name: string; price: number; emoji: string };
+
 type DemoProduct = {
   id: string;
   category: string;
@@ -33,11 +35,14 @@ type DemoProduct = {
   price: number;
   oldPrice?: number;
   tag?: string;
+  emoji?: string;
+  addons?: DemoAddon[];
 };
 
 type DemoCartItem = {
   productId: string;
   quantity: number;
+  addons?: Record<string, number>;
 };
 
 type DemoOrder = {
@@ -84,12 +89,12 @@ const datasets:Record<Variant,{
     subtitle:'Delivery, retirada e pedidos organizados',
     categories:['Destaques','Hambúrgueres','Combos','Bebidas'],
     products:[
-      {id:'f1',category:'Destaques',name:'Smash Duplo',description:'Dois burgers, queijo, cebola caramelizada e molho da casa.',price:34.90,oldPrice:39.90,tag:'Mais pedido'},
-      {id:'f2',category:'Hambúrgueres',name:'Chicken Crocante',description:'Frango crocante, queijo, salada e molho especial.',price:29.90},
-      {id:'f3',category:'Combos',name:'Combo Família',description:'4 lanches, fritas grande e refrigerante 2L.',price:119.90,oldPrice:134.90,tag:'Economize'},
-      {id:'f4',category:'Bebidas',name:'Limonada da Casa',description:'Limão, hortelã e gelo. Refrescante e feita na hora.',price:12.90},
-      {id:'f5',category:'Destaques',name:'Açaí 500ml',description:'Açaí cremoso com até 4 complementos.',price:24.90},
-      {id:'f6',category:'Hambúrgueres',name:'Burger Bacon',description:'Burger artesanal, bacon crocante e cheddar.',price:31.90},
+      {id:'f1',category:'Destaques',name:'Smash Duplo',description:'Dois burgers, queijo, cebola caramelizada e molho da casa.',price:34.90,oldPrice:39.90,tag:'Mais pedido',emoji:'🍔',addons:[{id:'bacon',name:'Bacon extra',price:5,emoji:'🥓'},{id:'queijo',name:'Queijo extra',price:4,emoji:'🧀'},{id:'ovo',name:'Ovo',price:3,emoji:'🍳'},{id:'banana',name:'Banana',price:4,emoji:'🍌'}]},
+      {id:'f2',category:'Hambúrgueres',name:'Chicken Crocante',description:'Frango crocante, queijo, salada e molho especial.',price:29.90,emoji:'🍗',addons:[{id:'queijo',name:'Queijo extra',price:4,emoji:'🧀'},{id:'bacon',name:'Bacon extra',price:5,emoji:'🥓'}]},
+      {id:'f3',category:'Combos',name:'Combo Família',description:'4 lanches, fritas grande e refrigerante 2L.',price:119.90,oldPrice:134.90,tag:'Economize',emoji:'🍔'},
+      {id:'f4',category:'Bebidas',name:'Limonada da Casa',description:'Limão, hortelã e gelo. Refrescante e feita na hora.',price:12.90,emoji:'🍋'},
+      {id:'f5',category:'Destaques',name:'Açaí 500ml',description:'Açaí cremoso com até 4 complementos.',price:24.90,emoji:'🍧',addons:[{id:'banana',name:'Banana',price:2.5,emoji:'🍌'},{id:'morango',name:'Morango',price:3,emoji:'🍓'},{id:'granola',name:'Granola',price:2,emoji:'🥣'},{id:'leite',name:'Leite em pó',price:2.5,emoji:'🥛'}]},
+      {id:'f6',category:'Hambúrgueres',name:'Burger Bacon',description:'Burger artesanal, bacon crocante e cheddar.',price:31.90,emoji:'🥓',addons:[{id:'bacon',name:'Bacon extra',price:5,emoji:'🥓'},{id:'queijo',name:'Cheddar extra',price:4,emoji:'🧀'}]},
     ],
     adminTitle:'Gestão FoodWeb',
     adminSubtitle:'Pedidos, produtos, entrega, Analytics e Financeiro no mesmo painel.',
@@ -111,7 +116,7 @@ const datasets:Record<Variant,{
   },
 };
 
-const storageKey=(variant:Variant)=>variant==='food'?'foodweb_interactive_demo_v058':'floriweb_interactive_demo_rc614';
+const storageKey=(variant:Variant)=>variant==='food'?'foodweb_interactive_demo_v060':'floriweb_interactive_demo_rc614';
 
 const defaultCart=(variant:Variant):DemoCartItem[]=>variant==='food'
   ? [{productId:'f1',quantity:1}]
@@ -158,9 +163,12 @@ const foodStatuses=[
 const floriStatusLabel:Record<string,string>={draft:'Pedido realizado',sent_to_whatsapp:'WhatsApp aberto',cancelled:'Cancelado'};
 const paymentLabel:Record<PaymentMethod,string>={pix:'PIX',card:'Cartão',cash:'Dinheiro',confirm:'Combinar com a loja'};
 
-function ProductVisual({variant}:{variant:Variant}){
+function ProductVisual({variant,product}:{variant:Variant;product?:DemoProduct}){
+  if(variant==='food'&&product?.emoji)return <span className="interactive-demo__fallback-icon interactive-demo__emoji-v060" role="img" aria-label={product.name}>{product.emoji}</span>;
   return <span className="interactive-demo__fallback-icon" aria-hidden="true">{variant==='food'?<Utensils/>:<Flower2/>}</span>;
 }
+
+const addonSelectionKey=(addons:Record<string,number>|undefined)=>JSON.stringify(Object.entries(addons||{}).filter(([,qty])=>qty>0).sort(([a],[b])=>a.localeCompare(b)));
 
 export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
   const config=datasets[variant];
@@ -170,6 +178,7 @@ export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
   const [query,setQuery]=useState('');
   const [selected,setSelected]=useState<DemoProduct|null>(null);
   const [qty,setQty]=useState(1);
+  const [selectedAddons,setSelectedAddons]=useState<Record<string,number>>({});
   const [view,setView]=useState<DemoView>('catalog');
   const [cart,setCart]=useState<DemoCartItem[]>(initial.cart);
   const [orders,setOrders]=useState<DemoOrder[]>(initial.orders);
@@ -196,28 +205,41 @@ export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
     return inCategory&&inSearch;
   }),[category,config,query]);
 
-  const cartRows=useMemo(()=>cart.map((item)=>({
-    ...item,
-    product:config.products.find((product)=>product.id===item.productId),
-  })).filter((item):item is DemoCartItem&{product:DemoProduct}=>Boolean(item.product)),[cart,config.products]);
+  const cartRows=useMemo(()=>cart.map((item)=>{
+    const product=config.products.find((candidate)=>candidate.id===item.productId);
+    const addonTotal=(product?.addons||[]).reduce((sum,addon)=>sum+addon.price*Math.max(0,item.addons?.[addon.id]||0),0);
+    return {...item,product,addonTotal,unitTotal:(product?.price||0)+addonTotal};
+  }).filter((item):item is DemoCartItem&{product:DemoProduct;addonTotal:number;unitTotal:number}=>Boolean(item.product)),[cart,config.products]);
 
   const cartCount=cart.reduce((sum,item)=>sum+item.quantity,0);
-  const cartTotal=cartRows.reduce((sum,item)=>sum+item.product.price*item.quantity,0);
+  const cartTotal=cartRows.reduce((sum,item)=>sum+item.unitTotal*item.quantity,0);
   const paidLocalTotal=orders.filter((order)=>order.paymentPaid).reduce((sum,order)=>sum+order.total,0);
 
-  const openProduct=(product:DemoProduct)=>{setQty(1);setSelected(product)};
+  const openProduct=(product:DemoProduct)=>{setQty(1);setSelectedAddons({});setSelected(product)};
+  const changeDemoAddon=(addonId:string,delta:number)=>setSelectedAddons((current)=>{
+    const next={...current};
+    const quantity=Math.max(0,Math.min(20,(next[addonId]||0)+delta));
+    if(quantity===0)delete next[addonId];else next[addonId]=quantity;
+    return next;
+  });
   const addSelected=()=>{
     if(!selected)return;
+    const addons=Object.fromEntries(Object.entries(selectedAddons).filter(([,value])=>value>0));
+    const key=addonSelectionKey(addons);
     setCart((current)=>{
-      const existing=current.find((item)=>item.productId===selected.id);
-      if(existing)return current.map((item)=>item.productId===selected.id?{...item,quantity:item.quantity+qty}:item);
-      return [...current,{productId:selected.id,quantity:qty}];
+      const existing=current.find((item)=>item.productId===selected.id&&addonSelectionKey(item.addons)===key);
+      if(existing)return current.map((item)=>item===existing?{...item,quantity:item.quantity+qty}:item);
+      return [...current,{productId:selected.id,quantity:qty,addons}];
     });
     setSelected(null);
+    setSelectedAddons({});
   };
-  const changeCartQty=(productId:string,delta:number)=>setCart((current)=>current
-    .map((item)=>item.productId===productId?{...item,quantity:Math.max(0,item.quantity+delta)}:item)
-    .filter((item)=>item.quantity>0));
+  const changeCartQty=(productId:string,addons:Record<string,number>|undefined,delta:number)=>{
+    const key=addonSelectionKey(addons);
+    setCart((current)=>current
+      .map((item)=>item.productId===productId&&addonSelectionKey(item.addons)===key?{...item,quantity:Math.max(0,item.quantity+delta)}:item)
+      .filter((item)=>item.quantity>0));
+  };
 
   const finishOrder=()=>{
     if(!cartRows.length)return;
@@ -233,7 +255,7 @@ export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
       status:variant==='food'?'received':'draft',
       paymentPaid:false,
       createdAt:new Date().toISOString(),
-      itemSummary:cartRows.map((item)=>`${item.quantity}x ${item.product.name}`).join(' · '),
+      itemSummary:cartRows.map((item)=>{const addons=(item.product.addons||[]).filter((addon)=>(item.addons?.[addon.id]||0)>0).map((addon)=>`${addon.name}${(item.addons?.[addon.id]||0)>1?` x${item.addons?.[addon.id]}`:''}`).join(', ');return `${item.quantity}x ${item.product.name}${addons?` (${addons})`:''}`}).join(' · '),
       ...(variant==='food'?{neighborhood:fulfillment==='delivery'?neighborhood:''}:{desiredDate,timeWindow,recipientName,cardMessage}),
     };
     setOrders((current)=>[order,...current]);
@@ -252,6 +274,7 @@ export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
     setCart(next.cart);
     setOrders(next.orders);
     setSelected(null);
+    setSelectedAddons({});
     setView('catalog');
     setMode('customer');
     setAdminPanel('dashboard');
@@ -285,7 +308,7 @@ export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
             <header><div><small>LOJA DEMONSTRATIVA</small><strong>{config.store}</strong></div><label><Search size={16}/><input value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Buscar produto..."/></label></header>
             <div className="interactive-demo__notice"><CheckCircle2 size={15}/>{variant==='food'?'Pedido salvo no sistema antes do contato pelo WhatsApp.':'Pedido com destinatário, data, faixa de horário e mensagem do cartão.'}</div>
             <div className="interactive-demo__products">{products.map((product)=><button type="button" className="interactive-demo__product" key={product.id} onClick={()=>openProduct(product)}>
-              <div className="interactive-demo__product-art"><ProductVisual variant={variant}/>{product.tag&&<b>{product.tag}</b>}</div>
+              <div className="interactive-demo__product-art"><ProductVisual variant={variant} product={product}/>{product.tag&&<b>{product.tag}</b>}</div>
               <div><small>{product.category}</small><strong>{product.name}</strong><p>{product.description}</p><footer><span>{money(product.price)}{product.oldPrice&&<del>{money(product.oldPrice)}</del>}</span><i><Plus size={15}/></i></footer></div>
             </button>)}</div>
             {!products.length&&<div className="interactive-demo__empty">Nenhum item encontrado nesta demonstração.</div>}
@@ -294,7 +317,7 @@ export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
 
           {view==='cart'&&<div className="interactive-demo__flow-page">
             <div className="interactive-demo__flow-head"><div><small>SEU PEDIDO</small><h3>Sacola</h3></div><button type="button" onClick={()=>setView('catalog')}>Continuar comprando</button></div>
-            <div className="interactive-demo__cart-list">{cartRows.map(({product,quantity})=><article key={product.id}><div className="interactive-demo__mini-visual"><ProductVisual variant={variant}/></div><div><strong>{product.name}</strong><small>{money(product.price)} cada</small></div><div className="interactive-demo__qty"><button type="button" onClick={()=>changeCartQty(product.id,-1)}><Minus size={14}/></button><b>{quantity}</b><button type="button" onClick={()=>changeCartQty(product.id,1)}><Plus size={14}/></button></div><strong>{money(product.price*quantity)}</strong></article>)}</div>
+            <div className="interactive-demo__cart-list">{cartRows.map((item,index)=><article key={`${item.product.id}-${addonSelectionKey(item.addons)}-${index}`}><div className="interactive-demo__mini-visual"><ProductVisual variant={variant} product={item.product}/></div><div><strong>{item.product.name}</strong><small>{money(item.unitTotal)} cada</small>{item.product.addons&&Object.keys(item.addons||{}).length>0&&<small className="interactive-demo__cart-addons-v060">{item.product.addons.filter((addon)=>(item.addons?.[addon.id]||0)>0).map((addon)=>`${addon.emoji} ${addon.name}${(item.addons?.[addon.id]||0)>1?` ×${item.addons?.[addon.id]}`:''}`).join(' · ')}</small>}</div><div className="interactive-demo__qty"><button type="button" onClick={()=>changeCartQty(item.product.id,item.addons,-1)}><Minus size={14}/></button><b>{item.quantity}</b><button type="button" onClick={()=>changeCartQty(item.product.id,item.addons,1)}><Plus size={14}/></button></div><strong>{money(item.unitTotal*item.quantity)}</strong></article>)}</div>
             {!cartRows.length&&<div className="interactive-demo__empty">Sua sacola está vazia.</div>}
             <div className="interactive-demo__flow-summary"><span>Total demonstrativo<strong>{money(cartTotal)}</strong></span><button type="button" disabled={!cartRows.length} onClick={()=>setView('checkout')}>Continuar pedido <ChevronRight size={16}/></button></div>
           </div>}
@@ -322,10 +345,10 @@ export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
           {view==='success'&&lastCreatedOrder&&<div className="interactive-demo__success"><CheckCircle2/><small>PEDIDO CRIADO NA DEMONSTRAÇÃO</small><h3>Pedido #{String(lastCreatedOrder.orderNumber).padStart(4,'0')}</h3><p>O pedido já apareceu na área de gestão abaixo. Ele fica salvo somente neste navegador até você reiniciar a demonstração.</p><strong>{money(lastCreatedOrder.total)}</strong><div><button type="button" onClick={openAdminOrders}>Ver no painel de gestão <LayoutDashboard size={16}/></button><button type="button" onClick={()=>setView('catalog')}>Continuar navegando</button></div></div>}
 
           {selected&&<div className="interactive-demo__modal-backdrop" onClick={()=>setSelected(null)}><div className="interactive-demo__modal" role="dialog" aria-modal="true" onClick={(event)=>event.stopPropagation()}>
-            <div className="interactive-demo__modal-art"><ProductVisual variant={variant}/></div>
+            <div className="interactive-demo__modal-art"><ProductVisual variant={variant} product={selected}/></div>
             <div className="interactive-demo__modal-content"><button type="button" className="interactive-demo__modal-close" onClick={()=>setSelected(null)} aria-label="Fechar">×</button><small>DETALHES DO PRODUTO</small><h3>{selected.name}</h3><p>{selected.description}</p><strong>{money(selected.price)}</strong>
-              <div className="interactive-demo__option"><span>{variant==='food'?'Adicionais e observações':'Personalize o presente'}</span><small>{variant==='food'?'A loja pode configurar grupos de opções e adicionais.':'Variações, complementos, mensagem e entrega fazem parte do fluxo atual.'}</small></div>
-              <div className="interactive-demo__modal-action"><div><button type="button" onClick={()=>setQty((value)=>Math.max(1,value-1))}><Minus size={15}/></button><b>{qty}</b><button type="button" onClick={()=>setQty((value)=>value+1)}><Plus size={15}/></button></div><button type="button" onClick={addSelected}>Adicionar · {money(selected.price*qty)}</button></div>
+              {variant==='food'&&selected.addons?.length?<div className="interactive-demo__addons-v060"><div><span>ADICIONAIS</span><small>Escolha e repita adicionais. O valor muda em tempo real.</small></div>{selected.addons.map((addon)=>{const addonQty=selectedAddons[addon.id]||0;return <div className={`interactive-demo__addon-row-v060 ${addonQty?'selected':''}`} key={addon.id}><span><b>{addon.emoji}</b><strong>{addon.name}</strong><small>+ {money(addon.price)}</small></span><div><button type="button" onClick={()=>changeDemoAddon(addon.id,-1)} disabled={!addonQty}><Minus size={13}/></button><b>{addonQty}</b><button type="button" onClick={()=>changeDemoAddon(addon.id,1)}><Plus size={13}/></button></div></div>})}</div>:<div className="interactive-demo__option"><span>{variant==='food'?'Personalização disponível':'Personalize o presente'}</span><small>{variant==='food'?'Variações, escolhas, adicionais e remoções podem ser configurados por produto.':'Variações, complementos, mensagem e entrega fazem parte do fluxo atual.'}</small></div>}
+              <div className="interactive-demo__modal-action"><div><button type="button" onClick={()=>setQty((value)=>Math.max(1,value-1))}><Minus size={15}/></button><b>{qty}</b><button type="button" onClick={()=>setQty((value)=>value+1)}><Plus size={15}/></button></div><button type="button" onClick={addSelected}>Adicionar · {money((selected.price+(selected.addons||[]).reduce((sum,addon)=>sum+addon.price*(selectedAddons[addon.id]||0),0))*qty)}</button></div>
             </div>
           </div></div>}
         </div>
@@ -344,7 +367,7 @@ export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
             {!order.paymentPaid&&order.status!=='cancelled'?<button type="button" onClick={()=>confirmPayment(order.id)}><CircleDollarSign size={14}/>Confirmar recebimento</button>:<span className="interactive-demo__paid"><CheckCircle2 size={14}/>Recebimento confirmado</span>}
             {variant==='flori'&&order.status==='draft'&&<button type="button" onClick={()=>markFloriWhatsapp(order.id)}>Marcar WhatsApp aberto</button>}
           </div></div>)}</div>}
-          {adminPanel==='products'&&<div className="interactive-demo__product-admin-grid">{config.products.map((product)=><article key={product.id}><div className="interactive-demo__mini-visual"><ProductVisual variant={variant}/></div><div><small>{product.category}</small><strong>{product.name}</strong><p>{money(product.price)}</p></div><em>Ativo</em></article>)}</div>}
+          {adminPanel==='products'&&<div className="interactive-demo__product-admin-v060"><div className="interactive-demo__admin-feature-note-v060"><strong>Cadastro com imagem ou emoji</strong><span>O lojista pode usar um emoji como visual quando não quiser enviar foto e configurar adicionais por produto.</span></div><div className="interactive-demo__product-admin-grid">{config.products.map((product)=><article key={product.id}><div className="interactive-demo__mini-visual"><ProductVisual variant={variant} product={product}/></div><div><small>{product.category}</small><strong>{product.name}</strong><p>{money(product.price)}{variant==='food'&&product.addons?.length?` · ${product.addons.length} adicionais`:''}</p></div><em>Ativo</em></article>)}</div></div>}
           {adminPanel==='finance'&&<div className="interactive-demo__finance-page"><div className="interactive-demo__kpis"><article><span>Recebimentos confirmados</span><strong>{money(displayedRevenue)}</strong><small>Pedidos pagos/confirmados</small></article><article><span>Pendentes</span><strong>{orders.filter((order)=>!order.paymentPaid&&order.status!=='cancelled').length}</strong><small>Aguardando confirmação</small></article><article><span>Ticket médio</span><strong>{money(orders.length?orders.reduce((sum,order)=>sum+order.total,0)/orders.length:0)}</strong><small>Pedidos exibidos</small></article><article><span>Documentos</span><strong>{variant==='food'?'18':'12'}</strong><small>Leitura assistida existente</small></article></div><article className="interactive-demo__chart"><div className="interactive-demo__panel-title"><strong>Resultado gerencial demonstrativo</strong><Clock3 size={16}/></div><div>{[38,54,49,67,74,88].map((height,index)=><span key={index} style={{height:`${height}%`}}><i/></span>)}</div></article></div>}
         </div>
       </div>}

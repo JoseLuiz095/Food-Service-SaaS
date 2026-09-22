@@ -11,7 +11,7 @@ import { createId } from '../../utils/id';
 
 const emptyProduct = (storeId: string): Product => ({
   id: createId(), storeId, categoryId: '', name: '', slug: '', description: '', price: 0,
-  imageUrl: '/assets/placeholder-food.svg', gallery: [], images: [], featured: false, active: true,
+  imageUrl: '/assets/placeholder-food.svg', visualEmoji: '🍔', gallery: [], images: [], featured: false, active: true,
   madeToOrder: false, productionDays: 0, stockStatus: 'available', availabilityStatus: 'available',
   trackStock: false, stockQuantity: undefined, preparationTimeMinutes: 0, sortOrder: 0,
   optionGroups: [], variations: [], addons: [],
@@ -23,6 +23,25 @@ const kindLabel: Record<OptionGroupKind, string> = {
   addon: 'Adicional',
   removal: 'Remoção',
 };
+
+const productEmojiOptions = ['🍔','🍕','🍟','🌭','🥪','🌮','🍗','🥩','🍖','🥗','🍝','🍜','🍣','🍤','🍚','🥟','🍰','🍫','🍦','🍓','🍌','🥤','☕','🧃'];
+
+type GroupPreset = {
+  label: string;
+  name: string;
+  kind: OptionGroupKind;
+  minChoices: number;
+  maxChoices: number;
+  description: string;
+  items: Array<{ name: string; priceDelta: number }>;
+};
+
+const groupPresets: GroupPreset[] = [
+  {label:'Adicionais',name:'Adicionais',kind:'addon',minChoices:0,maxChoices:4,description:'Escolha até 4 adicionais. Você pode repetir o mesmo adicional.',items:[{name:'Bacon extra',priceDelta:5},{name:'Queijo extra',priceDelta:4},{name:'Ovo',priceDelta:3},{name:'Banana',priceDelta:4}]},
+  {label:'Remover ingredientes',name:'Remover ingredientes',kind:'removal',minChoices:0,maxChoices:4,description:'Retire ingredientes sem custo.',items:[{name:'Cebola',priceDelta:0},{name:'Tomate',priceDelta:0},{name:'Alface',priceDelta:0},{name:'Molho',priceDelta:0}]},
+  {label:'Tamanho',name:'Tamanho',kind:'variant',minChoices:1,maxChoices:1,description:'Escolha o tamanho.',items:[{name:'Padrão',priceDelta:0},{name:'Grande',priceDelta:8}]},
+  {label:'Ponto da carne',name:'Ponto da carne',kind:'choice',minChoices:1,maxChoices:1,description:'Escolha o ponto de preparo.',items:[{name:'Ao ponto',priceDelta:0},{name:'Bem passado',priceDelta:0}]},
+];
 
 const newGroup = (storeId: string, index: number): OptionGroup => ({
   id: createId(), storeId, name: '', kind: 'addon', minChoices: 0, maxChoices: 3, active: true,
@@ -61,6 +80,32 @@ export default function ProductForm() {
 
   const addGroup = () => {
     const group = newGroup(settings.id, product.optionGroups.length);
+    update('optionGroups', [...product.optionGroups, group]);
+    setOpenGroups((current) => ({ ...current, [group.id]: true }));
+  };
+
+  const addPresetGroup = (preset: GroupPreset) => {
+    const groupId = createId();
+    const group: OptionGroup = {
+      id: groupId,
+      storeId: settings.id,
+      name: preset.name,
+      kind: preset.kind,
+      minChoices: preset.minChoices,
+      maxChoices: preset.maxChoices,
+      description: preset.description,
+      active: true,
+      sortOrder: (product.optionGroups.length + 1) * 10,
+      items: preset.items.map((item, index) => ({
+        id: createId(),
+        groupId,
+        storeId: settings.id,
+        name: item.name,
+        priceDelta: item.priceDelta,
+        active: true,
+        sortOrder: (index + 1) * 10,
+      })),
+    };
     update('optionGroups', [...product.optionGroups, group]);
     setOpenGroups((current) => ({ ...current, [group.id]: true }));
   };
@@ -156,6 +201,7 @@ export default function ProductForm() {
           <label className="full">Nome do produto<input required value={product.name} onChange={(event) => update('name', event.target.value)} placeholder="Ex.: X-Bacon Artesanal"/></label>
           <label>Categoria<select required value={product.categoryId} onChange={(event) => update('categoryId', event.target.value)}><option value="">Selecione</option>{activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
           <label>Código interno<input value={product.internalCode || ''} onChange={(event) => update('internalCode', event.target.value)} placeholder="Ex.: XB001"/></label>
+          <label className="full product-emoji-field-v060"><span>Visual sem foto</span><div className="product-emoji-input-v060"><input value={product.visualEmoji || ''} onChange={(event) => update('visualEmoji', event.target.value.slice(0, 16))} placeholder="Ex.: 🍔"/><div className="product-emoji-picker-v060" aria-label="Sugestões de emoji">{productEmojiOptions.map((emoji) => <button type="button" key={emoji} className={product.visualEmoji === emoji ? 'selected' : ''} onClick={() => update('visualEmoji', emoji)}>{emoji}</button>)}</div></div><small>Se o produto não tiver imagem, o FoodWeb usa este emoji no cardápio.</small></label>
           <label>Preço<input required type="number" min="0" step="0.01" value={product.price} onChange={(event) => update('price', Number(event.target.value))}/></label>
           <label>Preço promocional<input type="number" min="0" step="0.01" value={product.promotionalPrice ?? ''} onChange={(event) => update('promotionalPrice', event.target.value ? Number(event.target.value) : undefined)}/></label>
           <label>Tempo adicional de preparo (min)<input type="number" min="0" step="1" value={product.preparationTimeMinutes} onChange={(event) => update('preparationTimeMinutes', Number(event.target.value))}/></label>
@@ -165,7 +211,8 @@ export default function ProductForm() {
 
         <div className="subform-section">
           <div className="subform-title"><div><span className="eyebrow">PERSONALIZAÇÃO</span><h3>Grupos de opções</h3><p className="muted">Um único modelo atende tamanho, ponto da carne, adicionais e remoções.</p></div><button type="button" className="secondary-button" onClick={addGroup}><Plus size={16}/>Adicionar grupo</button></div>
-          {product.optionGroups.length === 0 ? <div className="option-builder-empty"><p>Este produto não possui personalizações.</p><button type="button" className="secondary-button" onClick={addGroup}><Plus size={16}/>Criar primeiro grupo</button></div> : <div className="option-builder-list">
+          <div className="option-preset-bar-v060"><span>Adicionar rapidamente:</span><div>{groupPresets.map((preset) => <button type="button" key={preset.label} onClick={() => addPresetGroup(preset)}><Plus size={14}/>{preset.label}</button>)}</div></div>
+                    {product.optionGroups.length === 0 ? <div className="option-builder-empty"><p>Este produto não possui personalizações.</p><button type="button" className="secondary-button" onClick={addGroup}><Plus size={16}/>Criar primeiro grupo</button></div> : <div className="option-builder-list">
             {product.optionGroups.map((group) => <section className="option-builder-group" key={group.id}>
               <header><button type="button" className="option-builder-toggle" onClick={() => setOpenGroups((current) => ({ ...current, [group.id]: !current[group.id] }))}><ChevronDown size={17} className={openGroups[group.id] ? 'is-open' : ''}/><strong>{group.name || 'Novo grupo'}</strong><span>{kindLabel[group.kind]} · {group.minChoices}-{group.maxChoices} escolha(s)</span></button><button type="button" className="row-delete" onClick={() => removeGroup(group.id)} aria-label="Excluir grupo"><Trash2 size={16}/></button></header>
               {openGroups[group.id] && <div className="option-builder-body">
@@ -179,8 +226,9 @@ export default function ProductForm() {
                 <div className="option-builder-items">
                   <div className="option-builder-items__head"><strong>Opções</strong><button type="button" className="secondary-button" onClick={() => addOption(group)}><Plus size={15}/>Adicionar opção</button></div>
                   {group.items.length === 0 && <p className="muted">Adicione pelo menos uma opção.</p>}
-                  {group.items.map((item, index) => <div className="variation-row option-item-row" key={item.id}>
+                  {group.items.map((item, index) => <div className="variation-row option-item-row option-item-row-v060" key={item.id}>
                     <input aria-label={`Opção ${index + 1}`} value={item.name} onChange={(event) => updateOption(group.id, item.id, { name: event.target.value })} placeholder={group.kind === 'removal' ? 'Ex.: Cebola' : 'Ex.: Bacon'}/>
+                    <input className="option-item-description-v060" aria-label={`Descrição da opção ${index + 1}`} value={item.description || ''} onChange={(event) => updateOption(group.id, item.id, { description: event.target.value })} placeholder="Descrição opcional"/>
                     <div className="money-input"><span>R$</span><input aria-label={`Preço da opção ${index + 1}`} type="number" step="0.01" disabled={group.kind === 'removal'} value={group.kind === 'removal' ? 0 : item.priceDelta} onChange={(event) => updateOption(group.id, item.id, { priceDelta: Number(event.target.value) })}/></div>
                     <label className="mini-check"><input type="checkbox" checked={item.active} onChange={(event) => updateOption(group.id, item.id, { active: event.target.checked })}/>Ativa</label>
                     <button type="button" className="row-delete" onClick={() => removeOption(group.id, item.id)}><Trash2 size={16}/></button>
@@ -191,11 +239,11 @@ export default function ProductForm() {
           </div>}
         </div>
 
-        <div className="subform-section"><div className="subform-title"><div><span className="eyebrow">IMAGENS</span><h3>Galeria do produto</h3></div><span className="muted">{totalImages}/{imageLimit ?? '∞'} imagens</span></div><label className="upload-drop"><ImagePlus size={24}/><strong>Selecionar imagens</strong><span>JPG, PNG ou WEBP · até 5 MB cada</span><input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => selectFiles(event.target.files)}/></label>{files.length > 0 && <div className="pending-files">{files.map((file, index) => <span key={`${file.name}-${index}`}>{file.name}<button type="button" onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X size={14}/></button></span>)}</div>}{product.images.length > 0 && <div className="image-admin-grid">{product.images.map((image) => <article key={image.id} className={image.isPrimary ? 'is-primary' : ''}><ImageWithFallback src={image.url} alt={image.altText || product.name}/><div><button type="button" onClick={() => void primary(image)} title="Definir como principal"><Star size={16}/>{image.isPrimary ? 'Principal' : 'Tornar principal'}</button><button type="button" onClick={() => void removeImage(image)} title="Excluir imagem"><Trash2 size={16}/></button></div></article>)}</div>}</div>
+        <div className="subform-section"><div className="subform-title"><div><span className="eyebrow">IMAGENS</span><h3>Galeria do produto</h3></div><span className="muted">{totalImages}/{imageLimit ?? '∞'} imagens</span></div><p className="product-media-note-v060">Imagem tem prioridade. Sem imagem cadastrada, o emoji escolhido acima aparece automaticamente para o cliente.</p><label className="upload-drop"><ImagePlus size={24}/><strong>Selecionar imagens</strong><span>JPG, PNG ou WEBP · até 5 MB cada</span><input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => selectFiles(event.target.files)}/></label>{files.length > 0 && <div className="pending-files">{files.map((file, index) => <span key={`${file.name}-${index}`}>{file.name}<button type="button" onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X size={14}/></button></span>)}</div>}{product.images.length > 0 && <div className="image-admin-grid">{product.images.map((image) => <article key={image.id} className={image.isPrimary ? 'is-primary' : ''}><ImageWithFallback src={image.url} alt={image.altText || product.name}/><div><button type="button" onClick={() => void primary(image)} title="Definir como principal"><Star size={16}/>{image.isPrimary ? 'Principal' : 'Tornar principal'}</button><button type="button" onClick={() => void removeImage(image)} title="Excluir imagem"><Trash2 size={16}/></button></div></article>)}</div>}</div>
       </section>
 
       <aside>
-        <section className="admin-card form-section"><span className="eyebrow">PUBLICAÇÃO</span><h2>Disponibilidade</h2><label className="switch-row"><span><strong>Produto ativo</strong><small>Aparece no cardápio público</small></span><input type="checkbox" checked={product.active} onChange={(event) => update('active', event.target.checked)}/></label><label className="switch-row"><span><strong>Destaque</strong><small>Produto em evidência</small></span><input type="checkbox" checked={product.featured} onChange={(event) => update('featured', event.target.checked)}/></label><div className="product-form-preview"><span>Preço atual</span><strong>{currency.format(product.promotionalPrice ?? product.price)}</strong><small>{product.optionGroups.length} grupo(s) de personalização</small></div></section>
+        <section className="admin-card form-section"><span className="eyebrow">PUBLICAÇÃO</span><h2>Disponibilidade</h2><label className="switch-row"><span><strong>Produto ativo</strong><small>Aparece no cardápio público</small></span><input type="checkbox" checked={product.active} onChange={(event) => update('active', event.target.checked)}/></label><label className="switch-row"><span><strong>Destaque</strong><small>Produto em evidência</small></span><input type="checkbox" checked={product.featured} onChange={(event) => update('featured', event.target.checked)}/></label><div className="product-form-preview"><span>Preço atual</span><strong>{currency.format(product.promotionalPrice ?? product.price)}</strong>{product.visualEmoji && <span className="product-form-emoji-preview-v060" aria-label="Emoji do produto">{product.visualEmoji}</span>}<small>{product.optionGroups.length} grupo(s) de personalização</small></div></section>
         <button className="primary-button full-button" disabled={saving} type="submit"><Save size={18}/>{saving ? 'Salvando...' : 'Salvar produto'}</button>
       </aside>
     </form>

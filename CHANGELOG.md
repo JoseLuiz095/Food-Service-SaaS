@@ -1,3 +1,20 @@
+# Changelog
+
+## 0.6.0 — 2026-09-22
+- Pacote de publicação REV2: release cumulativa baseada diretamente na `main` 0.5.8/0.5.9.
+- Promoção para produção passa a limpar artefatos legados da raiz e remover branches remotas `release/foodweb-v*` após sucesso.
+- `.gitignore` passa a ignorar backups e payloads locais para evitar nova poluição do repositório.
+- Corrigido o contraste do título do hero claro com seletor específico, sem `!important`.
+
+- Produto pode usar emoji como visual alternativo quando não possui imagem cadastrada.
+- Admin ganhou seletor rápido de emojis correlacionados a alimentos no cadastro de produto.
+- Personalizações do produto receberam atalhos prontos para Adicionais, Remover ingredientes, Tamanho e Ponto da carne.
+- Opções agora aceitam descrição individual no cadastro para orientar melhor o cliente.
+- Cliente pode escolher quantidade do mesmo adicional (ex.: 2x bacon, 1x banana), respeitando o limite de opções diferentes do grupo.
+- Carrinho exibe quantidade dos adicionais selecionados e preserva personalizações distintas como itens diferentes.
+- Demonstração interativa passou a exibir emojis de produtos, adicionais selecionáveis, preço atualizado e resumo das personalizações.
+- Painel demonstrativo de produtos passou a evidenciar cadastro por emoji e quantidade de adicionais configurados.
+- Migration aditiva `202609221300_foodweb_v060_product_personalization.sql` adiciona somente `food_products.visual_emoji`, sem alterar RLS ou Edge Functions.
 
 ## 0.4.4 - 2026-09-03
 
