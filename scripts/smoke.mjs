@@ -51,7 +51,7 @@ const home=read('src/pages/store/Home.tsx');
 const header=read('src/components/StoreHeader.tsx');
 const billingStatus=read('src/utils/billingStatus.ts');
 
-ok('Pacote FoodWeb v0.6.1',pkg.name==='foodservice-saas'&&pkg.version==='0.6.1');
+ok('Pacote FoodWeb v0.6.2',pkg.name==='foodservice-saas'&&pkg.version==='0.6.2');
 const selfSignup = read('src/pages/store/SelfSignup.tsx');
 const selfSignupService = read('src/services/selfServiceSignup.ts');
 const signupRequests = read('src/pages/master/SignupRequests.tsx');
@@ -241,7 +241,7 @@ ok('v0.6.1 upsell no carrinho',cartV061.includes('Que tal levar também?')&&cart
 ok('v0.6.1 pedir novamente local',cartV061.includes('Pedir novamente')&&read('src/pages/store/Checkout.tsx').includes('saveRecentOrder'));
 ok('v0.6.1 landing comunica novas ferramentas',landingV061.includes('Recuperação de vendas')&&landingV061.includes('Cozinha / KDS opcional')&&landingV061.includes('CRM simples + pedir novamente'));
 ok('v0.6.1 SQL de validacao existe',exists('supabase/VALIDAR_V061.sql'));
-console.log(`\nSmoke FoodWeb v0.6.1 concluído: ${checks.length} verificações + ${sourceFiles.length} arquivos TS/TSX.`);
+console.log(`\nSmoke FoodWeb v0.6.2 concluído: ${checks.length} verificações + ${sourceFiles.length} arquivos TS/TSX.`);
 
 
 // FoodWeb v0.5.4 - paridade visual com FloriWeb no Admin/Admin Master
@@ -268,4 +268,25 @@ if(failures.length){
   for(const failure of failures)console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log(`Smoke final FoodWeb v0.6.1: ${checks.length} verificações aprovadas.`);
+console.log(`Smoke final FoodWeb v0.6.2: ${checks.length} verificações aprovadas.`);
+
+
+// FoodWeb v0.6.2 - refinamento operacional e comercial
+const settingsV062=read('src/pages/admin/Settings.tsx');
+const ordersV062=read('src/pages/admin/Orders.tsx');
+const landingV062=read('src/pages/store/Landing.tsx');
+const masterPlansV062=read('src/pages/master/Plans.tsx');
+const landingApiV062=read('src/services/landingApi.ts');
+const opMigrationV062=read('supabase/migrations/202609230900_foodweb_v062_operational_refinement.sql');
+const benefitsMigrationV062=read('supabase/migrations/202609231000_foodweb_v062_plan_marketing_benefits.sql');
+ok('v0.6.2 recuperacao configuravel',settingsV062.includes('salesRecoveryMinutes')&&ordersV062.includes('settings.salesRecoveryMinutes')&&opMigrationV062.includes('sales_recovery_minutes'));
+ok('v0.6.2 KDS usa acoes de status',ordersV062.includes('kds-status-buttons-v062')&&ordersV062.includes('changeStatusWithCustomerDraft')&&settingsV062.includes('kdsNotifyCustomer'));
+ok('v0.6.2 upsell e recompra configuraveis',settingsV062.includes('upsellEnabled')&&settingsV062.includes('repeatOrderEnabled')&&read('src/pages/store/Cart.tsx').includes('settings.upsellEnabled'));
+ok('v0.6.2 checkout refinado',css.includes('FoodWeb v0.6.2 - refinamento operacional e comercial')&&css.includes('.checkout-review-check-v44'));
+ok('v0.6.2 Premium possui narrativa superior',landingV062.includes('POR QUE O PREMIUM?')&&landingV062.includes('MAIS COMPLETO'));
+ok('v0.6.2 beneficios comerciais editaveis',masterPlansV062.includes('Benefícios comerciais extras')&&landingApiV062.includes('marketingBenefits')&&benefitsMigrationV062.includes('marketing_benefits'));
+ok('v0.6.2 auto cadastro Demo acompanha LandingPlan',read('src/pages/store/SelfSignup.tsx').includes('marketingBenefits:[]'));
+ok('v0.6.2 demo evita emoji nativo de produto',read('src/components/marketing/InteractiveShowcase.tsx').includes('interactive-demo__food-icon-v062'));
+ok('v0.6.2 SQL de validacao existe',exists('supabase/VALIDAR_V062.sql'));
+if(failures.length){console.error(`\n${failures.length} falha(s) nas verificacoes v0.6.2:`);for(const failure of failures)console.error(`- ${failure}`);process.exit(1)}
+console.log(`Smoke final FoodWeb v0.6.2: ${checks.length} verificações aprovadas.`);

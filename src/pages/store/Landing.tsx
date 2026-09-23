@@ -53,8 +53,8 @@ const planMarketingContent: Record<string, PlanMarketingContent> = {
     intent: 'trial',
   },
   PROFESSIONAL: {
-    eyebrow: 'OPERAÇÃO CONSOLIDADA',
-    description: 'Para quem precisa ampliar capacidade, reforçar presença de marca e contar com uma estrutura mais completa para escalar a operação.',
+    eyebrow: 'MAIS COMPLETO',
+    description: 'Para quem quer transformar o FoodWeb em uma ferramenta contínua de venda, relacionamento e operação, com mais autonomia de marca e recursos para crescer sem trocar de plataforma.',
     idealFor: 'Operações com maior volume, identidade própria e necessidade de mais capacidade de catálogo.',
     features: [
       'Tudo do plano Profissional',
@@ -66,7 +66,7 @@ const planMarketingContent: Record<string, PlanMarketingContent> = {
       'Leitura de documentos financeiros',
       'Suporte prioritário para a operação',
     ],
-    contactLabel: 'Quero falar sobre o Premium',
+    contactLabel: 'Quero crescer com o Premium',
     intent: 'commercial',
   },
 };
@@ -78,9 +78,9 @@ const fallback: PublicLanding = {
   demoDurationDays: 14,
   contactProtected: true,
   plans: [
-    { id: 'essential', code: 'ESSENTIAL', name: 'Essencial', monthlyPrice: 49.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery'] },
-    { id: 'starter', code: 'STARTER', name: 'Profissional', monthlyPrice: 79.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery', 'analytics', 'finance', 'financial_documents', 'custom_banner', 'multiple_images'] },
-    { id: 'professional', code: 'PROFESSIONAL', name: 'Premium', monthlyPrice: 129.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery', 'analytics', 'finance', 'financial_documents', 'custom_banner', 'multiple_images'] },
+    { id: 'essential', code: 'ESSENTIAL', name: 'Essencial', monthlyPrice: 49.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery'], marketingBenefits: [] },
+    { id: 'starter', code: 'STARTER', name: 'Profissional', monthlyPrice: 79.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery', 'analytics', 'finance', 'financial_documents', 'custom_banner', 'multiple_images'], marketingBenefits: [] },
+    { id: 'professional', code: 'PROFESSIONAL', name: 'Premium', monthlyPrice: 129.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery', 'analytics', 'finance', 'financial_documents', 'custom_banner', 'multiple_images'], marketingBenefits: [] },
   ],
 };
 
@@ -156,10 +156,10 @@ export default function Landing() {
             <p className="sales-plan-description-v59">{content.description}</p>
             <div className="sales-plan-fit-v59"><strong>Indicado para</strong><span>{content.idealFor}</span></div>
           </div>
-          <ul>{content.features.map((feature) => <li key={`${plan.id}-${feature}`}><Check size={15} />{feature}</li>)}</ul>
+          <ul>{[...content.features,...(plan.marketingBenefits||[])].filter((feature,index,all)=>all.indexOf(feature)===index).map((feature) => <li key={`${plan.id}-${feature}`}><Check size={15} />{feature}</li>)}</ul>
           <ProtectedContactButton className={`sales-plan-contact-v59 ${recommended ? 'sales-plan-contact-v59--featured' : ''}`} intent={content.intent}><MessageCircle size={16} />{content.contactLabel}</ProtectedContactButton>
         </article>;
-      })}<article className="sales-plan-card food-business-sales-v051 sales-plan-card-business-v59"><span className="sales-plan-badge">SOB MEDIDA</span><small>BUSINESS</small><h3>Business</h3><div className="sales-plan-price"><strong>Sob consulta</strong><span>valor definido pelo projeto</span></div><p className="sales-plan-description-v59">Projeto desenhado para operações que precisam de mais integração, automação e acompanhamento técnico no dia a dia.</p><div className="sales-plan-fit-v59 sales-plan-fit-v59--dark"><strong>Indicado para</strong><span>Operações multiunidade, franquias, centrais de produção e negócios com necessidades especiais.</span></div><ul><li><Check size={15} />Domínio próprio incluído</li><li><Check size={15} />Multiunidade e fluxos personalizados</li><li><Check size={15} />Integrações com ERP, PDV e APIs</li><li><Check size={15} />Relatórios e automações sob medida</li><li><Check size={15} />Acompanhamento técnico dedicado</li></ul><ProtectedContactButton className="sales-plan-contact-v59 sales-plan-contact-v59--dark" intent="commercial"><MessageCircle size={16} />Quero avaliar um projeto Business</ProtectedContactButton></article></div><div className="sales-plan-note"><ShieldCheck size={17} /><span>O telefone comercial não fica exposto no HTML. O contato é liberado pelo servidor somente após a validação anti-robô.</span></div></div></section>
+      })}<article className="sales-plan-card food-business-sales-v051 sales-plan-card-business-v59"><span className="sales-plan-badge">SOB MEDIDA</span><small>BUSINESS</small><h3>Business</h3><div className="sales-plan-price"><strong>Sob consulta</strong><span>valor definido pelo projeto</span></div><p className="sales-plan-description-v59">Projeto desenhado para operações que precisam de mais integração, automação e acompanhamento técnico no dia a dia.</p><div className="sales-plan-fit-v59 sales-plan-fit-v59--dark"><strong>Indicado para</strong><span>Operações multiunidade, franquias, centrais de produção e negócios com necessidades especiais.</span></div><ul><li><Check size={15} />Domínio próprio incluído</li><li><Check size={15} />Multiunidade e fluxos personalizados</li><li><Check size={15} />Integrações com ERP, PDV e APIs</li><li><Check size={15} />Relatórios e automações sob medida</li><li><Check size={15} />Acompanhamento técnico dedicado</li></ul><ProtectedContactButton className="sales-plan-contact-v59 sales-plan-contact-v59--dark" intent="commercial"><MessageCircle size={16} />Quero avaliar um projeto Business</ProtectedContactButton></article></div><div className="premium-value-story-v062"><div><span>POR QUE O PREMIUM?</span><h3>O Profissional organiza. O Premium ajuda a vender novamente e operar melhor.</h3></div><p>Quando a operação começa a ganhar recorrência, domínio próprio, CRM, recuperação, upsell e KDS deixam de ser detalhes e passam a reduzir trabalho e criar novas oportunidades de venda.</p></div><div className="sales-plan-note"><ShieldCheck size={17} /><span>O telefone comercial não fica exposto no HTML. O contato é liberado pelo servidor somente após a validação anti-robô.</span></div></div></section>
 
       <section className="sales-final-cta sales-final-cta-v43 sales-final-cta-v59"><div className="sales-shell"><div><span>PRONTO PARA CONHECER MELHOR?</span><h2>Fale com a equipe comercial e entenda qual plano faz mais sentido para o seu negócio.</h2><p>O contato público é protegido e o suporte técnico continua reservado para lojistas autenticados.</p></div><ProtectedContactButton className="sales-cta-light sales-cta-contact-v59" intent="commercial"><MessageCircle size={18} />Entrar em contato no WhatsApp</ProtectedContactButton></div></section>
     </main>

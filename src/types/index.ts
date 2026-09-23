@@ -180,6 +180,13 @@ export type StoreSettings = {
   averagePreparationMax: number;
   allowScheduledOrders: boolean;
   kdsEnabled: boolean;
+  kdsNotifyCustomer: boolean;
+  salesRecoveryEnabled: boolean;
+  salesRecoveryMinutes: number;
+  crmEnabled: boolean;
+  repeatOrderEnabled: boolean;
+  upsellEnabled: boolean;
+  upsellLimit: number;
   openingHours: string;
   openingSchedule: OpeningSchedule;
   active: boolean;
@@ -206,6 +213,7 @@ export type Plan = {
   active: boolean;
   featureCodes: string[];
   featureLimits?: Record<string, number | null>;
+  marketingBenefits?: string[];
 };
 
 export type BillingProvider = 'manual' | 'asaas';

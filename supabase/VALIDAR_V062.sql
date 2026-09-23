@@ -1,0 +1,1 @@
+select column_name,data_type from information_schema.columns where table_schema='public' and table_name='food_stores' and column_name in ('kds_notify_customer','sales_recovery_enabled','sales_recovery_minutes','crm_enabled','repeat_order_enabled','upsell_enabled','upsell_limit') order by column_name;

@@ -49,7 +49,7 @@ const daysUntil = (value?: string) => {
 const trialExpired = (value?: string) => Boolean(value) && new Date(value as string).getTime() <= Date.now();
 
 type StoreRow = { id:string; slug:string; name:string; city:string|null; state:string|null; owner_name:string|null; owner_email:string|null; active:boolean; access_status:StoreAccessStatus; suspended_at:string|null; suspension_reason:string|null };
-type PlanRow = { id:string; code:string; name:string; product_limit:number|null; image_limit_per_product:number|null; custom_domain:boolean; reports:boolean; priority_support:boolean; monthly_price:number|string|null; setup_price:number|string|null; category_limit:number|null; addon_limit:number|null; admin_user_limit:number|null; sort_order:number|null; active:boolean };
+type PlanRow = { id:string; code:string; name:string; product_limit:number|null; image_limit_per_product:number|null; custom_domain:boolean; reports:boolean; priority_support:boolean; monthly_price:number|string|null; setup_price:number|string|null; category_limit:number|null; addon_limit:number|null; admin_user_limit:number|null; sort_order:number|null; active:boolean; marketing_benefits?: string[] | null };
 type SubscriptionRow = { id:string; store_id:string; plan_id:string; status:'trial'|'active'|'suspended'|'cancelled'; status_before_suspension:'trial'|'active'|null; started_at:string; expires_at:string|null; billing_amount:number|string|null; due_day:number|null; next_due_date:string|null };
 type DomainRow = { id:string; store_id:string; domain:string; is_primary:boolean; active:boolean };
 type CountRow = { id:string; store_id:string; active?:boolean };
@@ -64,6 +64,7 @@ const mapPlan = (row: PlanRow, features:PlanFeatureRow[]=[]): Plan => ({
   addonLimit:row.addon_limit, adminUserLimit:row.admin_user_limit, sortOrder:row.sort_order ?? 0, active:row.active,
   featureCodes:features.filter((f)=>f.plan_id===row.id&&f.enabled).map((f)=>f.feature_code),
   featureLimits:Object.fromEntries(features.filter((f)=>f.plan_id===row.id&&f.enabled).map((f)=>[f.feature_code,f.limit_value])),
+  marketingBenefits:Array.isArray(row.marketing_benefits)?row.marketing_benefits.filter(Boolean):[],
 });
 
 const mapPlatformSettings = (row?: PlatformSettingsRow): PlatformSettings => row ? {
@@ -92,9 +93,9 @@ export type CreatePlatformStoreInput = {
 
 const demoPlans: Plan[] = [
   {id:'demo',code:'DEMO',name:'Teste grátis',productLimit:120,imageLimitPerProduct:5,customDomain:false,reports:true,prioritySupport:false,monthlyPrice:0,setupPrice:0,categoryLimit:30,addonLimit:120,adminUserLimit:1,sortOrder:0,active:true,featureCodes:['catalog','orders','whatsapp','delivery','billing_pix','analytics','custom_banner','finance','financial_documents'],featureLimits:{}},
-  {id:'essential',code:'ESSENTIAL',name:'Essencial',productLimit:40,imageLimitPerProduct:1,customDomain:false,reports:false,prioritySupport:false,monthlyPrice:49.9,setupPrice:0,categoryLimit:12,addonLimit:40,adminUserLimit:1,sortOrder:10,active:true,featureCodes:['catalog','orders','whatsapp','delivery','billing_pix'],featureLimits:{}},
-  {id:'starter',code:'STARTER',name:'Profissional',productLimit:120,imageLimitPerProduct:5,customDomain:false,reports:true,prioritySupport:false,monthlyPrice:89.9,setupPrice:0,categoryLimit:30,addonLimit:120,adminUserLimit:1,sortOrder:20,active:true,featureCodes:['catalog','orders','whatsapp','delivery','billing_pix','analytics','custom_banner','finance','financial_documents'],featureLimits:{}},
-  {id:'professional',code:'PROFESSIONAL',name:'Premium',productLimit:null,imageLimitPerProduct:10,customDomain:true,reports:true,prioritySupport:true,monthlyPrice:149.9,setupPrice:0,categoryLimit:null,addonLimit:null,adminUserLimit:1,sortOrder:30,active:true,featureCodes:['catalog','orders','whatsapp','delivery','billing_pix','analytics','custom_banner','finance','financial_documents'],featureLimits:{}},
+  {id:'essential',code:'ESSENTIAL',name:'Essencial',productLimit:40,imageLimitPerProduct:1,customDomain:false,reports:false,prioritySupport:false,monthlyPrice:49.9,setupPrice:0,categoryLimit:12,addonLimit:40,adminUserLimit:1,sortOrder:10,active:true,featureCodes:['catalog','orders','whatsapp','delivery','billing_pix'],featureLimits:{},marketingBenefits:['Atendimento direto, sem comissão por pedido']},
+  {id:'starter',code:'STARTER',name:'Profissional',productLimit:120,imageLimitPerProduct:5,customDomain:false,reports:true,prioritySupport:false,monthlyPrice:89.9,setupPrice:0,categoryLimit:30,addonLimit:120,adminUserLimit:1,sortOrder:20,active:true,featureCodes:['catalog','orders','whatsapp','delivery','billing_pix','analytics','custom_banner','finance','financial_documents'],featureLimits:{},marketingBenefits:['Recuperação de vendas e CRM simples','Upsell no carrinho e pedir novamente']},
+  {id:'professional',code:'PROFESSIONAL',name:'Premium',productLimit:null,imageLimitPerProduct:10,customDomain:true,reports:true,prioritySupport:true,monthlyPrice:149.9,setupPrice:0,categoryLimit:null,addonLimit:null,adminUserLimit:1,sortOrder:30,active:true,featureCodes:['catalog','orders','whatsapp','delivery','billing_pix','analytics','custom_banner','finance','financial_documents'],featureLimits:{},marketingBenefits:['KDS com mensagens prontas para o cliente','Domínio próprio e recursos de recorrência']},
 ];
 
 export const platformApi = {
@@ -110,7 +111,7 @@ export const platformApi = {
       name:plan.name, product_limit:plan.productLimit, image_limit_per_product:plan.imageLimitPerProduct,
       custom_domain:plan.customDomain, reports:plan.reports, priority_support:plan.prioritySupport,
       monthly_price:plan.monthlyPrice ?? 0, setup_price:plan.setupPrice ?? 0, category_limit:plan.categoryLimit ?? null,
-      addon_limit:plan.addonLimit ?? null, admin_user_limit:plan.adminUserLimit ?? null, sort_order:plan.sortOrder ?? 0, active:plan.active,
+      addon_limit:plan.addonLimit ?? null, admin_user_limit:plan.adminUserLimit ?? null, sort_order:plan.sortOrder ?? 0, active:plan.active, marketing_benefits:(plan.marketingBenefits||[]).map((item)=>item.trim()).filter(Boolean).slice(0,20),
     };
     const rows = await restFetch<PlanRow[]>(`food_plans?id=eq.${encodeURIComponent(plan.id)}&select=*`, {method:'PATCH',body,prefer:'return=representation'});
     const features=await restFetch<PlanFeatureRow[]>(`food_plan_features?select=plan_id,feature_code,enabled,limit_value&plan_id=eq.${encodeURIComponent(plan.id)}&enabled=eq.true`);

@@ -56,7 +56,7 @@ type StoreRow = {
   pix_enabled: boolean; pix_receipt_mode: 'copy_paste'|'key' | null; pix_key_type: string | null; pix_key: string | null; pix_copy_paste: string | null; pix_holder_name: string | null;
   show_pix_before_confirmation: boolean; confirmation_payment_enabled: boolean; card_payment_enabled: boolean; cash_payment_enabled: boolean; payment_method_order: unknown;
   minimum_order: number | string; opening_hours: unknown; active: boolean; access_status?: 'online'|'suspended';
-  average_preparation_min?: number | null; average_preparation_max?: number | null; allow_scheduled_orders?: boolean | null; kds_enabled?: boolean | null;
+  average_preparation_min?: number | null; average_preparation_max?: number | null; allow_scheduled_orders?: boolean | null; kds_enabled?: boolean | null; kds_notify_customer?: boolean | null; sales_recovery_enabled?: boolean | null; sales_recovery_minutes?: number | null; crm_enabled?: boolean | null; repeat_order_enabled?: boolean | null; upsell_enabled?: boolean | null; upsell_limit?: number | null;
   billing_document?: string | null; billing_phone?: string | null;
 };
 type CategoryRow = { id: string; store_id: string; name: string; slug: string; description: string | null; active: boolean; sort_order: number };
@@ -110,7 +110,7 @@ const mapStore = (row: StoreRow): StoreSettings => ({
   pixEnabled: row.pix_enabled, pixReceiptMode: row.pix_receipt_mode || 'key', pixKeyType: row.pix_key_type || '', pixKey: row.pix_key || '', pixCopyPaste: row.pix_copy_paste || '', pixReceiver: row.pix_holder_name || '',
   showPixBeforeConfirmation: row.show_pix_before_confirmation, confirmationPaymentEnabled: row.confirmation_payment_enabled ?? false, cardPaymentEnabled: row.card_payment_enabled ?? false, cashPaymentEnabled: row.cash_payment_enabled ?? false,
   paymentMethodOrder: normalizePaymentOrder(row.payment_method_order), deliveryEnabled: row.delivery_enabled, pickupEnabled: row.pickup_enabled, minimumOrder: toNumber(row.minimum_order),
-  averagePreparationMin: Math.max(0, row.average_preparation_min ?? 30), averagePreparationMax: Math.max(0, row.average_preparation_max ?? 45), allowScheduledOrders: row.allow_scheduled_orders ?? false, kdsEnabled: row.kds_enabled ?? false,
+  averagePreparationMin: Math.max(0, row.average_preparation_min ?? 30), averagePreparationMax: Math.max(0, row.average_preparation_max ?? 45), allowScheduledOrders: row.allow_scheduled_orders ?? false, kdsEnabled: row.kds_enabled ?? false, kdsNotifyCustomer: row.kds_notify_customer ?? true, salesRecoveryEnabled: row.sales_recovery_enabled ?? true, salesRecoveryMinutes: Math.max(5, row.sales_recovery_minutes ?? 10), crmEnabled: row.crm_enabled ?? true, repeatOrderEnabled: row.repeat_order_enabled ?? true, upsellEnabled: row.upsell_enabled ?? true, upsellLimit: Math.min(6, Math.max(1, row.upsell_limit ?? 3)),
   openingSchedule: normalizeOpeningSchedule(row.opening_hours),
   openingHours: (() => { const schedule = normalizeOpeningSchedule(row.opening_hours); const legacy = typeof row.opening_hours === 'string' ? row.opening_hours : ((row.opening_hours as { display?: string } | null)?.display || ''); return schedule.days.some((day) => day.enabled) ? formatOpeningSchedule(schedule) : legacy; })(),
   active: row.active, accessStatus: row.access_status || 'online', billingDocument:row.billing_document||'', billingPhone:row.billing_phone||'',
@@ -322,7 +322,7 @@ export const storeApi = {
       pix_copy_paste:settings.pixCopyPaste || null, pix_holder_name:settings.pixReceiver || null, show_pix_before_confirmation:settings.showPixBeforeConfirmation,
       confirmation_payment_enabled:settings.confirmationPaymentEnabled, card_payment_enabled:settings.cardPaymentEnabled, cash_payment_enabled:settings.cashPaymentEnabled,
       payment_method_order:settings.paymentMethodOrder, minimum_order:settings.minimumOrder, average_preparation_min:settings.averagePreparationMin,
-      average_preparation_max:settings.averagePreparationMax, allow_scheduled_orders:settings.allowScheduledOrders, kds_enabled:settings.kdsEnabled,
+      average_preparation_max:settings.averagePreparationMax, allow_scheduled_orders:settings.allowScheduledOrders, kds_enabled:settings.kdsEnabled, kds_notify_customer:settings.kdsNotifyCustomer, sales_recovery_enabled:settings.salesRecoveryEnabled, sales_recovery_minutes:settings.salesRecoveryMinutes, crm_enabled:settings.crmEnabled, repeat_order_enabled:settings.repeatOrderEnabled, upsell_enabled:settings.upsellEnabled, upsell_limit:settings.upsellLimit,
       opening_hours:{ display:formatOpeningSchedule(settings.openingSchedule), timezone:settings.openingSchedule.timezone, days:settings.openingSchedule.days }, billing_document:settings.billingDocument||null, billing_phone:settings.billingPhone||null,
     };
     const rows = await restFetch<StoreRow[]>(`food_stores?id=eq.${encode(settings.id)}&select=*`, { method:'PATCH', body:payload, prefer:'return=representation' });

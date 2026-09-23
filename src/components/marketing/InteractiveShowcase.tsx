@@ -1,5 +1,9 @@
 import {
   BarChart3,
+  Beef,
+  CupSoda,
+  IceCreamBowl,
+  Sandwich,
   CheckCircle2,
   ChevronRight,
   CircleDollarSign,
@@ -164,7 +168,11 @@ const floriStatusLabel:Record<string,string>={draft:'Pedido realizado',sent_to_w
 const paymentLabel:Record<PaymentMethod,string>={pix:'PIX',card:'Cartão',cash:'Dinheiro',confirm:'Combinar com a loja'};
 
 function ProductVisual({variant,product}:{variant:Variant;product?:DemoProduct}){
-  if(variant==='food'&&product?.emoji)return <span className="interactive-demo__fallback-icon interactive-demo__emoji-v060" role="img" aria-label={product.name}>{product.emoji}</span>;
+  if(variant==='food'&&product){
+    const name=product.name.toLowerCase();
+    const Icon=name.includes('açaí')?IceCreamBowl:name.includes('limonada')?CupSoda:name.includes('chicken')?Utensils:name.includes('combo')?ShoppingBag:name.includes('bacon')?Beef:Sandwich;
+    return <span className="interactive-demo__fallback-icon interactive-demo__food-icon-v062" role="img" aria-label={product.name}><Icon size={30}/></span>;
+  }
   return <span className="interactive-demo__fallback-icon" aria-hidden="true">{variant==='food'?<Utensils/>:<Flower2/>}</span>;
 }
 

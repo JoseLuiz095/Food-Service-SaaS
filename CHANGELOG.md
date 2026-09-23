@@ -1,3 +1,12 @@
+# FoodWeb v0.6.2
+
+- Checkout e configurações com acabamento responsivo.
+- KDS com ações de status e rascunho de WhatsApp opcional após atualização.
+- Recuperação de vendas, CRM, recompra e upsell configuráveis pelo lojista.
+- Premium reposicionado com narrativa de maior valor.
+- Benefícios comerciais extras editáveis pelo Admin Master e exibidos na landing.
+- Demonstração usa ícones vetoriais para reduzir diferenças de emoji entre navegadores.
+
 # Changelog
 
 ## 0.6.1 — 2026-09-22

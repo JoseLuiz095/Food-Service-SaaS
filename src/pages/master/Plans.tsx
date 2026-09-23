@@ -515,6 +515,19 @@ export default function MasterPlans() {
                 </label>
               </div>
 
+              <div className="master-marketing-benefits-v062">
+                <label>
+                  Benefícios comerciais extras
+                  <textarea
+                    rows={5}
+                    value={(plan.marketingBenefits ?? []).join('\n')}
+                    onChange={(event) => updatePlan(plan.id, { marketingBenefits: event.target.value.split('\n').map((item) => item.trim()).filter(Boolean).slice(0, 20) })}
+                    placeholder={'Um benefício por linha\nEx.: Recuperação de vendas\nEx.: KDS com aviso ao cliente'}
+                  />
+                  <small>Itens adicionais exibidos na página comercial. Use para destacar novidades sem precisar alterar o código da landing.</small>
+                </label>
+              </div>
+
               <div className="food-master-chip-list">
                 {chips.map((chip) => {
                   const Icon = chip.icon;

@@ -11,7 +11,7 @@ import {
 } from '../../services/selfServiceSignup';
 import { currency } from '../../utils/format';
 
-const DEMO_PLAN: LandingPlan = { id:'demo-self-service', code:'DEMO', name:'Demo 30 dias', monthlyPrice:0, featureCodes:[] };
+const DEMO_PLAN: LandingPlan = { id:'demo-self-service', code:'DEMO', name:'Demo 30 dias', monthlyPrice:0, featureCodes:[], marketingBenefits:[] };
 const allowedPlan=(code:string)=>['DEMO','ESSENTIAL','STARTER','PROFESSIONAL'].includes(code.toUpperCase());
 
 export default function SelfSignup(){

@@ -175,6 +175,19 @@ export default function SettingsAdmin() {
             <div className="form-grid preparation-config"><label>Preparo mínimo (min)<input type="number" min="0" max="600" value={form.averagePreparationMin} onChange={(e)=>update('averagePreparationMin',Math.max(0,Number(e.target.value)))} /></label><label>Preparo máximo (min)<input type="number" min="0" max="600" value={form.averagePreparationMax} onChange={(e)=>update('averagePreparationMax',Math.max(0,Number(e.target.value)))} /></label></div>
             <label className="switch-row"><span><strong>Permitir pedido agendado</strong><small>Quando a loja estiver fechada, o cliente poderá selecionar um horário futuro.</small></span><input type="checkbox" checked={form.allowScheduledOrders} onChange={(e)=>update('allowScheduledOrders',e.target.checked)} /></label>
             <label className="switch-row"><span><strong>Modo cozinha / KDS</strong><small>Exibe um quadro operacional dentro de Pedidos e libera mensagens prontas de atualização para o cliente.</small></span><input type="checkbox" checked={form.kdsEnabled} onChange={(e)=>update('kdsEnabled',e.target.checked)} /></label>
+            {form.kdsEnabled && <label className="switch-row"><span><strong>Preparar mensagem ao mudar status</strong><small>Ao avançar o pedido, abre o WhatsApp com uma mensagem pronta para o lojista apenas confirmar o envio.</small></span><input type="checkbox" checked={form.kdsNotifyCustomer} onChange={(e)=>update('kdsNotifyCustomer',e.target.checked)} /></label>}
+          </section>
+
+          <section className="admin-card form-section growth-settings-v062">
+            <span className="eyebrow">VENDAS E RELACIONAMENTO</span>
+            <h2>Recorrência e aumento de ticket</h2>
+            <label className="switch-row"><span><strong>Recuperação de vendas</strong><small>Lista pedidos salvos cujo contato ainda não foi concluído.</small></span><input type="checkbox" checked={form.salesRecoveryEnabled} onChange={(e)=>update('salesRecoveryEnabled',e.target.checked)} /></label>
+            {form.salesRecoveryEnabled && <label>Considerar oportunidade após (min)<input type="number" min="5" max="1440" step="5" value={form.salesRecoveryMinutes} onChange={(e)=>update('salesRecoveryMinutes',Math.min(1440,Math.max(5,Number(e.target.value)||5)))} /></label>}
+            <label className="switch-row"><span><strong>CRM simples</strong><small>Agrupa clientes pelo telefone usando os pedidos já registrados.</small></span><input type="checkbox" checked={form.crmEnabled} onChange={(e)=>update('crmEnabled',e.target.checked)} /></label>
+            <label className="switch-row"><span><strong>Pedir novamente</strong><small>Permite reconstruir o último pedido salvo no dispositivo do cliente.</small></span><input type="checkbox" checked={form.repeatOrderEnabled} onChange={(e)=>update('repeatOrderEnabled',e.target.checked)} /></label>
+            <label className="switch-row"><span><strong>Upsell no carrinho</strong><small>Sugere outros produtos disponíveis antes do checkout.</small></span><input type="checkbox" checked={form.upsellEnabled} onChange={(e)=>update('upsellEnabled',e.target.checked)} /></label>
+            {form.upsellEnabled && <label>Quantidade de sugestões<select value={form.upsellLimit} onChange={(e)=>update('upsellLimit',Number(e.target.value))}><option value={1}>1 produto</option><option value={2}>2 produtos</option><option value={3}>3 produtos</option><option value={4}>4 produtos</option><option value={6}>6 produtos</option></select></label>}
+            <div className="admin-info-box"><Info size={17}/><span>Esses recursos usam os dados operacionais que o FoodWeb já possui e não criam uma nova área de ERP.</span></div>
           </section>
 
           <section className="admin-card form-section payment-admin-section">

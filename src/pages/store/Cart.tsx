@@ -22,8 +22,8 @@ export default function Cart() {
     return products
       .filter((product) => product.active && product.stockStatus !== 'unavailable' && product.availabilityStatus === 'available' && !inCart.has(product.id))
       .sort((a, b) => Number(b.featured) - Number(a.featured) || a.price - b.price)
-      .slice(0, 3);
-  }, [items, products]);
+      .slice(0, settings.upsellEnabled ? settings.upsellLimit : 0);
+  }, [items, products, settings.upsellEnabled, settings.upsellLimit]);
 
   const restoreRecentOrder = () => {
     if (!recentOrder) return;
@@ -49,7 +49,7 @@ export default function Cart() {
 
   if (!items.length) return <div className="simple-page">
     <header className="simple-topbar container cart-navigation-layer"><a className="cart-nav-button" href={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</a></header>
-    <div className="cart-empty"><ShoppingBag size={48}/><h1>Seu carrinho está vazio</h1><p>Escolha seus produtos no cardápio e volte aqui para finalizar.</p><div className="cart-empty-actions"><a className="primary-button" href={storefrontPath(storeBasePath)}>Ver cardápio</a>{recentOrder && <button type="button" className="secondary-button" onClick={restoreRecentOrder}><RotateCcw size={17}/>Pedir novamente</button>}</div>{recentOrder && <small className="recent-order-note">Último pedido salvo neste dispositivo em {new Date(recentOrder.createdAt).toLocaleDateString('pt-BR')}.</small>}</div>
+    <div className="cart-empty"><ShoppingBag size={48}/><h1>Seu carrinho está vazio</h1><p>Escolha seus produtos no cardápio e volte aqui para finalizar.</p><div className="cart-empty-actions"><a className="primary-button" href={storefrontPath(storeBasePath)}>Ver cardápio</a>{settings.repeatOrderEnabled && recentOrder && <button type="button" className="secondary-button" onClick={restoreRecentOrder}><RotateCcw size={17}/>Pedir novamente</button>}</div>{settings.repeatOrderEnabled && recentOrder && <small className="recent-order-note">Último pedido salvo neste dispositivo em {new Date(recentOrder.createdAt).toLocaleDateString('pt-BR')}.</small>}</div>
   </div>;
 
   const minimumMissing = Math.max(0, settings.minimumOrder - subtotal);
