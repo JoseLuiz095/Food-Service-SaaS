@@ -2997,3 +2997,25 @@ button:disabled,input:disabled,textarea:disabled,select:disabled{opacity:.72}
 @media(max-width:700px){.fulfillment-options{grid-template-columns:1fr}.field-with-button{grid-template-columns:1fr}.field-with-button button{min-height:42px}.address-grid,.form-grid{grid-template-columns:1fr!important}.checkout-review-check-v44{grid-template-columns:20px 1fr}.premium-value-story-v062{grid-template-columns:1fr}.kds-board-v061__heading{align-items:flex-start;flex-direction:column}.order-status-actions-v061{min-width:150px}}
 
 .master-marketing-benefits-v062{margin:14px 0}.master-marketing-benefits-v062 label{display:grid;gap:7px;font-size:.72rem;font-weight:800}.master-marketing-benefits-v062 textarea{width:100%;min-height:112px;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:10px 11px;font:inherit;font-weight:500;line-height:1.5}.master-marketing-benefits-v062 small{font-weight:500;color:var(--muted);line-height:1.45}
+
+
+/* ===== FoodWeb v0.6.3 - responsividade operacional e mensagens editaveis ===== */
+.opening-hours-admin{min-width:0;overflow:hidden}
+.opening-hours-scroll-note{display:none;margin:2px 0 8px;color:var(--muted);font-size:.68rem}
+.opening-hours-grid{display:block;max-width:100%;overflow-x:auto;overflow-y:hidden;padding:2px 2px 10px;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}
+.opening-hours-admin .opening-day-row{display:grid;grid-template-columns:minmax(160px,1.25fr) repeat(5,minmax(118px,1fr));min-width:820px;margin-bottom:7px}
+.opening-hours-grid::-webkit-scrollbar{height:9px}.opening-hours-grid::-webkit-scrollbar-thumb{background:#d9cec9;border-radius:999px}.opening-hours-grid::-webkit-scrollbar-track{background:#f4efec;border-radius:999px}
+.message-templates-v063 details{border:1px solid var(--line);border-radius:12px;margin-top:12px;overflow:hidden;background:#fff}
+.message-templates-v063 summary{cursor:pointer;padding:12px 13px;font-weight:800;font-size:.76rem;background:#faf8f6}
+.message-template-grid-v063{display:grid;gap:12px;padding:0 13px 14px}
+.message-template-grid-v063 textarea{width:100%;min-height:84px;resize:vertical;line-height:1.45}
+.message-template-variables-v063{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}
+.message-template-variables-v063 code{padding:5px 8px;border-radius:999px;background:#f6eee9;border:1px solid #ead9d0;font-size:.68rem;color:#8e452f}
+.order-whatsapp-action-v061.is-recommended-v063{background:var(--food-red,#c74d2f);border-color:var(--food-red,#c74d2f);color:#fff;box-shadow:0 7px 18px rgba(199,77,47,.18)}
+.order-status-actions-v061{min-width:210px}.order-status-actions-v061 .order-whatsapp-action-v061{margin-top:7px;width:100%;justify-content:center}
+.sales-ops-grid-v061{align-items:start}
+.responsive-table{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.responsive-table table{min-width:1040px}
+@media(max-width:1320px){.opening-hours-scroll-note{display:block}}
+@media(max-width:900px){.sales-ops-grid-v061{grid-template-columns:1fr}.message-template-grid-v063{grid-template-columns:1fr}.orders-toolbar--filters{grid-template-columns:1fr}.toolbar-selects{width:100%;grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.toolbar-selects{grid-template-columns:1fr}.opening-hours-admin .opening-day-row{min-width:760px}}

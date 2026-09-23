@@ -1,3 +1,11 @@
+# FoodWeb v0.6.3
+
+- Horário de atendimento com rolagem horizontal segura em larguras menores, sem invadir a coluna lateral.
+- Mudança de status não abre mais o WhatsApp automaticamente; o lojista recebe um botão explícito para enviar a atualização.
+- Mensagens operacionais, recuperação e recompra agora são personalizáveis com variáveis fixas.
+- Recuperação ganhou janela configurável; CRM ganhou prazo de recompra; Pedir novamente ganhou validade configurável.
+- Ajustes responsivos em Pedidos e Configurações.
+
 # FoodWeb v0.6.2
 
 - Checkout e configurações com acabamento responsivo.

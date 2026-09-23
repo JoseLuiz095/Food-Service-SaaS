@@ -16,7 +16,7 @@ export default function Cart() {
 
   useEffect(() => { if (!loading) validateAgainstProducts(products); }, [products, loading, validateAgainstProducts]);
 
-  const recentOrder = useMemo(() => loadRecentOrder(settings.id), [settings.id]);
+  const recentOrder = useMemo(() => loadRecentOrder(settings.id, (settings.repeatOrderMaxAgeDays ?? 90)), [settings.id, settings.repeatOrderMaxAgeDays]);
   const suggestions = useMemo(() => {
     const inCart = new Set(items.map((item) => item.productId));
     return products

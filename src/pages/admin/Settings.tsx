@@ -9,6 +9,7 @@ import { buildPixCopyPasteWithAmount, validatePixCopyPasteBase } from '../../uti
 import { formatOpeningSchedule, openingDayName } from '../../utils/storeHours';
 import { PasswordChangeCard } from '../../components/admin/PasswordChangeCard';
 import { planHasFeature } from '../../utils/plan';
+import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES } from '../../utils/customerSales';
 
 export default function SettingsAdmin() {
   const { settings, saveSettings, resetDemo, uploadStoreAsset, dataMode, loading, error, reloadAdmin, planUsage } = useStore();
@@ -19,6 +20,7 @@ export default function SettingsAdmin() {
   const [saving, setSaving] = useState(false);
   const pixCopyPasteRef = useRef<HTMLTextAreaElement | null>(null);
   const canCustomBanner = planHasFeature(planUsage.plan, 'custom_banner');
+  const messageTemplates = { ...DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ...(form.messageTemplates ?? {}) };
 
   useEffect(() => setForm(structuredClone(settings)), [settings]);
   const logoPreview = useMemo(() => logoFile ? URL.createObjectURL(logoFile) : form.logoUrl, [logoFile, form.logoUrl]);
@@ -27,6 +29,7 @@ export default function SettingsAdmin() {
   useEffect(() => () => { if (coverFile) URL.revokeObjectURL(coverPreview); }, [coverFile, coverPreview]);
 
   const update = <K extends keyof StoreSettings>(key: K, value: StoreSettings[K]) => setForm((current) => ({ ...current, [key]: value }));
+  const updateMessageTemplate = (key: keyof NonNullable<StoreSettings['messageTemplates']>, value: string) => setForm((current) => ({ ...current, messageTemplates: { ...DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ...(current.messageTemplates ?? {}), [key]: value } }));
   const activatePixReceiptMode = (mode: StoreSettings['pixReceiptMode']) => {
     update('pixReceiptMode', mode);
     if (mode === 'copy_paste') {
@@ -94,6 +97,14 @@ export default function SettingsAdmin() {
       }
     }
 
+    const requiredVariables: Array<[keyof NonNullable<StoreSettings['messageTemplates']>, string, string[]]> = [
+      ['received','Recebido',['{cliente}','{pedido}','{loja}']],['confirmed','Confirmado',['{cliente}','{pedido}','{loja}']],['preparing','Em preparação',['{cliente}','{pedido}','{loja}']],['ready','Pronto',['{cliente}','{pedido}','{loja}']],['outForDelivery','Saiu para entrega',['{cliente}','{pedido}','{loja}']],['delivered','Entregue',['{cliente}','{pedido}','{loja}']],['pickedUp','Retirado',['{cliente}','{pedido}','{loja}']],['cancelled','Cancelado',['{cliente}','{pedido}','{loja}']],['salesRecovery','Recuperação de venda',['{cliente}','{pedido}','{loja}']],['comeBack','Recompra',['{cliente}','{loja}']],
+    ];
+    for (const [key,label,variables] of requiredVariables) {
+      const template=messageTemplates[key]; const missing=variables.filter((variable)=>!template.includes(variable));
+      if(missing.length){showToast(`A mensagem ${label} precisa manter: ${missing.join(', ')}.`,'error');return;}
+    }
+
     setSaving(true);
     try {
       let next = { ...form, openingHours: formatOpeningSchedule(form.openingSchedule) };
@@ -148,7 +159,7 @@ export default function SettingsAdmin() {
             <label>Telefone de cobrança<input value={form.billingPhone ?? ''} onChange={(e) => update('billingPhone', e.target.value)} placeholder="55 + DDD + número" /></label>
             <div className="full opening-hours-admin">
               <div className="opening-hours-admin__heading"><div><Clock3 size={19}/><span><strong>Horário de atendimento</strong><small>O status Aberto/Fechado da loja será calculado automaticamente.</small></span></div><span className="opening-hours-preview">{formatOpeningSchedule(form.openingSchedule)}</span></div>
-              <div className="opening-hours-grid">{form.openingSchedule.days.map((day)=><div className={`opening-day-row ${day.enabled?'is-enabled':''}`} key={day.day}>
+              <div className="opening-hours-scroll-note">Em telas menores, deslize horizontalmente para editar todos os horários.</div><div className="opening-hours-grid">{form.openingSchedule.days.map((day)=><div className={`opening-day-row ${day.enabled?'is-enabled':''}`} key={day.day}>
                 <label className="opening-day-toggle"><input type="checkbox" checked={day.enabled} onChange={(e)=>updateOpeningDay(day.day,{enabled:e.target.checked})}/><span>{openingDayName(day.day)}</span></label>
                 <label>Abre<input type="time" disabled={!day.enabled} value={day.open} onChange={(e)=>updateOpeningDay(day.day,{open:e.target.value})}/></label>
                 <label>Fecha<input type="time" disabled={!day.enabled} value={day.close} onChange={(e)=>updateOpeningDay(day.day,{close:e.target.value})}/></label>
@@ -182,12 +193,31 @@ export default function SettingsAdmin() {
             <span className="eyebrow">VENDAS E RELACIONAMENTO</span>
             <h2>Recorrência e aumento de ticket</h2>
             <label className="switch-row"><span><strong>Recuperação de vendas</strong><small>Lista pedidos salvos cujo contato ainda não foi concluído.</small></span><input type="checkbox" checked={form.salesRecoveryEnabled} onChange={(e)=>update('salesRecoveryEnabled',e.target.checked)} /></label>
-            {form.salesRecoveryEnabled && <label>Considerar oportunidade após (min)<input type="number" min="5" max="1440" step="5" value={form.salesRecoveryMinutes} onChange={(e)=>update('salesRecoveryMinutes',Math.min(1440,Math.max(5,Number(e.target.value)||5)))} /></label>}
-            <label className="switch-row"><span><strong>CRM simples</strong><small>Agrupa clientes pelo telefone usando os pedidos já registrados.</small></span><input type="checkbox" checked={form.crmEnabled} onChange={(e)=>update('crmEnabled',e.target.checked)} /></label>
-            <label className="switch-row"><span><strong>Pedir novamente</strong><small>Permite reconstruir o último pedido salvo no dispositivo do cliente.</small></span><input type="checkbox" checked={form.repeatOrderEnabled} onChange={(e)=>update('repeatOrderEnabled',e.target.checked)} /></label>
+            {form.salesRecoveryEnabled && <div className="form-grid"><label>Considerar oportunidade após (min)<input type="number" min="5" max="1440" step="5" value={form.salesRecoveryMinutes} onChange={(e)=>update('salesRecoveryMinutes',Math.min(1440,Math.max(5,Number(e.target.value)||5)))} /></label><label>Manter oportunidade por (horas)<input type="number" min="1" max="168" value={form.salesRecoveryWindowHours ?? 48} onChange={(e)=>update('salesRecoveryWindowHours',Math.min(168,Math.max(1,Number(e.target.value)||1)))} /></label></div>}
+            <label className="switch-row"><span><strong>CRM simples</strong><small>Agrupa clientes pelo telefone usando os pedidos já registrados.</small></span><input type="checkbox" checked={form.crmEnabled} onChange={(e)=>update('crmEnabled',e.target.checked)} /></label>{form.crmEnabled&&<label>Sugerir recompra após (dias)<input type="number" min="1" max="365" value={form.crmComeBackDays ?? 21} onChange={(e)=>update('crmComeBackDays',Math.min(365,Math.max(1,Number(e.target.value)||1)))} /></label>}
+            <label className="switch-row"><span><strong>Pedir novamente</strong><small>Permite reconstruir o último pedido salvo no dispositivo do cliente.</small></span><input type="checkbox" checked={form.repeatOrderEnabled} onChange={(e)=>update('repeatOrderEnabled',e.target.checked)} /></label>{form.repeatOrderEnabled&&<label>Manter último pedido por (dias)<input type="number" min="1" max="365" value={form.repeatOrderMaxAgeDays ?? 90} onChange={(e)=>update('repeatOrderMaxAgeDays',Math.min(365,Math.max(1,Number(e.target.value)||1)))} /></label>}
             <label className="switch-row"><span><strong>Upsell no carrinho</strong><small>Sugere outros produtos disponíveis antes do checkout.</small></span><input type="checkbox" checked={form.upsellEnabled} onChange={(e)=>update('upsellEnabled',e.target.checked)} /></label>
             {form.upsellEnabled && <label>Quantidade de sugestões<select value={form.upsellLimit} onChange={(e)=>update('upsellLimit',Number(e.target.value))}><option value={1}>1 produto</option><option value={2}>2 produtos</option><option value={3}>3 produtos</option><option value={4}>4 produtos</option><option value={6}>6 produtos</option></select></label>}
             <div className="admin-info-box"><Info size={17}/><span>Esses recursos usam os dados operacionais que o FoodWeb já possui e não criam uma nova área de ERP.</span></div>
+          </section>
+
+          <section className="admin-card form-section message-templates-v063">
+            <span className="eyebrow">COMUNICAÇÃO</span>
+            <h2>Mensagens programadas</h2>
+            <p>Edite as mensagens abertas manualmente no WhatsApp. O texto é livre, mas as variáveis obrigatórias de cada mensagem devem ser mantidas. Elas são preenchidas pelo sistema.</p>
+            <div className="message-template-variables-v063"><code>{'{cliente}'}</code><code>{'{pedido}'}</code><code>{'{loja}'}</code><code>{'{total}'}</code><code>{'{previsao}'}</code><code>{'{status}'}</code></div>
+            <details open><summary>Status do pedido</summary><div className="message-template-grid-v063">
+              <label>Recebido<textarea rows={3} value={messageTemplates.received} onChange={(e)=>updateMessageTemplate('received',e.target.value)} /></label>
+              <label>Confirmado<textarea rows={3} value={messageTemplates.confirmed} onChange={(e)=>updateMessageTemplate('confirmed',e.target.value)} /></label>
+              <label>Em preparação<textarea rows={3} value={messageTemplates.preparing} onChange={(e)=>updateMessageTemplate('preparing',e.target.value)} /></label>
+              <label>Pronto<textarea rows={3} value={messageTemplates.ready} onChange={(e)=>updateMessageTemplate('ready',e.target.value)} /></label>
+              <label>Saiu para entrega<textarea rows={3} value={messageTemplates.outForDelivery} onChange={(e)=>updateMessageTemplate('outForDelivery',e.target.value)} /></label>
+              <label>Entregue<textarea rows={3} value={messageTemplates.delivered} onChange={(e)=>updateMessageTemplate('delivered',e.target.value)} /></label>
+              <label>Retirado<textarea rows={3} value={messageTemplates.pickedUp} onChange={(e)=>updateMessageTemplate('pickedUp',e.target.value)} /></label>
+              <label>Cancelado<textarea rows={3} value={messageTemplates.cancelled} onChange={(e)=>updateMessageTemplate('cancelled',e.target.value)} /></label>
+            </div></details>
+            <details><summary>Relacionamento</summary><div className="message-template-grid-v063"><label>Recuperação de venda<textarea rows={4} value={messageTemplates.salesRecovery} onChange={(e)=>updateMessageTemplate('salesRecovery',e.target.value)} /></label><label>Recompra / retorno<textarea rows={4} value={messageTemplates.comeBack} onChange={(e)=>updateMessageTemplate('comeBack',e.target.value)} /></label></div></details>
+            <button type="button" className="secondary-button" onClick={()=>setForm((current)=>({...current,messageTemplates:{...DEFAULT_CUSTOMER_MESSAGE_TEMPLATES}}))}>Restaurar mensagens padrão</button>
           </section>
 
           <section className="admin-card form-section payment-admin-section">

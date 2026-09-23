@@ -146,6 +146,20 @@ export type OpeningSchedule = {
   days: OpeningDayConfig[];
 };
 
+
+export type CustomerMessageTemplates = {
+  received: string;
+  confirmed: string;
+  preparing: string;
+  ready: string;
+  outForDelivery: string;
+  delivered: string;
+  pickedUp: string;
+  cancelled: string;
+  salesRecovery: string;
+  comeBack: string;
+};
+
 export type StoreSettings = {
   id: string;
   slug: string;
@@ -183,10 +197,14 @@ export type StoreSettings = {
   kdsNotifyCustomer: boolean;
   salesRecoveryEnabled: boolean;
   salesRecoveryMinutes: number;
+  salesRecoveryWindowHours?: number;
   crmEnabled: boolean;
+  crmComeBackDays?: number;
   repeatOrderEnabled: boolean;
+  repeatOrderMaxAgeDays?: number;
   upsellEnabled: boolean;
   upsellLimit: number;
+  messageTemplates?: CustomerMessageTemplates;
   openingHours: string;
   openingSchedule: OpeningSchedule;
   active: boolean;

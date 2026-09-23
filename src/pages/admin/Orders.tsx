@@ -44,6 +44,7 @@ export default function OrdersAdmin() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
+  const [notifyOrderId, setNotifyOrderId] = useState<string | null>(null);
   const refreshingRef = useRef(false);
   const rowsRef = useRef<Record<string, HTMLTableRowElement | null>>({});
   const highlightedOrderId = searchParams.get('highlight') || '';
@@ -80,9 +81,7 @@ export default function OrdersAdmin() {
   const changeStatusWithCustomerDraft = async (order: Order, status: OrderStatus) => {
     if (order.status === status) return;
     const changed = await changeStatus(order.id, status);
-    if (changed && settings.kdsNotifyCustomer && order.customerPhone && status !== 'cancelled') {
-      openCustomerWhatsapp(order.customerPhone, buildOrderStatusMessage(settings.name, { ...order, status }));
-    }
+    if (changed && settings.kdsNotifyCustomer && order.customerPhone) setNotifyOrderId(order.id);
   };
 
   const operationalStatuses = (order: Order) => statusOptions.filter((option) => order.deliveryType === 'delivery' ? option.value !== 'picked_up' : option.value !== 'out_for_delivery' && option.value !== 'delivered');
@@ -130,9 +129,9 @@ export default function OrdersAdmin() {
     const now = Date.now();
     return orders.filter((order) => {
       const age = now - new Date(order.createdAt).getTime();
-      return settings.salesRecoveryEnabled && Boolean(order.customerPhone) && order.status === 'received' && !order.whatsappClickedAt && age >= settings.salesRecoveryMinutes * 60_000 && age <= 48 * 60 * 60_000;
+      return settings.salesRecoveryEnabled && Boolean(order.customerPhone) && order.status === 'received' && !order.whatsappClickedAt && age >= settings.salesRecoveryMinutes * 60_000 && age <= (settings.salesRecoveryWindowHours ?? 48) * 60 * 60_000;
     }).slice(0, 12);
-  }, [orders, settings.salesRecoveryEnabled, settings.salesRecoveryMinutes]);
+  }, [orders, settings.salesRecoveryEnabled, settings.salesRecoveryMinutes, settings.salesRecoveryWindowHours]);
 
   const customers = useMemo<CustomerSummary[]>(() => {
     const map = new Map<string, CustomerSummary>();
@@ -151,6 +150,8 @@ export default function OrdersAdmin() {
     return [...map.values()].sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime()).slice(0, 20);
   }, [orders]);
 
+  const comeBackCustomers = useMemo(() => customers.filter((customer) => (Date.now() - new Date(customer.lastAt).getTime()) >= (settings.crmComeBackDays ?? 21) * 86_400_000), [customers, settings.crmComeBackDays]);
+
   const kdsOrders = useMemo(() => orders.filter((order) => kdsStatuses.includes(order.status)), [orders]);
 
   useEffect(() => {
@@ -163,8 +164,8 @@ export default function OrdersAdmin() {
   }, [highlightedOrderId, orders]);
 
   const whatsappButton = (order: Order, kind: 'status' | 'recovery') => (
-    <button type="button" className="order-whatsapp-action-v061" disabled={!order.customerPhone} onClick={() => openCustomerWhatsapp(order.customerPhone, kind === 'recovery' ? buildSalesRecoveryMessage(settings.name, order) : buildOrderStatusMessage(settings.name, order))}>
-      <MessageCircle size={15}/>{kind === 'recovery' ? 'Recuperar venda' : 'Avisar cliente'}
+    <button type="button" className={`order-whatsapp-action-v061 ${kind === 'status' && notifyOrderId === order.id ? 'is-recommended-v063' : ''}`} disabled={!order.customerPhone} onClick={() => { openCustomerWhatsapp(order.customerPhone, kind === 'recovery' ? buildSalesRecoveryMessage(settings.name, order, settings.messageTemplates) : buildOrderStatusMessage(settings.name, order, settings.messageTemplates)); if (kind === 'status') setNotifyOrderId(null); }}>
+      <MessageCircle size={15}/>{kind === 'recovery' ? 'Recuperar venda' : notifyOrderId === order.id ? 'Enviar atualização' : 'Avisar cliente'}
     </button>
   );
 
@@ -177,18 +178,18 @@ export default function OrdersAdmin() {
     <div className="sales-ops-grid-v061">
       <details className="sales-ops-panel-v061" open={recoveryOrders.length > 0}>
         <summary><span><RotateCcw size={18}/><strong>Recuperação de vendas</strong></span><b>{recoveryOrders.length}</b></summary>
-        <p>Pedidos registrados há pelo menos {settings.salesRecoveryMinutes} minutos em que o WhatsApp ainda não foi aberto. A abordagem continua manual.</p>
+        <p>Pedidos registrados após {settings.salesRecoveryMinutes} min e mantidos como oportunidade por até {settings.salesRecoveryWindowHours ?? 48} h. O envio continua manual.</p>
         {recoveryOrders.length ? <div className="sales-ops-list-v061">{recoveryOrders.map((order) => <article key={order.id}><div><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span></div>{whatsappButton(order, 'recovery')}</article>)}</div> : <div className="sales-ops-empty-v061">Nenhuma oportunidade pendente agora.</div>}
       </details>
 
       {settings.crmEnabled && <details className="sales-ops-panel-v061">
-        <summary><span><Users size={18}/><strong>CRM simples de clientes</strong></span><b>{customers.length}</b></summary>
-        <p>Resumo calculado a partir dos pedidos recentes: frequência, valor acumulado e última compra.</p>
-        {customers.length ? <div className="sales-ops-list-v061">{customers.map((customer) => <article key={customer.key}><div><strong>{customer.name}</strong><span>{customer.orders} pedido{customer.orders === 1 ? '' : 's'} · {currency.format(customer.total)} · último {new Date(customer.lastAt).toLocaleDateString('pt-BR')}</span></div><button type="button" className="order-whatsapp-action-v061" onClick={() => openCustomerWhatsapp(customer.phone, buildComeBackMessage(settings.name, customer.name))}><MessageCircle size={15}/>Mensagem de recompra</button></article>)}</div> : <div className="sales-ops-empty-v061">Os clientes aparecerão aqui conforme os pedidos forem chegando.</div>}
+        <summary><span><Users size={18}/><strong>CRM simples de clientes</strong></span><b>{comeBackCustomers.length}</b></summary>
+        <p>Clientes sem comprar há pelo menos {settings.crmComeBackDays ?? 21} dias, com frequência, valor acumulado e última compra.</p>
+        {comeBackCustomers.length ? <div className="sales-ops-list-v061">{comeBackCustomers.map((customer) => <article key={customer.key}><div><strong>{customer.name}</strong><span>{customer.orders} pedido{customer.orders === 1 ? '' : 's'} · {currency.format(customer.total)} · último {new Date(customer.lastAt).toLocaleDateString('pt-BR')}</span></div><button type="button" className="order-whatsapp-action-v061" onClick={() => openCustomerWhatsapp(customer.phone, buildComeBackMessage(settings.name, customer.name, settings.messageTemplates))}><MessageCircle size={15}/>Mensagem de recompra</button></article>)}</div> : <div className="sales-ops-empty-v061">Os clientes aparecerão aqui conforme os pedidos forem chegando.</div>}
       </details>}
     </div>
 
-    {settings.kdsEnabled && <section className="kds-board-v061"><div className="kds-board-v061__heading"><div><span className="eyebrow">COZINHA / KDS</span><h2><ChefHat size={21}/>Fila operacional</h2><p>O quadro é opcional e usa os mesmos pedidos da operação, sem uma nova tela ou permissão.</p></div><span>{kdsOrders.length} em andamento</span></div><div className="kds-columns-v061">{kdsStatuses.map((status) => <section key={status}><header><strong>{statusLabel[status]}</strong><span>{kdsOrders.filter((order) => order.status === status).length}</span></header><div>{kdsOrders.filter((order) => order.status === status).map((order) => <article key={order.id}><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{currency.format(order.total)} · {order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</span><div className="kds-status-buttons-v062">{operationalStatuses(order).filter((option)=>option.value !== 'cancelled').map((option)=><button type="button" key={option.value} className={order.status===option.value?'active':''} disabled={updatingId===order.id || order.status===option.value} onClick={()=>void changeStatusWithCustomerDraft(order,option.value)}>{option.label}</button>)}</div><button type="button" className="kds-cancel-v062" disabled={updatingId===order.id || order.status==='cancelled'} onClick={()=>void changeStatus(order.id,'cancelled')}>Cancelar</button>{!settings.kdsNotifyCustomer && whatsappButton(order, 'status')}</article>)}</div></section>)}</div></section>}
+    {settings.kdsEnabled && <section className="kds-board-v061"><div className="kds-board-v061__heading"><div><span className="eyebrow">COZINHA / KDS</span><h2><ChefHat size={21}/>Fila operacional</h2><p>O quadro é opcional e usa os mesmos pedidos da operação, sem uma nova tela ou permissão.</p></div><span>{kdsOrders.length} em andamento</span></div><div className="kds-columns-v061">{kdsStatuses.map((status) => <section key={status}><header><strong>{statusLabel[status]}</strong><span>{kdsOrders.filter((order) => order.status === status).length}</span></header><div>{kdsOrders.filter((order) => order.status === status).map((order) => <article key={order.id}><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{currency.format(order.total)} · {order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</span><div className="kds-status-buttons-v062">{operationalStatuses(order).filter((option)=>option.value !== 'cancelled').map((option)=><button type="button" key={option.value} className={order.status===option.value?'active':''} disabled={updatingId===order.id || order.status===option.value} onClick={()=>void changeStatusWithCustomerDraft(order,option.value)}>{option.label}</button>)}</div><button type="button" className="kds-cancel-v062" disabled={updatingId===order.id || order.status==='cancelled'} onClick={()=>void changeStatus(order.id,'cancelled')}>Cancelar</button>{settings.kdsNotifyCustomer && whatsappButton(order, 'status')}</article>)}</div></section>)}</div></section>}
 
     <section className="admin-card no-padding">
       <div className="table-toolbar orders-toolbar orders-toolbar--filters">
@@ -206,7 +207,7 @@ export default function OrdersAdmin() {
           <td><div className="order-customer"><strong>{paymentLabel[order.paymentMethod]}</strong>{order.paymentMethod === 'cash' && order.needsChange && order.changeFor ? <span>Troco para {currency.format(order.changeFor)}</span> : null}</div></td>
           <td><strong>{currency.format(order.total)}</strong>{order.deliveryFee ? <small className="order-fee-note">inclui {currency.format(order.deliveryFee)} de entrega</small> : null}</td>
           <td>{order.paymentStatus === 'paid' ? <span className="order-payment-received"><CheckCircle2 size={15}/><span><strong>Recebido</strong>{order.paymentReceivedAt ? <small>{formatDateTimeBR(order.paymentReceivedAt)}</small> : null}</span></span> : order.status === 'cancelled' ? <span className="order-payment-cancelled">Pedido cancelado</span> : <button type="button" className="order-payment-confirm-button" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={15}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button>}</td>
-          <td><div className="order-status-actions-v061"><label className={`order-status-control order-status-control--${order.status}`}><span>{statusLabel[order.status]}</span><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{settings.kdsEnabled && order.customerPhone && whatsappButton(order, 'status')}</div></td>
+          <td><div className="order-status-actions-v061"><label className={`order-status-control order-status-control--${order.status}`}><span>{statusLabel[order.status]}</span><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{settings.kdsNotifyCustomer && order.customerPhone && whatsappButton(order, 'status')}</div></td>
           <td>{formatDateTimeBR(order.createdAt)}</td>
         </tr>;
       })}</tbody></table></div>}

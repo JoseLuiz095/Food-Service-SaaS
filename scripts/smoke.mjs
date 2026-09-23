@@ -51,7 +51,7 @@ const home=read('src/pages/store/Home.tsx');
 const header=read('src/components/StoreHeader.tsx');
 const billingStatus=read('src/utils/billingStatus.ts');
 
-ok('Pacote FoodWeb v0.6.2',pkg.name==='foodservice-saas'&&pkg.version==='0.6.2');
+ok('Pacote FoodWeb v0.6.3',pkg.name==='foodservice-saas'&&pkg.version==='0.6.3');
 const selfSignup = read('src/pages/store/SelfSignup.tsx');
 const selfSignupService = read('src/services/selfServiceSignup.ts');
 const signupRequests = read('src/pages/master/SignupRequests.tsx');
@@ -290,3 +290,15 @@ ok('v0.6.2 demo evita emoji nativo de produto',read('src/components/marketing/In
 ok('v0.6.2 SQL de validacao existe',exists('supabase/VALIDAR_V062.sql'));
 if(failures.length){console.error(`\n${failures.length} falha(s) nas verificacoes v0.6.2:`);for(const failure of failures)console.error(`- ${failure}`);process.exit(1)}
 console.log(`Smoke final FoodWeb v0.6.2: ${checks.length} verificações aprovadas.`);
+
+
+// FoodWeb v0.6.3 - mensagens e responsividade operacional
+const customerSalesV063=read('src/utils/customerSales.ts');
+const migrationV063=read('supabase/migrations/202609231300_foodweb_v063_message_preferences.sql');
+ok('v0.6.3 horario usa scroll horizontal seguro',css.includes('FoodWeb v0.6.3 - responsividade operacional')&&css.includes('overflow-x:auto')&&settingsV062.includes('opening-hours-scroll-note'));
+ok('v0.6.3 status nao abre WhatsApp automaticamente',ordersV062.includes('setNotifyOrderId')&&ordersV062.includes('Enviar atualização')&&!ordersV062.includes("if (changed && settings.kdsNotifyCustomer && order.customerPhone && status !== 'cancelled')"));
+ok('v0.6.3 mensagens personalizaveis',settingsV062.includes('Mensagens programadas')&&settingsV062.includes('updateMessageTemplate')&&customerSalesV063.includes('DEFAULT_CUSTOMER_MESSAGE_TEMPLATES'));
+ok('v0.6.3 preferencias de recuperacao e recompra',settingsV062.includes('salesRecoveryWindowHours')&&settingsV062.includes('crmComeBackDays')&&settingsV062.includes('repeatOrderMaxAgeDays')&&migrationV063.includes('customer_message_templates'));
+ok('v0.6.3 SQL de validacao existe',exists('supabase/VALIDAR_V063.sql'));
+if(failures.length){console.error(`\n${failures.length} falha(s) nas verificacoes v0.6.3:`);for(const failure of failures)console.error(`- ${failure}`);process.exit(1)}
+console.log(`Smoke final FoodWeb v0.6.3: ${checks.length} verificações aprovadas.`);
