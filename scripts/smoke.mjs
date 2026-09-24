@@ -51,7 +51,7 @@ const home=read('src/pages/store/Home.tsx');
 const header=read('src/components/StoreHeader.tsx');
 const billingStatus=read('src/utils/billingStatus.ts');
 
-ok('Pacote FoodWeb v0.6.3',pkg.name==='foodservice-saas'&&pkg.version==='0.6.3');
+ok('Pacote FoodWeb v0.6.5',pkg.name==='foodservice-saas'&&pkg.version==='0.6.5');
 const selfSignup = read('src/pages/store/SelfSignup.tsx');
 const selfSignupService = read('src/services/selfServiceSignup.ts');
 const signupRequests = read('src/pages/master/SignupRequests.tsx');
@@ -302,3 +302,19 @@ ok('v0.6.3 preferencias de recuperacao e recompra',settingsV062.includes('salesR
 ok('v0.6.3 SQL de validacao existe',exists('supabase/VALIDAR_V063.sql'));
 if(failures.length){console.error(`\n${failures.length} falha(s) nas verificacoes v0.6.3:`);for(const failure of failures)console.error(`- ${failure}`);process.exit(1)}
 console.log(`Smoke final FoodWeb v0.6.3: ${checks.length} verificações aprovadas.`);
+
+// FoodWeb v0.6.4 - base QA Playwright
+ok('v0.6.4 Playwright QA configurado',exists('qa/playwright.config.ts')&&exists('qa/qa.config.json')&&exists('qa/tests/visual/public-visual.spec.ts'));
+ok('v0.6.4 responsividade automatizada',exists('qa/tests/responsive/public-responsive.spec.ts')&&read('qa/tests/responsive/public-responsive.spec.ts').includes('1920'));
+ok('v0.6.4 acessibilidade automatizada',exists('qa/tests/a11y/accessibility.spec.ts')&&read('qa/tests/a11y/accessibility.spec.ts').includes('AxeBuilder'));
+ok('v0.6.4 sessoes QA fora do Git',read('.gitignore').includes('qa/.auth/*.json'));
+if(failures.length){console.error(`\n${failures.length} falha(s) nas verificacoes v0.6.4:`);for(const failure of failures)console.error(`- ${failure}`);process.exit(1)}
+console.log(`Smoke final FoodWeb v0.6.4: ${checks.length} verificações aprovadas.`);
+
+// FoodWeb v0.6.5 - QA Lite sem login obrigatorio
+ok('v0.6.5 scripts QA Lite',pkg.scripts?.['qa:lite']?.includes('test:lite')&&pkg.scripts?.['qa']==='npm run qa:lite'&&pkg.scripts?.['qa:update']?.includes('update:snapshots'));
+ok('v0.6.5 infraestrutura Playwright publica',exists('qa/package.json')&&exists('qa/scripts/run-qa.mjs')&&exists('qa/tests/responsive/public-responsive.spec.ts')&&exists('qa/tests/visual/public-visual.spec.ts'));
+ok('v0.6.5 detectores QA Lite',read('qa/tests/helpers/project.ts').includes('imageErrors')&&read('qa/tests/helpers/project.ts').includes('serverErrors')&&read('qa/tests/helpers/project.ts').includes('assertNoDocumentOverflow'));
+ok('v0.6.5 checklist manual e padrao visual',exists('docs/QA_LITE.md')&&read('docs/QA_LITE.md').includes('Checklist manual curto')&&exists('docs/PADRAO_VISUAL_UNICO.md')&&read('docs/PADRAO_VISUAL_UNICO.md').includes('Desktop - 1280'));
+if(failures.length){console.error(`\n${failures.length} falha(s) nas verificacoes v0.6.5:`);for(const failure of failures)console.error(`- ${failure}`);process.exit(1)}
+console.log(`Smoke final FoodWeb v0.6.5: ${checks.length} verificações aprovadas.`);

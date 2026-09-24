@@ -1,0 +1,29 @@
+{
+  "name": "project-qa-playwright",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "browser:install": "playwright install chromium",
+    "browser:install:all": "playwright install chromium firefox webkit",
+    "test": "node scripts/run-qa.mjs",
+    "test:lite": "node scripts/run-qa.mjs",
+    "test:ui": "playwright test --project=chromium --ui",
+    "test:smoke": "playwright test tests/smoke --project=chromium",
+    "test:e2e": "playwright test tests/e2e --project=chromium",
+    "test:responsive": "playwright test tests/responsive/public-responsive.spec.ts --project=chromium",
+    "test:visual": "playwright test tests/visual/public-visual.spec.ts --project=chromium",
+    "test:a11y": "playwright test tests/a11y --project=chromium",
+    "test:cross-browser": "playwright test tests/smoke tests/e2e --project=chromium --project=firefox --project=webkit",
+    "update:snapshots": "playwright test tests/visual/public-visual.spec.ts --project=chromium --update-snapshots && node scripts/sync-baseline.mjs",
+    "report": "playwright show-report playwright-report",
+    "auth:admin": "node scripts/capture-auth.mjs admin",
+    "auth:master": "node scripts/capture-auth.mjs master",
+    "test:core": "playwright test tests/smoke tests/e2e tests/responsive/public-responsive.spec.ts tests/a11y --project=chromium",
+    "test:authenticated": "playwright test tests/authenticated --project=chromium"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
+    "@playwright/test": "1.55.1"
+  }
+}

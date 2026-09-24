@@ -1,0 +1,26 @@
+{
+  "projectName": "FoodWeb",
+  "baseURL": "http://127.0.0.1:5173",
+  "storeSlug": "central-food-demo",
+  "checkoutPath": "finalizar",
+  "publicRoutes": [
+    "/",
+    "/cadastro?plan=DEMO"
+  ],
+  "adminStart": "/admin",
+  "masterStart": "/admin-master",
+  "maxDiscoveredRoutes": 40,
+  "ignoredConsolePatterns": [
+    "favicon",
+    "ResizeObserver loop",
+    "turnstile.*401",
+    "font-size:0;color:transparent\\s+NaN",
+    "ERR_BLOCKED_BY_CLIENT"
+  ],
+  "maskSelectors": [
+    "time",
+    "[data-qa-dynamic]",
+    ".updated-at",
+    ".current-time"
+  ]
+}

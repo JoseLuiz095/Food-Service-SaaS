@@ -34,3 +34,16 @@ foodweb.zip
 .impeccable/live/deferred-svelte-component-accepts.json
 .impeccable/live/*.png
 # impeccable-ignore-end
+# Playwright QA local artifacts
+qa/node_modules/
+qa/.auth/*.json
+qa/test-results/
+qa/playwright-report/
+qa/blob-report/
+
+.automation/
+.release_v064/
+.release_v065/
+.release_rc620/
+FOODWEB.bat
+FLORIWEB.bat

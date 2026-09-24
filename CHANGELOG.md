@@ -1,3 +1,27 @@
+## 0.6.5 - QA Lite publico e baseline controlada
+- Corrige o fluxo de publicacao para criar commit, branch e tag antes do push atomico e manter diagnostico em caso de falha.
+
+- Simplifica a automacao para `qa:lite`, sem login, Turnstile ou MFA obrigatorios.
+- Mantem Playwright para paginas publicas, navegacao segura, responsividade, acessibilidade e visual regression publica.
+- Adiciona detectores de overflow horizontal, erros de console, erros JavaScript, imagens quebradas e respostas HTTP 5xx.
+- Mantem baseline visual controlada: o visual so e cobrado depois da primeira baseline aprovada.
+- Corrige o loop de atualizacao detectado na pagina publica do carrinho.
+- Filtra somente o log cosmetico conhecido do widget de seguranca durante o cadastro publico.
+- Sincroniza a baseline aprovada com o payload usado para montar a release.
+- Mantem o painel aberto em falhas e indica o caminho correto do relatorio Playwright.
+- Exibe as etapas da publicacao para facilitar o diagnostico sem fechar a janela.
+- Documenta checklist manual curto para Admin, Admin Master, checkout autenticado/manual e fluxos que alteram dados.
+- Documenta padrao visual unico para desktop, tablet e mobile sem migrar o stack para Tailwind/shadcn.
+- Nao cria migrations, nao executa migrations e nao altera regras de negocio.
+
+## 0.6.4 - Base de QA automatizado com Playwright
+
+- Adiciona infraestrutura Playwright isolada em `qa/`.
+- Inclui smoke público, navegação E2E sem mutações, responsividade, visual regression e acessibilidade.
+- Captura de sessão Admin/Master é manual e segura, compatível com Turnstile/MFA.
+- Adiciona crawler visual de rotas autenticadas e detector de overflow horizontal.
+- Não altera banco de dados nem regras comerciais.
+
 # FoodWeb v0.6.3
 
 - Horário de atendimento com rolagem horizontal segura em larguras menores, sem invadir a coluna lateral.

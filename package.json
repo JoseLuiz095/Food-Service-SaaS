@@ -1,7 +1,7 @@
 {
   "name": "foodservice-saas",
   "private": true,
-  "version": "0.6.3",
+  "version": "0.6.5",
   "type": "module",
   "engines": {
     "node": ">=22.18.0"
@@ -21,7 +21,23 @@
     "design:detect": "npx --yes impeccable@3.6.0 detect src/",
     "design:context": "node .agents/skills/impeccable/scripts/context.mjs --target src/App.tsx",
     "test:critical": "node scripts/critical-flow.mjs",
-    "check:env": "node scripts/check-env.mjs"
+    "check:env": "node scripts/check-env.mjs",
+    "qa:setup": "npm --prefix qa install && npm --prefix qa run browser:install",
+    "qa": "npm run qa:lite",
+    "qa:lite": "npm --prefix qa run test:lite",
+    "qa:ui": "npm --prefix qa run test:ui",
+    "qa:smoke": "npm --prefix qa run test:smoke",
+    "qa:e2e": "npm --prefix qa run test:e2e",
+    "qa:responsive": "npm --prefix qa run test:responsive",
+    "qa:visual": "npm --prefix qa run test:visual",
+    "qa:authenticated": "npm --prefix qa run test:authenticated",
+    "qa:a11y": "npm --prefix qa run test:a11y",
+    "qa:cross-browser": "npm --prefix qa run test:cross-browser",
+    "qa:update": "npm --prefix qa run update:snapshots",
+    "qa:report": "npm --prefix qa run report",
+    "qa:auth:admin": "npm --prefix qa run auth:admin",
+    "qa:auth:master": "npm --prefix qa run auth:master",
+    "qa:core": "npm --prefix qa run test:core"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.112.4",

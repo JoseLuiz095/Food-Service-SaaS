@@ -58,7 +58,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const setItems = (updater: (current: CartItem[]) => CartItem[]) => setState((current) => {
     const base = current.key === cartKey ? current.items : readCart(cartKey);
-    return { key: cartKey, items: updater(base) };
+    const next = updater(base);
+    if (current.key === cartKey && next === current.items) return current;
+    return { key: cartKey, items: next };
   });
 
   const value = useMemo<CartContextValue>(() => ({
@@ -89,7 +91,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     updateQuantity: (id, quantity) => setItems((current) => current.map((item) => item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item)),
     removeItem: (id) => setItems((current) => current.filter((item) => item.id !== id)),
     clear: () => setItems(() => []),
-    validateAgainstProducts: (products) => setItems((current) => current.flatMap((item) => {
+    validateAgainstProducts: (products) => setItems((current) => {
+      const next = current.flatMap((item) => {
       const product = products.find((candidate) => candidate.id === item.productId && candidate.active && candidate.stockStatus !== 'unavailable' && candidate.availabilityStatus === 'available');
       if (!product) return [];
       const optionIndex = new Map(product.optionGroups.flatMap((group) => group.items.map((option) => [option.id, { group, option }] as const)));
@@ -108,8 +111,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
         });
       }
       const unitPrice = roundMoney(product.promotionalPrice ?? product.price);
-      return [{ ...item, productName: product.name, imageUrl: product.imageUrl, visualEmoji: product.visualEmoji, unitPrice, options: nextOptions }];
-    })),
+        const unchanged = item.productName === product.name
+          && item.imageUrl === product.imageUrl
+          && item.visualEmoji === product.visualEmoji
+          && item.unitPrice === unitPrice
+          && JSON.stringify(item.options) === JSON.stringify(nextOptions);
+        return [unchanged ? item : { ...item, productName: product.name, imageUrl: product.imageUrl, visualEmoji: product.visualEmoji, unitPrice, options: nextOptions }];
+      });
+      return next.length === current.length && next.every((item, index) => item === current[index]) ? current : next;
+    }),
   }), [items]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
