@@ -60,11 +60,8 @@ const planMarketingContent: Record<string, PlanMarketingContent> = {
       'Tudo do plano Profissional',
       'Produtos, categorias e adicionais sem limite definido',
       'Até 10 imagens por produto',
-      'Domínio próprio incluído',
-      'Analytics comercial liberado',
       'Financeiro gerencial completo',
       'Leitura de documentos financeiros',
-      'Suporte prioritário para a operação',
     ],
     contactLabel: 'Quero crescer com o Premium',
     intent: 'commercial',
@@ -78,10 +75,26 @@ const fallback: PublicLanding = {
   demoDurationDays: 14,
   contactProtected: true,
   plans: [
-    { id: 'essential', code: 'ESSENTIAL', name: 'Essencial', monthlyPrice: 49.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery'], marketingBenefits: [] },
-    { id: 'starter', code: 'STARTER', name: 'Profissional', monthlyPrice: 79.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery', 'analytics', 'finance', 'financial_documents', 'custom_banner', 'multiple_images'], marketingBenefits: [] },
-    { id: 'professional', code: 'PROFESSIONAL', name: 'Premium', monthlyPrice: 129.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery', 'analytics', 'finance', 'financial_documents', 'custom_banner', 'multiple_images'], marketingBenefits: [] },
+    { id: 'essential', code: 'ESSENTIAL', name: 'Essencial', monthlyPrice: 49.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery'], marketingBenefits: [], productLimit: 40, imageLimitPerProduct: 1, categoryLimit: 12, addonLimit: 40, customDomain: false, reports: false, prioritySupport: false },
+    { id: 'starter', code: 'STARTER', name: 'Profissional', monthlyPrice: 79.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery', 'analytics', 'finance', 'financial_documents', 'custom_banner', 'multiple_images'], marketingBenefits: [], productLimit: 120, imageLimitPerProduct: 5, categoryLimit: 30, addonLimit: 120, customDomain: false, reports: true, prioritySupport: false },
+    { id: 'professional', code: 'PROFESSIONAL', name: 'Premium', monthlyPrice: 129.9, featureCodes: ['storefront', 'orders', 'whatsapp', 'delivery', 'analytics', 'finance', 'financial_documents', 'custom_banner', 'multiple_images'], marketingBenefits: [], productLimit: null, imageLimitPerProduct: 10, categoryLimit: null, addonLimit: null, customDomain: true, reports: true, prioritySupport: true },
   ],
+};
+
+const planFeatures = (plan: LandingPlan, content: PlanMarketingContent) => {
+  const allowed = (feature: string) => !(
+    (!plan.customDomain && /dom[ií]nio pr[oó]prio/i.test(feature))
+    || (!plan.reports && /analytics|relat[oó]rio/i.test(feature))
+    || (!plan.prioritySupport && /suporte priorit[aá]rio/i.test(feature))
+  );
+  const limits = [
+    plan.productLimit == null ? 'Produtos sem limite definido' : `Até ${plan.productLimit} produtos ativos`,
+    plan.categoryLimit == null && plan.addonLimit == null ? 'Categorias e adicionais sem limite definido' : `Até ${plan.categoryLimit ?? 'sem limite'} categorias e ${plan.addonLimit ?? 'sem limite'} adicionais`,
+    plan.imageLimitPerProduct == null ? 'Imagens por produto sem limite definido' : `Até ${plan.imageLimitPerProduct} ${plan.imageLimitPerProduct === 1 ? 'imagem' : 'imagens'} por produto`,
+  ];
+  const fixed = content.features.filter((feature) => !/^Até \d+ (produtos|categorias|imagens)|Produtos, categorias|Categorias e adicionais/i.test(feature));
+  const capabilities = [plan.customDomain && 'Domínio próprio incluído', plan.reports && 'Analytics e relatórios comerciais', plan.prioritySupport && 'Suporte prioritário para a operação'].filter(Boolean) as string[];
+  return [...limits, ...fixed, ...capabilities, ...(plan.marketingBenefits || [])].filter(allowed).filter((feature, index, all) => all.indexOf(feature) === index);
 };
 
 const getPlanContent = (plan: LandingPlan, trialDays: number): PlanMarketingContent => {
@@ -113,6 +126,7 @@ export default function Landing() {
   const demo = useMemo(() => view.stores.find((store) => store.slug === view.demoStoreSlug) || view.stores[0], [view]);
   const demoHref = `/${encodeURIComponent(view.demoStoreSlug)}`;
   const trialDays = view.demoEnabled ? view.demoDurationDays : 14;
+  const premiumPlan = view.plans.find((plan) => plan.code === 'PROFESSIONAL');
 
   if (!data) return <div className="landing-loading"><LoadingState label="Preparando apresentação FoodWeb..." /></div>;
 
@@ -156,10 +170,10 @@ export default function Landing() {
             <p className="sales-plan-description-v59">{content.description}</p>
             <div className="sales-plan-fit-v59"><strong>Indicado para</strong><span>{content.idealFor}</span></div>
           </div>
-          <ul>{[...content.features,...(plan.marketingBenefits||[])].filter((feature,index,all)=>all.indexOf(feature)===index).map((feature) => <li key={`${plan.id}-${feature}`}><Check size={15} />{feature}</li>)}</ul>
+          <ul>{planFeatures(plan, content).map((feature) => <li key={`${plan.id}-${feature}`}><Check size={15} />{feature}</li>)}</ul>
           <ProtectedContactButton className={`sales-plan-contact-v59 ${recommended ? 'sales-plan-contact-v59--featured' : ''}`} intent={content.intent}><MessageCircle size={16} />{content.contactLabel}</ProtectedContactButton>
         </article>;
-      })}<article className="sales-plan-card food-business-sales-v051 sales-plan-card-business-v59"><span className="sales-plan-badge">SOB MEDIDA</span><small>BUSINESS</small><h3>Business</h3><div className="sales-plan-price"><strong>Sob consulta</strong><span>valor definido pelo projeto</span></div><p className="sales-plan-description-v59">Projeto desenhado para operações que precisam de mais integração, automação e acompanhamento técnico no dia a dia.</p><div className="sales-plan-fit-v59 sales-plan-fit-v59--dark"><strong>Indicado para</strong><span>Operações multiunidade, franquias, centrais de produção e negócios com necessidades especiais.</span></div><ul><li><Check size={15} />Domínio próprio incluído</li><li><Check size={15} />Multiunidade e fluxos personalizados</li><li><Check size={15} />Integrações com ERP, PDV e APIs</li><li><Check size={15} />Relatórios e automações sob medida</li><li><Check size={15} />Acompanhamento técnico dedicado</li></ul><ProtectedContactButton className="sales-plan-contact-v59 sales-plan-contact-v59--dark" intent="commercial"><MessageCircle size={16} />Quero avaliar um projeto Business</ProtectedContactButton></article></div><div className="premium-value-story-v062"><div><span>POR QUE O PREMIUM?</span><h3>O Profissional organiza. O Premium ajuda a vender novamente e operar melhor.</h3></div><p>Quando a operação começa a ganhar recorrência, domínio próprio, CRM, recuperação, upsell e KDS deixam de ser detalhes e passam a reduzir trabalho e criar novas oportunidades de venda.</p></div><div className="sales-plan-note"><ShieldCheck size={17} /><span>O telefone comercial não fica exposto no HTML. O contato é liberado pelo servidor somente após a validação anti-robô.</span></div></div></section>
+      })}<article className="sales-plan-card food-business-sales-v051 sales-plan-card-business-v59"><span className="sales-plan-badge">SOB MEDIDA</span><small>BUSINESS</small><h3>Business</h3><div className="sales-plan-price"><strong>Sob consulta</strong><span>valor definido pelo projeto</span></div><p className="sales-plan-description-v59">Projeto desenhado para operações que precisam de mais integração, automação e acompanhamento técnico no dia a dia.</p><div className="sales-plan-fit-v59 sales-plan-fit-v59--dark"><strong>Indicado para</strong><span>Operações multiunidade, franquias, centrais de produção e negócios com necessidades especiais.</span></div><ul><li><Check size={15} />Presença digital sob medida</li><li><Check size={15} />Multiunidade e fluxos personalizados</li><li><Check size={15} />Integrações com ERP, PDV e APIs</li><li><Check size={15} />Indicadores e automações sob medida</li><li><Check size={15} />Acompanhamento técnico dedicado</li></ul><ProtectedContactButton className="sales-plan-contact-v59 sales-plan-contact-v59--dark" intent="commercial"><MessageCircle size={16} />Quero avaliar um projeto Business</ProtectedContactButton></article></div><div className="premium-value-story-v062"><div><span>POR QUE O PREMIUM?</span><h3>O Profissional organiza. O Premium ajuda a vender novamente e operar melhor.</h3></div><p>Quando a operação começa a ganhar recorrência, {premiumPlan?.customDomain ? 'domínio próprio, ' : ''}CRM, recuperação, upsell e KDS deixam de ser detalhes e passam a reduzir trabalho e criar novas oportunidades de venda.</p></div><div className="sales-plan-note"><ShieldCheck size={17} /><span>O telefone comercial não fica exposto no HTML. O contato é liberado pelo servidor somente após a validação anti-robô.</span></div></div></section>
 
       <section className="sales-final-cta sales-final-cta-v43 sales-final-cta-v59"><div className="sales-shell"><div><span>PRONTO PARA CONHECER MELHOR?</span><h2>Fale com a equipe comercial e entenda qual plano faz mais sentido para o seu negócio.</h2><p>O contato público é protegido e o suporte técnico continua reservado para lojistas autenticados.</p></div><ProtectedContactButton className="sales-cta-light sales-cta-contact-v59" intent="commercial"><MessageCircle size={18} />Entrar em contato no WhatsApp</ProtectedContactButton></div></section>
     </main>

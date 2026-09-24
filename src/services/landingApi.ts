@@ -23,6 +23,13 @@ export type LandingPlan = {
   monthlyPrice: number;
   featureCodes: string[];
   marketingBenefits: string[];
+  productLimit?: number | null;
+  imageLimitPerProduct?: number | null;
+  categoryLimit?: number | null;
+  addonLimit?: number | null;
+  customDomain?: boolean;
+  reports?: boolean;
+  prioritySupport?: boolean;
 };
 
 type LandingRpcStore = {
@@ -30,7 +37,7 @@ type LandingRpcStore = {
   city?:string|null; state?:string|null; delivery_enabled?:boolean; pickup_enabled?:boolean; minimum_order?:number|string|null;
   average_preparation_min?:number|null; average_preparation_max?:number|null;
 };
-type LandingRpcPlan = { id:string; code:string; name:string; monthly_price?:number|string|null; feature_codes?:string[]|null; marketing_benefits?:string[]|null };
+type LandingRpcPlan = { id:string; code:string; name:string; monthly_price?:number|string|null; feature_codes?:string[]|null; marketing_benefits?:string[]|null; product_limit?:number|null; image_limit_per_product?:number|null; category_limit?:number|null; addon_limit?:number|null; custom_domain?:boolean|null; reports?:boolean|null; priority_support?:boolean|null };
 type LandingRpc = {
   stores?:LandingRpcStore[];
   plans?:LandingRpcPlan[];
@@ -56,7 +63,7 @@ const fetchLanding=async():Promise<PublicLanding>=>{
   const stores=(payload.stores||[]).map((row)=>({
     id:row.id,slug:row.slug,name:row.name,description:row.description||'Pedidos online de forma simples e profissional.',logoUrl:row.logo_url||'/assets/food-logo.svg',coverUrl:row.cover_url||'',city:row.city||'',state:row.state||'',deliveryEnabled:row.delivery_enabled??true,pickupEnabled:row.pickup_enabled??true,minimumOrder:n(row.minimum_order),preparationMin:Math.max(0,row.average_preparation_min??30),preparationMax:Math.max(0,row.average_preparation_max??45),
   }));
-  const plans=(payload.plans||[]).map((row)=>({id:row.id,code:row.code,name:row.name,monthlyPrice:n(row.monthly_price),featureCodes:Array.isArray(row.feature_codes)?row.feature_codes:[],marketingBenefits:Array.isArray(row.marketing_benefits)?row.marketing_benefits.filter(Boolean):[]}));
+  const plans=(payload.plans||[]).map((row)=>({id:row.id,code:row.code,name:row.name,monthlyPrice:n(row.monthly_price),featureCodes:Array.isArray(row.feature_codes)?row.feature_codes:[],marketingBenefits:Array.isArray(row.marketing_benefits)?row.marketing_benefits.filter(Boolean):[],productLimit:row.product_limit??null,imageLimitPerProduct:row.image_limit_per_product??null,categoryLimit:row.category_limit??null,addonLimit:row.addon_limit??null,customDomain:Boolean(row.custom_domain),reports:Boolean(row.reports),prioritySupport:Boolean(row.priority_support)}));
   return {
     stores,
     plans,

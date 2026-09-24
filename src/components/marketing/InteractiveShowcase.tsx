@@ -298,7 +298,7 @@ export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
     <div className="interactive-showcase__shell">
       <div className="interactive-showcase__heading">
         <div><span>DEMONSTRAÇÃO INTERATIVA</span><h2>Monte um pedido e acompanhe o mesmo pedido no painel da loja.</h2></div>
-        <div className="interactive-showcase__mode-tabs" role="tablist" aria-label="Modo da demonstração">
+        <div className="interactive-showcase__mode-tabs" role="group" aria-label="Modo da demonstração">
           <button type="button" className={mode==='customer'?'active':''} onClick={()=>{setMode('customer');setView('catalog')}}><ShoppingBag size={17}/>Experiência do cliente</button>
           <button type="button" className={mode==='admin'?'active':''} onClick={()=>setMode('admin')}><LayoutDashboard size={17}/>Painel de gestão</button>
         </div>

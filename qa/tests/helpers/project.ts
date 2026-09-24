@@ -40,6 +40,7 @@ export function safeName(route: string) {
 
 export async function waitForStablePage(page: Page) {
   await page.waitForLoadState('domcontentloaded');
+  await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
   await page.waitForTimeout(250);
   await page.evaluate(async () => { try { await document.fonts?.ready; } catch {} });
 }
@@ -65,6 +66,7 @@ export function runtimeGuard(page: Page, testInfo: TestInfo) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
   const serverErrors: string[] = [];
+  const unauthorizedResponses: string[] = [];
   const imageErrors: string[] = [];
   const ignored = (qaConfig.ignoredConsolePatterns || []).map((value) => new RegExp(value, 'i'));
   const ignore = (message: string) => ignored.some((pattern) => pattern.test(message));
@@ -76,6 +78,7 @@ export function runtimeGuard(page: Page, testInfo: TestInfo) {
   page.on('response', (response) => {
     const status = response.status();
     const url = response.url();
+    if (status === 401) unauthorizedResponses.push(`${response.request().method()} ${url}`);
     if (status >= 500) serverErrors.push(`${status} ${url}`);
     if (response.request().resourceType() === 'image' && status >= 400) imageErrors.push(`${status} ${url}`);
   });
@@ -84,9 +87,11 @@ export function runtimeGuard(page: Page, testInfo: TestInfo) {
     if (consoleErrors.length) await testInfo.attach('console-errors.txt', { body: consoleErrors.join('\n'), contentType: 'text/plain' });
     if (pageErrors.length) await testInfo.attach('page-errors.txt', { body: pageErrors.join('\n'), contentType: 'text/plain' });
     if (serverErrors.length) await testInfo.attach('server-errors.txt', { body: serverErrors.join('\n'), contentType: 'text/plain' });
+    if (unauthorizedResponses.length) await testInfo.attach('unauthorized-responses.txt', { body: unauthorizedResponses.join('\n'), contentType: 'text/plain' });
     if (imageErrors.length) await testInfo.attach('broken-image-responses.txt', { body: imageErrors.join('\n'), contentType: 'text/plain' });
     expect.soft(pageErrors, 'Erros JavaScript não tratados').toEqual([]);
     expect.soft(serverErrors, 'Respostas HTTP 5xx').toEqual([]);
+    expect.soft(unauthorizedResponses, 'Respostas HTTP 401 inesperadas').toEqual([]);
     expect.soft(imageErrors, 'Imagens com resposta HTTP 4xx/5xx').toEqual([]);
     expect.soft(consoleErrors, 'Erros relevantes no console').toEqual([]);
   };

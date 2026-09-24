@@ -1,5 +1,4 @@
 ## 0.6.5 - QA Lite publico e baseline controlada
-- Corrige o fluxo de publicacao para criar commit, branch e tag antes do push atomico e manter diagnostico em caso de falha.
 
 - Simplifica a automacao para `qa:lite`, sem login, Turnstile ou MFA obrigatorios.
 - Mantem Playwright para paginas publicas, navegacao segura, responsividade, acessibilidade e visual regression publica.

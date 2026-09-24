@@ -12,7 +12,12 @@ for (const route of publicRoutes()) {
     if (result.violations.length) {
       await testInfo.attach('axe-report.json', { body: JSON.stringify(result.violations, null, 2), contentType: 'application/json' });
     }
-    expect.soft(blocking.map((item) => ({ id: item.id, impact: item.impact, help: item.help })), 'Violações sérias/críticas de acessibilidade').toEqual([]);
+    expect.soft(blocking.map((item) => ({
+      id: item.id,
+      impact: item.impact,
+      help: item.help,
+      targets: item.nodes.map((node) => node.target)
+    })), 'Violações sérias/críticas de acessibilidade').toEqual([]);
     await finishGuard();
   });
 }
