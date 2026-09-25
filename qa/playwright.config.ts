@@ -8,6 +8,9 @@ const configPath = path.join(qaRoot, 'qa.config.json');
 const localConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 const externalBaseUrl = process.env.QA_BASE_URL?.trim();
 const baseURL = externalBaseUrl || localConfig.baseURL || 'http://127.0.0.1:5173';
+const base = new URL(baseURL);
+const localHost = ['127.0.0.1', 'localhost'].includes(base.hostname) ? '127.0.0.1' : '0.0.0.0';
+const localPort = base.port || '5173';
 
 export default defineConfig({
   testDir: './tests',
@@ -31,7 +34,7 @@ export default defineConfig({
     reducedMotion: 'reduce'
   },
   webServer: externalBaseUrl ? undefined : {
-    command: 'npm --prefix .. run dev -- --host 127.0.0.1',
+    command: `npm --prefix .. run dev -- --configLoader runner --host ${localHost} --port ${localPort}`,
     url: baseURL,
     reuseExistingServer: true,
     timeout: 120_000,

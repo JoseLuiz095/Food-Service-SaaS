@@ -78,7 +78,8 @@ export function runtimeGuard(page: Page, testInfo: TestInfo) {
   page.on('response', (response) => {
     const status = response.status();
     const url = response.url();
-    if (status === 401) unauthorizedResponses.push(`${response.request().method()} ${url}`);
+    const expectedTurnstileChallenge = status === 401 && /^https:\/\/challenges\.cloudflare\.com\//i.test(url);
+    if (status === 401 && !expectedTurnstileChallenge) unauthorizedResponses.push(`${response.request().method()} ${url}`);
     if (status >= 500) serverErrors.push(`${status} ${url}`);
     if (response.request().resourceType() === 'image' && status >= 400) imageErrors.push(`${status} ${url}`);
   });

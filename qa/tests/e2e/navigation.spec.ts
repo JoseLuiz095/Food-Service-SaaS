@@ -6,7 +6,8 @@ test('landing abre e possui navegação principal', async ({ page }, testInfo) =
   await page.goto('/');
   await waitForStablePage(page);
   await expect(page.locator('body')).toBeVisible();
-  await expect(page.locator('a[href]').first()).toBeVisible();
+  await expect(page.locator('.food-sales-page')).toBeVisible();
+  await expect(page.locator('.food-sales-page a[href]').first()).toBeVisible();
   await finishGuard();
 });
 

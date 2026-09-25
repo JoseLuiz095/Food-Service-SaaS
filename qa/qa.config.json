@@ -1,6 +1,6 @@
 {
   "projectName": "FoodWeb",
-  "baseURL": "http://127.0.0.1:5173",
+  "baseURL": "http://172.26.224.1:5173",
   "storeSlug": "central-food-demo",
   "checkoutPath": "finalizar",
   "publicRoutes": [

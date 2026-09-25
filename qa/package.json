@@ -19,6 +19,7 @@
     "report": "playwright show-report playwright-report",
     "auth:admin": "node scripts/capture-auth.mjs admin",
     "auth:master": "node scripts/capture-auth.mjs master",
+    "test:full": "node scripts/run-full-qa.mjs",
     "test:core": "playwright test tests/smoke tests/e2e tests/responsive/public-responsive.spec.ts tests/a11y --project=chromium",
     "test:authenticated": "playwright test tests/authenticated --project=chromium"
   },

@@ -41,9 +41,24 @@ qa/test-results/
 qa/playwright-report/
 qa/blob-report/
 
-.automation/
 .release_v064/
 .release_v065/
 .release_rc620/
 FOODWEB.bat
 FLORIWEB.bat
+*.zip
+_backup*/
+_BACKUP*/
+*_backup*/
+_HISTORICO_AUXILIARES/
+ARQUIVOS_FINAIS/
+.wrangler/
+test-results/
+styles_*_append.css
+
+# Publicacao/QA reproduzivel: estes arquivos fazem parte do fluxo oficial.
+!.automation/
+!.automation/*.cmd
+!.automation/*.ps1
+!.automation/*.mjs
+!FOODWEB.bat

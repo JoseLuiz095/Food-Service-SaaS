@@ -22,6 +22,7 @@ const PLATFORM_HOSTS = new Set([
   'foodweb.joseluizacama.workers.dev',
   'localhost',
   '127.0.0.1',
+  '172.26.224.1',
 ]);
 
 export const isFoodWebPlatformHost = (hostname: string) => PLATFORM_HOSTS.has(String(hostname || '').trim().toLowerCase());

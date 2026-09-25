@@ -37,7 +37,8 @@
     "qa:report": "npm --prefix qa run report",
     "qa:auth:admin": "npm --prefix qa run auth:admin",
     "qa:auth:master": "npm --prefix qa run auth:master",
-    "qa:core": "npm --prefix qa run test:core"
+    "qa:core": "npm --prefix qa run test:core",
+    "qa:publish": "node scripts/publish-qa-release.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.112.4",

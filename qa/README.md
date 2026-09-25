@@ -16,7 +16,7 @@ O comando principal e:
 npm run qa:lite
 ```
 
-Quando `QA_BASE_URL` nao estiver definido, o Playwright inicia ou reutiliza o Vite local em `http://127.0.0.1:5173`.
+Quando `QA_BASE_URL` nao estiver definido, o Playwright inicia ou reutiliza o Vite local em `http://172.26.224.1:5173`. Esse hostname deve estar liberado no widget Turnstile; a porta fica apenas na URL local.
 
 Para testar um Preview:
 
@@ -53,7 +53,13 @@ Atualize a baseline somente quando a mudanca visual for intencional.
 
 ## Login, Admin e Master
 
-Fluxos autenticados saem do caminho automatico. Eles ficam no checklist manual em `docs/QA_LITE.md`, porque login, Turnstile e MFA variam por ambiente.
+O fluxo completo agora pede o e-mail e a senha no terminal, abre o navegador para a validação Turnstile e pede o código do Authenticator somente no Admin Master. Nenhum desses valores é salvo no repositório.
+
+```bat
+npm --prefix qa run test:full
+```
+
+O comando captura `qa/.auth/admin.json` e `qa/.auth/master.json`, que são ignorados pelo Git, e depois exercita as rotas autenticadas.
 
 Se em algum momento voce quiser investigar telas autenticadas com Playwright, ainda existem comandos opcionais:
 

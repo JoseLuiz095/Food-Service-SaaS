@@ -21,6 +21,48 @@ function Distribution({title,icon:Icon,data}:{title:string;icon:typeof CreditCar
   return <section className="admin-card analytics-distribution"><div className="admin-card__header"><div><span className="eyebrow">DISTRIBUIÇÃO</span><h2>{title}</h2></div><Icon size={21}/></div><div className="analytics-bars">{data.length?data.slice(0,8).map(([label,value])=><div key={label}><div><span>{label}</span><strong>{value}</strong></div><div className="analytics-track"><span style={{width:`${Math.max(4,(value/max)*100)}%`}}/></div></div>):<p className="analytics-empty">Ainda não há dados suficientes.</p>}</div></section>;
 }
 
+function OrderRhythmChart({data}:{data:[string,number][]}){
+  const max=Math.max(1,...data.map(([,value])=>value));
+  const peakValue=Math.max(0,...data.map(([,value])=>value));
+  const peakLabel=data.find(([,value])=>value===peakValue)?.[0]||'—';
+  const chartBottom=204;
+  const chartHeight=178;
+  const chartDescription=data.map(([label,value])=>`${label}: ${value} pedido${value===1?'':'s'}`).join('; ');
+
+  return <section className="admin-card analytics-chart-card"><div className="admin-card__header"><div><span className="eyebrow">RITMO DE PEDIDOS</span><h2>Pedidos por dia da semana</h2><p className="analytics-chart-helper">Identifique rapidamente os dias com maior movimento no histórico carregado.</p></div><BarChart3 size={21}/></div><div className="analytics-chart-wrap"><svg className="analytics-chart-svg" viewBox="0 0 700 270" role="img" aria-labelledby="analytics-chart-title analytics-chart-desc"><title id="analytics-chart-title">Pedidos por dia da semana</title><desc id="analytics-chart-desc">{chartDescription||'Ainda não há pedidos registrados.'}</desc>{[0,.5,1].map((ratio)=><g key={ratio}><line className="analytics-chart-gridline" x1="34" x2="668" y1={chartBottom-(chartHeight*ratio)} y2={chartBottom-(chartHeight*ratio)}/><text className="analytics-chart-axis-label" x="22" y={chartBottom-(chartHeight*ratio)+4} textAnchor="end">{Math.round(max*ratio)}</text></g>)}{data.map(([label,value],index)=>{const barHeight=value?Math.max(8,(value/max)*chartHeight):0;const x=38+(index*90);const y=chartBottom-barHeight;return <g key={`${label}-${index}`}><rect className={`analytics-chart-bar${label===peakLabel&&peakValue>0?' is-peak':''}`} x={x} y={y} width="54" height={barHeight} rx="8"><title>{label}: {value} pedido{value===1?'':'s'}</title></rect>{value>0&&<text className="analytics-chart-value" x={x+27} y={y-8} textAnchor="middle">{value}</text>}<text className="analytics-chart-label" x={x+27} y="227" textAnchor="middle">{label}</text></g>})}</svg><ol className="sr-only">{data.map(([label,value])=><li key={`summary-${label}`}>{label}: {value} pedido{value===1?'':'s'}</li>)}</ol></div><div className="analytics-chart-insight"><BarChart3 size={16}/><span>Maior movimento: <strong>{peakLabel}</strong> ({peakValue} pedido{peakValue===1?'':'s'}).</span></div></section>;
+}
+
+function WeekdayOrdersChart({data}:{data:[string,number][]}){
+  const chartWidth=680;
+  const baseline=196;
+  const chartHeight=136;
+  const groupWidth=chartWidth/data.length;
+  const barWidth=Math.min(56,groupWidth-24);
+  const max=Math.max(1,...data.map(([,value])=>value));
+  const total=data.reduce((sum,[,value])=>sum+value,0);
+
+  return <section className="admin-card analytics-chart-card" aria-labelledby="food-analytics-weekday-title">
+    <div className="admin-card__header"><div><span className="eyebrow">RITMO DE VENDAS</span><h2 id="food-analytics-weekday-title">Pedidos por dia da semana</h2></div><BarChart3 size={21}/></div>
+    <p className="analytics-chart__intro">Identifique os dias mais fortes para planejar produção, equipe e entregas.</p>
+    <div className="analytics-chart__viewport">
+      <svg className="analytics-chart" viewBox={`0 0 ${chartWidth} 236`} role="img" aria-labelledby="food-analytics-weekday-svg-title food-analytics-weekday-svg-description" focusable="false">
+        <title id="food-analytics-weekday-svg-title">Pedidos por dia da semana</title>
+        <desc id="food-analytics-weekday-svg-description">Distribuição de {total} pedidos não cancelados entre os dias da semana.</desc>
+        {[0,1,2,3].map((line)=><line key={line} className="analytics-chart__gridline" x1="30" x2={chartWidth-18} y1={baseline-(chartHeight/3)*line} y2={baseline-(chartHeight/3)*line}/>)}
+        {data.map(([label,value],index)=>{
+          const height=value?Math.max(5,(value/max)*chartHeight):0;
+          const x=32+index*groupWidth+(groupWidth-barWidth)/2;
+          const y=baseline-height;
+          return <g key={label}><rect className="analytics-chart__bar" x={x} y={y} width={barWidth} height={height} rx="8" aria-hidden="true"/><text className="analytics-chart__value" x={x+barWidth/2} y={value?y-8:baseline-8} textAnchor="middle">{value}</text><text className="analytics-chart__label" x={x+barWidth/2} y="222" textAnchor="middle">{label}</text></g>;
+        })}
+      </svg>
+    </div>
+    <ul className="analytics-chart__sr-only" aria-label="Dados do gráfico de pedidos por dia da semana">
+      {data.map(([label,value])=><li key={label}>{label}: {value} {value===1?'pedido':'pedidos'}</li>)}
+    </ul>
+  </section>;
+}
+
 const emptyReport = (): AnalyticsReport => ({
   from:'',to:'',storefrontSessions:0,productViews:0,productViewSessions:0,addToCartSessions:0,checkoutSessions:0,orderSessions:0,orders:0,whatsappClicks:0,
   conversionRate:0,cartAbandonmentRate:0,checkoutAbandonmentRate:0,whatsappRate:0,revenue:0,averageTicket:0,topProducts:[],viewedNotSold:[],
@@ -78,7 +120,9 @@ export default function Analytics(){
       <div className="analytics-product-grid"><section className="admin-card"><div className="admin-card__header"><div><span className="eyebrow">INTERESSE × VENDA</span><h2>Produtos com maior interesse</h2></div><Eye size={21}/></div>{report.topProducts.length?<div className="analytics-product-list">{report.topProducts.map((product)=><div key={product.productId}><div><strong>{product.name}</strong><span>{product.views} visualizações · {product.addToCartSessions} sessões no carrinho</span></div><b>{product.soldUnits} vendidos</b></div>)}</div>:<p className="analytics-empty">Os dados aparecerão conforme clientes navegarem na vitrine.</p>}</section><section className="admin-card"><div className="admin-card__header"><div><span className="eyebrow">OPORTUNIDADE</span><h2>Vistos, mas ainda não vendidos</h2></div><BarChart3 size={21}/></div>{report.viewedNotSold.length?<div className="analytics-product-list">{report.viewedNotSold.map((product)=><div key={product.productId}><div><strong>{product.name}</strong><span>{product.views} visualizações · {product.addToCartSessions} sessões no carrinho</span></div><b>0 vendidos</b></div>)}</div>:<p className="analytics-empty">Nenhuma oportunidade relevante detectada neste período.</p>}</section></div>
     </>}
 
+    <OrderRhythmChart data={weekdays}/>
     <div className="analytics-stat-grid"><article className="admin-card analytics-stat"><span><ShoppingBag size={19}/></span><div><small>Pedidos no painel</small><strong>{valid.length}</strong><p>histórico operacional carregado</p></div></article><article className="admin-card analytics-stat"><span><PackageCheck size={19}/></span><div><small>Receita registrada</small><strong>{currency.format(operationalRevenue)}</strong><p>histórico disponível no painel</p></div></article><article className="admin-card analytics-stat"><span><BarChart3 size={19}/></span><div><small>Ticket médio histórico</small><strong>{currency.format(operationalAverage)}</strong><p>pedidos carregados</p></div></article><article className="admin-card analytics-stat"><span><Truck size={19}/></span><div><small>WhatsApp histórico</small><strong>{sent}</strong><p>{valid.length?`${Math.round((sent/valid.length)*100)}% dos pedidos`:'sem pedidos'}</p></div></article></div>
+    <WeekdayOrdersChart data={weekdays}/>
     <div className="analytics-grid"><Distribution title="Formas de pagamento" icon={CreditCard} data={payment}/><Distribution title="Entrega × retirada" icon={Truck} data={fulfillment}/><Distribution title="Bairros / zonas" icon={MapPin} data={neighborhoods}/><Distribution title="Dias da semana" icon={BarChart3} data={weekdays}/><Distribution title="Horários dos pedidos" icon={ShoppingBag} data={hours}/></div>
   </>;
 }

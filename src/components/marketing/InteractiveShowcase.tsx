@@ -305,11 +305,11 @@ export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
       </div>
 
       {mode==='customer'?<div className="interactive-demo interactive-demo--customer">
-        <aside className="interactive-demo__categories">
+        <nav className="interactive-demo__categories" aria-label="Categorias da demonstração">
           <div className="interactive-demo__brand">{variant==='food'?<Utensils size={19}/>:<Flower2 size={19}/>}<span><strong>{config.store}</strong><small>{config.subtitle}</small></span></div>
           {config.categories.map((item)=><button type="button" key={item} className={category===item?'active':''} onClick={()=>{setCategory(item);setView('catalog')}}>{item}<ChevronRight size={14}/></button>)}
           <div className="interactive-demo__delivery"><Truck size={16}/><span><strong>{variant==='food'?'Entrega e retirada':'Entrega programada e retirada'}</strong><small>{variant==='food'?'Taxas e agendamento conforme configuração da loja':'Data, faixa de horário e dados do presente'}</small></span></div>
-        </aside>
+        </nav>
 
         <div className="interactive-demo__storefront">
           {view==='catalog'&&<>
@@ -361,12 +361,12 @@ export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
           </div></div>}
         </div>
       </div>:<div className="interactive-demo interactive-demo--admin">
-        <aside className="interactive-demo__admin-nav"><div><span className="interactive-demo__admin-logo">{variant==='food'?'FW':'FL'}</span><strong>{config.adminTitle}</strong></div>
+        <nav className="interactive-demo__admin-nav" aria-label="Navegação do painel demonstrativo"><div><span className="interactive-demo__admin-logo">{variant==='food'?'FW':'FL'}</span><strong>{config.adminTitle}</strong></div>
           <button type="button" className={adminPanel==='dashboard'?'active':''} onClick={()=>setAdminPanel('dashboard')}><LayoutDashboard size={16}/>Visão geral</button>
           <button type="button" className={adminPanel==='orders'?'active':''} onClick={()=>setAdminPanel('orders')}><ShoppingBag size={16}/>Pedidos</button>
           <button type="button" className={adminPanel==='products'?'active':''} onClick={()=>setAdminPanel('products')}><Package size={16}/>Produtos</button>
           <button type="button" className={adminPanel==='finance'?'active':''} onClick={()=>setAdminPanel('finance')}><WalletCards size={16}/>Financeiro</button>
-        </aside>
+        </nav>
         <div className="interactive-demo__admin-main"><header><div><small>AMBIENTE DE DEMONSTRAÇÃO</small><strong>{adminPanel==='dashboard'?'Visão geral':adminPanel==='orders'?'Pedidos':adminPanel==='products'?'Produtos':'Financeiro'}</strong></div><button type="button" className="interactive-demo__reset" onClick={resetDemo}><RotateCcw size={14}/>Reiniciar</button></header>
           <p className="interactive-demo__admin-subtitle">{config.adminSubtitle}</p>
           {adminPanel==='dashboard'&&<><div className="interactive-demo__kpis"><article><span>Pedidos hoje</span><strong>{orders.length}</strong><small>Inclui pedidos demonstrativos</small></article><article><span>Faturamento</span><strong>{money(displayedRevenue)}</strong><small>Recebimentos confirmados</small></article><article><span>Ticket médio</span><strong>{money(orders.length?orders.reduce((sum,order)=>sum+order.total,0)/orders.length:0)}</strong><small>Pedidos exibidos</small></article><article><span>{variant==='food'?'Em preparação':'Entregas programadas'}</span><strong>{variant==='food'?orders.filter((order)=>order.status==='preparing').length:orders.filter((order)=>order.desiredDate).length}</strong><small>{variant==='food'?'Status real do FoodWeb':'Dados de entrega do pedido'}</small></article></div><div className="interactive-demo__admin-grid"><article><div className="interactive-demo__panel-title"><strong>Pedidos recentes</strong><span>Atualizado localmente</span></div>{orders.slice(0,4).map((order)=><div className="interactive-demo__order" key={order.id}><b>#{String(order.orderNumber).padStart(4,'0')}</b><span><strong>{order.itemSummary}</strong><small>{order.fulfillment==='delivery'?'Entrega':'Retirada'} · {paymentLabel[order.paymentMethod]}</small></span><em>{variant==='food'?(foodStatuses.find(([value])=>value===order.status)?.[1]||order.status):(floriStatusLabel[order.status]||order.status)}</em></div>)}</article><article><div className="interactive-demo__panel-title"><strong>Resumo financeiro</strong><BarChart3 size={16}/></div><div className="interactive-demo__finance"><span>Recebimentos confirmados<strong>{money(displayedRevenue)}</strong></span><span>Pedidos pendentes<strong>{orders.filter((order)=>!order.paymentPaid&&order.status!=='cancelled').length}</strong></span><span className="result">Fluxo demonstrado<strong>Pedido → recebimento → Financeiro</strong></span></div></article></div></>}
