@@ -23,8 +23,7 @@ set /p "RECREATE=Digite R para remover SOMENTE esta branch/tag e recriar, ou ENT
 if /I not "!RECREATE!"=="R" goto cancelled
 if "!HAS_BRANCH!"=="1" git push "%REPO%" --delete "%BRANCH%"
 if errorlevel 1 goto remote_failed
-if "!HAS_TAG!"=="1" git push "%REPO%" ":refs/tags/%TAG%"
-if errorlevel 1 goto remote_failed
+if "!HAS_TAG!"=="1" echo AVISO: a tag existente sera sobrescrita somente no push final.
 
 :refs_ok
 echo [2/6] Baixando uma copia limpa da main...
@@ -60,11 +59,12 @@ git config user.name >nul 2>&1 || git config user.name "Release Automation"
 git config user.email >nul 2>&1 || git config user.email "release@local"
 git commit -m "release: FoodWeb 0.6.5 QA Lite"
 if errorlevel 1 goto clone_context_failed
+git tag -d "%TAG%" >nul 2>&1
 git tag -a "%TAG%" -m "FoodWeb 0.6.5 QA Lite"
 if errorlevel 1 goto clone_context_failed
 
 echo [6/6] Enviando branch e tag ao GitHub...
-git push --atomic origin "%BRANCH%" "%TAG%"
+git push --atomic --force origin "%BRANCH%" "%TAG%"
 if errorlevel 1 goto clone_context_failed
 popd
 echo.

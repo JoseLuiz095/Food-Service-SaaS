@@ -12,3 +12,6 @@ verify_jwt = true
 
 [functions.food-public-contact]
 verify_jwt = false
+
+[functions.food-public-self-signup]
+verify_jwt = false

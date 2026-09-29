@@ -58,3 +58,10 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: supabase functions deploy food-public-contact --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+
+      - name: Publicar food-public-self-signup
+        if: steps.config.outputs.ready == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: supabase functions deploy food-public-self-signup --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
