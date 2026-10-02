@@ -21,7 +21,7 @@ const rootFiles = new Set([
   'index.html', 'package.json', 'package-lock.json', 'tsconfig.app.json',
   'tsconfig.json', 'vite.config.ts', 'wrangler.jsonc', 'FOODWEB.bat'
 ]);
-const rootDirs = new Set(['.agents', '.github', 'docs', 'public', 'qa', 'scripts', 'src', 'supabase']);
+const rootDirs = new Set(['.agents', '.github', '.impeccable', 'docs', 'public', 'qa', 'scripts', 'src', 'supabase']);
 const automationFiles = new Set([
   'install-root.cmd', 'setup-qa.cmd', 'publish.cmd', 'promote.cmd',
   'prepare-release-snapshot.mjs', 'check-release-snapshot.mjs', 'stop-project-node.ps1'
@@ -29,7 +29,8 @@ const automationFiles = new Set([
 
 function isJunk(name) {
   return name === 'node_modules' || name === 'dist' || name === '.wrangler' ||
-    name === 'test-results' || name === 'playwright-report' ||
+    name === 'test-results' || name === 'playwright-report' || name === 'live' ||
+    name === 'config.local.json' || name === 'hook.cache.json' || name === 'hook.pending.json' ||
     name.startsWith('_backup') || name.startsWith('_BACKUP') ||
     name.startsWith('payload') || name === 'ARQUIVOS_FINAIS' ||
     name === '_HISTORICO_AUXILIARES' || name.endsWith('.zip');

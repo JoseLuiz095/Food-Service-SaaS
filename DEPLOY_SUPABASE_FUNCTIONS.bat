@@ -40,6 +40,11 @@ call npx supabase@2.116.0 functions deploy food-public-contact --project-ref "%P
 if errorlevel 1 goto :falha
 
 echo.
+echo [5/5] Cadastro publico sem dependencia do e-mail do Supabase Auth...
+call npx supabase@2.116.0 functions deploy food-public-self-signup --project-ref "%PROJECT_REF%" --no-verify-jwt
+if errorlevel 1 goto :falha
+
+echo.
 call npx supabase@2.116.0 functions list --project-ref "%PROJECT_REF%"
 echo.
 echo CONCLUIDO.
