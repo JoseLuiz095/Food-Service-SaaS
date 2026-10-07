@@ -6,6 +6,8 @@ begin;
 alter table public.food_store_subscriptions
   add column if not exists billing_mode text not null default 'standard';
 
+notify pgrst, 'reload schema';
+
 do $$
 declare
   v_constraint text;

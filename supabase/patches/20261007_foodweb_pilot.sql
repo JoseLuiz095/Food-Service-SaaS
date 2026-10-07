@@ -17,7 +17,8 @@ alter table public.food_stores
   }'::jsonb,
   add column if not exists storefront_notice text,
   add column if not exists pickup_instructions text,
-  add column if not exists hide_public_address boolean not null default false;
+  add column if not exists hide_public_address boolean not null default false,
+  add column if not exists show_whatsapp boolean not null default true;
 
 update public.food_stores
 set visual_theme = '{
@@ -53,13 +54,15 @@ set visual_theme = '{
   cover_url = '/assets/doce-lua/hero.jpeg',
   storefront_notice = coalesce(nullif(storefront_notice,''), 'Encomendas preparadas a partir das 18h. Confirme o horário com a loja.'),
   pickup_instructions = coalesce(nullif(pickup_instructions,''), 'A retirada acontece em local de trabalho combinado após a confirmação do pedido.'),
-  hide_public_address = true
+  hide_public_address = true,
+  show_whatsapp = false
 where lower(trim(name)) = 'doce lua';
 
 comment on column public.food_stores.visual_theme is 'Tokens visuais da vitrine pública, isolados por loja.';
 comment on column public.food_stores.storefront_notice is 'Aviso operacional opcional visível antes do pedido.';
 comment on column public.food_stores.pickup_instructions is 'Orientação pública opcional para retirada.';
 comment on column public.food_stores.hide_public_address is 'Quando true, não revela o endereço no checkout público.';
+comment on column public.food_stores.show_whatsapp is 'Controla se o WhatsApp da loja aparece na vitrine pública.';
 
 commit;
 
@@ -101,9 +104,10 @@ begin
   return jsonb_build_object(
     'found',true,'status','online',
     'store',(case when coalesce(v_store.hide_public_address,false)
-      then (to_jsonb(v_store) - 'owner_email' - 'owner_name' - 'suspension_reason' - 'address' - 'zip_code' - 'city' - 'state')
-      else (to_jsonb(v_store) - 'owner_email' - 'owner_name' - 'suspension_reason')
+       then (to_jsonb(v_store) - 'owner_email' - 'owner_name' - 'suspension_reason' - 'address' - 'zip_code' - 'city' - 'state' - 'whatsapp' - 'show_whatsapp')
+       else (to_jsonb(v_store) - 'owner_email' - 'owner_name' - 'suspension_reason' - 'whatsapp' - 'show_whatsapp')
     end) || jsonb_build_object(
+       'whatsapp',case when coalesce(v_store.show_whatsapp,true) then v_store.whatsapp else null end,
       'cover_url',case when v_custom_banner then v_store.cover_url else null end,
       'cover_storage_path',case when v_custom_banner then v_store.cover_storage_path else null end
     ),

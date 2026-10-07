@@ -176,7 +176,7 @@ export const seedSettings: StoreSettings = {
   name: 'Central Food',
   tagline: 'Seu pedido do seu jeito, rápido e sem complicação.',
   description: 'Loja de demonstração da plataforma Food Service.',
-  city: 'Linhares', state: 'ES', zipCode: '', whatsapp: '5527999999999', instagram: '@centralfood',
+  city: 'Linhares', state: 'ES', zipCode: '', whatsapp: '5527999999999', showWhatsApp: true, instagram: '@centralfood',
   address: 'Centro, Linhares - ES', logoUrl: '/assets/food-logo.svg', heroUrl: '/assets/food-hero.svg',
   visualTheme: { ...DEFAULT_STORE_VISUAL_THEME }, hidePublicAddress: false,
   pixEnabled: true, pixReceiptMode: 'key', pixKeyType: 'E-mail', pixKey: 'pix@centralfood.demo', pixCopyPaste: '', pixReceiver: 'Central Food',
