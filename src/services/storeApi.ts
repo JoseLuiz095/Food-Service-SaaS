@@ -335,15 +335,20 @@ export const storeApi = {
       opening_hours:{ display:formatOpeningSchedule(settings.openingSchedule), timezone:settings.openingSchedule.timezone, days:settings.openingSchedule.days }, billing_document:settings.billingDocument||null, billing_phone:settings.billingPhone||null,
     };
     let rows: StoreRow[];
-    try {
-      rows = await restFetch<StoreRow[]>(`food_stores?id=eq.${encode(settings.id)}&select=*`, { method:'PATCH', body:payload, prefer:'return=representation' });
-    } catch (error) {
-      // Instalações que ainda não receberam o patch de privacidade continuam salvando o restante das configurações.
-      if (!isMissingSchemaColumn(error, 'show_whatsapp')) throw error;
-      const { show_whatsapp: _showWhatsApp, ...legacyPayload } = payload;
-      rows = await restFetch<StoreRow[]>(`food_stores?id=eq.${encode(settings.id)}&select=*`, {
-        method:'PATCH', body:{ ...legacyPayload, whatsapp:settings.showWhatsApp === false ? null : settings.whatsapp }, prefer:'return=representation',
-      });
+    // PostgREST pode manter o schema cache antigo após uma implantação parcial.
+    // Retiramos apenas a coluna reportada e tentamos novamente, preservando as demais.
+    const pilotColumns = ['show_whatsapp', 'hide_public_address', 'visual_theme', 'storefront_notice', 'pickup_instructions'] as const;
+    const requestPayload = { ...payload } as Record<string, unknown>;
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        rows = await restFetch<StoreRow[]>(`food_stores?id=eq.${encode(settings.id)}&select=*`, { method:'PATCH', body:requestPayload, prefer:'return=representation' });
+        break;
+      } catch (error) {
+        const missingColumn = pilotColumns.find((column) => isMissingSchemaColumn(error, column) && column in requestPayload);
+        if (!missingColumn || attempt >= pilotColumns.length) throw error;
+        delete requestPayload[missingColumn];
+        if (missingColumn === 'show_whatsapp') requestPayload.whatsapp = settings.showWhatsApp === false ? null : settings.whatsapp;
+      }
     }
     return mapStore(rows[0]);
   },

@@ -23,9 +23,33 @@ export const DEFAULT_CUSTOMER_MESSAGE_TEMPLATES: CustomerMessageTemplates = {
   comeBack: 'Olá, {cliente}! Já faz um tempo desde seu último pedido na {loja}. Quando quiser pedir novamente, responda esta mensagem e ajudamos por aqui.',
 };
 
+/** Placeholders necessários para que as mensagens possam ser preenchidas pelo sistema. */
+export const CUSTOMER_MESSAGE_VARIABLES: Record<keyof CustomerMessageTemplates, readonly string[]> = {
+  received: ['{cliente}', '{pedido}', '{loja}', '{total}', '{previsao}'],
+  confirmed: ['{cliente}', '{pedido}', '{loja}', '{previsao}'],
+  preparing: ['{cliente}', '{pedido}', '{loja}', '{previsao}'],
+  ready: ['{cliente}', '{pedido}', '{loja}', '{previsao}'],
+  outForDelivery: ['{cliente}', '{pedido}', '{loja}'],
+  delivered: ['{cliente}', '{pedido}', '{loja}'],
+  pickedUp: ['{cliente}', '{pedido}', '{loja}'],
+  cancelled: ['{cliente}', '{pedido}', '{loja}'],
+  salesRecovery: ['{cliente}', '{pedido}', '{loja}', '{total}'],
+  comeBack: ['{cliente}', '{loja}'],
+};
+
+const CUSTOMER_MESSAGE_TEMPLATE_KEYS = Object.keys(CUSTOMER_MESSAGE_VARIABLES) as Array<keyof CustomerMessageTemplates>;
+
+/** Recoloca automaticamente placeholders apagados, inclusive em templates antigos. */
+export function ensureCustomerMessageVariables(key: keyof CustomerMessageTemplates, value: unknown) {
+  const text = typeof value === 'string' ? value : '';
+  const missing = CUSTOMER_MESSAGE_VARIABLES[key].filter((variable) => !text.includes(variable));
+  return missing.length ? `${text.trimEnd()}${text.trim() ? ' ' : ''}${missing.join(' ')}` : text;
+}
+
 export function normalizeCustomerMessageTemplates(value: unknown): CustomerMessageTemplates {
   const raw = value && typeof value === 'object' ? value as Partial<CustomerMessageTemplates> : {};
-  return { ...DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ...Object.fromEntries(Object.entries(raw).filter(([,v]) => typeof v === 'string' && v.trim())) } as CustomerMessageTemplates;
+  const merged = { ...DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ...Object.fromEntries(Object.entries(raw).filter(([,v]) => typeof v === 'string' && v.trim())) } as CustomerMessageTemplates;
+  return Object.fromEntries(CUSTOMER_MESSAGE_TEMPLATE_KEYS.map((key) => [key, ensureCustomerMessageVariables(key, merged[key])])) as CustomerMessageTemplates;
 }
 
 export function saveRecentOrder(storeId: string, items: CartItem[], customerName: string, customerPhone: string) {
