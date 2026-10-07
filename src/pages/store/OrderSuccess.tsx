@@ -48,6 +48,7 @@ export default function OrderSuccess() {
   const whatsappMessage = buildPostOrderWhatsAppMessage(confirmation);
   const whatsappUrl = hasWhatsApp ? getWhatsAppUrl(confirmation.storeWhatsapp, whatsappMessage) : '';
   const pixValue = isPixCopyPaste ? confirmation.pixCopyPaste : confirmation.pixKey;
+  const confirmationStatus = isPix ? 'Aguardando confirmação do PIX pela loja' : isCard ? 'Aguardando recebimento na entrega ou retirada' : isCash ? 'Aguardando recebimento em dinheiro' : 'Aguardando confirmação da loja';
 
   const handleCopyPix = async () => {
     try {
@@ -76,12 +77,13 @@ export default function OrderSuccess() {
       <section className="order-success-card">
         <div className="success-icon"><CheckCircle2 size={54} strokeWidth={2.2} /></div>
 
-        <h1>Pedido registrado!</h1>
+        <h1>Pedido recebido</h1>
         <p className="order-success-number">Pedido <strong>#{formatOrderNumber(confirmation.orderNumber)}</strong></p>
+        <div className="order-success-status" role="status"><span className="order-success-status__dot" />{confirmationStatus}</div>
 
         <div className="order-registration-proof" role="status">
           <CheckCircle2 size={20} />
-          <div><strong>Pedido salvo no sistema</strong><span>O pedido já existe e pode ser acompanhado pela loja. O WhatsApp é apenas um canal adicional de contato.</span></div>
+          <div><strong>Pedido salvo no sistema</strong><span>{hasWhatsApp ? 'O pedido já existe e pode ser acompanhado pela loja. O WhatsApp é apenas um canal adicional de contato.' : 'O pedido já existe e será acompanhado pela loja diretamente no painel, sem depender de WhatsApp.'}</span></div>
         </div>
 
         <div className="order-success-payment">
@@ -115,7 +117,7 @@ export default function OrderSuccess() {
 
         {(isPixCopyPaste || isPixKey) && (
           <div className="pix-confirmation-box">
-            <p>{isPixCopyPaste ? `Copie o código abaixo e cole na opção “PIX Copia e Cola” do seu banco. O valor de ${currency.format(confirmation.total)} já está preenchido.` : `Copie a chave PIX, informe o valor de ${currency.format(confirmation.total)} no banco e depois envie o comprovante para ${confirmation.storeName}.`}</p>
+              <p>{isPixCopyPaste ? `Copie o código abaixo e cole na opção “PIX Copia e Cola” do seu banco. O valor de ${currency.format(confirmation.total)} já está preenchido.` : hasWhatsApp ? `Copie a chave PIX, informe o valor de ${currency.format(confirmation.total)} no banco e depois envie o comprovante para ${confirmation.storeName}.` : `Copie a chave PIX e informe o valor de ${currency.format(confirmation.total)} no banco. A loja fará a confirmação pelo painel.`}</p>
             <span className="pix-key-label">{isPixCopyPaste ? 'PIX Copia e Cola · valor automático' : `Chave PIX · ${confirmation.pixKeyType || 'Chave cadastrada'}`}</span>
             <div className="pix-key-row">
               <code>{pixValue}</code>
@@ -127,6 +129,8 @@ export default function OrderSuccess() {
             {confirmation.pixReceiver && <small>Recebedor: {confirmation.pixReceiver}</small>}
           </div>
         )}
+
+        {!hasWhatsApp && <div className="order-channel-info" role="note"><Store size={19} /><div><strong>Confirmação sem WhatsApp</strong><span>Guarde o pedido <b>#{formatOrderNumber(confirmation.orderNumber)}</b>. O pagamento e o andamento serão conferidos internamente pela loja.</span></div></div>}
 
         {isCard && (
           <div className="card-link-info-box">

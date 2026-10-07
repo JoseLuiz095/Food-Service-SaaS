@@ -149,6 +149,15 @@ button:disabled,.primary-button:disabled{opacity:.55;cursor:not-allowed;transfor
 .pix-return-reminder{display:grid;gap:3px;margin-top:16px;padding:12px 13px;border-radius:12px;background:#fff7df;border:1px solid #f0d38a;color:#795b15;line-height:1.4}
 .pix-return-reminder strong{font-size:.82rem}
 .pix-return-reminder span{font-size:.76rem}
+.order-success-status{display:inline-flex;align-items:center;gap:7px;margin:10px auto 18px;padding:7px 11px;border:1px solid color-mix(in srgb,var(--food-store-accent,#c97952) 28%,#fff);border-radius:999px;background:color-mix(in srgb,var(--food-store-accent,#c97952) 8%,#fff);color:var(--food-store-primary,#542114);font-size:.75rem;font-weight:800}
+.order-success-status__dot{width:7px;height:7px;border-radius:50%;background:var(--food-store-accent,#c97952);box-shadow:0 0 0 4px color-mix(in srgb,var(--food-store-accent,#c97952) 16%,transparent)}
+.checkout-pilot-note{display:flex;align-items:flex-start;gap:9px;margin-top:15px;padding:12px 13px;border:1px solid color-mix(in srgb,var(--food-store-accent,#c97952) 28%,#fff);border-radius:13px;background:color-mix(in srgb,var(--food-store-accent,#c97952) 7%,#fff);color:var(--food-store-text,#32110c);font-size:.78rem;line-height:1.45}
+.checkout-pilot-note svg{flex:0 0 auto;color:var(--food-store-primary,#542114);margin-top:1px}
+.order-channel-info{display:flex;align-items:flex-start;gap:10px;margin:4px 0 22px;padding:14px 15px;border:1px solid color-mix(in srgb,var(--food-store-accent,#c97952) 25%,#fff);border-radius:14px;background:linear-gradient(135deg,color-mix(in srgb,var(--food-store-accent,#c97952) 8%,#fff),#fff);color:var(--food-store-text,#32110c);text-align:left}
+.order-channel-info>svg{flex:0 0 auto;color:var(--food-store-primary,#542114);margin-top:1px}
+.order-channel-info div{display:grid;gap:3px}
+.order-channel-info strong{font-size:.82rem}
+.order-channel-info span{font-size:.76rem;line-height:1.45;color:var(--food-store-muted,#7c6259)}
 .order-success-store{border-top:1px solid var(--line);padding:24px 6px 20px;display:flex;align-items:center;justify-content:center;gap:9px;color:#746f68;font-size:.95rem}
 .order-success-store svg{color:#8a847d}
 .whatsapp-confirmation-button{width:100%;min-height:58px;border-radius:14px;background:#22cf6b;color:#fff;display:flex;align-items:center;justify-content:center;gap:10px;font-size:1.02rem;font-weight:800;text-decoration:none;box-shadow:0 10px 22px rgba(34,207,107,.18);transition:.18s ease}
