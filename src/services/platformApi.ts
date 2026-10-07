@@ -15,6 +15,10 @@ import type {
 } from '../types';
 
 const toNumber = (value: number | string | null | undefined) => value == null ? 0 : Number(value);
+const isMissingSchemaColumn = (error: unknown, column: string) => {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return message.includes(column.toLowerCase()) && (message.includes('schema cache') || message.includes('column'));
+};
 const addDaysIso = (days: number) => {
   const date = new Date();
   date.setUTCDate(date.getUTCDate() + Math.max(1, Math.round(days)));
@@ -164,7 +168,7 @@ export const platformApi = {
         id:store.id,name:store.name,slug:store.slug,city:store.city||'',state:store.state||'',ownerName:store.owner_name||undefined,ownerEmail:store.owner_email||undefined,
         active:store.active,accessStatus:demoExpired?'suspended':(store.access_status||'online'),productCount:storeProducts.length,activeProductCount:storeProducts.filter((item)=>item.active).length,
         adminUserCount:users.filter((item)=>item.store_id===store.id&&item.active).length,subscriptionId:sub?.id,subscriptionStatus:sub?.status,
-        planId:plan?.id,planName:plan?.name,planCode:plan?.code,billingAmount:sub?.billing_amount==null?toNumber(plan?.monthly_price):toNumber(sub.billing_amount),billingMode:sub?.billing_mode||'standard',
+        planId:plan?.id,planName:plan?.name,planCode:plan?.code,billingAmount:sub?.billing_amount==null?toNumber(plan?.monthly_price):toNumber(sub.billing_amount),billingMode:sub?.billing_mode||((sub?.billing_amount==null?toNumber(plan?.monthly_price):toNumber(sub.billing_amount))===0?'complimentary':'negotiated'),
         dueDay:sub?.due_day||undefined,nextDueDate:sub?.next_due_date||undefined,customDomain:domains.find((item)=>item.store_id===store.id&&item.is_primary)?.domain,
         suspendedAt:store.suspended_at||undefined,suspensionReason:store.suspension_reason||undefined,expiresAt:sub?.expires_at||undefined,
       };
@@ -247,8 +251,17 @@ export const platformApi = {
       next_due_date:nextDueDate,
       expires_at:expiresAt,
     };
-    if (currentSub) await restFetch<unknown>(`food_store_subscriptions?id=eq.${encodeURIComponent(currentSub.id)}`, {method:'PATCH',body:subscriptionBody});
-    else await restFetch<unknown>('food_store_subscriptions', {method:'POST',body:{store_id:input.storeId,...subscriptionBody}});
+    const persistSubscription = async (path:string, body:Record<string, unknown>) => {
+      try {
+        await restFetch<unknown>(path, {method:currentSub?'PATCH':'POST',body});
+      } catch (error) {
+        if (!isMissingSchemaColumn(error, 'billing_mode')) throw error;
+        const { billing_mode: _billingMode, ...legacyBody } = body;
+        await restFetch<unknown>(path, {method:currentSub?'PATCH':'POST',body:legacyBody});
+      }
+    };
+    if (currentSub) await persistSubscription(`food_store_subscriptions?id=eq.${encodeURIComponent(currentSub.id)}`, subscriptionBody);
+    else await persistSubscription('food_store_subscriptions', {store_id:input.storeId,...subscriptionBody});
 
     const existing = await restFetch<DomainRow[]>(`food_store_domains?select=*&store_id=eq.${encodeURIComponent(input.storeId)}&is_primary=eq.true&limit=1`);
     const domain = plan.custom_domain ? (input.customDomain||'').trim().toLowerCase().replace(/^https?:\/\//,'').replace(/\/$/,'') : '';

@@ -44,8 +44,9 @@ export default function OrderSuccess() {
   const isPixKey = isPix && confirmation.pixReceiptMode === 'key' && Boolean(confirmation.pixKey.trim());
   const isCard = confirmation.paymentMethod === 'card';
   const isCash = confirmation.paymentMethod === 'cash';
+  const hasWhatsApp = Boolean(confirmation.storeWhatsapp?.trim());
   const whatsappMessage = buildPostOrderWhatsAppMessage(confirmation);
-  const whatsappUrl = getWhatsAppUrl(confirmation.storeWhatsapp, whatsappMessage);
+  const whatsappUrl = hasWhatsApp ? getWhatsAppUrl(confirmation.storeWhatsapp, whatsappMessage) : '';
   const pixValue = isPixCopyPaste ? confirmation.pixCopyPaste : confirmation.pixKey;
 
   const handleCopyPix = async () => {
@@ -91,7 +92,7 @@ export default function OrderSuccess() {
 
           {isPix ? (
             <>
-              <p>{isPixCopyPaste ? 'Copie o PIX Copia e Cola abaixo. Ele já contém o valor deste pedido.' : 'Efetue o pagamento via PIX e envie o comprovante pelo WhatsApp para a loja confirmar seu pedido.'}</p>
+              <p>{isPixCopyPaste ? 'Copie o PIX Copia e Cola abaixo. Ele já contém o valor deste pedido.' : hasWhatsApp ? 'Efetue o pagamento via PIX e envie o comprovante pelo WhatsApp para a loja confirmar seu pedido.' : 'Efetue o pagamento via PIX. A loja fará a confirmação pelo sistema.'}</p>
               <strong className="order-success-total">Total: {currency.format(confirmation.total)}</strong>
             </>
           ) : isCard ? (
@@ -106,7 +107,7 @@ export default function OrderSuccess() {
             </>
           ) : (
             <>
-              <p>Seu pedido foi registrado. Use o WhatsApp apenas se quiser falar diretamente com a loja.</p>
+              <p>{hasWhatsApp ? 'Seu pedido foi registrado. Use o WhatsApp apenas se quiser falar diretamente com a loja.' : 'Seu pedido foi registrado. A loja acompanhará a confirmação pelo sistema.'}</p>
               <strong className="order-success-total">Total: {currency.format(confirmation.total)}</strong>
             </>
           )}
@@ -138,7 +139,7 @@ export default function OrderSuccess() {
           <span>{confirmation.storeName}</span>
         </div>
 
-        <a
+        {hasWhatsApp && <a
           className="whatsapp-confirmation-button"
           href={whatsappUrl}
           target="_blank"
@@ -147,14 +148,14 @@ export default function OrderSuccess() {
         >
           <MessageCircle size={21} />
           {isPix ? 'Abrir WhatsApp e enviar comprovante' : 'Abrir WhatsApp'}
-        </a>
-        <div className={`whatsapp-sync-state is-${whatsappMarkState}`} aria-live="polite">
+        </a>}
+        {hasWhatsApp && <div className={`whatsapp-sync-state is-${whatsappMarkState}`} aria-live="polite">
           {whatsappMarkState === 'sending' && <span>Registrando a abertura do WhatsApp no pedido...</span>}
           {whatsappMarkState === 'done' && <span>A abertura do WhatsApp foi vinculada ao pedido #{formatOrderNumber(confirmation.orderNumber)}.</span>}
           {whatsappMarkState === 'error' && <span>O pedido continua salvo; apenas o status do WhatsApp não foi atualizado. Toque no botão novamente quando voltar.</span>}
-        </div>
+        </div>}
 
-        {isPix && <p className="order-success-hint">O WhatsApp abrirá com a mensagem pronta. Depois do pagamento, anexe a imagem do comprovante na conversa.</p>}
+        {isPix && hasWhatsApp && <p className="order-success-hint">O WhatsApp abrirá com a mensagem pronta. Depois do pagamento, anexe a imagem do comprovante na conversa.</p>}
         {isCard && <p className="order-success-hint">A loja fará a cobrança por cartão na entrega ou retirada. Nunca envie número completo do cartão, CVV ou senha pelo WhatsApp.</p>}
         {isCash && <p className="order-success-hint">{confirmation.changeAmount != null ? `Troco previsto: ${currency.format(confirmation.changeAmount)}.` : 'Pagamento em dinheiro sem troco solicitado.'}</p>}
 

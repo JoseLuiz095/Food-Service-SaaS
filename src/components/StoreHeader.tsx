@@ -53,7 +53,7 @@ export function StoreHeader(){
         <div className="food-open-details"><span className={`open-pill ${status.open?'is-open':'is-closed'}`}>{status.label}</span><small>{status.detail}</small></div>
         {settings.deliveryEnabled&&<span className="food-fulfillment-pill active"><Truck size={16}/>Delivery</span>}
         {settings.pickupEnabled&&<span className="food-fulfillment-pill"><ShoppingBag size={16}/>Retirada</span>}
-        {whatsapp&&<a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer"><MessageCircle size={17}/>Falar com a loja</a>}
+        {settings.showWhatsApp !== false && whatsapp&&<a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer"><MessageCircle size={17}/>Falar com a loja</a>}
       </div>
     </section>
     {(settings.storefrontNotice?.trim() || (settings.pickupEnabled && pickupNotice)) && <section className="container food-store-operation-notices" aria-label="Informações importantes da loja">

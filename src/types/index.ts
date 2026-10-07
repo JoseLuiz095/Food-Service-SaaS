@@ -185,6 +185,7 @@ export type StoreSettings = {
   state: string;
   zipCode?: string;
   whatsapp: string;
+  showWhatsApp: boolean;
   instagram: string;
   address: string;
   logoUrl: string;

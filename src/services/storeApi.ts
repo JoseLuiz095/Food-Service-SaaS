@@ -54,7 +54,7 @@ type DemoDatabase = StoreSnapshot;
 type StoreRow = {
   id: string; slug: string; name: string; description: string | null; logo_url: string | null; logo_storage_path: string | null;
   cover_url: string | null; cover_storage_path: string | null; whatsapp: string | null; instagram: string | null; address: string | null;
-  city: string | null; state: string | null; zip_code: string | null; delivery_enabled: boolean; pickup_enabled: boolean;
+  city: string | null; state: string | null; zip_code: string | null; delivery_enabled: boolean; pickup_enabled: boolean; show_whatsapp?: boolean | null;
   pix_enabled: boolean; pix_receipt_mode: 'copy_paste'|'key' | null; pix_key_type: string | null; pix_key: string | null; pix_copy_paste: string | null; pix_holder_name: string | null;
   show_pix_before_confirmation: boolean; confirmation_payment_enabled: boolean; card_payment_enabled: boolean; cash_payment_enabled: boolean; payment_method_order: unknown;
   minimum_order: number | string; opening_hours: unknown; active: boolean; access_status?: 'online'|'suspended';
@@ -97,6 +97,10 @@ const toNumber = (value: number | string | null | undefined) => value == null ? 
 const encode = (value: string) => encodeURIComponent(value);
 const inFilter = (ids: string[]) => `in.(${ids.join(',')})`;
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+const isMissingSchemaColumn = (error: unknown, column: string) => {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return message.includes(column.toLowerCase()) && (message.includes('schema cache') || message.includes('column'));
+};
 
 const normalizePaymentOrder = (value: unknown): PaymentMethod[] => {
   const allowed: PaymentMethod[] = ['confirm', 'pix', 'card', 'cash'];
@@ -107,7 +111,7 @@ const normalizePaymentOrder = (value: unknown): PaymentMethod[] => {
 
 const mapStore = (row: StoreRow): StoreSettings => ({
   id: row.id, slug: row.slug, name: row.name, tagline: row.description || 'Pedidos rápidos e do seu jeito.', description: row.description || undefined,
-  city: row.city || '', state: row.state || '', zipCode: row.zip_code || '', whatsapp: row.whatsapp || '', instagram: row.instagram || '', address: row.address || '',
+  city: row.city || '', state: row.state || '', zipCode: row.zip_code || '', whatsapp: row.whatsapp || '', showWhatsApp: row.show_whatsapp ?? Boolean(row.whatsapp), instagram: row.instagram || '', address: row.address || '',
   logoUrl: row.logo_url || '/assets/food-logo.svg', logoStoragePath: row.logo_storage_path || undefined,
   heroUrl: row.cover_url || '/assets/food-hero.svg', heroStoragePath: row.cover_storage_path || undefined,
   visualTheme: normalizeStoreVisualTheme(row.visual_theme), storefrontNotice: row.storefront_notice || '', pickupInstructions: row.pickup_instructions || '', hidePublicAddress: row.hide_public_address ?? false,
@@ -320,7 +324,7 @@ export const storeApi = {
     if (isDemoMode) { const db = readDemo(); db.settings = clone(settings); writeDemo(db); return settings; }
     const payload = {
       name:settings.name, description:settings.tagline, logo_url:settings.logoUrl, logo_storage_path:settings.logoStoragePath ?? null,
-      cover_url:settings.heroUrl, cover_storage_path:settings.heroStoragePath ?? null, whatsapp:settings.whatsapp, instagram:settings.instagram,
+      cover_url:settings.heroUrl, cover_storage_path:settings.heroStoragePath ?? null, whatsapp:settings.whatsapp, show_whatsapp:settings.showWhatsApp !== false, instagram:settings.instagram,
       address:settings.address, city:settings.city, state:settings.state, zip_code:settings.zipCode || null, delivery_enabled:settings.deliveryEnabled, pickup_enabled:settings.pickupEnabled,
       visual_theme:normalizeStoreVisualTheme(settings.visualTheme), storefront_notice:settings.storefrontNotice?.trim() || null, pickup_instructions:settings.pickupInstructions?.trim() || null, hide_public_address:settings.hidePublicAddress,
       pix_enabled:settings.pixEnabled, pix_receipt_mode:settings.pixReceiptMode, pix_key_type:settings.pixKeyType || null, pix_key:settings.pixKey || null,
@@ -330,7 +334,17 @@ export const storeApi = {
       average_preparation_max:settings.averagePreparationMax, allow_scheduled_orders:settings.allowScheduledOrders, kds_enabled:settings.kdsEnabled, kds_notify_customer:settings.kdsNotifyCustomer, sales_recovery_enabled:settings.salesRecoveryEnabled, sales_recovery_minutes:settings.salesRecoveryMinutes, sales_recovery_window_hours:settings.salesRecoveryWindowHours??48, crm_enabled:settings.crmEnabled, crm_come_back_days:settings.crmComeBackDays??21, repeat_order_enabled:settings.repeatOrderEnabled, repeat_order_max_age_days:settings.repeatOrderMaxAgeDays??90, upsell_enabled:settings.upsellEnabled, upsell_limit:settings.upsellLimit, customer_message_templates:settings.messageTemplates??{},
       opening_hours:{ display:formatOpeningSchedule(settings.openingSchedule), timezone:settings.openingSchedule.timezone, days:settings.openingSchedule.days }, billing_document:settings.billingDocument||null, billing_phone:settings.billingPhone||null,
     };
-    const rows = await restFetch<StoreRow[]>(`food_stores?id=eq.${encode(settings.id)}&select=*`, { method:'PATCH', body:payload, prefer:'return=representation' });
+    let rows: StoreRow[];
+    try {
+      rows = await restFetch<StoreRow[]>(`food_stores?id=eq.${encode(settings.id)}&select=*`, { method:'PATCH', body:payload, prefer:'return=representation' });
+    } catch (error) {
+      // Instalações que ainda não receberam o patch de privacidade continuam salvando o restante das configurações.
+      if (!isMissingSchemaColumn(error, 'show_whatsapp')) throw error;
+      const { show_whatsapp: _showWhatsApp, ...legacyPayload } = payload;
+      rows = await restFetch<StoreRow[]>(`food_stores?id=eq.${encode(settings.id)}&select=*`, {
+        method:'PATCH', body:{ ...legacyPayload, whatsapp:settings.showWhatsApp === false ? null : settings.whatsapp }, prefer:'return=representation',
+      });
+    }
     return mapStore(rows[0]);
   },
 

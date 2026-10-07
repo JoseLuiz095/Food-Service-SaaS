@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Banknote, Clock3, CreditCard, ImagePlus, Info, QrCode, RotateCcw, Save } from 'lucide-react';
+import { ArrowDown, ArrowUp, Banknote, Clock3, CreditCard, ExternalLink, ImagePlus, Info, QrCode, RotateCcw, Save } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
@@ -10,20 +10,32 @@ import { formatOpeningSchedule, openingDayName } from '../../utils/storeHours';
 import { PasswordChangeCard } from '../../components/admin/PasswordChangeCard';
 import { planHasFeature } from '../../utils/plan';
 import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES } from '../../utils/customerSales';
-import { isStoreVisualColor, STORE_VISUAL_THEME_PRESETS } from '../../utils/storeVisualTheme';
+import { DEFAULT_STORE_VISUAL_THEME, isStoreVisualColor, STORE_VISUAL_THEME_PRESETS } from '../../utils/storeVisualTheme';
+import { storefrontPath } from '../../utils/storefrontRoute';
+
+const isDoceLuaStore = (store: Pick<StoreSettings, 'slug' | 'name'>) =>
+  `${store.slug} ${store.name}`.toLowerCase().replace(/[^a-z0-9]/g, '').includes('docelua');
+
+const cloneSettingsForForm = (settings: StoreSettings) => {
+  const next = structuredClone(settings);
+  if (!isDoceLuaStore(next) && next.visualTheme.preset === 'doce_lua') next.visualTheme = { ...DEFAULT_STORE_VISUAL_THEME };
+  return next;
+};
 
 export default function SettingsAdmin() {
   const { settings, saveSettings, resetDemo, uploadStoreAsset, dataMode, loading, error, reloadAdmin, planUsage } = useStore();
   const { showToast } = useToast();
-  const [form, setForm] = useState<StoreSettings>(structuredClone(settings));
+  const [form, setForm] = useState<StoreSettings>(() => cloneSettingsForForm(settings));
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const pixCopyPasteRef = useRef<HTMLTextAreaElement | null>(null);
   const canCustomBanner = planHasFeature(planUsage.plan, 'custom_banner');
+  const canUseDoceLua = isDoceLuaStore(form);
+  const publicStoreUrl = storefrontPath(`/${encodeURIComponent(form.slug)}`);
   const messageTemplates = { ...DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ...(form.messageTemplates ?? {}) };
 
-  useEffect(() => setForm(structuredClone(settings)), [settings]);
+  useEffect(() => setForm(cloneSettingsForForm(settings)), [settings]);
   const logoPreview = useMemo(() => logoFile ? URL.createObjectURL(logoFile) : form.logoUrl, [logoFile, form.logoUrl]);
   const coverPreview = useMemo(() => coverFile ? URL.createObjectURL(coverFile) : form.heroUrl, [coverFile, form.heroUrl]);
   useEffect(() => () => { if (logoFile) URL.revokeObjectURL(logoPreview); }, [logoFile, logoPreview]);
@@ -120,6 +132,7 @@ export default function SettingsAdmin() {
     setSaving(true);
     try {
       let next = { ...form, openingHours: formatOpeningSchedule(form.openingSchedule) };
+      if (!canUseDoceLua && next.visualTheme.preset === 'doce_lua') next = { ...next, visualTheme: { ...DEFAULT_STORE_VISUAL_THEME } };
       if (logoFile) {
         const upload = await uploadStoreAsset(logoFile, 'logo');
         next = { ...next, logoUrl: upload.url, logoStoragePath: upload.path };
@@ -165,7 +178,8 @@ export default function SettingsAdmin() {
             <label>CEP<input value={form.zipCode ?? ''} onChange={(e) => update('zipCode', e.target.value)} /></label>
             <label>Pedido mínimo<input type="number" min="0" step="0.01" value={form.minimumOrder} onChange={(e) => update('minimumOrder', Number(e.target.value))} /></label>
             <label className="full">Endereço<input value={form.address} onChange={(e) => update('address', e.target.value)} /></label>
-            <label>WhatsApp<input required value={form.whatsapp} onChange={(e) => update('whatsapp', e.target.value)} placeholder="55 + DDD + número" /></label>
+            <label>WhatsApp (opcional)<input value={form.whatsapp} onChange={(e) => update('whatsapp', e.target.value)} placeholder="55 + DDD + número" /></label>
+            <label className="switch-row"><span><strong>Exibir WhatsApp na vitrine</strong><small>Desative para não disponibilizar esse contato aos clientes.</small></span><input type="checkbox" checked={form.showWhatsApp !== false} onChange={(e) => update('showWhatsApp', e.target.checked)} /></label>
             <label>Instagram<input value={form.instagram} onChange={(e) => update('instagram', e.target.value)} /></label>
             <label>CPF/CNPJ de cobrança<input value={form.billingDocument ?? ''} onChange={(e) => update('billingDocument', e.target.value)} placeholder="Necessário para PIX automático" /></label>
             <label>Telefone de cobrança<input value={form.billingPhone ?? ''} onChange={(e) => update('billingPhone', e.target.value)} placeholder="55 + DDD + número" /></label>
@@ -194,13 +208,13 @@ export default function SettingsAdmin() {
             <p className="muted">Escolha uma base pronta ou refine as cores. A prévia vale apenas para a vitrine pública desta loja.</p>
             <div style={{ display: 'grid', gap: 8, marginTop: 14 }} role="radiogroup" aria-label="Tema visual da vitrine">
               <label className="switch-row"><span><strong>FoodWeb clássico</strong><small>Neutro, versátil e pronto para qualquer cardápio.</small></span><input type="radio" name="visual-theme-preset" checked={form.visualTheme.preset === 'foodweb'} onChange={() => applyVisualPreset('foodweb')} /></label>
-              <label className="switch-row"><span><strong>Doce Lua</strong><small>Creme, chocolate, pêssego e dourado para uma vitrine delicada.</small></span><input type="radio" name="visual-theme-preset" checked={form.visualTheme.preset === 'doce_lua'} onChange={() => applyVisualPreset('doce_lua')} /></label>
+              {canUseDoceLua && <label className="switch-row"><span><strong>Doce Lua</strong><small>Creme, chocolate, pêssego e dourado para uma vitrine delicada.</small></span><input type="radio" name="visual-theme-preset" checked={form.visualTheme.preset === 'doce_lua'} onChange={() => applyVisualPreset('doce_lua')} /></label>}
             </div>
             <div style={{ marginTop: 16, padding: 18, border: `1px solid ${form.visualTheme.borderColor}`, borderRadius: form.visualTheme.radius, background: form.visualTheme.backgroundColor, color: form.visualTheme.textColor }}>
               <span style={{ color: form.visualTheme.accentColor, fontSize: '.72rem', fontWeight: 800, letterSpacing: '.08em' }}>PRÉVIA DA VITRINE</span>
               <strong style={{ display: 'block', marginTop: 6, fontSize: '1.1rem' }}>Sabores que dão vontade de voltar</strong>
               <small style={{ display: 'block', marginTop: 5, color: form.visualTheme.mutedColor }}>Cards, ações e detalhes seguem esta paleta ao salvar.</small>
-              <span style={{ display: 'inline-flex', marginTop: 13, padding: '9px 12px', borderRadius: Math.max(10, form.visualTheme.radius - 6), background: form.visualTheme.primaryColor, color: '#fff', fontWeight: 800, fontSize: '.78rem' }}>Ver cardápio</span>
+              <a href={publicStoreUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 13, padding: '9px 12px', borderRadius: Math.max(10, form.visualTheme.radius - 6), background: form.visualTheme.primaryColor, color: '#fff', fontWeight: 800, fontSize: '.78rem', textDecoration: 'none' }}><ExternalLink size={14} />Ver cardápio</a>
             </div>
             <div className="form-grid" style={{ marginTop: 16 }}>
               <label>Cor principal<input type="color" value={form.visualTheme.primaryColor} onChange={(e) => updateVisualTheme('primaryColor', e.target.value)} /></label>

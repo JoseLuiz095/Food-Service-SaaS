@@ -46,10 +46,10 @@ export function getStoreReadiness(
     },
     {
       key: 'whatsapp',
-      label: 'WhatsApp da loja',
-      ready: sanitizeWhatsAppNumber(settings.whatsapp).length >= 10,
+      label: 'WhatsApp da loja (opcional)',
+      ready: settings.showWhatsApp === false || sanitizeWhatsAppNumber(settings.whatsapp).length >= 10,
       to: '/admin/configuracoes',
-      help: 'Informe o número que receberá os pedidos.',
+      help: 'Informe o número público ou desative a exibição do WhatsApp na vitrine.',
     },
     {
       key: 'category',

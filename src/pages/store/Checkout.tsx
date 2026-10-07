@@ -146,7 +146,7 @@ export default function Checkout() {
       const orderMessage = buildWhatsAppMessage(items, payloadForm, settings, result.orderNumber);
       const confirmation: OrderConfirmation = {
         orderId: result.orderId, orderNumber: result.orderNumber, total: result.total, paymentMethod: form.paymentMethod, customerName: form.customerName,
-        fulfillment: form.fulfillment, storeName: settings.name, storeWhatsapp: settings.whatsapp, pixEnabled: settings.pixEnabled,
+        fulfillment: form.fulfillment, storeName: settings.name, storeWhatsapp: settings.showWhatsApp !== false ? settings.whatsapp : '', pixEnabled: settings.pixEnabled,
         pixReceiptMode: settings.pixReceiptMode, pixKeyType: settings.pixKeyType, pixKey: settings.pixKey, pixCopyPaste: settings.pixCopyPaste,
         pixReceiver: settings.pixReceiver, orderMessage, changeAmount: form.paymentMethod === 'cash' && form.needsChange && form.changeFor ? roundMoney(form.changeFor - result.total) : undefined,
         createdAt: new Date().toISOString(),
