@@ -130,7 +130,7 @@ export default function OrderSuccess() {
           </div>
         )}
 
-        {!hasWhatsApp && <div className="order-channel-info" role="note"><Store size={19} /><div><strong>Confirmação sem WhatsApp</strong><span>Guarde o pedido <b>#{formatOrderNumber(confirmation.orderNumber)}</b>. O pagamento e o andamento serão conferidos internamente pela loja.</span></div></div>}
+        {!hasWhatsApp && <div className="order-channel-info" role="note"><Store size={19} /><div><strong>WhatsApp opcional, mas essencial</strong><span>Guarde o pedido <b>#{formatOrderNumber(confirmation.orderNumber)}</b>. A loja consegue acompanhar pelo painel, mas o WhatsApp é essencial para agilizar a confirmação do pagamento, o envio de comprovantes e eventuais dúvidas.</span></div></div>}
 
         {isCard && (
           <div className="card-link-info-box">
