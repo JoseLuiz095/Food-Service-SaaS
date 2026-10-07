@@ -35,6 +35,7 @@ export default function Finance(){
   const[extractionInfo,setExtractionInfo]=useState<{recognizedFields:number;signals:string[];preview:string;confidence:number}|null>(null);
   const[readProgress,setReadProgress]=useState<LocalFinancialReadProgress|null>(null);
   const[readResult,setReadResult]=useState<LocalFinancialReadResult|null>(null);
+  const[excludedItemIndexes,setExcludedItemIndexes]=useState<number[]>([]);
   const fileRef=useRef<HTMLInputElement|null>(null);
   const cameraRef=useRef<HTMLInputElement|null>(null);
 
@@ -95,6 +96,7 @@ export default function Finance(){
     setExtractionInfo(null);
     setReadResult(null);
     setReadProgress(null);
+    setExcludedItemIndexes([]);
     requestAnimationFrame(()=>document.getElementById('finance-entry-form')?.scrollIntoView({behavior:'smooth',block:'start'}));
   };
 
@@ -104,8 +106,10 @@ export default function Finance(){
       setExtracting(true);
       setExtractionInfo(null);
       setReadResult(null);
+      setExcludedItemIndexes([]);
       setReadProgress({percent:1,message:'Preparando leitura local...'});
       const suggestion=await readLocalFinancialDocument(file,setReadProgress);
+      const suggestedDocumentTotal=suggestion.amount??suggestion.items.reduce((sum,item)=>sum+item.total,0);
       const supplierKey=normalizeCounterpartyKey(suggestion.counterparty||'');
       const previousCategoryId=supplierKey
         ?entries.find((entry)=>entry.direction===form.direction&&entry.categoryId&&normalizeCounterpartyKey(entry.counterparty||'')===supplierKey)?.categoryId
@@ -118,10 +122,11 @@ export default function Finance(){
         confidence:suggestion.confidence,
       });
       setReadResult(suggestion);
+      setExcludedItemIndexes([]);
 
       setForm((current)=>({
         ...current,
-        amount:suggestion.amount??current.amount,
+        amount:suggestedDocumentTotal>0?suggestedDocumentTotal:current.amount,
         occurredOn:suggestion.occurredOn||current.occurredOn,
         dueOn:suggestion.dueOn||current.dueOn,
         status:suggestion.documentType==='boleto'&&suggestion.dueOn?'pending':current.status,
@@ -145,6 +150,22 @@ export default function Finance(){
     }
   };
 
+  const documentItems=readResult?.items||[];
+  const documentGrossAmount=readResult?.amount??documentItems.reduce((sum,item)=>sum+item.total,0);
+  const excludedItems=documentItems.filter((_,index)=>excludedItemIndexes.includes(index));
+  const excludedAmount=excludedItems.reduce((sum,item)=>sum+item.total,0);
+  const consideredDocumentAmount=Math.max(0,Number((documentGrossAmount-excludedAmount).toFixed(2)));
+  const toggleDocumentItem=(index:number)=>{
+    const next=excludedItemIndexes.includes(index)
+      ? excludedItemIndexes.filter((itemIndex)=>itemIndex!==index)
+      : [...excludedItemIndexes,index];
+    setExcludedItemIndexes(next);
+    if(documentGrossAmount>0){
+      const nextExcluded=documentItems.filter((_,itemIndex)=>next.includes(itemIndex)).reduce((sum,item)=>sum+item.total,0);
+      setForm((current)=>({...current,amount:Math.max(0,Number((documentGrossAmount-nextExcluded).toFixed(2)))}));
+    }
+  };
+
   const submit=async(event:FormEvent)=>{
     event.preventDefault();
     if(!form.description.trim()||form.amount<=0){
@@ -152,8 +173,12 @@ export default function Finance(){
     }
     setSaving(true);
     try{
+      const documentAdjustmentNote=excludedItems.length
+        ? `Documento lido: total ${currency.format(documentGrossAmount)}; itens desconsiderados (${currency.format(excludedAmount)}): ${excludedItems.map((item)=>item.description).join(', ')}.`
+        : '';
       await trackInteraction('financial_entry_create', () => financeApi.saveEntry({
         ...form,
+        notes:[form.notes.trim(),documentAdjustmentNote].filter(Boolean).join('\n'),
         dueOn:form.dueOn||undefined,
         categoryId:form.categoryId||undefined,
         paidAt:form.status==='paid'?new Date().toISOString():undefined,
@@ -163,6 +188,7 @@ export default function Finance(){
       setExtractionInfo(null);
       setReadResult(null);
       setReadProgress(null);
+      setExcludedItemIndexes([]);
       await reload();
     }catch(err){
       showToast(err instanceof Error?err.message:'Falha ao salvar lançamento.','error');
@@ -241,6 +267,12 @@ export default function Finance(){
           {extractionInfo.signals.length>0&&<div className="finance-extraction-signals">{extractionInfo.signals.map((signal)=><span key={signal}>{signal}</span>)}</div>}
           {extractionInfo.preview&&<details><summary>Ver texto reconhecido no arquivo</summary><pre>{extractionInfo.preview.slice(0,1600)}</pre></details>}
         </div>}
+
+        {documentItems.length>0&&<section className="finance-document-items" aria-labelledby="finance-document-items-title">
+          <div className="finance-document-items__heading"><div><span className="eyebrow">CONFERÊNCIA DO DOCUMENTO</span><h3 id="finance-document-items-title">Itens identificados</h3><p>Marque apenas o que não deve entrar neste lançamento. O valor será recalculado, mas você continua podendo revisá-lo manualmente.</p></div><span>{documentItems.length} item{documentItems.length===1?'':'s'}</span></div>
+          <div className="finance-document-items__list">{documentItems.map((item,index)=>{const excluded=excludedItemIndexes.includes(index);return <label key={`${item.description}-${index}`} className={excluded?'is-excluded':''}><input type="checkbox" checked={excluded} onChange={()=>toggleDocumentItem(index)}/><span className="finance-document-items__copy"><strong>{item.description}</strong><small>{item.quantity?`${item.quantity}${item.unitPrice?` × ${currency.format(item.unitPrice)}`:''}`:item.unitPrice?`Unitário ${currency.format(item.unitPrice)}`:'Valor sugerido pelo documento'}{item.confidence<0.75?' · confira a leitura':''}</small></span><b>{currency.format(item.total)}</b><em>{excluded?'Desconsiderado':'Considerar'}</em></label>})}</div>
+          <div className="finance-document-items__summary"><span>Total do documento <strong>{currency.format(documentGrossAmount)}</strong></span><span>Desconsiderado <strong>− {currency.format(excludedAmount)}</strong></span><span>Valor a lançar <strong>{currency.format(consideredDocumentAmount)}</strong></span></div>
+        </section>}
 
         <div className="finance-form-grid">
           <label className={readResult?.description ? 'is-autofilled-r69' : undefined}>Descrição<span className="autofill-mark-r69">{readResult?.description ? '✓ identificado' : ''}</span><input value={form.description} onChange={(event)=>setForm((current)=>({...current,description:event.target.value}))} placeholder="Ex.: Compra de ingredientes" required/></label>

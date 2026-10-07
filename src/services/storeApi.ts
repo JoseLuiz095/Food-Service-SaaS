@@ -3,12 +3,13 @@ import { invokePublicFunction, restFetch, storageDelete, storageUpload } from '.
 import { seedAddons, seedCategories, seedDeliveryZones, seedOrders, seedPlan, seedProducts, seedSettings } from '../data/seed';
 import type {
   Addon, CartItem, Category, CheckoutData, CheckoutSecurityContext, CreateOrderResult, DeliveryZone,
-  OptionGroup, OptionItem, Order, PaymentMethod, Plan, PlanUsage, Product, ProductImage, StoreSettings,
+  ManualOrderInput, OptionGroup, OptionItem, Order, PaymentMethod, Plan, PlanUsage, Product, ProductImage, StoreSettings,
 } from '../types';
 import { roundMoney, slugify } from '../utils/format';
 import { formatOpeningSchedule, normalizeOpeningSchedule } from '../utils/storeHours';
 import { createId } from '../utils/id';
 import { normalizeCustomerMessageTemplates } from '../utils/customerSales';
+import { normalizeStoreVisualTheme } from '../utils/storeVisualTheme';
 
 export class StorefrontUnavailableError extends Error {
   storeName: string;
@@ -59,6 +60,7 @@ type StoreRow = {
   minimum_order: number | string; opening_hours: unknown; active: boolean; access_status?: 'online'|'suspended';
   average_preparation_min?: number | null; average_preparation_max?: number | null; allow_scheduled_orders?: boolean | null; kds_enabled?: boolean | null; kds_notify_customer?: boolean | null; sales_recovery_enabled?: boolean | null; sales_recovery_minutes?: number | null; sales_recovery_window_hours?: number | null; crm_enabled?: boolean | null; crm_come_back_days?: number | null; repeat_order_enabled?: boolean | null; repeat_order_max_age_days?: number | null; upsell_enabled?: boolean | null; upsell_limit?: number | null; customer_message_templates?: unknown;
   billing_document?: string | null; billing_phone?: string | null;
+  visual_theme?: unknown; storefront_notice?: string | null; pickup_instructions?: string | null; hide_public_address?: boolean | null;
 };
 type CategoryRow = { id: string; store_id: string; name: string; slug: string; description: string | null; active: boolean; sort_order: number };
 type ProductRow = {
@@ -108,6 +110,7 @@ const mapStore = (row: StoreRow): StoreSettings => ({
   city: row.city || '', state: row.state || '', zipCode: row.zip_code || '', whatsapp: row.whatsapp || '', instagram: row.instagram || '', address: row.address || '',
   logoUrl: row.logo_url || '/assets/food-logo.svg', logoStoragePath: row.logo_storage_path || undefined,
   heroUrl: row.cover_url || '/assets/food-hero.svg', heroStoragePath: row.cover_storage_path || undefined,
+  visualTheme: normalizeStoreVisualTheme(row.visual_theme), storefrontNotice: row.storefront_notice || '', pickupInstructions: row.pickup_instructions || '', hidePublicAddress: row.hide_public_address ?? false,
   pixEnabled: row.pix_enabled, pixReceiptMode: row.pix_receipt_mode || 'key', pixKeyType: row.pix_key_type || '', pixKey: row.pix_key || '', pixCopyPaste: row.pix_copy_paste || '', pixReceiver: row.pix_holder_name || '',
   showPixBeforeConfirmation: row.show_pix_before_confirmation, confirmationPaymentEnabled: row.confirmation_payment_enabled ?? false, cardPaymentEnabled: row.card_payment_enabled ?? false, cashPaymentEnabled: row.cash_payment_enabled ?? false,
   paymentMethodOrder: normalizePaymentOrder(row.payment_method_order), deliveryEnabled: row.delivery_enabled, pickupEnabled: row.pickup_enabled, minimumOrder: toNumber(row.minimum_order),
@@ -319,6 +322,7 @@ export const storeApi = {
       name:settings.name, description:settings.tagline, logo_url:settings.logoUrl, logo_storage_path:settings.logoStoragePath ?? null,
       cover_url:settings.heroUrl, cover_storage_path:settings.heroStoragePath ?? null, whatsapp:settings.whatsapp, instagram:settings.instagram,
       address:settings.address, city:settings.city, state:settings.state, zip_code:settings.zipCode || null, delivery_enabled:settings.deliveryEnabled, pickup_enabled:settings.pickupEnabled,
+      visual_theme:normalizeStoreVisualTheme(settings.visualTheme), storefront_notice:settings.storefrontNotice?.trim() || null, pickup_instructions:settings.pickupInstructions?.trim() || null, hide_public_address:settings.hidePublicAddress,
       pix_enabled:settings.pixEnabled, pix_receipt_mode:settings.pixReceiptMode, pix_key_type:settings.pixKeyType || null, pix_key:settings.pixKey || null,
       pix_copy_paste:settings.pixCopyPaste || null, pix_holder_name:settings.pixReceiver || null, show_pix_before_confirmation:settings.showPixBeforeConfirmation,
       confirmation_payment_enabled:settings.confirmationPaymentEnabled, card_payment_enabled:settings.cardPaymentEnabled, cash_payment_enabled:settings.cashPaymentEnabled,
@@ -414,6 +418,102 @@ export const storeApi = {
     }
     const created=await invokePublicFunction<{orderId:string;orderNumber:number|string;total:number|string}>('food-public-checkout',{payload,turnstileToken:security.turnstileToken||'',analyticsSessionId:security.analyticsSessionId||'',requestId:security.requestId||''});
     if(!created?.orderId)throw new Error('O pedido foi registrado, mas o identificador não foi retornado.');return{orderId:created.orderId,orderNumber:toNumber(created.orderNumber),total:toNumber(created.total)};
+  },
+
+  async createManualOrder(store: StoreSettings, products: Product[], input: ManualOrderInput): Promise<CreateOrderResult> {
+    if (!input.customerName.trim() || !input.items.length) throw new Error('Informe o cliente e pelo menos um produto.');
+
+    if (isDemoMode) {
+      let subtotal = 0;
+      const now = new Date().toISOString();
+
+      for (const item of input.items) {
+        const product = products.find((current) => current.id === item.productId);
+        if (!product || !product.active || product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable') {
+          throw new Error('Um dos produtos selecionados não está disponível.');
+        }
+        if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99) throw new Error('Quantidade inválida.');
+        if (product.trackStock && item.quantity > (product.stockQuantity ?? 0)) throw new Error('Estoque insuficiente.');
+
+        let unitPrice = product.promotionalPrice ?? product.price;
+        for (const group of product.optionGroups.filter((current) => current.active)) {
+          const selections = item.options.filter((option) => option.groupId === group.id);
+          const distinctSelections = new Set(selections.map((option) => option.itemId));
+          if (distinctSelections.size < group.minChoices || distinctSelections.size > group.maxChoices) {
+            throw new Error(`Revise as opções obrigatórias de ${product.name}.`);
+          }
+        }
+
+        const selectedOptionIds = new Set<string>();
+        for (const option of item.options) {
+          const group = product.optionGroups.find((current) => current.id === option.groupId && current.active);
+          const choice = group?.items.find((current) => current.id === option.itemId && current.active);
+          if (!group || !choice || selectedOptionIds.has(option.itemId) || option.quantity < 1 || option.quantity > 20) {
+            throw new Error(`Revise as opções de ${product.name}.`);
+          }
+          if (group.kind !== 'addon' && option.quantity !== 1) throw new Error(`Quantidade inválida para uma opção de ${product.name}.`);
+          selectedOptionIds.add(option.itemId);
+          unitPrice += choice.priceDelta * option.quantity;
+        }
+        subtotal += roundMoney(unitPrice * item.quantity);
+      }
+
+      if (input.status === 'cancelled' && input.received) throw new Error('Um pedido cancelado não pode ser marcado como recebido.');
+      const db = readDemo();
+      const id = createId();
+      const orderNumber = Math.max(28623, ...db.orders.map((order) => order.orderNumber || 0)) + 1;
+      db.orders.unshift({
+        id,
+        orderNumber,
+        storeId: store.id,
+        customerName: input.customerName.trim(),
+        customerPhone: input.customerPhone?.trim() || undefined,
+        deliveryType: 'pickup',
+        paymentMethod: input.paymentMethod,
+        subtotal: roundMoney(subtotal),
+        total: roundMoney(subtotal),
+        status: input.status,
+        paymentStatus: input.received ? 'paid' : 'pending',
+        paymentReceivedAt: input.received ? now : undefined,
+        paymentConfirmedBy: input.received ? 'demo-admin' : undefined,
+        notes: input.notes?.trim() || undefined,
+        source: input.source,
+        createdAt: now,
+      });
+      writeDemo(db);
+      return { orderId: id, orderNumber, total: roundMoney(subtotal) };
+    }
+
+    const rows = await restFetch<Array<{ order_id: string; order_number: number | string; order_total: number | string }>>(
+      'rpc/food_create_admin_order_v1',
+      {
+        method: 'POST',
+        body: {
+          payload: {
+            store_id: store.id,
+            customer_name: input.customerName.trim(),
+            customer_phone: input.customerPhone?.trim() || null,
+            source: input.source,
+            payment_method: input.paymentMethod,
+            status: input.status,
+            received: input.received,
+            notes: input.notes?.trim() || null,
+            items: input.items.map((item) => ({
+              product_id: item.productId,
+              quantity: item.quantity,
+              options: item.options.map((option) => ({
+                group_id: option.groupId,
+                item_id: option.itemId,
+                quantity: option.quantity,
+              })),
+            })),
+          },
+        },
+      },
+    );
+    const created = rows[0];
+    if (!created?.order_id) throw new Error('O pedido avulso foi registrado, mas o identificador não foi retornado.');
+    return { orderId: created.order_id, orderNumber: toNumber(created.order_number), total: toNumber(created.order_total) };
   },
 
   async confirmOrderPayment(orderId:string):Promise<{alreadyPaid:boolean;paymentReceivedAt?:string}>{

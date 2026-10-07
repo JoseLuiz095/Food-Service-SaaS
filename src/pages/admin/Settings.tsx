@@ -4,12 +4,13 @@ import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
-import type { PaymentMethod, StoreSettings } from '../../types';
+import type { PaymentMethod, StoreSettings, StoreVisualTheme } from '../../types';
 import { buildPixCopyPasteWithAmount, validatePixCopyPasteBase } from '../../utils/pix';
 import { formatOpeningSchedule, openingDayName } from '../../utils/storeHours';
 import { PasswordChangeCard } from '../../components/admin/PasswordChangeCard';
 import { planHasFeature } from '../../utils/plan';
 import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES } from '../../utils/customerSales';
+import { isStoreVisualColor, STORE_VISUAL_THEME_PRESETS } from '../../utils/storeVisualTheme';
 
 export default function SettingsAdmin() {
   const { settings, saveSettings, resetDemo, uploadStoreAsset, dataMode, loading, error, reloadAdmin, planUsage } = useStore();
@@ -29,6 +30,11 @@ export default function SettingsAdmin() {
   useEffect(() => () => { if (coverFile) URL.revokeObjectURL(coverPreview); }, [coverFile, coverPreview]);
 
   const update = <K extends keyof StoreSettings>(key: K, value: StoreSettings[K]) => setForm((current) => ({ ...current, [key]: value }));
+  const updateVisualTheme = <K extends keyof StoreVisualTheme>(key: K, value: StoreVisualTheme[K]) => setForm((current) => ({
+    ...current,
+    visualTheme: { ...current.visualTheme, [key]: value, preset: key === 'preset' ? value as StoreVisualTheme['preset'] : 'custom' },
+  }));
+  const applyVisualPreset = (preset: keyof typeof STORE_VISUAL_THEME_PRESETS) => setForm((current) => ({ ...current, visualTheme: { ...STORE_VISUAL_THEME_PRESETS[preset] } }));
   const updateMessageTemplate = (key: keyof NonNullable<StoreSettings['messageTemplates']>, value: string) => setForm((current) => ({ ...current, messageTemplates: { ...DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ...(current.messageTemplates ?? {}), [key]: value } }));
   const activatePixReceiptMode = (mode: StoreSettings['pixReceiptMode']) => {
     update('pixReceiptMode', mode);
@@ -65,6 +71,12 @@ export default function SettingsAdmin() {
 
     if (form.averagePreparationMax < form.averagePreparationMin) {
       showToast('O tempo máximo de preparo não pode ser menor que o tempo mínimo.', 'error');
+      return;
+    }
+
+    const visualColors = [form.visualTheme.primaryColor, form.visualTheme.accentColor, form.visualTheme.highlightColor, form.visualTheme.backgroundColor, form.visualTheme.surfaceColor, form.visualTheme.textColor, form.visualTheme.mutedColor, form.visualTheme.borderColor];
+    if (!visualColors.every(isStoreVisualColor) || !Number.isInteger(form.visualTheme.radius) || form.visualTheme.radius < 8 || form.visualTheme.radius > 32) {
+      showToast('Revise a aparência: use cores válidas e raio de card entre 8 e 32 pixels.', 'error');
       return;
     }
 
@@ -175,6 +187,43 @@ export default function SettingsAdmin() {
             <div><span className="eyebrow">LOGO</span><ImageWithFallback src={logoPreview} alt="Prévia da logo" /><label className="secondary-button"><ImagePlus size={16} />Selecionar logo<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} /></label></div>
             <div><span className="eyebrow">CAPA</span><ImageWithFallback src={coverPreview} alt="Prévia da capa" />{canCustomBanner?<label className="secondary-button"><ImagePlus size={16} />Selecionar capa<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)} /></label>:<div className="plan-locked-inline"><strong>Banner disponível no Starter</strong><span>Seu banner atual é preservado, mas novas alterações ficam bloqueadas no Essencial.</span></div>}</div>
           </div>
+
+          <section className="subform-section">
+            <span className="eyebrow">APARÊNCIA DA VITRINE</span>
+            <h3>Uma identidade que parece sua</h3>
+            <p className="muted">Escolha uma base pronta ou refine as cores. A prévia vale apenas para a vitrine pública desta loja.</p>
+            <div style={{ display: 'grid', gap: 8, marginTop: 14 }} role="radiogroup" aria-label="Tema visual da vitrine">
+              <label className="switch-row"><span><strong>FoodWeb clássico</strong><small>Neutro, versátil e pronto para qualquer cardápio.</small></span><input type="radio" name="visual-theme-preset" checked={form.visualTheme.preset === 'foodweb'} onChange={() => applyVisualPreset('foodweb')} /></label>
+              <label className="switch-row"><span><strong>Doce Lua</strong><small>Creme, chocolate, pêssego e dourado para uma vitrine delicada.</small></span><input type="radio" name="visual-theme-preset" checked={form.visualTheme.preset === 'doce_lua'} onChange={() => applyVisualPreset('doce_lua')} /></label>
+            </div>
+            <div style={{ marginTop: 16, padding: 18, border: `1px solid ${form.visualTheme.borderColor}`, borderRadius: form.visualTheme.radius, background: form.visualTheme.backgroundColor, color: form.visualTheme.textColor }}>
+              <span style={{ color: form.visualTheme.accentColor, fontSize: '.72rem', fontWeight: 800, letterSpacing: '.08em' }}>PRÉVIA DA VITRINE</span>
+              <strong style={{ display: 'block', marginTop: 6, fontSize: '1.1rem' }}>Sabores que dão vontade de voltar</strong>
+              <small style={{ display: 'block', marginTop: 5, color: form.visualTheme.mutedColor }}>Cards, ações e detalhes seguem esta paleta ao salvar.</small>
+              <span style={{ display: 'inline-flex', marginTop: 13, padding: '9px 12px', borderRadius: Math.max(10, form.visualTheme.radius - 6), background: form.visualTheme.primaryColor, color: '#fff', fontWeight: 800, fontSize: '.78rem' }}>Ver cardápio</span>
+            </div>
+            <div className="form-grid" style={{ marginTop: 16 }}>
+              <label>Cor principal<input type="color" value={form.visualTheme.primaryColor} onChange={(e) => updateVisualTheme('primaryColor', e.target.value)} /></label>
+              <label>Cor de apoio<input type="color" value={form.visualTheme.accentColor} onChange={(e) => updateVisualTheme('accentColor', e.target.value)} /></label>
+              <label>Destaques dourados<input type="color" value={form.visualTheme.highlightColor} onChange={(e) => updateVisualTheme('highlightColor', e.target.value)} /></label>
+              <label>Fundo da página<input type="color" value={form.visualTheme.backgroundColor} onChange={(e) => updateVisualTheme('backgroundColor', e.target.value)} /></label>
+              <label>Fundo dos cards<input type="color" value={form.visualTheme.surfaceColor} onChange={(e) => updateVisualTheme('surfaceColor', e.target.value)} /></label>
+              <label>Texto principal<input type="color" value={form.visualTheme.textColor} onChange={(e) => updateVisualTheme('textColor', e.target.value)} /></label>
+              <label>Texto secundário<input type="color" value={form.visualTheme.mutedColor} onChange={(e) => updateVisualTheme('mutedColor', e.target.value)} /></label>
+              <label>Bordas e divisórias<input type="color" value={form.visualTheme.borderColor} onChange={(e) => updateVisualTheme('borderColor', e.target.value)} /></label>
+              <label>Arredondamento dos cards (px)<input type="number" min="8" max="32" value={form.visualTheme.radius} onChange={(e) => updateVisualTheme('radius', Number(e.target.value))} /></label>
+            </div>
+          </section>
+
+          <section className="subform-section">
+            <span className="eyebrow">COMUNICAÇÃO DA VITRINE</span>
+            <h3>Orientações antes de pedir</h3>
+            <div className="form-grid">
+              <label className="full">Aviso operacional<textarea rows={3} maxLength={240} value={form.storefrontNotice ?? ''} onChange={(e) => update('storefrontNotice', e.target.value)} placeholder="Ex.: Encomendas confirmadas a partir das 18h." /></label>
+              <label className="full">Instruções para retirada<textarea rows={3} maxLength={240} value={form.pickupInstructions ?? ''} onChange={(e) => update('pickupInstructions', e.target.value)} placeholder="Ex.: Retirada no local de trabalho, combinada após a confirmação do pedido." /></label>
+              <label className="switch-row full"><span><strong>Ocultar endereço público</strong><small>O endereço não aparece na vitrine nem no checkout. Use as instruções de retirada para orientar o cliente.</small></span><input type="checkbox" checked={form.hidePublicAddress} onChange={(e) => update('hidePublicAddress', e.target.checked)} /></label>
+            </div>
+          </section>
         </section>
 
         <aside>

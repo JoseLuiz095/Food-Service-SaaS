@@ -1,4 +1,4 @@
-import { Clock3, MapPin, MessageCircle, ShieldCheck, ShoppingBag, Store, Truck } from 'lucide-react';
+import { Clock3, Info, MapPin, MessageCircle, ShieldCheck, ShoppingBag, Store, Truck } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useStore } from '../contexts/StoreContext';
@@ -29,6 +29,8 @@ export function StoreHeader(){
     return()=>{document.removeEventListener('pointerdown',onPointerDown);document.removeEventListener('keydown',onKeyDown);};
   },[hoursOpen]);
   const fulfillment=settings.deliveryEnabled&&settings.pickupEnabled?'Delivery e retirada':settings.deliveryEnabled?'Delivery':'Retirada';
+  const pickupNotice=settings.pickupInstructions?.trim() || (settings.hidePublicAddress ? 'O local de retirada será combinado com a loja após a confirmação do pedido.' : '');
+  const locationLabel=settings.hidePublicAddress ? 'Atendimento por encomenda' : ([settings.city,settings.state].filter(Boolean).join(' · ') || 'Atendimento online');
   return <header className="food-storefront-header food-storefront-header-v43">
     <div className="food-platform-bar"><div className="container"><a className="foodweb-wordmark" href={storefrontPath(storeBasePath)} aria-label="FoodWeb"><span>F</span><strong>FoodWeb</strong></a><div className="food-platform-trust"><ShieldCheck size={15}/><span>Pedido direto com o estabelecimento</span></div><a className="food-platform-cart" href={storefrontPath(storeBasePath,'/carrinho')}><ShoppingBag size={18}/><span>Sacola</span>{totalItems>0&&<b>{totalItems}</b>}</a></div></div>
     <div className="food-store-hero-v43" style={{backgroundImage:`linear-gradient(90deg,rgba(18,10,8,.62),rgba(18,10,8,.18) 48%,rgba(18,10,8,.18)),url(${settings.heroUrl})`}}><div className="container"><span>Pedido online</span><strong>{settings.tagline||'Seu pedido, do seu jeito.'}</strong></div></div>
@@ -36,7 +38,7 @@ export function StoreHeader(){
       <ImageWithFallback loading="eager" className="food-store-profile-logo" src={settings.logoUrl} alt={`Logo ${settings.name}`}/>
       <div className="food-store-profile-main">
         <div className="food-store-profile-title"><h1>{settings.name}</h1><span className={`open-pill ${status.open?'is-open':'is-closed'}`}>{status.label}</span></div>
-        <div className="food-store-profile-location"><MapPin size={14}/>{[settings.city,settings.state].filter(Boolean).join(' · ')||'Atendimento online'}</div>
+        <div className="food-store-profile-location"><MapPin size={14}/>{locationLabel}</div>
         <p>{settings.description||settings.tagline}</p>
         <div className="food-store-profile-meta">
           <div className="food-hours-panel">
@@ -54,5 +56,9 @@ export function StoreHeader(){
         {whatsapp&&<a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer"><MessageCircle size={17}/>Falar com a loja</a>}
       </div>
     </section>
+    {(settings.storefrontNotice?.trim() || (settings.pickupEnabled && pickupNotice)) && <section className="container food-store-operation-notices" aria-label="Informações importantes da loja">
+      {settings.storefrontNotice?.trim() && <div><Info size={18}/><span><strong>Antes de pedir</strong>{settings.storefrontNotice.trim()}</span></div>}
+      {settings.pickupEnabled && pickupNotice && <div><Store size={18}/><span><strong>Retirada</strong>{pickupNotice}</span></div>}
+    </section>}
   </header>;
 }

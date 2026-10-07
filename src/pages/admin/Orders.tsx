@@ -1,11 +1,11 @@
-import { CheckCircle2, ChefHat, CircleDollarSign, MessageCircle, RefreshCw, RotateCcw, Search, ShoppingBag, Users } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CheckCircle2, ChefHat, CircleDollarSign, MessageCircle, Plus, RefreshCw, RotateCcw, Search, ShoppingBag, Users, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { useStore } from '../../contexts/StoreContext';
 import { trackInteraction } from '../../services/interactionTelemetry';
-import { currency, formatDateTimeBR } from '../../utils/format';
-import type { Order, OrderStatus, PaymentMethod } from '../../types';
+import { currency, formatDateTimeBR, roundMoney } from '../../utils/format';
+import type { ManualOrderInput, ManualOrderItemInput, ManualOrderSource, Order, OrderStatus, PaymentMethod } from '../../types';
 import { formatOrderNumber } from '../../utils/orderConfirmation';
 import { buildComeBackMessage, buildOrderStatusMessage, buildSalesRecoveryMessage, normalizeWhatsappPhone, openCustomerWhatsapp } from '../../utils/customerSales';
 
@@ -23,6 +23,16 @@ const statusOptions: Array<{ value: OrderStatus; label: string }> = [
 const kdsStatuses: OrderStatus[] = ['received', 'confirmed', 'preparing', 'ready', 'out_for_delivery'];
 const statusLabel = Object.fromEntries(statusOptions.map((item) => [item.value, item.label])) as Record<OrderStatus, string>;
 const paymentLabel: Record<PaymentMethod, string> = { confirm: 'Combinar com a loja', pix: 'PIX', card: 'Cartão', cash: 'Dinheiro' };
+const manualSourceOptions: Array<{ value: ManualOrderSource; label: string }> = [
+  { value: 'counter', label: 'Balcão' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'phone', label: 'Telefone' },
+  { value: 'ifood', label: 'iFood' },
+  { value: 'other', label: 'Outro' },
+];
+const orderSourceLabel: Record<NonNullable<Order['source']>, string> = {
+  site: 'Site', counter: 'Balcão', whatsapp: 'WhatsApp', phone: 'Telefone', ifood: 'iFood', other: 'Outro',
+};
 const sortOptions = [
   { value: 'newest', label: 'Mais recentes' },
   { value: 'oldest', label: 'Mais antigos' },
@@ -33,9 +43,12 @@ const sortOptions = [
 
 type SortMode = (typeof sortOptions)[number]['value'];
 type CustomerSummary = { key: string; name: string; phone: string; orders: number; total: number; lastAt: string };
+const newManualOrder = (): Omit<ManualOrderInput, 'items'> => ({
+  customerName: '', customerPhone: '', source: 'counter', paymentMethod: 'cash', status: 'received', received: true, notes: '',
+});
 
 export default function OrdersAdmin() {
-  const { orders, loading, error, reloadAdmin, updateOrderStatus, confirmOrderPayment, settings } = useStore();
+  const { orders, products, loading, error, reloadAdmin, updateOrderStatus, confirmOrderPayment, createManualOrder, settings } = useStore();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
@@ -45,9 +58,80 @@ export default function OrdersAdmin() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
   const [notifyOrderId, setNotifyOrderId] = useState<string | null>(null);
+  const [manualOrderOpen, setManualOrderOpen] = useState(false);
+  const [manualOrder, setManualOrder] = useState<Omit<ManualOrderInput, 'items'>>(newManualOrder);
+  const [manualItems, setManualItems] = useState<ManualOrderItemInput[]>([]);
+  const [manualProductId, setManualProductId] = useState('');
+  const [manualSaving, setManualSaving] = useState(false);
   const refreshingRef = useRef(false);
   const rowsRef = useRef<Record<string, HTMLTableRowElement | null>>({});
   const highlightedOrderId = searchParams.get('highlight') || '';
+
+  const manualProducts = useMemo(() => products.filter((product) => product.active && product.availabilityStatus === 'available' && product.stockStatus !== 'unavailable' && (!product.trackStock || (product.stockQuantity ?? 0) > 0)), [products]);
+  const manualSubtotal = useMemo(() => roundMoney(manualItems.reduce((sum, item) => {
+    const product = products.find((current) => current.id === item.productId);
+    if (!product) return sum;
+    const optionsTotal = item.options.reduce((optionSum, option) => {
+      const group = product.optionGroups.find((current) => current.id === option.groupId);
+      const choice = group?.items.find((current) => current.id === option.itemId);
+      return optionSum + (choice?.priceDelta || 0) * option.quantity;
+    }, 0);
+    return sum + ((product.promotionalPrice ?? product.price) + optionsTotal) * item.quantity;
+  }, 0)), [manualItems, products]);
+
+  const openManualOrder = () => {
+    setManualOrder(newManualOrder());
+    setManualItems([]);
+    setManualProductId(manualProducts[0]?.id || '');
+    setManualOrderOpen(true);
+  };
+
+  const addManualProduct = () => {
+    if (!manualProductId || manualItems.some((item) => item.productId === manualProductId)) return;
+    setManualItems((items) => [...items, { productId: manualProductId, quantity: 1, options: [] }]);
+    setManualProductId('');
+  };
+
+  const updateManualItem = (productId: string, patch: Partial<ManualOrderItemInput>) => {
+    setManualItems((items) => items.map((item) => item.productId === productId ? { ...item, ...patch } : item));
+  };
+
+  const updateManualOptionGroup = (productId: string, groupId: string, itemIds: string[]) => {
+    const group = products.find((product) => product.id === productId)?.optionGroups.find((current) => current.id === groupId);
+    const selectedIds = [...new Set(itemIds)].slice(0, group?.maxChoices ?? itemIds.length);
+    setManualItems((items) => items.map((item) => item.productId === productId ? {
+      ...item,
+      options: [
+        ...item.options.filter((option) => option.groupId !== groupId),
+        ...selectedIds.map((itemId) => ({ groupId, itemId, quantity: 1 })),
+      ],
+    } : item));
+  };
+
+  const saveManualOrder = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!manualOrder.customerName.trim() || !manualItems.length) return;
+    if (manualOrder.status === 'cancelled' && manualOrder.received) return;
+    const incompleteProduct = manualItems.find((item) => {
+      const product = products.find((current) => current.id === item.productId);
+      return product?.optionGroups.some((group) => group.active && new Set(item.options.filter((option) => option.groupId === group.id).map((option) => option.itemId)).size < group.minChoices);
+    });
+    if (incompleteProduct) {
+      window.alert('Revise as opções obrigatórias dos produtos selecionados.');
+      return;
+    }
+    setManualSaving(true);
+    try {
+      const result = await trackInteraction('manual_order_create', () => createManualOrder({ ...manualOrder, items: manualItems }), { storeId: settings.id });
+      setLastUpdatedAt(new Date());
+      setManualOrderOpen(false);
+      window.alert(`Pedido #${formatOrderNumber(result.orderNumber)} lançado com sucesso.`);
+    } catch (manualOrderError) {
+      window.alert(manualOrderError instanceof Error ? manualOrderError.message : 'Não foi possível lançar o pedido avulso.');
+    } finally {
+      setManualSaving(false);
+    }
+  };
 
   const refreshOrders = useCallback(async () => {
     if (refreshingRef.current) return;
@@ -173,7 +257,7 @@ export default function OrdersAdmin() {
   if (error) return <ErrorState message={error} onRetry={() => void reloadAdmin()} />;
 
   return <>
-    <div className="admin-page-title"><div><span className="eyebrow">OPERAÇÃO</span><h1>Pedidos</h1><p>Fila operacional, recuperação de vendas e relacionamento com clientes usando os pedidos já registrados.</p></div></div>
+    <div className="admin-page-title"><div><span className="eyebrow">OPERAÇÃO</span><h1>Pedidos</h1><p>Fila operacional, recuperação de vendas e relacionamento com clientes usando os pedidos já registrados.</p></div><button type="button" className="primary-button" onClick={openManualOrder} disabled={!manualProducts.length}><Plus size={17}/>Lançar pedido avulso</button></div>
 
     <div className="sales-ops-grid-v061">
       <details className="sales-ops-panel-v061" open={recoveryOrders.length > 0}>
@@ -201,7 +285,7 @@ export default function OrdersAdmin() {
       {filtered.length === 0 ? <div className="admin-empty"><ShoppingBag size={32}/><strong>Nenhum pedido encontrado</strong><span>Ajuste os filtros ou aguarde o próximo pedido.</span></div> : <div className="responsive-table"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega / retirada</th><th>Pagamento</th><th>Total</th><th>Recebimento</th><th>Status</th><th>Criado em</th></tr></thead><tbody>{filtered.map((order) => {
         const highlighted = order.id === highlightedOrderId;
         return <tr key={order.id} ref={(node) => { rowsRef.current[order.id] = node; }} className={highlighted ? 'order-row-highlighted' : ''}>
-          <td><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong>{order.whatsappClickedAt ? <small className="order-fee-note">WhatsApp aberto</small> : null}{highlighted ? <small>Pedido vindo do Financeiro</small> : null}</td>
+          <td><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong><small className="order-fee-note">{orderSourceLabel[order.source || 'site']}</small>{order.whatsappClickedAt ? <small className="order-fee-note">WhatsApp aberto</small> : null}{highlighted ? <small>Pedido vindo do Financeiro</small> : null}</td>
           <td><div className="order-customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span></div></td>
           <td><div className="order-customer"><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{order.deliveryType === 'delivery' && order.deliveryZoneName ? <span>{order.deliveryZoneName}{order.deliveryFee ? ` · ${currency.format(order.deliveryFee)}` : ''}</span> : null}{order.scheduledFor ? <span>Agendado: {formatDateTimeBR(order.scheduledFor)}</span> : null}{order.preparationEstimateMinutes ? <span>Estimativa: até {order.preparationEstimateMinutes} min</span> : null}</div></td>
           <td><div className="order-customer"><strong>{paymentLabel[order.paymentMethod]}</strong>{order.paymentMethod === 'cash' && order.needsChange && order.changeFor ? <span>Troco para {currency.format(order.changeFor)}</span> : null}</div></td>
@@ -212,5 +296,44 @@ export default function OrdersAdmin() {
         </tr>;
       })}</tbody></table></div>}
     </section>
+    {manualOrderOpen && <div className="modal-overlay" role="presentation">
+      <form className="master-modal master-modal--wide" role="dialog" aria-modal="true" aria-labelledby="manual-order-title" onSubmit={saveManualOrder}>
+        <button type="button" className="modal-close" aria-label="Fechar lançamento de pedido avulso" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}><X/></button>
+        <span className="eyebrow">LANÇAMENTO OPERACIONAL</span>
+        <h2 id="manual-order-title">Pedido avulso</h2>
+        <p>Registre uma venda feita fora do site. Os preços e as opções serão validados novamente pelo sistema antes de salvar.</p>
+        <div className="form-grid">
+          <label>Cliente<input required value={manualOrder.customerName} onChange={(event) => setManualOrder((current) => ({ ...current, customerName: event.target.value }))} placeholder="Nome do cliente"/></label>
+          <label>Telefone <span className="optional-label">opcional</span><input value={manualOrder.customerPhone || ''} onChange={(event) => setManualOrder((current) => ({ ...current, customerPhone: event.target.value }))} placeholder="(27) 99999-9999"/></label>
+          <label>Origem<select value={manualOrder.source} onChange={(event) => setManualOrder((current) => ({ ...current, source: event.target.value as ManualOrderSource }))}>{manualSourceOptions.map((source) => <option key={source.value} value={source.value}>{source.label}</option>)}</select></label>
+          <label>Pagamento<select value={manualOrder.paymentMethod} onChange={(event) => setManualOrder((current) => ({ ...current, paymentMethod: event.target.value as PaymentMethod }))}>{Object.entries(paymentLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
+          <label className="checkbox-row"><input type="checkbox" checked={manualOrder.received} disabled={manualOrder.status === 'cancelled'} onChange={(event) => setManualOrder((current) => ({ ...current, received: event.target.checked }))}/>Recebimento já confirmado</label>
+        </div>
+
+        <section>
+          <h3>Produtos</h3>
+          <div className="form-grid">
+            <label>Adicionar produto<select value={manualProductId} onChange={(event) => setManualProductId(event.target.value)}><option value="">Selecione</option>{manualProducts.filter((product) => !manualItems.some((item) => item.productId === product.id)).map((product) => <option key={product.id} value={product.id}>{product.name} · {currency.format(product.promotionalPrice ?? product.price)}</option>)}</select></label>
+            <div><button className="secondary-button" type="button" onClick={addManualProduct} disabled={!manualProductId}>Adicionar item</button></div>
+          </div>
+          {!manualItems.length ? <p>Nenhum produto selecionado.</p> : manualItems.map((item) => {
+            const product = products.find((current) => current.id === item.productId);
+            if (!product) return null;
+            return <fieldset key={item.productId}>
+              <legend>{product.name}</legend>
+              <div className="form-grid">
+                <label>Quantidade<input type="number" min="1" max="99" value={item.quantity} onChange={(event) => updateManualItem(item.productId, { quantity: Math.max(1, Math.min(99, Number(event.target.value) || 1)) })}/></label>
+                <div><strong>{currency.format(roundMoney(((product.promotionalPrice ?? product.price) + item.options.reduce((sum, option) => { const group = product.optionGroups.find((current) => current.id === option.groupId); const choice = group?.items.find((current) => current.id === option.itemId); return sum + (choice?.priceDelta || 0) * option.quantity; }, 0)) * item.quantity))}</strong><br/><button type="button" className="secondary-button" onClick={() => setManualItems((items) => items.filter((current) => current.productId !== item.productId))}>Remover item</button></div>
+                {product.optionGroups.filter((group) => group.active).map((group) => <label key={group.id} className="full">{group.name}{group.minChoices > 0 ? ' (obrigatório)' : ' (opcional)'}<select multiple={group.maxChoices > 1} value={group.maxChoices > 1 ? item.options.filter((option) => option.groupId === group.id).map((option) => option.itemId) : item.options.find((option) => option.groupId === group.id)?.itemId || ''} onChange={(event) => updateManualOptionGroup(item.productId, group.id, Array.from(event.currentTarget.selectedOptions, (option) => option.value))}>{group.minChoices === 0 && group.maxChoices <= 1 ? <option value="">Sem seleção</option> : null}{group.items.filter((choice) => choice.active).map((choice) => <option key={choice.id} value={choice.id}>{choice.name}{choice.priceDelta ? ` · ${choice.priceDelta > 0 ? '+' : ''}${currency.format(choice.priceDelta)}` : ''}</option>)}</select><small>{group.maxChoices > 1 ? `Selecione até ${group.maxChoices} opções.` : 'Selecione uma opção.'}</small></label>)}
+              </div>
+            </fieldset>;
+          })}
+        </section>
+        <label>Observação<textarea rows={3} maxLength={500} value={manualOrder.notes || ''} onChange={(event) => setManualOrder((current) => ({ ...current, notes: event.target.value }))} placeholder="Ex.: venda registrada depois do atendimento presencial."/></label>
+        <p><strong>Resumo: {manualItems.reduce((sum, item) => sum + item.quantity, 0)} item(ns) · {currency.format(manualSubtotal)}</strong></p>
+        <div className="master-modal-actions"><button type="button" className="secondary-button" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}>Cancelar</button><button className="primary-button" type="submit" disabled={manualSaving || !manualItems.length || !manualOrder.customerName.trim()}>{manualSaving ? 'Salvando...' : `Registrar pedido · ${currency.format(manualSubtotal)}`}</button></div>
+      </form>
+    </div>}
   </>;
 }

@@ -9,14 +9,16 @@ import { currency } from '../../utils/format';
 import { formatOrderNumber, readOrderConfirmation } from '../../utils/orderConfirmation';
 import { buildPostOrderWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
 import { storefrontPath } from '../../utils/storefrontRoute';
+import { getStorefrontThemeStyle } from '../../utils/storeVisualTheme';
 
 export default function OrderSuccess() {
   const { orderId = '' } = useParams();
   const location = useLocation();
-  const { markOrderWhatsAppClicked, storeBasePath } = useStore();
+  const { markOrderWhatsAppClicked, settings, storeBasePath } = useStore();
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
   const [whatsappMarkState, setWhatsappMarkState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
+  const storefrontThemeStyle = getStorefrontThemeStyle(settings.visualTheme);
 
   const confirmation = useMemo(() => {
     const fromState = location.state as OrderConfirmation | null;
@@ -26,7 +28,7 @@ export default function OrderSuccess() {
 
   if (!confirmation) {
     return (
-      <main className="order-success-page">
+      <main className="order-success-page food-storefront-theme" style={storefrontThemeStyle}>
         <section className="order-success-card order-success-card--missing">
           <div className="success-icon"><CheckCircle2 size={50} /></div>
           <h1>Pedido não disponível nesta sessão</h1>
@@ -69,7 +71,7 @@ export default function OrderSuccess() {
   };
 
   return (
-    <main className="order-success-page">
+    <main className="order-success-page food-storefront-theme" style={storefrontThemeStyle}>
       <section className="order-success-card">
         <div className="success-icon"><CheckCircle2 size={54} strokeWidth={2.2} /></div>
 

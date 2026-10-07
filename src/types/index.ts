@@ -160,6 +160,21 @@ export type CustomerMessageTemplates = {
   comeBack: string;
 };
 
+export type StoreVisualThemePreset = 'foodweb' | 'doce_lua' | 'custom';
+
+export type StoreVisualTheme = {
+  preset: StoreVisualThemePreset;
+  primaryColor: string;
+  accentColor: string;
+  highlightColor: string;
+  backgroundColor: string;
+  surfaceColor: string;
+  textColor: string;
+  mutedColor: string;
+  borderColor: string;
+  radius: number;
+};
+
 export type StoreSettings = {
   id: string;
   slug: string;
@@ -176,6 +191,10 @@ export type StoreSettings = {
   logoStoragePath?: string;
   heroUrl: string;
   heroStoragePath?: string;
+  visualTheme: StoreVisualTheme;
+  storefrontNotice?: string;
+  pickupInstructions?: string;
+  hidePublicAddress: boolean;
   pixEnabled: boolean;
   pixReceiptMode: 'copy_paste' | 'key';
   pixKeyType: string;
@@ -235,6 +254,7 @@ export type Plan = {
 };
 
 export type BillingProvider = 'manual' | 'asaas';
+export type SubscriptionBillingMode = 'standard' | 'negotiated' | 'complimentary';
 
 export type PlatformSettings = {
   demoEnabled: boolean;
@@ -377,6 +397,30 @@ export type CreateOrderResult = {
   total: number;
 };
 
+/** Origem disponível apenas para lançamentos feitos pela equipe da loja. */
+export type ManualOrderSource = 'counter' | 'whatsapp' | 'phone' | 'ifood' | 'other';
+
+export type ManualOrderItemInput = {
+  productId: string;
+  quantity: number;
+  options: Array<{
+    groupId: string;
+    itemId: string;
+    quantity: number;
+  }>;
+};
+
+export type ManualOrderInput = {
+  customerName: string;
+  customerPhone?: string;
+  source: ManualOrderSource;
+  paymentMethod: PaymentMethod;
+  status: OrderStatus;
+  received: boolean;
+  notes?: string;
+  items: ManualOrderItemInput[];
+};
+
 export type OrderConfirmation = {
   orderId: string;
   orderNumber: number;
@@ -466,6 +510,7 @@ export type PlatformStoreSummary = {
   planName?: string;
   planCode?: string;
   billingAmount?: number;
+  billingMode?: SubscriptionBillingMode;
   dueDay?: number;
   nextDueDate?: string;
   customDomain?: string;
@@ -576,7 +621,7 @@ export type SubscriptionPayment = {
   previousPlanName?: string;
   dueDay?: number;
   nextDueDate?: string;
-  billingState?: 'current' | 'overdue' | 'trial' | 'suspended' | 'cancelled' | 'none';
+  billingState?: 'current' | 'overdue' | 'trial' | 'suspended' | 'cancelled' | 'complimentary' | 'none';
 };
 
 export type SubscriptionCharge = {
