@@ -20,6 +20,10 @@ alter table public.food_stores
   add column if not exists hide_public_address boolean not null default false,
   add column if not exists show_whatsapp boolean not null default true;
 
+-- Garante que o PostgREST reconheça as colunas mesmo quando o patch é aplicado
+-- em um projeto que já estava em execução.
+notify pgrst, 'reload schema';
+
 update public.food_stores
 set visual_theme = '{
   "preset":"foodweb",

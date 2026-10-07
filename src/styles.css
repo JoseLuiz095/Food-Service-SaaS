@@ -3011,6 +3011,22 @@ button:disabled,input:disabled,textarea:disabled,select:disabled{opacity:.72}
 .message-template-grid-v063 textarea{width:100%;min-height:84px;resize:vertical;line-height:1.45}
 .message-template-variables-v063{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}
 .message-template-variables-v063 code{padding:5px 8px;border-radius:999px;background:#f6eee9;border:1px solid #ead9d0;font-size:.68rem;color:#8e452f}
+.settings-storefront-preview{margin-top:14px;overflow:hidden;border:1px solid var(--food-store-border,#ead9d0);box-shadow:0 14px 32px rgba(71,36,20,.09);font-size:.8rem}
+.settings-storefront-preview__bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 15px;border-bottom:1px solid var(--food-store-border,#ead9d0);background:color-mix(in srgb,var(--food-store-surface,#fff) 88%,var(--food-store-accent,#c97952));font-size:.72rem}
+.settings-storefront-preview__bar span{color:var(--food-store-muted,#7c6259);font-size:.66rem}
+.settings-storefront-preview__hero{display:grid;gap:6px;padding:18px 15px;border-bottom:1px solid;border-radius:0 0 calc(var(--food-store-radius,20px) * .65) calc(var(--food-store-radius,20px) * .65)}
+.settings-storefront-preview__hero span,.settings-storefront-preview__section-title span{font-size:.61rem;font-weight:850;letter-spacing:.12em}
+.settings-storefront-preview__hero strong{font-family:Georgia,serif;font-size:1.22rem;line-height:1.05}
+.settings-storefront-preview__hero small{color:var(--food-store-muted,#7c6259);line-height:1.35}
+.settings-storefront-preview__body{padding:15px}
+.settings-storefront-preview__section-title{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px}
+.settings-storefront-preview__section-title small{color:var(--food-store-muted,#7c6259);font-size:.63rem}
+.settings-storefront-preview__products{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.settings-storefront-preview__product{display:grid;gap:5px;padding:10px;border:1px solid;border-radius:calc(var(--food-store-radius,20px) * .55);min-height:88px}
+.settings-storefront-preview__product>span{display:block;width:100%;height:25px;border-radius:7px;opacity:.72}
+.settings-storefront-preview__product strong{font-size:.68rem;line-height:1.15}
+.settings-storefront-preview__product small{color:var(--food-store-accent,#c97952);font-weight:850;font-size:.7rem}
+.settings-storefront-preview__pickup{margin-top:11px;padding-top:10px;border-top:1px dashed;font-size:.68rem;line-height:1.35}
 .order-whatsapp-action-v061.is-recommended-v063{background:var(--food-red,#c74d2f);border-color:var(--food-red,#c74d2f);color:#fff;box-shadow:0 7px 18px rgba(199,77,47,.18)}
 .order-status-actions-v061{min-width:210px}.order-status-actions-v061 .order-whatsapp-action-v061{margin-top:7px;width:100%;justify-content:center}
 .sales-ops-grid-v061{align-items:start}
@@ -3018,6 +3034,7 @@ button:disabled,input:disabled,textarea:disabled,select:disabled{opacity:.72}
 .responsive-table table{min-width:1040px}
 @media(max-width:1320px){.opening-hours-scroll-note{display:block}}
 @media(max-width:900px){.sales-ops-grid-v061{grid-template-columns:1fr}.message-template-grid-v063{grid-template-columns:1fr}.orders-toolbar--filters{grid-template-columns:1fr}.toolbar-selects{width:100%;grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.settings-storefront-preview__products{grid-template-columns:1fr}.settings-storefront-preview__product{min-height:0}}
 @media(max-width:620px){.toolbar-selects{grid-template-columns:1fr}.opening-hours-admin .opening-day-row{min-width:760px}}
 
 .sales-final-cta .human-contact-card{color:#21191b}

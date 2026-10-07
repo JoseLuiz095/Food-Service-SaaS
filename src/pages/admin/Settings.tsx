@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Banknote, Clock3, CreditCard, ExternalLink, ImagePlus, Info, QrCode, RotateCcw, Save } from 'lucide-react';
+import { ArrowDown, ArrowUp, Banknote, Clock3, CreditCard, ImagePlus, Info, QrCode, RotateCcw, Save } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
@@ -9,9 +9,8 @@ import { buildPixCopyPasteWithAmount, validatePixCopyPasteBase } from '../../uti
 import { formatOpeningSchedule, openingDayName } from '../../utils/storeHours';
 import { PasswordChangeCard } from '../../components/admin/PasswordChangeCard';
 import { planHasFeature } from '../../utils/plan';
-import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES } from '../../utils/customerSales';
-import { DEFAULT_STORE_VISUAL_THEME, isStoreVisualColor, STORE_VISUAL_THEME_PRESETS } from '../../utils/storeVisualTheme';
-import { storefrontPath } from '../../utils/storefrontRoute';
+import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ensureCustomerMessageVariables, normalizeCustomerMessageTemplates } from '../../utils/customerSales';
+import { DEFAULT_STORE_VISUAL_THEME, getStorefrontThemeStyle, isStoreVisualColor, STORE_VISUAL_THEME_PRESETS } from '../../utils/storeVisualTheme';
 
 const isDoceLuaStore = (store: Pick<StoreSettings, 'slug' | 'name'>) =>
   `${store.slug} ${store.name}`.toLowerCase().replace(/[^a-z0-9]/g, '').includes('docelua');
@@ -32,8 +31,7 @@ export default function SettingsAdmin() {
   const pixCopyPasteRef = useRef<HTMLTextAreaElement | null>(null);
   const canCustomBanner = planHasFeature(planUsage.plan, 'custom_banner');
   const canUseDoceLua = isDoceLuaStore(form);
-  const publicStoreUrl = storefrontPath(`/${encodeURIComponent(form.slug)}`);
-  const messageTemplates = { ...DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ...(form.messageTemplates ?? {}) };
+  const messageTemplates = normalizeCustomerMessageTemplates(form.messageTemplates);
 
   useEffect(() => setForm(cloneSettingsForForm(settings)), [settings]);
   const logoPreview = useMemo(() => logoFile ? URL.createObjectURL(logoFile) : form.logoUrl, [logoFile, form.logoUrl]);
@@ -47,7 +45,7 @@ export default function SettingsAdmin() {
     visualTheme: { ...current.visualTheme, [key]: value, preset: key === 'preset' ? value as StoreVisualTheme['preset'] : 'custom' },
   }));
   const applyVisualPreset = (preset: keyof typeof STORE_VISUAL_THEME_PRESETS) => setForm((current) => ({ ...current, visualTheme: { ...STORE_VISUAL_THEME_PRESETS[preset] } }));
-  const updateMessageTemplate = (key: keyof NonNullable<StoreSettings['messageTemplates']>, value: string) => setForm((current) => ({ ...current, messageTemplates: { ...DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ...(current.messageTemplates ?? {}), [key]: value } }));
+  const updateMessageTemplate = (key: keyof NonNullable<StoreSettings['messageTemplates']>, value: string) => setForm((current) => ({ ...current, messageTemplates: { ...normalizeCustomerMessageTemplates(current.messageTemplates), [key]: ensureCustomerMessageVariables(key, value) } }));
   const activatePixReceiptMode = (mode: StoreSettings['pixReceiptMode']) => {
     update('pixReceiptMode', mode);
     if (mode === 'copy_paste') {
@@ -121,17 +119,9 @@ export default function SettingsAdmin() {
       }
     }
 
-    const requiredVariables: Array<[keyof NonNullable<StoreSettings['messageTemplates']>, string, string[]]> = [
-      ['received','Recebido',['{cliente}','{pedido}','{loja}']],['confirmed','Confirmado',['{cliente}','{pedido}','{loja}']],['preparing','Em preparação',['{cliente}','{pedido}','{loja}']],['ready','Pronto',['{cliente}','{pedido}','{loja}']],['outForDelivery','Saiu para entrega',['{cliente}','{pedido}','{loja}']],['delivered','Entregue',['{cliente}','{pedido}','{loja}']],['pickedUp','Retirado',['{cliente}','{pedido}','{loja}']],['cancelled','Cancelado',['{cliente}','{pedido}','{loja}']],['salesRecovery','Recuperação de venda',['{cliente}','{pedido}','{loja}']],['comeBack','Recompra',['{cliente}','{loja}']],
-    ];
-    for (const [key,label,variables] of requiredVariables) {
-      const template=messageTemplates[key]; const missing=variables.filter((variable)=>!template.includes(variable));
-      if(missing.length){showToast(`A mensagem ${label} precisa manter: ${missing.join(', ')}.`,'error');return;}
-    }
-
     setSaving(true);
     try {
-      let next = { ...form, openingHours: formatOpeningSchedule(form.openingSchedule) };
+      let next = { ...form, openingHours: formatOpeningSchedule(form.openingSchedule), messageTemplates: normalizeCustomerMessageTemplates(messageTemplates) };
       if (!canUseDoceLua && next.visualTheme.preset === 'doce_lua') next = { ...next, visualTheme: { ...DEFAULT_STORE_VISUAL_THEME } };
       if (logoFile) {
         const upload = await uploadStoreAsset(logoFile, 'logo');
@@ -211,10 +201,22 @@ export default function SettingsAdmin() {
               {canUseDoceLua && <label className="switch-row"><span><strong>Doce Lua</strong><small>Creme, chocolate, pêssego e dourado para uma vitrine delicada.</small></span><input type="radio" name="visual-theme-preset" checked={form.visualTheme.preset === 'doce_lua'} onChange={() => applyVisualPreset('doce_lua')} /></label>}
             </div>
             <div style={{ marginTop: 16, padding: 18, border: `1px solid ${form.visualTheme.borderColor}`, borderRadius: form.visualTheme.radius, background: form.visualTheme.backgroundColor, color: form.visualTheme.textColor }}>
-              <span style={{ color: form.visualTheme.accentColor, fontSize: '.72rem', fontWeight: 800, letterSpacing: '.08em' }}>PRÉVIA DA VITRINE</span>
-              <strong style={{ display: 'block', marginTop: 6, fontSize: '1.1rem' }}>Sabores que dão vontade de voltar</strong>
-              <small style={{ display: 'block', marginTop: 5, color: form.visualTheme.mutedColor }}>Cards, ações e detalhes seguem esta paleta ao salvar.</small>
-              <a href={publicStoreUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 13, padding: '9px 12px', borderRadius: Math.max(10, form.visualTheme.radius - 6), background: form.visualTheme.primaryColor, color: '#fff', fontWeight: 800, fontSize: '.78rem', textDecoration: 'none' }}><ExternalLink size={14} />Ver cardápio</a>
+               <div className="settings-storefront-preview" style={{ ...getStorefrontThemeStyle(form.visualTheme), borderRadius: form.visualTheme.radius, background: form.visualTheme.backgroundColor, color: form.visualTheme.textColor }}>
+                 <div className="settings-storefront-preview__bar"><strong>{form.name || 'Sua loja'}</strong><span>Pedido direto</span></div>
+                 <div className="settings-storefront-preview__hero" style={{ background: form.visualTheme.surfaceColor, borderColor: form.visualTheme.borderColor }}>
+                   <span style={{ color: form.visualTheme.accentColor }}>ENCOMENDAS ONLINE</span>
+                   <strong>{form.tagline || 'Sabores que dão vontade de voltar'}</strong>
+                   <small>{form.storefrontNotice || 'Encomendas confirmadas conforme o horário da loja.'}</small>
+                 </div>
+                 <div className="settings-storefront-preview__body">
+                   <div className="settings-storefront-preview__section-title"><span>DESTAQUES</span><small>Prévia enquanto você edita</small></div>
+                   <div className="settings-storefront-preview__products">
+                     {['Doce especial', 'Caixa para compartilhar', 'Favorito da casa'].map((product, index) => <div className="settings-storefront-preview__product" key={product} style={{ background: form.visualTheme.surfaceColor, borderColor: form.visualTheme.borderColor }}><span style={{ background: index === 1 ? form.visualTheme.highlightColor : form.visualTheme.accentColor }} /> <strong>{product}</strong><small>R$ {(18 + index * 7).toFixed(2).replace('.', ',')}</small></div>)}
+                   </div>
+                   <div className="settings-storefront-preview__pickup" style={{ borderColor: form.visualTheme.borderColor, color: form.visualTheme.mutedColor }}>{form.pickupInstructions || 'Retirada combinada após a confirmação do pedido.'}</div>
+                 </div>
+               </div>
+               <small className="muted">A prévia acompanha as alterações sem sair desta tela. Salve as configurações para publicar na vitrine.</small>
             </div>
             <div className="form-grid" style={{ marginTop: 16 }}>
               <label>Cor principal<input type="color" value={form.visualTheme.primaryColor} onChange={(e) => updateVisualTheme('primaryColor', e.target.value)} /></label>
@@ -267,7 +269,7 @@ export default function SettingsAdmin() {
           <section className="admin-card form-section message-templates-v063">
             <span className="eyebrow">COMUNICAÇÃO</span>
             <h2>Mensagens programadas</h2>
-            <p>Edite as mensagens abertas manualmente no WhatsApp. O texto é livre, mas as variáveis obrigatórias de cada mensagem devem ser mantidas. Elas são preenchidas pelo sistema.</p>
+            <p>Edite as mensagens abertas manualmente no WhatsApp. As variáveis entre chaves são protegidas: se alguma for apagada, ela será recolocada automaticamente e também será corrigida ao salvar.</p>
             <div className="message-template-variables-v063"><code>{'{cliente}'}</code><code>{'{pedido}'}</code><code>{'{loja}'}</code><code>{'{total}'}</code><code>{'{previsao}'}</code><code>{'{status}'}</code></div>
             <details open><summary>Status do pedido</summary><div className="message-template-grid-v063">
               <label>Recebido<textarea rows={3} value={messageTemplates.received} onChange={(e)=>updateMessageTemplate('received',e.target.value)} /></label>
@@ -280,7 +282,7 @@ export default function SettingsAdmin() {
               <label>Cancelado<textarea rows={3} value={messageTemplates.cancelled} onChange={(e)=>updateMessageTemplate('cancelled',e.target.value)} /></label>
             </div></details>
             <details><summary>Relacionamento</summary><div className="message-template-grid-v063"><label>Recuperação de venda<textarea rows={4} value={messageTemplates.salesRecovery} onChange={(e)=>updateMessageTemplate('salesRecovery',e.target.value)} /></label><label>Recompra / retorno<textarea rows={4} value={messageTemplates.comeBack} onChange={(e)=>updateMessageTemplate('comeBack',e.target.value)} /></label></div></details>
-            <button type="button" className="secondary-button" onClick={()=>setForm((current)=>({...current,messageTemplates:{...DEFAULT_CUSTOMER_MESSAGE_TEMPLATES}}))}>Restaurar mensagens padrão</button>
+            <button type="button" className="secondary-button" onClick={()=>setForm((current)=>({...current,messageTemplates:normalizeCustomerMessageTemplates(DEFAULT_CUSTOMER_MESSAGE_TEMPLATES)}))}>Restaurar mensagens padrão</button>
           </section>
 
           <section className="admin-card form-section payment-admin-section">
