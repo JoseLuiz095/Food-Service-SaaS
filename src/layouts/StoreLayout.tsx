@@ -6,18 +6,21 @@ import { useStore } from '../contexts/StoreContext';
 import { currency } from '../utils/format';
 import { storefrontPath } from '../utils/storefrontRoute';
 import { isFoodWebMarketingRoot } from '../lib/config';
+import { getStorefrontThemeStyle } from '../utils/storeVisualTheme';
 
 export default function StoreLayout(){
   const location=useLocation();
   const marketingRoot=typeof window!=='undefined'&&isFoodWebMarketingRoot(location.pathname,window.location.hostname);
-  const {storeUnavailable,unavailableStoreName,storeBasePath}=useStore();
+  const {settings,storeUnavailable,unavailableStoreName,storeBasePath}=useStore();
   const {totalItems,subtotal}=useCart();
   useEffect(()=>{window.scrollTo({top:0,left:0,behavior:'auto'})},[location.pathname]);
 
   if(marketingRoot)return <main className="store-layout marketing-root-layout"><Outlet/></main>;
 
+  const storefrontThemeStyle=getStorefrontThemeStyle(settings.visualTheme);
+
   if(storeUnavailable){
-    return <main className="store-layout storefront-unavailable-page">
+    return <main className="store-layout food-storefront-theme storefront-unavailable-page" style={storefrontThemeStyle}>
       <section className="storefront-unavailable-card">
         <div className="storefront-unavailable-icon"><Store size={30}/></div>
         <span className="eyebrow">CATÁLOGO TEMPORARIAMENTE INDISPONÍVEL</span>
@@ -33,5 +36,5 @@ export default function StoreLayout(){
   const hideDock=path.includes('/carrinho')||path.includes('/finalizar')||path.includes('/pedido/');
   const showDock=totalItems>0&&!hideDock;
 
-  return <main className={`store-layout ${showDock?'has-mobile-cart-dock':''}`}><div key={location.pathname} className="store-route-view"><Outlet/></div>{showDock&&<a className="mobile-cart-dock" href={storefrontPath(storeBasePath,'/carrinho')} aria-label={`Abrir carrinho com ${totalItems} item(ns)`}><span className="mobile-cart-dock__icon"><ShoppingBag size={19}/><b>{totalItems}</b></span><span className="mobile-cart-dock__copy"><small>Seu carrinho</small><strong>{currency.format(subtotal)}</strong></span><span className="mobile-cart-dock__action">Ver carrinho <ArrowRight size={17}/></span></a>}</main>;
+  return <main className={`store-layout food-storefront-theme ${showDock?'has-mobile-cart-dock':''}`} style={storefrontThemeStyle}><div key={location.pathname} className="store-route-view"><Outlet/></div>{showDock&&<a className="mobile-cart-dock" href={storefrontPath(storeBasePath,'/carrinho')} aria-label={`Abrir carrinho com ${totalItems} item(ns)`}><span className="mobile-cart-dock__icon"><ShoppingBag size={19}/><b>{totalItems}</b></span><span className="mobile-cart-dock__copy"><small>Seu carrinho</small><strong>{currency.format(subtotal)}</strong></span><span className="mobile-cart-dock__action">Ver carrinho <ArrowRight size={17}/></span></a>}</main>;
 }

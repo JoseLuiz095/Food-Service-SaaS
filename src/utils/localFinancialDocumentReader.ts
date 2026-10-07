@@ -13,6 +13,14 @@ export type LocalFinancialReadProgress = {
   message: string;
 };
 
+export type LocalFinancialDocumentItem = {
+  description: string;
+  quantity?: number;
+  unitPrice?: number;
+  total: number;
+  confidence: number;
+};
+
 export type LocalFinancialReadResult = {
   rawText: string;
   documentType: LocalFinancialDocumentType;
@@ -27,6 +35,7 @@ export type LocalFinancialReadResult = {
   recognizedFields: number;
   signals: string[];
   barcode?: string;
+  items: LocalFinancialDocumentItem[];
 };
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -640,6 +649,73 @@ function typeLabel(type: LocalFinancialDocumentType): string {
   return labels[type];
 }
 
+const ITEM_HEADER_RE = /\b(?:ITEM|ITENS|PRODUTO|PRODUTOS|DESCRI[CÇ][AÃ]O|DESCRICAO|CODIGO|C[ÓO]DIGO|QTD|QUANT(?:IDADE)?|VL\.?\s*UNIT|VALOR\s*UNIT)/;
+const ITEM_END_RE = /\b(?:SUB\s*TOTAL|TOTAL(?:\s+A\s*PAGAR)?|PAGAMENTO|FORMA\s+DE\s+PAGAMENTO|TROCO|DESCONTO|ACR[EÉ]SCIMO|TRIBUT|IMPOST|DINHEIRO|CART[AÃ]O|PIX)\b/;
+const NON_ITEM_RE = /\b(?:CNPJ|CPF|IE\b|ENDERE[CÇ]|TELEFONE|FONE|CHAVE\s+DE\s+ACESSO|DANFE|NFC-?E|CUPOM\s+FISCAL|CONSUMIDOR|EMITENTE|VENDEDOR|CAIXA)\b/;
+const QUANTITY_RE = /\b(\d{1,4}(?:[,.]\d{1,3})?)\s*(UN(?:D)?|UNIDADE|KG|G|LT|L|CX|PC|P[CÇ]|FD|M[L]?|SERV(?:I[CÇ]O)?)\b/i;
+
+function itemDescription(line: string, moneyMatches: string[]): string | undefined {
+  let value = line;
+  for (const match of moneyMatches) value = value.replace(match, ' ');
+  value = value
+    .replace(/^\s*(?:\d{1,14}|[A-Z]{1,4}\d{2,14})\s*[-.:|]?\s*/i, '')
+    .replace(QUANTITY_RE, ' ')
+    .replace(/\b(?:UN(?:D)?|UNIDADE|KG|G|LT|L|CX|PC|P[CÇ]|FD|M[L]?)\b/gi, ' ')
+    .replace(/[|;]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  if (value.length < 2 || value.length > 130 || !/[A-Za-zÀ-ÿ]/.test(value)) return undefined;
+  if (NON_ITEM_RE.test(searchText(value))) return undefined;
+  return value.replace(/^[-–—]+|[-–—]+$/g, '').trim() || undefined;
+}
+
+function extractItems(text: string, documentType: LocalFinancialDocumentType): LocalFinancialDocumentItem[] {
+  if (!['coupon', 'nfe', 'nfce'].includes(documentType)) return [];
+
+  const lines = text
+    .replace(/---\s*LEITURA\s*REFORCADA\s*---/gi, '')
+    .split('\n')
+    .map((line) => compactWhitespace(line))
+    .filter(Boolean);
+  const items: LocalFinancialDocumentItem[] = [];
+  let insideItems = !lines.some((line) => ITEM_HEADER_RE.test(searchText(line)));
+
+  for (const line of lines) {
+    const normalized = searchText(line);
+    if (ITEM_END_RE.test(normalized)) {
+      if (insideItems) break;
+      continue;
+    }
+    if (ITEM_HEADER_RE.test(normalized)) {
+      insideItems = true;
+      continue;
+    }
+    if (!insideItems || NON_ITEM_RE.test(normalized)) continue;
+
+    const rawValues = line.match(MONEY_RE) || [];
+    const values = rawValues.map(parseMoney).filter((value): value is number => value !== undefined && value > 0);
+    if (!values.length) continue;
+
+    const description = itemDescription(line, rawValues);
+    if (!description) continue;
+    const quantityMatch = line.match(QUANTITY_RE);
+    const quantity = quantityMatch ? Number(quantityMatch[1].replace(',', '.')) : undefined;
+    const total = values[values.length - 1];
+    const unitPrice = values.length >= 2 ? values[values.length - 2] : quantity && quantity > 1 ? Number((total / quantity).toFixed(2)) : undefined;
+    const confidence = Math.min(1, 0.55 + (quantity ? 0.15 : 0) + (values.length >= 2 ? 0.2 : 0) + (/^\s*\d{1,14}/.test(line) ? 0.1 : 0));
+    items.push({ description, quantity: quantity && quantity > 0 ? quantity : undefined, unitPrice, total, confidence });
+  }
+
+  const unique = new Map<string, LocalFinancialDocumentItem>();
+  for (const item of items) {
+    const key = `${normalizeCounterpartyKey(item.description)}:${item.total.toFixed(2)}`;
+    const previous = unique.get(key);
+    if (!previous || item.confidence > previous.confidence) unique.set(key, item);
+  }
+  return [...unique.values()].slice(0, 80);
+}
+
 function parseResult(text: string, barcode?: string): LocalFinancialReadResult {
   const documentType = identifyType(text, barcode);
   const amount = extractAmount(text, documentType, barcode);
@@ -648,6 +724,7 @@ function parseResult(text: string, barcode?: string): LocalFinancialReadResult {
   const counterparty = extractSupplier(text);
   const supplierDocument = extractSupplierDocument(text);
   const documentNumber = extractDocumentNumber(text, documentType);
+  const items = extractItems(text, documentType);
   const signals: string[] = [];
 
   if (documentType !== 'other') signals.push(typeLabel(documentType));
@@ -658,6 +735,7 @@ function parseResult(text: string, barcode?: string): LocalFinancialReadResult {
   if (dueOn) signals.push('Vencimento');
   if (documentNumber) signals.push('Numero do documento');
   if (boletoDigits(text, barcode)) signals.push('Codigo de barras/linha digitavel');
+  if (items.length) signals.push(`${items.length} item${items.length === 1 ? '' : 's'} sugerido${items.length === 1 ? '' : 's'}`);
   if (text.includes('--- LEITURA REFORCADA ---')) signals.push('OCR reforcado');
 
   const recognizedFields = [counterparty, amount, occurredOn, dueOn, documentNumber]
@@ -685,6 +763,7 @@ function parseResult(text: string, barcode?: string): LocalFinancialReadResult {
     recognizedFields,
     signals,
     barcode: boletoDigits(text, barcode),
+    items,
   };
 }
 

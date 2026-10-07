@@ -1,6 +1,6 @@
 import { isDemoMode } from '../lib/config';
 import { restFetch } from '../lib/supabaseRest';
-import type { SubscriptionCharge, SubscriptionPayment } from '../types';
+import type { SubscriptionBillingMode, SubscriptionCharge, SubscriptionPayment } from '../types';
 
 const num=(value:number|string|null|undefined)=>value==null?0:Number(value);
 
@@ -29,7 +29,7 @@ export type StoreBillingSettings={
 export type BillingOverviewPlan={id:string;code:string;name:string;monthlyPrice:number};
 export type BillingOverviewSubscription={
   id:string;status:'trial'|'active'|'suspended'|'cancelled';billingAmount:number;dueDay?:number;nextDueDate?:string;
-  billingState:'current'|'overdue'|'trial'|'suspended'|'cancelled'|'none';daysOverdue:number;lastPayment?:SubscriptionPayment|null;
+  billingMode?:SubscriptionBillingMode;billingState:'current'|'overdue'|'trial'|'suspended'|'cancelled'|'complimentary'|'none';daysOverdue:number;lastPayment?:SubscriptionPayment|null;
 };
 export type StoreBillingOverview={
   currentPlan?:BillingOverviewPlan|null;
@@ -52,6 +52,7 @@ const normalizeOverview=(raw:OverviewRaw):StoreBillingOverview=>({
   subscription:raw.subscription?{
     ...raw.subscription,
     billingAmount:num(raw.subscription.billingAmount),
+    billingMode:raw.subscription.billingMode||(num(raw.subscription.billingAmount)===0?'complimentary':'standard'),
     daysOverdue:num(raw.subscription.daysOverdue),
     lastPayment:raw.subscription.lastPayment?{...raw.subscription.lastPayment,amount:num(raw.subscription.lastPayment.amount)}:null,
   }:null,
@@ -70,7 +71,7 @@ export const billingApi={
   async getOverview(storeId:string):Promise<StoreBillingOverview>{
     if(isDemoMode)return normalizeOverview({
       currentPlan:{id:'professional',code:'PROFESSIONAL',name:'Profissional',monthlyPrice:119.9},
-      subscription:{id:'demo-sub',status:'active',billingAmount:119.9,dueDay:10,nextDueDate:new Date().toISOString().slice(0,10),billingState:'current',daysOverdue:0,lastPayment:null},
+      subscription:{id:'demo-sub',status:'active',billingAmount:119.9,billingMode:'standard',dueDay:10,nextDueDate:new Date().toISOString().slice(0,10),billingState:'current',daysOverdue:0,lastPayment:null},
       plans:[],
       settings:{provider:'manual',pixKeyType:'CNPJ',pixKey:'12.345.678/0001-90',pixHolderName:'FoodWeb',pixCity:'Linhares',pixCopyPaste:'',whatsapp:'5527999999999',proofRequired:true,autoRenew:false,graceDays:3},
       payments:[],

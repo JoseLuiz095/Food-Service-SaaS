@@ -10,6 +10,7 @@ import type {
   PlatformSystemCheck,
   StoreAccessStatus,
   StoreCredentialMode,
+  SubscriptionBillingMode,
   SubscriptionPayment,
 } from '../types';
 
@@ -50,7 +51,7 @@ const trialExpired = (value?: string) => Boolean(value) && new Date(value as str
 
 type StoreRow = { id:string; slug:string; name:string; city:string|null; state:string|null; owner_name:string|null; owner_email:string|null; active:boolean; access_status:StoreAccessStatus; suspended_at:string|null; suspension_reason:string|null };
 type PlanRow = { id:string; code:string; name:string; product_limit:number|null; image_limit_per_product:number|null; custom_domain:boolean; reports:boolean; priority_support:boolean; monthly_price:number|string|null; setup_price:number|string|null; category_limit:number|null; addon_limit:number|null; admin_user_limit:number|null; sort_order:number|null; active:boolean; marketing_benefits?: string[] | null };
-type SubscriptionRow = { id:string; store_id:string; plan_id:string; status:'trial'|'active'|'suspended'|'cancelled'; status_before_suspension:'trial'|'active'|null; started_at:string; expires_at:string|null; billing_amount:number|string|null; due_day:number|null; next_due_date:string|null };
+type SubscriptionRow = { id:string; store_id:string; plan_id:string; status:'trial'|'active'|'suspended'|'cancelled'; status_before_suspension:'trial'|'active'|null; started_at:string; expires_at:string|null; billing_amount:number|string|null; billing_mode?:SubscriptionBillingMode|null; due_day:number|null; next_due_date:string|null };
 type DomainRow = { id:string; store_id:string; domain:string; is_primary:boolean; active:boolean };
 type CountRow = { id:string; store_id:string; active?:boolean };
 type PlatformSettingsRow = { id:number; demo_enabled?:boolean; demo_duration_days:number; demo_warning_days:number; billing_provider?:'manual'|'asaas'; billing_pix_key_type?:string|null; billing_pix_key?:string|null; billing_pix_holder_name?:string|null; billing_pix_city?:string|null; billing_pix_copy_paste?:string|null; billing_whatsapp?:string|null; billing_proof_required?:boolean; billing_auto_renew?:boolean; billing_grace_days?:number|null; marketing_whatsapp?:string|null; support_whatsapp?:string|null };
@@ -163,7 +164,7 @@ export const platformApi = {
         id:store.id,name:store.name,slug:store.slug,city:store.city||'',state:store.state||'',ownerName:store.owner_name||undefined,ownerEmail:store.owner_email||undefined,
         active:store.active,accessStatus:demoExpired?'suspended':(store.access_status||'online'),productCount:storeProducts.length,activeProductCount:storeProducts.filter((item)=>item.active).length,
         adminUserCount:users.filter((item)=>item.store_id===store.id&&item.active).length,subscriptionId:sub?.id,subscriptionStatus:sub?.status,
-        planId:plan?.id,planName:plan?.name,planCode:plan?.code,billingAmount:sub?.billing_amount==null?toNumber(plan?.monthly_price):toNumber(sub.billing_amount),
+        planId:plan?.id,planName:plan?.name,planCode:plan?.code,billingAmount:sub?.billing_amount==null?toNumber(plan?.monthly_price):toNumber(sub.billing_amount),billingMode:sub?.billing_mode||'standard',
         dueDay:sub?.due_day||undefined,nextDueDate:sub?.next_due_date||undefined,customDomain:domains.find((item)=>item.store_id===store.id&&item.is_primary)?.domain,
         suspendedAt:store.suspended_at||undefined,suspensionReason:store.suspension_reason||undefined,expiresAt:sub?.expires_at||undefined,
       };
@@ -182,7 +183,7 @@ export const platformApi = {
     };
   },
 
-  async updateStore(input: { storeId:string; planId:string; accessStatus:StoreAccessStatus; billingAmount:number; dueDay:number; nextDueDate?:string; expiresAt?:string; customDomain?:string; suspensionReason?:string }): Promise<void> {
+  async updateStore(input: { storeId:string; planId:string; accessStatus:StoreAccessStatus; billingAmount:number; billingMode?:SubscriptionBillingMode; dueDay:number; nextDueDate?:string; expiresAt?:string; customDomain?:string; suspensionReason?:string }): Promise<void> {
     if (isDemoMode) return;
     await restFetch<unknown>(`food_stores?id=eq.${encodeURIComponent(input.storeId)}`, {method:'PATCH',body:{
       access_status:input.accessStatus,
@@ -207,7 +208,8 @@ export const platformApi = {
     let status: SubscriptionRow['status'];
     let beforeSuspension: SubscriptionRow['status_before_suspension'] = null;
     let expiresAt: string | null = null;
-    let billingAmount = input.billingAmount;
+    let billingMode: SubscriptionBillingMode = input.billingMode || (input.billingAmount === 0 ? 'complimentary' : 'negotiated');
+    let billingAmount = Math.max(0, Number(input.billingAmount) || 0);
     let dueDay: number | null = input.dueDay;
     let nextDueDate: string | null = alignSubscriptionDueDate(input.dueDay, input.nextDueDate || currentSub?.next_due_date || null);
 
@@ -218,6 +220,7 @@ export const platformApi = {
         ? new Date(`${input.expiresAt.slice(0,10)}T23:59:59.999Z`).toISOString()
         : (!currentSub || planChanged || !currentSub.expires_at ? addDaysIso(settings.demoDurationDays) : currentSub.expires_at);
       billingAmount = 0;
+      billingMode = 'standard';
       dueDay = null;
       nextDueDate = null;
     } else {
@@ -227,6 +230,11 @@ export const platformApi = {
       beforeSuspension = input.accessStatus==='suspended' ? (previous === 'trial' ? 'active' : previous) : null;
       status = input.accessStatus==='online' ? 'active' : 'suspended';
       expiresAt = null;
+      if (billingMode === 'complimentary') {
+        billingAmount = 0;
+        dueDay = null;
+        nextDueDate = null;
+      }
     }
 
     const subscriptionBody = {
@@ -234,6 +242,7 @@ export const platformApi = {
       status,
       status_before_suspension:beforeSuspension,
       billing_amount:billingAmount,
+      billing_mode:billingMode,
       due_day:dueDay,
       next_due_date:nextDueDate,
       expires_at:expiresAt,

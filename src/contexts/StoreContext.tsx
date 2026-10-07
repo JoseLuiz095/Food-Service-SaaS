@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useLocation } from 'react-router-dom';
 import { StorefrontUnavailableError, storeApi } from '../services/storeApi';
 import { seedAddons, seedCategories, seedDeliveryZones, seedPlan, seedProducts, seedSettings } from '../data/seed';
-import type { Addon, Category, DeliveryZone, Order, PlanUsage, Product, ProductImage, StoreSettings } from '../types';
+import type { Addon, Category, DeliveryZone, ManualOrderInput, Order, PlanUsage, Product, ProductImage, StoreSettings } from '../types';
 import { useAuth } from './AuthContext';
 import { storeBasePathFromPath, storeSlugFromPath } from '../utils/storefrontRoute';
 import { isFoodWebMarketingRoot } from '../lib/config';
@@ -40,6 +40,7 @@ type StoreContextValue = {
   uploadAddonImage: (addonId: string, file: File) => Promise<{ url: string; path?: string }>;
   resetDemo: () => Promise<void>;
   registerOrder: typeof storeApi.createOrder;
+  createManualOrder: (input: ManualOrderInput) => Promise<Awaited<ReturnType<typeof storeApi.createManualOrder>>>;
   markOrderWhatsAppClicked: typeof storeApi.markOrderWhatsAppClicked;
   confirmOrderPayment: typeof storeApi.confirmOrderPayment;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
@@ -144,6 +145,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     uploadAddonImage: async (addonId, file) => storeApi.uploadAddonImage(settings.id,addonId,file),
     resetDemo: async () => { applySnapshot(await storeApi.resetDemo()); },
     registerOrder: storeApi.createOrder,
+    createManualOrder: async (input) => { const result = await storeApi.createManualOrder(settings, products, input); await reloadAdmin({ silent: true }); notifyStoreChange(); return result; },
     markOrderWhatsAppClicked: storeApi.markOrderWhatsAppClicked,
     confirmOrderPayment: async (orderId) => { const result=await storeApi.confirmOrderPayment(orderId); await reloadAdmin({ silent: true }); notifyStoreChange(); return result; },
     updateOrderStatus: async (orderId, status) => { await storeApi.updateOrderStatus(orderId, status); await reloadAdmin({ silent: true }); notifyStoreChange(); },

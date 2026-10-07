@@ -33,7 +33,7 @@ export const getBillingVisualStatus = (input: {
 }): BillingVisualStatus => {
   const warningDays = Math.max(1, input.warningDays ?? 7);
   const daysToDue = daysUntilBillingDate(input.nextDueDate);
-  const visible = Boolean(input.billingState && !['trial', 'none'].includes(input.billingState));
+  const visible = Boolean(input.billingState && !['trial', 'complimentary', 'none'].includes(input.billingState));
 
   if (!visible) {
     return {
