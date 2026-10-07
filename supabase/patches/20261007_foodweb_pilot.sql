@@ -70,6 +70,21 @@ comment on column public.food_stores.show_whatsapp is 'Controla se o WhatsApp da
 
 commit;
 
+-- Storage: o upload usa upsert=true e precisa de SELECT além de INSERT/UPDATE.
+-- Sem esta política o Supabase retorna "new row violates row-level security policy"
+-- mesmo quando a sessão está autenticada e a pasta pertence à loja.
+begin;
+
+drop policy if exists food_product_images_storage_select on storage.objects;
+create policy food_product_images_storage_select on storage.objects for select to authenticated
+using (bucket_id='food-product-images' and public.food_is_store_admin((storage.foldername(name))[2]::uuid));
+
+drop policy if exists food_store_assets_storage_select on storage.objects;
+create policy food_store_assets_storage_select on storage.objects for select to authenticated
+using (bucket_id='food-store-assets' and public.food_is_store_admin((storage.foldername(name))[2]::uuid));
+
+commit;
+
 -- Privacidade da vitrine: quando a loja trabalha por encomenda, o endereco
 -- interno nunca deve sair na resposta publica, mesmo que a UI oculte o campo.
 begin;
