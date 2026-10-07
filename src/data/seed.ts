@@ -1,4 +1,5 @@
 import type { Addon, Category, DeliveryZone, OptionGroup, Order, Plan, Product, StoreSettings, StoreSubscription } from '../types';
+import { DEFAULT_STORE_VISUAL_THEME } from '../utils/storeVisualTheme';
 
 const STORE_ID = '00000000-0000-4000-8000-000000000001';
 
@@ -177,6 +178,7 @@ export const seedSettings: StoreSettings = {
   description: 'Loja de demonstração da plataforma Food Service.',
   city: 'Linhares', state: 'ES', zipCode: '', whatsapp: '5527999999999', instagram: '@centralfood',
   address: 'Centro, Linhares - ES', logoUrl: '/assets/food-logo.svg', heroUrl: '/assets/food-hero.svg',
+  visualTheme: { ...DEFAULT_STORE_VISUAL_THEME }, hidePublicAddress: false,
   pixEnabled: true, pixReceiptMode: 'key', pixKeyType: 'E-mail', pixKey: 'pix@centralfood.demo', pixCopyPaste: '', pixReceiver: 'Central Food',
   showPixBeforeConfirmation: true, confirmationPaymentEnabled: false, cardPaymentEnabled: true, cashPaymentEnabled: true, paymentMethodOrder: ['pix', 'card', 'cash', 'confirm'], deliveryEnabled: true, pickupEnabled: true, minimumOrder: 20,
   averagePreparationMin: 30, averagePreparationMax: 45, allowScheduledOrders: true, kdsEnabled: true, kdsNotifyCustomer: true, salesRecoveryEnabled: true, salesRecoveryMinutes: 10, salesRecoveryWindowHours: 48, crmEnabled: true, crmComeBackDays: 21, repeatOrderEnabled: true, repeatOrderMaxAgeDays: 90, upsellEnabled: true, upsellLimit: 3, messageTemplates: { received:'Olá, {cliente}! Recebemos seu pedido {pedido} na {loja}. Total: {total}. Previsão: {previsao}.', confirmed:'Olá, {cliente}! Seu pedido {pedido} foi confirmado pela {loja} e já entrou na operação. Previsão: {previsao}.', preparing:'Olá, {cliente}! Seu pedido {pedido} já está em preparação na {loja}. Previsão: {previsao}.', ready:'Olá, {cliente}! Seu pedido {pedido} está pronto. {previsao}', outForDelivery:'Olá, {cliente}! Seu pedido {pedido} saiu para entrega. Se precisar, responda esta mensagem.', delivered:'Olá, {cliente}! O pedido {pedido} foi entregue. Obrigado por comprar com a {loja}!', pickedUp:'Olá, {cliente}! O pedido {pedido} foi retirado. Obrigado por comprar com a {loja}!', cancelled:'Olá, {cliente}. O pedido {pedido} foi cancelado. Se precisar de ajuda, responda esta mensagem.', salesRecovery:'Olá, {cliente}! Vimos que o pedido {pedido} na {loja}, no total de {total}, foi registrado mas o atendimento não foi concluído. Se ainda quiser finalizar, responda esta mensagem.', comeBack:'Olá, {cliente}! Já faz um tempo desde seu último pedido na {loja}. Quando quiser pedir novamente, responda esta mensagem e ajudamos por aqui.' },
