@@ -1062,10 +1062,13 @@ on conflict(id) do update set public=true,file_size_limit=excluded.file_size_lim
 
 -- Caminho esperado: stores/<store_uuid>/...
 drop policy if exists food_product_images_storage_insert on storage.objects;
+drop policy if exists food_product_images_storage_select on storage.objects;
 drop policy if exists food_product_images_storage_update on storage.objects;
 drop policy if exists food_product_images_storage_delete on storage.objects;
 create policy food_product_images_storage_insert on storage.objects for insert to authenticated
 with check (bucket_id='food-product-images' and public.food_is_store_admin((storage.foldername(name))[2]::uuid));
+create policy food_product_images_storage_select on storage.objects for select to authenticated
+using (bucket_id='food-product-images' and public.food_is_store_admin((storage.foldername(name))[2]::uuid));
 create policy food_product_images_storage_update on storage.objects for update to authenticated
 using (bucket_id='food-product-images' and public.food_is_store_admin((storage.foldername(name))[2]::uuid))
 with check (bucket_id='food-product-images' and public.food_is_store_admin((storage.foldername(name))[2]::uuid));
@@ -1073,10 +1076,13 @@ create policy food_product_images_storage_delete on storage.objects for delete t
 using (bucket_id='food-product-images' and public.food_is_store_admin((storage.foldername(name))[2]::uuid));
 
 drop policy if exists food_store_assets_storage_insert on storage.objects;
+drop policy if exists food_store_assets_storage_select on storage.objects;
 drop policy if exists food_store_assets_storage_update on storage.objects;
 drop policy if exists food_store_assets_storage_delete on storage.objects;
 create policy food_store_assets_storage_insert on storage.objects for insert to authenticated
 with check (bucket_id='food-store-assets' and public.food_is_store_admin((storage.foldername(name))[2]::uuid));
+create policy food_store_assets_storage_select on storage.objects for select to authenticated
+using (bucket_id='food-store-assets' and public.food_is_store_admin((storage.foldername(name))[2]::uuid));
 create policy food_store_assets_storage_update on storage.objects for update to authenticated
 using (bucket_id='food-store-assets' and public.food_is_store_admin((storage.foldername(name))[2]::uuid))
 with check (bucket_id='food-store-assets' and public.food_is_store_admin((storage.foldername(name))[2]::uuid));

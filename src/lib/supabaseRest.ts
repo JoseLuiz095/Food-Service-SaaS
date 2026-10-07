@@ -70,7 +70,13 @@ export const storageUpload = async (bucket: string, path: string, file: File): P
     upsert: true,
     contentType: file.type || 'application/octet-stream',
   });
-  if (error) throw error;
+  if (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/row-level security|rls|permission denied|not authorized/i.test(message)) {
+      throw new Error(`O upload foi bloqueado pela política de segurança do Storage (bucket ${bucket}). Verifique se a sessão está autenticada como administrador ativo da loja e se as políticas INSERT, SELECT e UPDATE do bucket foram aplicadas. Detalhe: ${message}`);
+    }
+    throw error;
+  }
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return { url: data.publicUrl, path };
 };
