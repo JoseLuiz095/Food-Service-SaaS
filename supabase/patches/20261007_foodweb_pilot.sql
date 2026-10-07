@@ -55,7 +55,7 @@ set visual_theme = '{
     "radius":20
   }'::jsonb,
   logo_url = '/assets/doce-lua/logo.jpg',
-  cover_url = '/assets/doce-lua/hero.jpeg',
+  cover_url = '/assets/doce-lua/hero-premium.png',
   storefront_notice = coalesce(nullif(storefront_notice,''), 'Encomendas preparadas a partir das 18h. Confirme o horário com a loja.'),
   pickup_instructions = coalesce(nullif(pickup_instructions,''), 'A retirada acontece em local de trabalho combinado após a confirmação do pedido.'),
   hide_public_address = true,
