@@ -122,6 +122,7 @@ export type Product = {
   availabilityStatus: 'available' | 'unavailable' | 'sold_out';
   trackStock: boolean;
   stockQuantity?: number;
+  stockReservedQuantity?: number;
   preparationTimeMinutes: number;
   sortOrder: number;
   optionGroups: OptionGroup[];
@@ -475,6 +476,7 @@ export type Order = {
   total: number;
   status: OrderStatus;
   paymentStatus: OrderPaymentStatus;
+  inventoryStatus?: 'not_tracked' | 'reserved' | 'awaiting_restock' | 'committed' | 'released';
   paymentReceivedAt?: string;
   paymentConfirmedBy?: string;
   needsChange?: boolean;

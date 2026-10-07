@@ -77,7 +77,8 @@ export default function ProductDetail() {
   const category = categories.find((item) => item.id === product.categoryId);
   const realImage = hasProductImage(product.imageUrl, product.images.length);
   const gallery = product.gallery.length ? product.gallery : realImage ? [product.imageUrl] : [];
-  const unavailable = product.stockStatus === 'unavailable' || product.availabilityStatus !== 'available' || (product.trackStock && Number(product.stockQuantity || 0) <= 0);
+  const unavailable = product.stockStatus === 'unavailable' || product.availabilityStatus !== 'available';
+  const outOfStock = product.trackStock && Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) <= 0;
 
   const toggleOption = (group: OptionGroup, itemId: string) => {
     setSelections((current) => {
@@ -159,6 +160,7 @@ export default function ProductDetail() {
         <span className="eyebrow">{category?.name ?? 'PRODUTO'}</span>
         <h1>{product.name}</h1>
         <p className="product-long-description">{product.description}</p>
+        {outOfStock && !unavailable && <div className="stock-schedule-note"><Clock3 size={18}/><div><strong>Sem disponibilidade para hoje</strong><span>Você pode adicionar ao pedido e agendar a partir de amanhã.</span></div></div>}
         {product.preparationTimeMinutes > 0 && <div className="made-to-order"><Clock3 size={19}/><div><strong>Tempo adicional de preparo</strong><span>Este item pode acrescentar cerca de {product.preparationTimeMinutes} minutos ao prazo do pedido.</span></div></div>}
 
         {product.optionGroups.filter((group) => group.active).map((group) => {
@@ -194,7 +196,7 @@ export default function ProductDetail() {
         <div className="buy-box">
           <div className="quantity-control"><button onClick={() => setQuantity((value) => Math.max(1, value - 1))} aria-label="Diminuir quantidade"><Minus size={17}/></button><span>{quantity}</span><button onClick={() => setQuantity((value) => value + 1)} aria-label="Aumentar quantidade"><Plus size={17}/></button></div>
           <div className="buy-total"><small>Total</small><strong>{currency.format(total)}</strong></div>
-          <button className="primary-button" disabled={unavailable} onClick={add}><ShoppingBag size={18}/>{unavailable ? 'Indisponível' : 'Adicionar ao carrinho'}</button>
+          <button className="primary-button" disabled={unavailable} onClick={add}><ShoppingBag size={18}/>{unavailable ? 'Indisponível' : outOfStock ? 'Adicionar para agendar' : 'Adicionar ao carrinho'}</button>
         </div>
       </section>
     </div>

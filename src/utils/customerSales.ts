@@ -8,7 +8,24 @@ export type RecentOrderSnapshot = {
   createdAt: string;
 };
 
+export type CustomerCheckoutProfile = {
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  fulfillment: 'delivery' | 'pickup';
+  zipCode: string;
+  street: string;
+  addressNumber: string;
+  complement: string;
+  neighborhood: string;
+  deliveryZoneId: string;
+  deliveryCity: string;
+  deliveryState: string;
+  referencePoint: string;
+};
+
 const recentOrderKey = (storeId: string) => `foodweb_recent_order_v1:${storeId}`;
+const customerProfileCookie = (storeId: string) => `foodweb_customer_profile_v1_${storeId.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
 
 export const DEFAULT_CUSTOMER_MESSAGE_TEMPLATES: CustomerMessageTemplates = {
   received: 'Olá, {cliente}! Recebemos seu pedido {pedido} na {loja}. Total: {total}. Previsão: {previsao}.',
@@ -69,6 +86,38 @@ export function loadRecentOrder(storeId: string, maxAgeDays = 180): RecentOrderS
     if (!Number.isFinite(age) || age > Math.max(1, maxAgeDays) * 86_400_000) return null;
     return parsed;
   } catch { return null; }
+}
+
+export function saveCustomerCheckoutProfile(storeId: string, profile: CustomerCheckoutProfile, maxAgeDays = 180) {
+  if (!storeId || typeof document === 'undefined') return;
+  try {
+    const value = encodeURIComponent(JSON.stringify(profile));
+    document.cookie = `${customerProfileCookie(storeId)}=${value}; Max-Age=${Math.max(1, maxAgeDays) * 86400}; Path=/; SameSite=Lax`;
+  } catch { /* cookies indisponíveis */ }
+}
+
+export function loadCustomerCheckoutProfile(storeId: string): CustomerCheckoutProfile | null {
+  if (!storeId || typeof document === 'undefined') return null;
+  try {
+    const key = `${customerProfileCookie(storeId)}=`;
+    const raw = document.cookie.split('; ').find((item) => item.startsWith(key))?.slice(key.length);
+    if (!raw) return null;
+    const parsed = JSON.parse(decodeURIComponent(raw)) as Partial<CustomerCheckoutProfile>;
+    if (typeof parsed.customerName !== 'string' || typeof parsed.customerPhone !== 'string') return null;
+    return {
+      customerName: parsed.customerName,
+      customerPhone: parsed.customerPhone,
+      customerEmail: parsed.customerEmail || '',
+      fulfillment: parsed.fulfillment === 'pickup' ? 'pickup' : 'delivery',
+      zipCode: parsed.zipCode || '', street: parsed.street || '', addressNumber: parsed.addressNumber || '', complement: parsed.complement || '',
+      neighborhood: parsed.neighborhood || '', deliveryZoneId: parsed.deliveryZoneId || '', deliveryCity: parsed.deliveryCity || '', deliveryState: parsed.deliveryState || '', referencePoint: parsed.referencePoint || '',
+    };
+  } catch { return null; }
+}
+
+export function clearCustomerCheckoutProfile(storeId: string) {
+  if (!storeId || typeof document === 'undefined') return;
+  document.cookie = `${customerProfileCookie(storeId)}=; Max-Age=0; Path=/; SameSite=Lax`;
 }
 
 export function normalizeWhatsappPhone(phone?: string) {

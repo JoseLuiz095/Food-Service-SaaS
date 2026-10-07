@@ -123,6 +123,7 @@ export default function OrderSuccess() {
                 {copied ? <Check size={21} /> : <Copy size={21} />}
               </button>
             </div>
+          {isPixCopyPaste && <div className="pix-return-reminder" role="note"><strong>Depois de pagar, volte para esta página.</strong><span>O pedido só será confirmado pela loja após a conferência do pagamento. Não feche esta tela antes de concluir.</span></div>}
             {confirmation.pixReceiver && <small>Recebedor: {confirmation.pixReceiver}</small>}
           </div>
         )}

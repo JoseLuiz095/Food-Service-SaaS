@@ -13,7 +13,7 @@ const emptyProduct = (storeId: string): Product => ({
   id: createId(), storeId, categoryId: '', name: '', slug: '', description: '', price: 0,
   imageUrl: '/assets/placeholder-food.svg', visualEmoji: '🍔', gallery: [], images: [], featured: false, active: true,
   madeToOrder: false, productionDays: 0, stockStatus: 'available', availabilityStatus: 'available',
-  trackStock: false, stockQuantity: undefined, preparationTimeMinutes: 0, sortOrder: 0,
+  trackStock: true, stockQuantity: 0, preparationTimeMinutes: 0, sortOrder: 0,
   optionGroups: [], variations: [], addons: [],
 });
 
@@ -159,8 +159,8 @@ export default function ProductForm() {
         storeId: settings.id,
         slug: product.slug || slugify(product.name),
         preparationTimeMinutes: Math.max(0, Math.trunc(product.preparationTimeMinutes || 0)),
-        trackStock: false,
-        stockQuantity: undefined,
+        trackStock: product.trackStock,
+        stockQuantity: product.trackStock ? Math.max(0, Math.trunc(product.stockQuantity ?? 0)) : undefined,
         optionGroups: product.optionGroups.map((group, groupIndex) => ({
           ...group,
           storeId: settings.id,
@@ -206,6 +206,8 @@ export default function ProductForm() {
           <label>Preço promocional<input type="number" min="0" step="0.01" value={product.promotionalPrice ?? ''} onChange={(event) => update('promotionalPrice', event.target.value ? Number(event.target.value) : undefined)}/></label>
           <label>Tempo adicional de preparo (min)<input type="number" min="0" step="1" value={product.preparationTimeMinutes} onChange={(event) => update('preparationTimeMinutes', Number(event.target.value))}/></label>
           <label>Status<select value={product.availabilityStatus} onChange={(event) => update('availabilityStatus', event.target.value as Product['availabilityStatus'])}><option value="available">Disponível</option><option value="unavailable">Indisponível temporariamente</option><option value="sold_out">Esgotado</option></select></label>
+          <label className="switch-row full"><span><strong>Controlar estoque deste produto</strong><small>Pedidos ficam pré-vendidos e só baixam do estoque quando o recebimento for confirmado.</small></span><input type="checkbox" checked={product.trackStock} onChange={(event) => update('trackStock', event.target.checked)} /></label>
+          {product.trackStock && <label>Quantidade disponível<input type="number" min="0" step="1" value={product.stockQuantity ?? 0} onChange={(event) => update('stockQuantity', Math.max(0, Math.trunc(Number(event.target.value) || 0)))}/><small className="muted">Itens sem saldo poderão ser agendados para a partir de amanhã.</small></label>}
           <label className="full">Descrição<textarea required rows={5} value={product.description} onChange={(event) => update('description', event.target.value)} placeholder="Descreva ingredientes e características principais."/></label>
         </div>
 
