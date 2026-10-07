@@ -84,6 +84,11 @@ export default function SettingsAdmin() {
       return;
     }
 
+    if (form.cardPaymentEnabled && (form.showWhatsApp === false || !form.whatsapp.trim())) {
+      showToast('Para liberar cartão por aproximação, mantenha um WhatsApp cadastrado e visível na vitrine.', 'error');
+      return;
+    }
+
     const visualColors = [form.visualTheme.primaryColor, form.visualTheme.accentColor, form.visualTheme.highlightColor, form.visualTheme.backgroundColor, form.visualTheme.surfaceColor, form.visualTheme.textColor, form.visualTheme.mutedColor, form.visualTheme.borderColor];
     if (!visualColors.every(isStoreVisualColor) || !Number.isInteger(form.visualTheme.radius) || form.visualTheme.radius < 8 || form.visualTheme.radius > 32) {
       showToast('Revise a aparência: use cores válidas e raio de card entre 8 e 32 pixels.', 'error');
@@ -169,7 +174,7 @@ export default function SettingsAdmin() {
             <label>Pedido mínimo<input type="number" min="0" step="0.01" value={form.minimumOrder} onChange={(e) => update('minimumOrder', Number(e.target.value))} /></label>
             <label className="full">Endereço<input value={form.address} onChange={(e) => update('address', e.target.value)} /></label>
             <label>WhatsApp (opcional)<input value={form.whatsapp} onChange={(e) => update('whatsapp', e.target.value)} placeholder="55 + DDD + número" /></label>
-            <label className="switch-row"><span><strong>Exibir WhatsApp na vitrine</strong><small>Desative para não disponibilizar esse contato aos clientes.</small></span><input type="checkbox" checked={form.showWhatsApp !== false} onChange={(e) => update('showWhatsApp', e.target.checked)} /></label>
+            <label className="switch-row"><span><strong>Exibir WhatsApp na vitrine</strong><small>Desative para não disponibilizar esse contato aos clientes. O cartão por aproximação depende deste canal.</small></span><input type="checkbox" checked={form.showWhatsApp !== false} onChange={(e) => setForm((current) => ({ ...current, showWhatsApp: e.target.checked, cardPaymentEnabled: e.target.checked ? current.cardPaymentEnabled : false }))} /></label>
             <label>Instagram<input value={form.instagram} onChange={(e) => update('instagram', e.target.value)} /></label>
             <label>CPF/CNPJ de cobrança<input value={form.billingDocument ?? ''} onChange={(e) => update('billingDocument', e.target.value)} placeholder="Necessário para PIX automático" /></label>
             <label>Telefone de cobrança<input value={form.billingPhone ?? ''} onChange={(e) => update('billingPhone', e.target.value)} placeholder="55 + DDD + número" /></label>
@@ -335,8 +340,9 @@ export default function SettingsAdmin() {
 
           <section className="admin-card form-section payment-admin-section">
             <div className="admin-card__header"><div><span className="eyebrow">PAGAMENTOS</span><h2>Cartão</h2></div><CreditCard size={21} /></div>
-            <label className="switch-row"><span><strong>Pagamento por cartão</strong><small>Permite pagamento com cartão no momento da entrega ou retirada.</small></span><input type="checkbox" checked={form.cardPaymentEnabled} onChange={(e) => update('cardPaymentEnabled', e.target.checked)} /></label>
-            {form.cardPaymentEnabled && <div className="admin-info-box"><Info size={17} /><span>A plataforma não captura dados do cartão. A cobrança é realizada pela loja na entrega ou retirada.</span></div>}
+            <label className="switch-row"><span><strong>Pagamento por cartão por aproximação (NFC)</strong><small>Permite cartão de crédito ou débito na entrega/retirada, com o WhatsApp disponível para confirmação.</small></span><input type="checkbox" checked={form.cardPaymentEnabled} disabled={form.showWhatsApp === false || !form.whatsapp.trim()} onChange={(e) => update('cardPaymentEnabled', e.target.checked)} /></label>
+            {form.cardPaymentEnabled && <div className="admin-info-box"><Info size={17} /><span>A plataforma não captura dados do cartão. A cobrança é presencial pela loja e o WhatsApp permanece disponível para orientar o cliente.</span></div>}
+            {(!form.whatsapp.trim() || form.showWhatsApp === false) && <div className="admin-info-box"><Info size={17} /><span>Cadastre um WhatsApp e deixe a exibição ativa para liberar esta forma de pagamento.</span></div>}
           </section>
 
           <section className="admin-card form-section payment-admin-section">
@@ -351,7 +357,7 @@ export default function SettingsAdmin() {
             <div className="payment-order-admin">
               {form.paymentMethodOrder.map((method, index) => {
                 const labels: Record<PaymentMethod, string> = { confirm: 'Confirmar com a loja', pix: 'PIX', card: 'Cartão', cash: 'Dinheiro' };
-                const enabled = (method === 'confirm' && form.confirmationPaymentEnabled) || (method === 'pix' && form.pixEnabled && form.showPixBeforeConfirmation) || (method === 'card' && form.cardPaymentEnabled) || (method === 'cash' && form.cashPaymentEnabled);
+                const enabled = (method === 'confirm' && form.confirmationPaymentEnabled) || (method === 'pix' && form.pixEnabled && form.showPixBeforeConfirmation) || (method === 'card' && form.cardPaymentEnabled && form.showWhatsApp !== false && Boolean(form.whatsapp.trim())) || (method === 'cash' && form.cashPaymentEnabled);
                 return <div key={method} className={enabled ? 'is-enabled' : 'is-disabled'}>
                   <span><b>{index + 1}</b><strong>{labels[method]}</strong><small>{enabled ? 'Visível no checkout' : 'Desativada'}</small></span>
                   <div><button type="button" disabled={index === 0} onClick={() => movePaymentMethod(method, -1)} aria-label="Mover para cima"><ArrowUp size={15}/></button><button type="button" disabled={index === form.paymentMethodOrder.length - 1} onClick={() => movePaymentMethod(method, 1)} aria-label="Mover para baixo"><ArrowDown size={15}/></button></div>

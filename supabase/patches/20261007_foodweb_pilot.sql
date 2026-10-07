@@ -133,7 +133,7 @@ begin
     'categories',coalesce((select jsonb_agg(to_jsonb(c) order by c.sort_order,c.name) from public.food_categories c where c.store_id=v_store.id and c.active),'[]'::jsonb),
     'products',coalesce((select jsonb_agg(to_jsonb(p) order by p.featured desc,p.sort_order,p.name)
       from public.food_products p join public.food_categories c on c.id=p.category_id and c.store_id=p.store_id and c.active
-      where p.store_id=v_store.id and p.active and p.availability_status='available' and p.stock_status<>'unavailable' and (not p.track_stock or coalesce(p.stock_quantity,0)>0)),'[]'::jsonb),
+      where p.store_id=v_store.id and p.active and p.availability_status='available' and p.stock_status<>'unavailable'),'[]'::jsonb),
     'product_images',coalesce((
       select jsonb_agg(to_jsonb(img) - 'rn' order by img.product_id,img.sort_order,img.created_at)
       from (
@@ -276,16 +276,12 @@ begin
        and p.active
        and p.availability_status = 'available'
        and p.stock_status <> 'unavailable'
-       and (not p.track_stock or coalesce(p.stock_quantity, 0) > 0)
        and exists (
          select 1 from public.food_categories c
           where c.id = p.category_id and c.store_id = p.store_id and c.active
        );
     if v_product.id is null then
       raise exception 'Um dos produtos não está disponível.';
-    end if;
-    if v_product.track_stock and v_quantity > coalesce(v_product.stock_quantity, 0) then
-      raise exception 'Estoque insuficiente para %.', v_product.name;
     end if;
 
     v_unit_price := coalesce(v_product.promotional_price, v_product.price);

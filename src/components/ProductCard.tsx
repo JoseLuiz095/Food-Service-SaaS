@@ -8,7 +8,8 @@ import { storefrontPath } from '../utils/storefrontRoute';
 
 export function ProductCard({product,category}:{product:Product;category?:Category}){
   const {storeBasePath}=useStore();
-  const unavailable=product.stockStatus==='unavailable'||product.availabilityStatus!=='available'||(product.trackStock&&Number(product.stockQuantity||0)<=0);
+  const unavailable=product.stockStatus==='unavailable'||product.availabilityStatus!=='available';
+  const outOfStock=product.trackStock&&Number(product.stockQuantity||0)-Number(product.stockReservedQuantity||0)<=0;
   return <a href={storefrontPath(storeBasePath,`/produto/${product.slug}`)} className={`product-card product-card--food ${unavailable?'is-unavailable':''}`}>
     <div className="product-card__content">
       {product.featured&&<span className="product-card__featured">Mais pedido</span>}
@@ -19,7 +20,7 @@ export function ProductCard({product,category}:{product:Product;category?:Catego
     </div>
     <div className="product-card__image-wrap">
       <ProductMedia src={product.imageUrl} emoji={product.visualEmoji} imageCount={product.images.length} alt={product.name} className="product-card__image" emojiClassName="product-card__emoji-v060"/>
-      <div className="product-card__badges">{product.promotionalPrice!=null&&<Badge tone="rose">Oferta</Badge>}{unavailable&&<Badge tone="amber">Indisponível</Badge>}</div>
+      <div className="product-card__badges">{product.promotionalPrice!=null&&<Badge tone="rose">Oferta</Badge>}{unavailable&&<Badge tone="amber">Indisponível</Badge>}{!unavailable&&outOfStock&&<Badge tone="amber">Agende para amanhã</Badge>}</div>
       {!unavailable&&<span className="product-card__open" aria-hidden="true"><Plus size={20}/></span>}
     </div>
   </a>;

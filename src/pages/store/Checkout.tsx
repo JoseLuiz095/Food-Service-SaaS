@@ -15,7 +15,7 @@ import { buildWhatsAppMessage } from '../../utils/whatsapp';
 import { storefrontPath } from '../../utils/storefrontRoute';
 import { normalizeText } from '../../utils/text';
 import { getStoreOpenStatus } from '../../utils/storeHours';
-import { saveRecentOrder } from '../../utils/customerSales';
+import { loadCustomerCheckoutProfile, saveCustomerCheckoutProfile, saveRecentOrder } from '../../utils/customerSales';
 
 const initial: CheckoutData = {
   customerName: '', customerPhone: '', customerEmail: '', fulfillment: 'delivery', zipCode: '', street: '', addressNumber: '', complement: '',
@@ -42,6 +42,7 @@ export default function Checkout() {
   const [turnstileToken, setTurnstileToken] = useState('');
   const [turnstileReset, setTurnstileReset] = useState(0);
   const [requestId, setRequestId] = useState('');
+  const [rememberCustomer, setRememberCustomer] = useState(false);
   const trackedCheckout = useRef(false);
 
   const update = <K extends keyof CheckoutData>(key: K, value: CheckoutData[K]) => setForm((current) => ({ ...current, [key]: value }));
@@ -49,6 +50,11 @@ export default function Checkout() {
 
   useEffect(() => {
     if (!settings.id) return;
+    const profile = loadCustomerCheckoutProfile(settings.id);
+    if (profile) {
+      setForm((current) => ({ ...current, ...profile }));
+      setRememberCustomer(true);
+    }
     try {
       const key = requestKey(settings.id);
       const existing = sessionStorage.getItem(key);
@@ -73,7 +79,7 @@ export default function Checkout() {
   const enabledPayments = useMemo(() => {
     const available = new Set<PaymentMethod>();
     if (settings.pixEnabled && settings.showPixBeforeConfirmation) available.add('pix');
-    if (settings.cardPaymentEnabled) available.add('card');
+    if (settings.cardPaymentEnabled && settings.showWhatsApp !== false && Boolean(settings.whatsapp?.trim())) available.add('card');
     if (settings.cashPaymentEnabled) available.add('cash');
     if (settings.confirmationPaymentEnabled) available.add('confirm');
     return settings.paymentMethodOrder.filter((method) => available.has(method));
@@ -89,6 +95,14 @@ export default function Checkout() {
   const changeAmount = form.paymentMethod === 'cash' && form.needsChange && form.changeFor ? roundMoney(form.changeFor - total) : 0;
   const openStatus = getStoreOpenStatus(settings.openingSchedule);
   const additionalPrep = items.reduce((max, item) => Math.max(max, products.find((product) => product.id === item.productId)?.preparationTimeMinutes || 0), 0);
+  const stockUnavailableItems = items.filter((item) => {
+    const product = products.find((candidate) => candidate.id === item.productId);
+    return Boolean(product?.trackStock && Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) < item.quantity);
+  });
+  const stockSchedulingRequired = stockUnavailableItems.length > 0;
+  const tomorrowStart = new Date();
+  tomorrowStart.setHours(0, 0, 0, 0);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
   const estimatedMin = settings.averagePreparationMin + additionalPrep;
   const estimatedMax = settings.averagePreparationMax + additionalPrep;
 
@@ -117,6 +131,7 @@ export default function Checkout() {
     if (!openStatus.open && !settings.allowScheduledOrders) return `${settings.name} está fechada agora. ${openStatus.detail}.`;
     if (!openStatus.open && settings.allowScheduledOrders && !form.scheduledFor) return 'Escolha um horário futuro para agendar o pedido.';
     if (form.scheduledFor && new Date(form.scheduledFor).getTime() <= Date.now()) return 'O agendamento precisa estar no futuro.';
+    if (stockSchedulingRequired && (!form.scheduledFor || new Date(form.scheduledFor).getTime() < tomorrowStart.getTime())) return 'Há item sem disponibilidade hoje. Escolha um horário a partir de amanhã para agendar o pedido.';
     if (form.fulfillment === 'delivery') {
       if (!settings.deliveryEnabled) return 'Delivery está desativado nesta loja.';
       if (!form.deliveryZoneId || !selectedZone) return 'Selecione uma área de entrega disponível.';
@@ -153,6 +168,11 @@ export default function Checkout() {
       };
       saveOrderConfirmation(confirmation);
       saveRecentOrder(settings.id, items, form.customerName, form.customerPhone);
+      if (rememberCustomer) saveCustomerCheckoutProfile(settings.id, {
+        customerName: form.customerName, customerPhone: form.customerPhone, customerEmail: form.customerEmail, fulfillment: form.fulfillment,
+        zipCode: form.zipCode, street: form.street, addressNumber: form.addressNumber, complement: form.complement, neighborhood: form.neighborhood,
+        deliveryZoneId: form.deliveryZoneId, deliveryCity: form.deliveryCity, deliveryState: form.deliveryState, referencePoint: form.referencePoint,
+      });
       clear();
       try { sessionStorage.removeItem(requestKey(settings.id)); } catch { /* sem storage */ }
       navigate(storefrontPath(storeBasePath, `/pedido/${result.orderId}`), { state: confirmation });
@@ -172,9 +192,9 @@ export default function Checkout() {
       <section className="checkout-main">
         <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Finalize seu pedido</h1><p>O pedido será salvo antes de qualquer abertura do WhatsApp.</p></div>
 
-        {!openStatus.open && <div className="checkout-alert"><AlertCircle size={19}/><div><strong>Loja fechada agora</strong><span>{openStatus.detail}. {settings.allowScheduledOrders ? 'Você pode agendar o pedido.' : 'Novos pedidos ficam bloqueados fora do horário.'}</span>{settings.allowScheduledOrders && <label className="scheduled-order-field">Agendar para<input type="datetime-local" value={form.scheduledFor} min={localDateTimeInputValue(new Date(Date.now()+30*60*1000))} onChange={(event)=>update('scheduledFor',event.target.value)}/><small>Horário local do estabelecimento. A disponibilidade será validada novamente no servidor.</small></label>}</div></div>}
+        {(!openStatus.open || stockSchedulingRequired) && <div className="checkout-alert"><AlertCircle size={19}/><div><strong>{stockSchedulingRequired ? 'Agendamento necessário para este pedido' : 'Loja fechada agora'}</strong><span>{stockSchedulingRequired ? 'Um ou mais itens não têm disponibilidade hoje. Escolha um horário a partir de amanhã.' : `${openStatus.detail}. ${settings.allowScheduledOrders ? 'Você pode agendar o pedido.' : 'Novos pedidos ficam bloqueados fora do horário.'}`}</span>{(settings.allowScheduledOrders || stockSchedulingRequired) && <label className="scheduled-order-field">Agendar para<input type="datetime-local" value={form.scheduledFor} min={localDateTimeInputValue(stockSchedulingRequired ? tomorrowStart : new Date(Date.now()+30*60*1000))} onChange={(event)=>update('scheduledFor',event.target.value)}/><small>{stockSchedulingRequired ? 'Disponível somente a partir do dia seguinte.' : 'Horário local do estabelecimento. A disponibilidade será validada novamente no servidor.'}</small></label>}</div></div>}
 
-        <section className="checkout-card"><div className="checkout-card__title"><UserRound size={20}/><div><strong>Seus dados</strong><span>Usados somente para este pedido e operação da loja.</span></div></div><div className="form-grid"><label>Nome<input required value={form.customerName} onChange={(event) => update('customerName', event.target.value)} placeholder="Seu nome"/></label><label>WhatsApp / telefone<input required value={form.customerPhone} onChange={(event) => update('customerPhone', event.target.value)} placeholder="(27) 99999-9999"/></label><label className="full">E-mail (opcional)<input type="email" value={form.customerEmail} onChange={(event) => update('customerEmail', event.target.value)} placeholder="voce@email.com"/></label></div></section>
+        <section className="checkout-card"><div className="checkout-card__title"><UserRound size={20}/><div><strong>Seus dados</strong><span>Usados somente para este pedido e operação da loja.</span></div></div><div className="form-grid"><label>Nome<input required value={form.customerName} onChange={(event) => update('customerName', event.target.value)} placeholder="Seu nome"/></label><label>WhatsApp / telefone<input required value={form.customerPhone} onChange={(event) => update('customerPhone', event.target.value)} placeholder="(27) 99999-9999"/></label><label className="full">E-mail (opcional)<input type="email" value={form.customerEmail} onChange={(event) => update('customerEmail', event.target.value)} placeholder="voce@email.com"/></label><label className="switch-row full"><span><strong>Salvar meus dados neste navegador</strong><small>Nome, contato e endereço ficam em um cookie local por até 180 dias. Nenhum dado de pagamento é salvo.</small></span><input type="checkbox" checked={rememberCustomer} onChange={(event) => setRememberCustomer(event.target.checked)}/></label></div></section>
 
         <section className="checkout-card"><div className="checkout-card__title"><Truck size={20}/><div><strong>Como quer receber?</strong><span>Escolha delivery ou retirada.</span></div></div><div className="fulfillment-options">{settings.deliveryEnabled && <button type="button" className={form.fulfillment === 'delivery' ? 'selected' : ''} onClick={() => update('fulfillment', 'delivery')}><Truck size={20}/><span><strong>Delivery</strong><small>Receber no endereço</small></span></button>}{settings.pickupEnabled && <button type="button" className={form.fulfillment === 'pickup' ? 'selected' : ''} onClick={() => update('fulfillment', 'pickup')}><Store size={20}/><span><strong>Retirada</strong><small>Buscar na loja</small></span></button>}</div>
           {form.fulfillment === 'delivery' && <div className="form-grid address-grid"><label>CEP<div className="field-with-button"><input value={form.zipCode} onChange={(event) => update('zipCode', event.target.value)} placeholder="00000-000"/><button type="button" onClick={() => void searchCep()} disabled={cepLoading}>{cepLoading ? <LoaderCircle className="spin" size={16}/> : <MapPin size={16}/>}Buscar</button></div></label><label>Bairro / área<select required value={form.deliveryZoneId} onChange={(event) => { const zone = deliveryZones.find((item) => item.id === event.target.value); setForm((current) => ({ ...current, deliveryZoneId: zone?.id || '', neighborhood: zone?.name || '', deliveryFee: zone?.fee || 0, deliveryCity: zone?.city || current.deliveryCity, deliveryState: zone?.state || current.deliveryState })); }}><option value="">Selecione</option>{deliveryZones.filter((zone) => zone.active).map((zone) => <option key={zone.id} value={zone.id}>{zone.name} · {zone.fee === 0 ? 'Grátis' : currency.format(zone.fee)}</option>)}</select></label><label className="full">Rua<input required value={form.street} onChange={(event) => update('street', event.target.value)}/></label><label>Número<input required value={form.addressNumber} onChange={(event) => update('addressNumber', event.target.value)}/></label><label>Complemento<input value={form.complement} onChange={(event) => update('complement', event.target.value)}/></label><label className="full">Ponto de referência<input value={form.referencePoint} onChange={(event) => update('referencePoint', event.target.value)}/></label></div>}
@@ -182,6 +202,7 @@ export default function Checkout() {
         </section>
 
         <section className="checkout-card"><div className="checkout-card__title"><CreditCard size={20}/><div><strong>Pagamento</strong><span>Escolha como deseja pagar.</span></div></div><div className="payment-options">{enabledPayments.map((method) => <button type="button" key={method} className={form.paymentMethod === method ? 'selected' : ''} onClick={() => update('paymentMethod', method)}>{method === 'pix' ? <QrCode size={20}/> : method === 'cash' ? <Banknote size={20}/> : <CreditCard size={20}/>}<span><strong>{method === 'pix' ? 'PIX' : method === 'cash' ? 'Dinheiro' : method === 'card' ? (form.fulfillment === 'delivery' ? 'Cartão na entrega' : 'Cartão na retirada') : 'Confirmar com a loja'}</strong></span></button>)}</div>
+          {form.paymentMethod === 'card' && <div className="cash-change-box"><strong>Cartão por aproximação (NFC)</strong><small>A cobrança será feita presencialmente pela loja. O WhatsApp fica disponível para confirmar o atendimento e eventuais orientações.</small></div>}
           {form.paymentMethod === 'cash' && <div className="cash-change-box"><label className="switch-row"><span><strong>Precisa de troco?</strong><small>Informe o valor que será entregue.</small></span><input type="checkbox" checked={form.needsChange} onChange={(event) => { update('needsChange', event.target.checked); if (!event.target.checked) update('changeFor', null); }}/></label>{form.needsChange && <label>Troco para<input type="number" min="0" step="0.01" value={form.changeFor ?? ''} onChange={(event) => update('changeFor', event.target.value ? Number(event.target.value) : null)} placeholder="Ex.: 100,00"/></label>}{form.needsChange && form.changeFor != null && changeAmount > 0 && <div className="change-result"><span>Troco calculado</span><strong>{currency.format(changeAmount)}</strong></div>}</div>}
         </section>
 
@@ -198,7 +219,7 @@ export default function Checkout() {
         <div className="summary-total"><span>Total</span><strong>{currency.format(total)}</strong></div>
         <div className="preparation-summary"><CheckCircle2 size={18}/><div><strong>Previsão atual</strong><span>{estimatedMin}–{estimatedMax} minutos</span></div></div>
         <label className="checkout-review-check checkout-review-check-v44"><input type="checkbox" checked={form.reviewConfirmed} onChange={(event) => update('reviewConfirmed', event.target.checked)}/><span><strong>Confirmo que revisei o pedido.</strong><small>Confira itens, telefone, endereço e pagamento antes de registrar.</small></span></label>
-        <button className="primary-button checkout-submit" disabled={saving || (!openStatus.open && !settings.allowScheduledOrders) || (!openStatus.open && settings.allowScheduledOrders && !form.scheduledFor)} type="submit">{saving ? <><LoaderCircle className="spin" size={18}/>Registrando...</> : <><CheckCircle2 size={18}/>Registrar pedido · {currency.format(total)}</>}</button>
+        <button className="primary-button checkout-submit" disabled={saving || (!openStatus.open && !settings.allowScheduledOrders && !form.scheduledFor) || ((!openStatus.open || stockSchedulingRequired) && !form.scheduledFor)} type="submit">{saving ? <><LoaderCircle className="spin" size={18}/>Registrando...</> : <><CheckCircle2 size={18}/>Registrar pedido · {currency.format(total)}</>}</button>
         <small className="checkout-security-note">O navegador envia IDs e escolhas. Preços, opções e taxa são recalculados no servidor.</small>
       </aside>
     </form>

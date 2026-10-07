@@ -280,6 +280,7 @@ create table if not exists public.food_products (
   availability_status text not null default 'available' check (availability_status in ('available','unavailable','sold_out')),
   track_stock boolean not null default false,
   stock_quantity integer check (stock_quantity is null or stock_quantity >= 0),
+  stock_reserved_quantity integer not null default 0 check (stock_reserved_quantity >= 0),
   preparation_time_minutes integer not null default 0 check (preparation_time_minutes between 0 and 1440),
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
@@ -428,6 +429,7 @@ create table if not exists public.food_orders (
   subtotal numeric(12,2) not null default 0 check (subtotal >= 0),
   total numeric(12,2) not null default 0 check (total >= 0),
   status text not null default 'received' check (status in ('received','confirmed','preparing','ready','out_for_delivery','delivered','picked_up','cancelled')),
+  inventory_status text not null default 'not_tracked' check (inventory_status in ('not_tracked','reserved','awaiting_restock','committed','released')),
   whatsapp_clicked_at timestamptz,
   review_confirmed boolean not null default false,
   needs_change boolean not null default false,
@@ -452,6 +454,7 @@ create table if not exists public.food_order_items (
   variant_price_delta numeric(12,2) not null default 0,
   addons jsonb not null default '[]'::jsonb,
   item_total numeric(12,2) not null check (item_total >= 0),
+  inventory_reserved_quantity integer not null default 0 check (inventory_reserved_quantity >= 0),
   created_at timestamptz not null default now()
 );
 
@@ -664,7 +667,7 @@ begin
     'categories',coalesce((select jsonb_agg(to_jsonb(c) order by c.sort_order,c.name) from public.food_categories c where c.store_id=v_store.id and c.active),'[]'::jsonb),
     'products',coalesce((select jsonb_agg(to_jsonb(p) order by p.featured desc,p.sort_order,p.name)
       from public.food_products p join public.food_categories c on c.id=p.category_id and c.store_id=p.store_id and c.active
-      where p.store_id=v_store.id and p.active and p.availability_status='available' and p.stock_status<>'unavailable' and (not p.track_stock or coalesce(p.stock_quantity,0)>0)),'[]'::jsonb),
+      where p.store_id=v_store.id and p.active and p.availability_status='available' and p.stock_status<>'unavailable'),'[]'::jsonb),
     'product_images',coalesce((select jsonb_agg(to_jsonb(pi) order by pi.sort_order,pi.created_at)
       from public.food_product_images pi join public.food_products p on p.id=pi.product_id where p.store_id=v_store.id and p.active),'[]'::jsonb),
     'option_groups',coalesce((select jsonb_agg(to_jsonb(og) order by og.sort_order,og.name) from public.food_option_groups og where og.store_id=v_store.id and og.active),'[]'::jsonb),
@@ -776,7 +779,7 @@ begin
   v_payment_method := coalesce(nullif(payload->>'payment_method',''),'confirm');
   if v_payment_method not in ('confirm','pix','card','cash') then raise exception 'Forma de pagamento inválida.'; end if;
   if v_payment_method='pix' and not v_store.pix_enabled then raise exception 'PIX indisponível.'; end if;
-  if v_payment_method='card' and not v_store.card_payment_enabled then raise exception 'Cartão indisponível.'; end if;
+  if v_payment_method='card' and (not v_store.card_payment_enabled or not coalesce(v_store.show_whatsapp,false) or nullif(trim(coalesce(v_store.whatsapp,'')),'') is null) then raise exception 'Pagamento por cartão exige WhatsApp disponível na loja.'; end if;
   if v_payment_method='cash' and not v_store.cash_payment_enabled then raise exception 'Dinheiro indisponível.'; end if;
   if v_payment_method='confirm' and not v_store.confirmation_payment_enabled then raise exception 'Pagamento a combinar indisponível.'; end if;
 
@@ -793,12 +796,11 @@ begin
     begin v_product_id := (v_item->>'product_id')::uuid; exception when others then raise exception 'Produto inválido.'; end;
     select * into v_product from public.food_products p
       where p.id=v_product_id and p.store_id=v_store.id and p.active and p.availability_status='available'
-        and p.stock_status<>'unavailable' and (not p.track_stock or coalesce(p.stock_quantity,0)>0)
+        and p.stock_status<>'unavailable'
         and exists(select 1 from public.food_categories c where c.id=p.category_id and c.store_id=p.store_id and c.active);
     if v_product.id is null then raise exception 'Um dos produtos não está mais disponível.'; end if;
     begin v_quantity := (v_item->>'quantity')::integer; exception when others then raise exception 'Quantidade inválida.'; end;
     if v_quantity<1 or v_quantity>99 then raise exception 'Quantidade inválida.'; end if;
-    if v_product.track_stock and v_quantity>coalesce(v_product.stock_quantity,0) then raise exception 'Estoque insuficiente.'; end if;
 
     v_unit_price := coalesce(v_product.promotional_price,v_product.price);
     v_options_calculated := '[]'::jsonb;

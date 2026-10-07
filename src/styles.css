@@ -146,6 +146,9 @@ button:disabled,.primary-button:disabled{opacity:.55;cursor:not-allowed;transfor
 .pix-key-row button{border:1px solid #dedbd5;border-radius:10px;background:#fff;color:#313033;display:grid;place-items:center;cursor:pointer}
 .pix-key-row button:hover{background:var(--green-soft);border-color:#b9d1c3;color:var(--green)}
 .pix-confirmation-box>small{display:block;margin-top:10px;color:#7b756e;font-size:.76rem}
+.pix-return-reminder{display:grid;gap:3px;margin-top:16px;padding:12px 13px;border-radius:12px;background:#fff7df;border:1px solid #f0d38a;color:#795b15;line-height:1.4}
+.pix-return-reminder strong{font-size:.82rem}
+.pix-return-reminder span{font-size:.76rem}
 .order-success-store{border-top:1px solid var(--line);padding:24px 6px 20px;display:flex;align-items:center;justify-content:center;gap:9px;color:#746f68;font-size:.95rem}
 .order-success-store svg{color:#8a847d}
 .whatsapp-confirmation-button{width:100%;min-height:58px;border-radius:14px;background:#22cf6b;color:#fff;display:flex;align-items:center;justify-content:center;gap:10px;font-size:1.02rem;font-weight:800;text-decoration:none;box-shadow:0 10px 22px rgba(34,207,107,.18);transition:.18s ease}
@@ -1328,6 +1331,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 }
 .order-payment-confirm-button:hover{background:var(--green);color:#fff;border-color:var(--green);transform:translateY(-1px)}
 .order-payment-confirm-button:disabled{opacity:.55;cursor:wait;transform:none}
+.order-inventory-note{display:block;margin-top:7px;color:#766e66;font-size:.7rem;line-height:1.25}
+.order-inventory-note--reserved{color:#8b5b13}
+.order-inventory-note--awaiting_restock{color:#a23d2d;font-weight:700}
+.order-inventory-note--committed{color:#28724b}
 .order-payment-received{display:inline-flex;align-items:flex-start;gap:7px;color:var(--green);font-size:.72rem}
 .order-payment-received>svg{margin-top:1px;flex:0 0 auto}
 .order-payment-received>span{display:grid;gap:1px}
@@ -3027,6 +3034,7 @@ button:disabled,input:disabled,textarea:disabled,select:disabled{opacity:.72}
 .settings-storefront-preview__product strong{font-size:.68rem;line-height:1.15}
 .settings-storefront-preview__product small{color:var(--food-store-accent,#c97952);font-weight:850;font-size:.7rem}
 .settings-storefront-preview__pickup{margin-top:11px;padding-top:10px;border-top:1px dashed;font-size:.68rem;line-height:1.35}
+.stock-schedule-note{display:flex;align-items:flex-start;gap:9px;margin:15px 0;padding:12px;border:1px solid #efd8a5;border-radius:12px;background:#fff8e9;color:#80560f}.stock-schedule-note>svg{flex:0 0 auto;margin-top:2px}.stock-schedule-note strong,.stock-schedule-note span{display:block}.stock-schedule-note span{margin-top:3px;font-size:.74rem;line-height:1.45}
 .order-whatsapp-action-v061.is-recommended-v063{background:var(--food-red,#c74d2f);border-color:var(--food-red,#c74d2f);color:#fff;box-shadow:0 7px 18px rgba(199,77,47,.18)}
 .order-status-actions-v061{min-width:210px}.order-status-actions-v061 .order-whatsapp-action-v061{margin-top:7px;width:100%;justify-content:center}
 .sales-ops-grid-v061{align-items:start}
