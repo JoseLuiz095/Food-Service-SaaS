@@ -45,6 +45,11 @@ call npx supabase@2.116.0 functions deploy food-public-self-signup --project-ref
 if errorlevel 1 goto :falha
 
 echo.
+echo [6/6] Notificacoes push do PWA...
+call npx supabase@2.116.0 functions deploy food-send-push --project-ref "%PROJECT_REF%"
+if errorlevel 1 goto :falha
+
+echo.
 call npx supabase@2.116.0 functions list --project-ref "%PROJECT_REF%"
 echo.
 echo CONCLUIDO.

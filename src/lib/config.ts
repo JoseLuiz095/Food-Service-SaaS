@@ -13,6 +13,7 @@ export const appConfig = {
   appEnv: import.meta.env.VITE_APP_ENV || 'development',
   analyticsEnabled: String(import.meta.env.VITE_ANALYTICS_ENABLED || 'true').toLowerCase() === 'true',
   turnstileSiteKey: import.meta.env.VITE_TURNSTILE_SITE_KEY || '',
+  vapidPublicKey: import.meta.env.VITE_VAPID_PUBLIC_KEY || '',
 };
 
 export const isSupabaseConfigured = Boolean(appConfig.supabaseUrl && appConfig.supabaseAnonKey);
