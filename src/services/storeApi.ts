@@ -97,6 +97,14 @@ const toNumber = (value: number | string | null | undefined) => value == null ? 
 const encode = (value: string) => encodeURIComponent(value);
 const inFilter = (ids: string[]) => `in.(${ids.join(',')})`;
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+// datetime-local não carrega fuso horário. Serializar no navegador evita que
+// um agendamento à meia-noite local seja interpretado como o dia anterior
+// pelo Postgres e acabe acionando a validação de estoque imediato.
+const serializeScheduledDateTime = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : value;
+};
 const isMissingSchemaColumn = (error: unknown, column: string) => {
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return message.includes(column.toLowerCase()) && (message.includes('schema cache') || message.includes('column'));
@@ -432,7 +440,7 @@ export const storeApi = {
       delivery_zone_id:form.fulfillment==='delivery'?form.deliveryZoneId||null:null,delivery_city:form.fulfillment==='delivery'?form.deliveryCity||null:null,
       delivery_state:form.fulfillment==='delivery'?form.deliveryState||null:null,reference_point:form.fulfillment==='delivery'?form.referencePoint||null:null,
       notes:form.notes||null,payment_method:form.paymentMethod,needs_change:form.paymentMethod==='cash'&&form.needsChange,change_for:form.paymentMethod==='cash'&&form.needsChange?form.changeFor:null,
-      scheduled_for:form.scheduledFor||null,review_confirmed:form.reviewConfirmed,
+      scheduled_for:serializeScheduledDateTime(form.scheduledFor),review_confirmed:form.reviewConfirmed,
       // Atribuição opcional: a Edge Function grava estes dois campos quando a
       // migração correspondente já estiver ativa. O pedido continua compatível
       // com instalações antigas caso as colunas ainda não existam.
@@ -553,7 +561,7 @@ export const storeApi = {
             payment_method: input.paymentMethod,
             status: input.status,
             received: input.received,
-            scheduled_for: input.scheduledFor || null,
+            scheduled_for: serializeScheduledDateTime(input.scheduledFor),
             notes: input.notes?.trim() || null,
             items: input.items.map((item) => ({
               product_id: item.productId,
