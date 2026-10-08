@@ -1,4 +1,4 @@
-import { ArrowLeft, Banknote, Check, CheckCircle2, Copy, CreditCard, MessageCircle, QrCode, Store } from 'lucide-react';
+import { ArrowLeft, Banknote, Bell, Check, CheckCircle2, Copy, CreditCard, MessageCircle, QrCode, Store } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
@@ -11,6 +11,7 @@ import { formatOrderNumber, readOrderConfirmation } from '../../utils/orderConfi
 import { buildPostOrderWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
 import { storefrontPath } from '../../utils/storefrontRoute';
 import { getStorefrontThemeStyle } from '../../utils/storeVisualTheme';
+import { customerOrderNotificationStatus, enableCustomerOrderNotifications, type CustomerOrderNotificationStatus } from '../../services/pwaNotifications';
 
 export default function OrderSuccess() {
   const { orderId = '' } = useParams();
@@ -20,6 +21,8 @@ export default function OrderSuccess() {
   const [copied, setCopied] = useState(false);
   const [pixQrCode, setPixQrCode] = useState('');
   const [whatsappMarkState, setWhatsappMarkState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
+  const [customerNotificationState, setCustomerNotificationState] = useState<CustomerOrderNotificationStatus>('unsupported');
+  const [customerNotificationBusy, setCustomerNotificationBusy] = useState(false);
   const storefrontThemeStyle = getStorefrontThemeStyle(settings.visualTheme);
 
   const confirmation = useMemo(() => {
@@ -40,6 +43,11 @@ export default function OrderSuccess() {
       .catch(() => { if (!cancelled) setPixQrCode(''); });
     return () => { cancelled = true; };
   }, [confirmation?.pixPayload]);
+
+  useEffect(() => {
+    if (!confirmation) return;
+    setCustomerNotificationState(customerOrderNotificationStatus(confirmation.orderId));
+  }, [confirmation]);
 
   if (!confirmation) {
     return (
@@ -86,6 +94,26 @@ export default function OrderSuccess() {
         setWhatsappMarkState('error');
         showToast('O pedido está registrado, mas não foi possível marcar a abertura do WhatsApp. Você pode tentar o botão novamente.', 'error');
       });
+  };
+
+  const enableOrderNotifications = async () => {
+    if (!confirmation) return;
+    setCustomerNotificationBusy(true);
+    try {
+      const status = await enableCustomerOrderNotifications({
+        orderId: confirmation.orderId,
+        orderNumber: confirmation.orderNumber,
+        url: location.pathname,
+      });
+      setCustomerNotificationState(status);
+      if (status === 'enabled') showToast('Notificações autorizadas neste aparelho.', 'success');
+      else if (status === 'blocked') showToast('As notificações estão bloqueadas nas configurações do navegador.', 'error');
+      else if (status === 'unsupported') showToast('Este navegador não oferece notificações para este app.', 'error');
+    } catch {
+      showToast('Não foi possível ativar as notificações neste aparelho.', 'error');
+    } finally {
+      setCustomerNotificationBusy(false);
+    }
   };
 
   return (
@@ -163,6 +191,25 @@ export default function OrderSuccess() {
           <Store size={20} />
           <span>{confirmation.storeName}</span>
         </div>
+
+        {customerNotificationState !== 'unsupported' && (
+          <section className={`customer-order-notifications is-${customerNotificationState}`} aria-live="polite">
+            <div><Bell size={19} /><strong>{customerNotificationState === 'enabled' ? 'Notificações autorizadas neste aparelho' : 'Receba avisos deste pedido'}</strong></div>
+            {customerNotificationState === 'enabled' ? (
+              <p>Este aparelho está pronto para receber os avisos do pedido quando a loja disponibilizar o acompanhamento por notificações.</p>
+            ) : customerNotificationState === 'blocked' ? (
+              <p>As notificações foram bloqueadas. Libere-as nas configurações do navegador para ativar este recurso.</p>
+            ) : (
+              <>
+                <p>A permissão é solicitada somente agora, depois de o pedido ter sido registrado.</p>
+                <button type="button" className="secondary-button" disabled={customerNotificationBusy} onClick={() => void enableOrderNotifications()}>
+                  <Bell size={17} />{customerNotificationBusy ? 'Ativando...' : 'Permitir notificações'}
+                </button>
+                <small>O aviso automático de mudanças de status ainda depende da ativação desse acompanhamento pela loja.</small>
+              </>
+            )}
+          </section>
+        )}
 
         {hasWhatsApp && <a
           className="whatsapp-confirmation-button"

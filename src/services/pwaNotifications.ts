@@ -6,12 +6,63 @@ type PwaNotificationOptions = {
   url?: string;
 };
 
+export type CustomerOrderNotificationStatus = 'unsupported' | 'blocked' | 'prompt' | 'enabled';
+
+const CUSTOMER_ORDER_NOTIFICATION_PREFIX = 'foodweb_customer_order_notification_v1_';
+
 const canNotify = () => typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
 
 export const requestPwaNotificationPermission = async (): Promise<NotificationPermission | null> => {
   if (typeof window === 'undefined' || !('Notification' in window)) return null;
   if (Notification.permission === 'default') return Notification.requestPermission();
   return Notification.permission;
+};
+
+/**
+ * Estado local da permissão para o acompanhamento de um pedido pelo cliente.
+ * Não cria uma assinatura push no servidor: as assinaturas existentes são
+ * exclusivas dos administradores autenticados da loja.
+ */
+export const customerOrderNotificationStatus = (orderId: string): CustomerOrderNotificationStatus => {
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
+  if (Notification.permission === 'denied') return 'blocked';
+  if (Notification.permission !== 'granted') return 'prompt';
+  try {
+    return localStorage.getItem(`${CUSTOMER_ORDER_NOTIFICATION_PREFIX}${orderId}`) === 'enabled' ? 'enabled' : 'prompt';
+  } catch {
+    return 'prompt';
+  }
+};
+
+/**
+ * Pede permissão apenas após o pedido já existir e registra a escolha neste
+ * aparelho. Atualizações em segundo plano exigem uma assinatura push pública
+ * específica para clientes, que ainda não faz parte da infraestrutura atual.
+ */
+export const enableCustomerOrderNotifications = async ({
+  orderId,
+  orderNumber,
+  url,
+}: {
+  orderId: string;
+  orderNumber: number;
+  url: string;
+}): Promise<CustomerOrderNotificationStatus> => {
+  const permission = await requestPwaNotificationPermission();
+  if (permission !== 'granted') return customerOrderNotificationStatus(orderId);
+
+  try {
+    localStorage.setItem(`${CUSTOMER_ORDER_NOTIFICATION_PREFIX}${orderId}`, 'enabled');
+  } catch {
+    // A confirmação visual continua válida mesmo se o navegador bloquear o storage local.
+  }
+
+  await showPwaNotification(
+    `Pedido #${String(orderNumber).padStart(5, '0')} registrado`,
+    'As notificações foram autorizadas neste aparelho.',
+    { tag: `foodweb:customer-order:${orderId}`, url },
+  );
+  return 'enabled';
 };
 
 const decodeVapidKey = (value: string): Uint8Array => {
