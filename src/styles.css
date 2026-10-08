@@ -3384,3 +3384,12 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
   .product-card--food .product-card__content{padding-left:11px}
   .stat-grid,.master-stat-grid{grid-template-columns:1fr}
 }
+
+/* Ajuste final do menu no PWA: a gaveta precisa rolar sem prender o restante da tela. */
+.admin-sidebar{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.28) transparent}
+.admin-sidebar::-webkit-scrollbar{width:6px}.admin-sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.28);border-radius:99px}
+@media(max-width:820px){
+  .admin-sidebar{height:100dvh!important;max-height:100dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(24px + env(safe-area-inset-bottom))!important}
+  .admin-sidebar nav{display:flex!important;flex:0 0 auto;min-height:0;overflow:visible!important}
+  .admin-sidebar__bottom{display:grid!important;gap:4px;margin-top:20px}
+}

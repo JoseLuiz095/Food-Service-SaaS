@@ -1,7 +1,6 @@
 import { Bell, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../contexts/StoreContext';
-import { useToast } from '../../contexts/ToastContext';
 import { formatDateTimeBR } from '../../utils/format';
 import { showPwaNotification } from '../../services/pwaNotifications';
 
@@ -29,7 +28,6 @@ const playAlertSound = () => {
 
 export function AdminNotifications() {
   const { settings, orders, reloadAdmin } = useStore();
-  const { showToast } = useToast();
   const initialized = useRef(false);
   const knownOrderIds = useRef(new Set<string>());
   const [unread, setUnread] = useState(0);
@@ -48,7 +46,6 @@ export function AdminNotifications() {
       if (!settings.notificationsNewOrderEnabled) return;
       const label = `Pedido #${order.orderNumber || order.id.slice(0, 8)}`;
       const detail = `${order.customerName} · R$ ${order.total.toFixed(2).replace('.', ',')}`;
-      showToast(`${label} recebido · ${detail}`, 'success');
       setUnread((value) => value + 1);
       if (settings.notificationsSoundEnabled) playAlertSound();
       if (settings.notificationsDesktopEnabled) void showPwaNotification('Novo pedido na loja', `${label} · ${detail}`, { tag: `new-order:${order.id}` });
@@ -66,13 +63,12 @@ export function AdminNotifications() {
         localStorage.setItem(key, '1');
         const label = `Pedido #${order.orderNumber || order.id.slice(0, 8)}`;
         const detail = `${order.customerName} · ${formatDateTimeBR(order.scheduledFor)}`;
-        showToast(`${label} agendado para breve · ${detail}`, 'info');
         setUnread((value) => value + 1);
         if (settings.notificationsSoundEnabled) playAlertSound();
         if (settings.notificationsDesktopEnabled) void showPwaNotification('Pedido agendado próximo', `${label} · ${detail}`, { tag: `scheduled-order:${order.id}` });
       });
     }
-  }, [orders, settings, showToast]);
+  }, [orders, settings]);
 
   useEffect(() => {
     const interval = window.setInterval(() => { void reloadAdmin({ silent: true }).catch(() => undefined); }, 30_000);
