@@ -14,6 +14,7 @@ import {
   Settings,
   ShieldCheck,
   ShoppingBag,
+  Smartphone,
   Tags,
   Truck,
   UtensilsCrossed,
@@ -64,6 +65,11 @@ const navSections = [
 
 const BILLING_WARNING_DAYS = 7;
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+};
+
 export default function AdminLayout() {
   const { settings, planUsage, dataMode } = useStore();
   const { user, signOut, platformAdmin, membership, memberships, selectStore } = useAuth();
@@ -71,6 +77,23 @@ export default function AdminLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [billingOverview, setBillingOverview] = useState<StoreBillingOverview | null>(null);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  useEffect(() => {
+    const onBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+  }, []);
+
+  const installAdminApp = async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+  };
 
   const logout = async () => {
     await signOut();
@@ -143,6 +166,7 @@ export default function AdminLayout() {
         </nav>
 
         <div className="admin-sidebar__bottom">
+          {installPrompt && <button onClick={() => void installAdminApp()}><Smartphone size={18} /> Instalar app no celular</button>}
           <a href={`/${settings.slug}`} target="_blank" rel="noreferrer"><ExternalLink size={18} /> Ver loja pública</a>
           {platformAdmin && <a href="/admin-master"><LayoutDashboard size={18} /> Admin Master</a>}
           <button onClick={() => void logout()}><LogOut size={18} /> Sair</button>

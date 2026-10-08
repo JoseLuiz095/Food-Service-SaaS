@@ -22,6 +22,8 @@ export type CustomerCheckoutProfile = {
   deliveryCity: string;
   deliveryState: string;
   referencePoint: string;
+  customerInstagram?: string;
+  acquisitionSource?: 'instagram' | 'whatsapp' | 'google' | 'indicacao' | 'outro';
 };
 
 const recentOrderKey = (storeId: string) => `foodweb_recent_order_v1:${storeId}`;
@@ -111,6 +113,7 @@ export function loadCustomerCheckoutProfile(storeId: string): CustomerCheckoutPr
       fulfillment: parsed.fulfillment === 'pickup' ? 'pickup' : 'delivery',
       zipCode: parsed.zipCode || '', street: parsed.street || '', addressNumber: parsed.addressNumber || '', complement: parsed.complement || '',
       neighborhood: parsed.neighborhood || '', deliveryZoneId: parsed.deliveryZoneId || '', deliveryCity: parsed.deliveryCity || '', deliveryState: parsed.deliveryState || '', referencePoint: parsed.referencePoint || '',
+      customerInstagram: parsed.customerInstagram || '', acquisitionSource: parsed.acquisitionSource,
     };
   } catch { return null; }
 }

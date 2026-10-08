@@ -90,7 +90,7 @@ type OrderRow = {
   anonymous_sender?: boolean | null; notes: string | null; payment_method: string; subtotal: number|string; total: number|string; status: Order['status'];
   payment_status?: 'pending'|'paid' | null; payment_received_at?: string | null; payment_confirmed_by?: string | null;
   needs_change?: boolean | null; change_for?: number | string | null; change_amount?: number | string | null; scheduled_for?: string | null;
-  preparation_estimate_minutes?: number | null; inventory_status?: Order['inventoryStatus'] | null; source?: Order['source'] | null; whatsapp_clicked_at: string | null; created_at: string;
+  preparation_estimate_minutes?: number | null; inventory_status?: Order['inventoryStatus'] | null; source?: Order['source'] | null; customer_instagram?: string | null; acquisition_source?: Order['acquisitionSource'] | null; whatsapp_clicked_at: string | null; created_at: string;
 };
 
 const toNumber = (value: number | string | null | undefined) => value == null ? 0 : Number(value);
@@ -120,6 +120,7 @@ const mapStore = (row: StoreRow): StoreSettings => ({
   paymentMethodOrder: normalizePaymentOrder(row.payment_method_order), deliveryEnabled: row.delivery_enabled, pickupEnabled: row.pickup_enabled, minimumOrder: toNumber(row.minimum_order),
   averagePreparationMin: Math.max(0, row.average_preparation_min ?? 30), averagePreparationMax: Math.max(0, row.average_preparation_max ?? 45), allowScheduledOrders: row.allow_scheduled_orders ?? false, kdsEnabled: row.kds_enabled ?? false, kdsNotifyCustomer: row.kds_notify_customer ?? true, salesRecoveryEnabled: row.sales_recovery_enabled ?? true, salesRecoveryMinutes: Math.max(5, row.sales_recovery_minutes ?? 10), salesRecoveryWindowHours: Math.min(168, Math.max(1, row.sales_recovery_window_hours ?? 48)), crmEnabled: row.crm_enabled ?? true, crmComeBackDays: Math.min(365, Math.max(1, row.crm_come_back_days ?? 21)), repeatOrderEnabled: row.repeat_order_enabled ?? true, repeatOrderMaxAgeDays: Math.min(365, Math.max(1, row.repeat_order_max_age_days ?? 90)), upsellEnabled: row.upsell_enabled ?? true, upsellLimit: Math.min(6, Math.max(1, row.upsell_limit ?? 3)), messageTemplates: normalizeCustomerMessageTemplates(row.customer_message_templates),
   openingSchedule: normalizeOpeningSchedule(row.opening_hours),
+  deliveryStartTime: (() => { const value = row.opening_hours && typeof row.opening_hours === 'object' ? (row.opening_hours as { delivery_start_time?: unknown }).delivery_start_time : ''; return typeof value === 'string' && /^\d{2}:\d{2}$/.test(value) ? value : ''; })(),
   openingHours: (() => { const schedule = normalizeOpeningSchedule(row.opening_hours); const legacy = typeof row.opening_hours === 'string' ? row.opening_hours : ((row.opening_hours as { display?: string } | null)?.display || ''); return schedule.days.some((day) => day.enabled) ? formatOpeningSchedule(schedule) : legacy; })(),
   active: row.active, accessStatus: row.access_status || 'online', billingDocument:row.billing_document||'', billingPhone:row.billing_phone||'',
 });
@@ -137,7 +138,7 @@ const mapOrder = (row: OrderRow): Order => ({
   notes: row.notes || undefined, paymentMethod: row.payment_method as PaymentMethod, subtotal: toNumber(row.subtotal), total: toNumber(row.total), status: row.status || 'received',
   paymentStatus: row.payment_status === 'paid' ? 'paid' : 'pending', paymentReceivedAt: row.payment_received_at || undefined, paymentConfirmedBy: row.payment_confirmed_by || undefined,
   needsChange: row.needs_change ?? undefined, changeFor: row.change_for == null ? undefined : toNumber(row.change_for), changeAmount: row.change_amount == null ? undefined : toNumber(row.change_amount),
-  scheduledFor: row.scheduled_for || undefined, preparationEstimateMinutes: row.preparation_estimate_minutes ?? undefined, inventoryStatus: row.inventory_status || undefined, source: row.source || 'site', whatsappClickedAt: row.whatsapp_clicked_at || undefined, createdAt: row.created_at,
+  scheduledFor: row.scheduled_for || undefined, preparationEstimateMinutes: row.preparation_estimate_minutes ?? undefined, inventoryStatus: row.inventory_status || undefined, source: row.source || 'site', customerInstagram: row.customer_instagram || undefined, acquisitionSource: row.acquisition_source || undefined, whatsappClickedAt: row.whatsapp_clicked_at || undefined, createdAt: row.created_at,
 });
 
 const mapOptionGroups = (groups: OptionGroupRow[], items: OptionItemRow[]): OptionGroup[] => groups.map((group) => ({
@@ -332,7 +333,7 @@ export const storeApi = {
       confirmation_payment_enabled:settings.confirmationPaymentEnabled, card_payment_enabled:settings.cardPaymentEnabled, cash_payment_enabled:settings.cashPaymentEnabled,
       payment_method_order:settings.paymentMethodOrder, minimum_order:settings.minimumOrder, average_preparation_min:settings.averagePreparationMin,
       average_preparation_max:settings.averagePreparationMax, allow_scheduled_orders:settings.allowScheduledOrders, kds_enabled:settings.kdsEnabled, kds_notify_customer:settings.kdsNotifyCustomer, sales_recovery_enabled:settings.salesRecoveryEnabled, sales_recovery_minutes:settings.salesRecoveryMinutes, sales_recovery_window_hours:settings.salesRecoveryWindowHours??48, crm_enabled:settings.crmEnabled, crm_come_back_days:settings.crmComeBackDays??21, repeat_order_enabled:settings.repeatOrderEnabled, repeat_order_max_age_days:settings.repeatOrderMaxAgeDays??90, upsell_enabled:settings.upsellEnabled, upsell_limit:settings.upsellLimit, customer_message_templates:settings.messageTemplates??{},
-      opening_hours:{ display:formatOpeningSchedule(settings.openingSchedule), timezone:settings.openingSchedule.timezone, days:settings.openingSchedule.days }, billing_document:settings.billingDocument||null, billing_phone:settings.billingPhone||null,
+      opening_hours:{ display:formatOpeningSchedule(settings.openingSchedule), timezone:settings.openingSchedule.timezone, days:settings.openingSchedule.days, delivery_start_time: settings.deliveryStartTime || null }, billing_document:settings.billingDocument||null, billing_phone:settings.billingPhone||null,
     };
     let rows: StoreRow[];
     // PostgREST pode manter o schema cache antigo após uma implantação parcial.
@@ -426,6 +427,11 @@ export const storeApi = {
       delivery_state:form.fulfillment==='delivery'?form.deliveryState||null:null,reference_point:form.fulfillment==='delivery'?form.referencePoint||null:null,
       notes:form.notes||null,payment_method:form.paymentMethod,needs_change:form.paymentMethod==='cash'&&form.needsChange,change_for:form.paymentMethod==='cash'&&form.needsChange?form.changeFor:null,
       scheduled_for:form.scheduledFor||null,review_confirmed:form.reviewConfirmed,
+      // Atribuição opcional: a Edge Function grava estes dois campos quando a
+      // migração correspondente já estiver ativa. O pedido continua compatível
+      // com instalações antigas caso as colunas ainda não existam.
+      customer_instagram: form.customerInstagram?.trim() || null,
+      acquisition_source: form.acquisitionSource || null,
       items:items.map((item)=>({product_id:item.productId,quantity:item.quantity,options:item.options.map((option)=>({group_id:option.groupId,item_id:option.itemId,quantity:option.quantity}))})),
     };
     if(isDemoMode){
@@ -433,7 +439,7 @@ export const storeApi = {
       const selectedZone=form.fulfillment==='delivery'?db.deliveryZones.find((zone)=>zone.id===form.deliveryZoneId&&zone.active):undefined;if(form.fulfillment==='delivery'&&!selectedZone)throw new Error('Selecione um bairro/área de entrega disponível.');
       if(form.paymentMethod==='cash'&&form.needsChange&&(!form.changeFor||form.changeFor<=subtotal+(selectedZone?.fee??0)))throw new Error('O valor para troco deve ser maior que o total do pedido.');
       const id=createId();const orderNumber=Math.max(28623,...db.orders.map((order)=>order.orderNumber||0))+1;const deliveryFee=selectedZone?.fee??0;const total=roundMoney(subtotal+deliveryFee);const extraPrep=items.reduce((max,item)=>Math.max(max,db.products.find((product)=>product.id===item.productId)?.preparationTimeMinutes||0),0);const prep=Math.max(store.averagePreparationMin,store.averagePreparationMax)+extraPrep;
-      db.orders.unshift({id,orderNumber,storeId:store.id,customerName:form.customerName,customerPhone:form.customerPhone||undefined,customerEmail:form.customerEmail||undefined,deliveryType:form.fulfillment,deliveryAddress:deliveryAddress||undefined,deliveryZipCode:form.zipCode||undefined,deliveryStreet:form.street||undefined,deliveryNumber:form.addressNumber||undefined,deliveryComplement:form.complement||undefined,deliveryNeighborhood:selectedZone?.name||form.neighborhood||undefined,deliveryZoneId:selectedZone?.id,deliveryZoneName:selectedZone?.name,deliveryFee,deliveryCity:form.deliveryCity||undefined,deliveryState:form.deliveryState||undefined,referencePoint:form.referencePoint||undefined,notes:form.notes||undefined,paymentMethod:form.paymentMethod,subtotal:roundMoney(subtotal),total,status:'received',paymentStatus:'pending',needsChange:form.paymentMethod==='cash'&&form.needsChange,changeFor:form.changeFor||undefined,changeAmount:form.changeFor?roundMoney(form.changeFor-total):undefined,scheduledFor:form.scheduledFor||undefined,preparationEstimateMinutes:prep,source:'site',createdAt:new Date().toISOString()});writeDemo(db);return{orderId:id,orderNumber,total};
+      db.orders.unshift({id,orderNumber,storeId:store.id,customerName:form.customerName,customerPhone:form.customerPhone||undefined,customerEmail:form.customerEmail||undefined,deliveryType:form.fulfillment,deliveryAddress:deliveryAddress||undefined,deliveryZipCode:form.zipCode||undefined,deliveryStreet:form.street||undefined,deliveryNumber:form.addressNumber||undefined,deliveryComplement:form.complement||undefined,deliveryNeighborhood:selectedZone?.name||form.neighborhood||undefined,deliveryZoneId:selectedZone?.id,deliveryZoneName:selectedZone?.name,deliveryFee,deliveryCity:form.deliveryCity||undefined,deliveryState:form.deliveryState||undefined,referencePoint:form.referencePoint||undefined,notes:form.notes||undefined,paymentMethod:form.paymentMethod,subtotal:roundMoney(subtotal),total,status:'received',paymentStatus:'pending',needsChange:form.paymentMethod==='cash'&&form.needsChange,changeFor:form.changeFor||undefined,changeAmount:form.changeFor?roundMoney(form.changeFor-total):undefined,scheduledFor:form.scheduledFor||undefined,preparationEstimateMinutes:prep,source:'site',customerInstagram:form.customerInstagram?.trim()||undefined,acquisitionSource:form.acquisitionSource,createdAt:new Date().toISOString()});writeDemo(db);return{orderId:id,orderNumber,total};
     }
     const created=await invokePublicFunction<{orderId:string;orderNumber:number|string;total:number|string}>('food-public-checkout',{payload,turnstileToken:security.turnstileToken||'',analyticsSessionId:security.analyticsSessionId||'',requestId:security.requestId||''});
     if(!created?.orderId)throw new Error('O pedido foi registrado, mas o identificador não foi retornado.');return{orderId:created.orderId,orderNumber:toNumber(created.orderNumber),total:toNumber(created.total)};
@@ -445,14 +451,26 @@ export const storeApi = {
     if (isDemoMode) {
       let subtotal = 0;
       const now = new Date().toISOString();
+      let requiresRestock = false;
+      const scheduledAt = input.scheduledFor ? new Date(input.scheduledFor) : null;
+      const tomorrow = new Date();
+      tomorrow.setHours(0, 0, 0, 0);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      if (scheduledAt && (!Number.isFinite(scheduledAt.getTime()) || scheduledAt < tomorrow)) throw new Error('O lançamento futuro precisa ser agendado a partir de amanhã.');
 
       for (const item of input.items) {
         const product = products.find((current) => current.id === item.productId);
-        if (!product || !product.active || product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable') {
+        const productUnavailable = !product || !product.active || product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable';
+        if (productUnavailable && !scheduledAt) {
           throw new Error('Um dos produtos selecionados não está disponível.');
         }
         if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99) throw new Error('Quantidade inválida.');
-        if (product.trackStock && item.quantity > (product.stockQuantity ?? 0)) throw new Error('Estoque insuficiente.');
+        if (!product) throw new Error('Um dos produtos selecionados não foi encontrado.');
+        if (product.trackStock && item.quantity > (product.stockQuantity ?? 0)) {
+          if (!scheduledAt) throw new Error('Estoque insuficiente.');
+          requiresRestock = true;
+        }
+        if (productUnavailable) requiresRestock = true;
 
         let unitPrice = product.promotionalPrice ?? product.price;
         for (const group of product.optionGroups.filter((current) => current.active)) {
@@ -489,10 +507,12 @@ export const storeApi = {
         customerPhone: input.customerPhone?.trim() || undefined,
         deliveryType: 'pickup',
         paymentMethod: input.paymentMethod,
+        scheduledFor: scheduledAt?.toISOString(),
         subtotal: roundMoney(subtotal),
         total: roundMoney(subtotal),
         status: input.status,
         paymentStatus: input.received ? 'paid' : 'pending',
+        inventoryStatus: requiresRestock ? 'awaiting_restock' : undefined,
         paymentReceivedAt: input.received ? now : undefined,
         paymentConfirmedBy: input.received ? 'demo-admin' : undefined,
         notes: input.notes?.trim() || undefined,
@@ -516,6 +536,7 @@ export const storeApi = {
             payment_method: input.paymentMethod,
             status: input.status,
             received: input.received,
+            scheduled_for: input.scheduledFor || null,
             notes: input.notes?.trim() || null,
             items: input.items.map((item) => ({
               product_id: item.productId,

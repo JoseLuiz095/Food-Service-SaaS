@@ -1,12 +1,15 @@
-import { CheckCircle2, ChefHat, CircleDollarSign, MessageCircle, Plus, RefreshCw, RotateCcw, Search, ShoppingBag, Users, X } from 'lucide-react';
+import { CheckCircle2, ChefHat, CircleDollarSign, Copy, MessageCircle, Plus, QrCode, RefreshCw, RotateCcw, Search, ShoppingBag, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import QRCode from 'qrcode';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { useStore } from '../../contexts/StoreContext';
 import { trackInteraction } from '../../services/interactionTelemetry';
 import { currency, formatDateTimeBR, roundMoney } from '../../utils/format';
 import type { ManualOrderInput, ManualOrderItemInput, ManualOrderSource, Order, OrderStatus, PaymentMethod } from '../../types';
 import { formatOrderNumber } from '../../utils/orderConfirmation';
+import { copyText } from '../../utils/clipboard';
+import { buildPixCopyPasteWithAmount, buildStaticPixCopyPaste } from '../../utils/pix';
 import { buildComeBackMessage, buildOrderStatusMessage, buildSalesRecoveryMessage, normalizeWhatsappPhone, openCustomerWhatsapp } from '../../utils/customerSales';
 
 const statusOptions: Array<{ value: OrderStatus; label: string }> = [
@@ -41,8 +44,21 @@ const sortOptions = [
   { value: 'customer_asc', label: 'Cliente A-Z' },
 ] as const;
 
+const localDateTimeInputValue = (date: Date) => {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const tomorrowStart = () => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + 1);
+  return date;
+};
+
 type SortMode = (typeof sortOptions)[number]['value'];
 type CustomerSummary = { key: string; name: string; phone: string; orders: number; total: number; lastAt: string };
+type ManualPixView = { orderNumber: number; total: number; payload: string };
 const newManualOrder = (): Omit<ManualOrderInput, 'items'> => ({
   customerName: '', customerPhone: '', source: 'counter', paymentMethod: 'cash', status: 'received', received: true, notes: '',
 });
@@ -63,11 +79,28 @@ export default function OrdersAdmin() {
   const [manualItems, setManualItems] = useState<ManualOrderItemInput[]>([]);
   const [manualProductId, setManualProductId] = useState('');
   const [manualSaving, setManualSaving] = useState(false);
+  const [manualPixView, setManualPixView] = useState<ManualPixView | null>(null);
+  const [manualPixQrCode, setManualPixQrCode] = useState('');
   const refreshingRef = useRef(false);
   const rowsRef = useRef<Record<string, HTMLTableRowElement | null>>({});
   const highlightedOrderId = searchParams.get('highlight') || '';
 
-  const manualProducts = useMemo(() => products.filter((product) => product.active && product.availabilityStatus === 'available' && product.stockStatus !== 'unavailable' && (!product.trackStock || (product.stockQuantity ?? 0) > 0)), [products]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!manualPixView?.payload) {
+      setManualPixQrCode('');
+      return () => { cancelled = true; };
+    }
+    void QRCode.toDataURL(manualPixView.payload, { errorCorrectionLevel: 'M', margin: 2, width: 260 })
+      .then((dataUrl) => { if (!cancelled) setManualPixQrCode(dataUrl); })
+      .catch(() => { if (!cancelled) setManualPixQrCode(''); });
+    return () => { cancelled = true; };
+  }, [manualPixView?.payload]);
+
+  // Itens indisponíveis também aparecem para que o administrador possa
+  // registrá-los como encomenda futura. A validação abaixo impede salvar sem
+  // agendamento quando ainda não há disponibilidade.
+  const manualProducts = useMemo(() => products.filter((product) => product.active), [products]);
   const manualSubtotal = useMemo(() => roundMoney(manualItems.reduce((sum, item) => {
     const product = products.find((current) => current.id === item.productId);
     if (!product) return sum;
@@ -112,6 +145,19 @@ export default function OrdersAdmin() {
     event.preventDefault();
     if (!manualOrder.customerName.trim() || !manualItems.length) return;
     if (manualOrder.status === 'cancelled' && manualOrder.received) return;
+    const scheduledAt = manualOrder.scheduledFor ? new Date(manualOrder.scheduledFor) : null;
+    if (scheduledAt && (!Number.isFinite(scheduledAt.getTime()) || scheduledAt < tomorrowStart())) {
+      window.alert('O lançamento futuro precisa ser agendado a partir de amanhã.');
+      return;
+    }
+    const unavailableItem = manualItems.find((item) => {
+      const product = products.find((current) => current.id === item.productId);
+      return !product || product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable' || (product.trackStock && item.quantity > (product.stockQuantity ?? 0));
+    });
+    if (unavailableItem && !scheduledAt) {
+      window.alert('Há produto sem disponibilidade ou estoque suficiente. Informe uma data a partir de amanhã para registrar como encomenda futura.');
+      return;
+    }
     const incompleteProduct = manualItems.find((item) => {
       const product = products.find((current) => current.id === item.productId);
       return product?.optionGroups.some((group) => group.active && new Set(item.options.filter((option) => option.groupId === group.id).map((option) => option.itemId)).size < group.minChoices);
@@ -125,6 +171,15 @@ export default function OrdersAdmin() {
       const result = await trackInteraction('manual_order_create', () => createManualOrder({ ...manualOrder, items: manualItems }), { storeId: settings.id });
       setLastUpdatedAt(new Date());
       setManualOrderOpen(false);
+      if (manualOrder.paymentMethod === 'pix') {
+        let payload = '';
+        try {
+          payload = settings.pixReceiptMode === 'copy_paste'
+            ? buildPixCopyPasteWithAmount(settings.pixCopyPaste, result.total)
+            : buildStaticPixCopyPaste({ key: settings.pixKey, receiver: settings.pixReceiver, city: settings.city || 'Linhares', amount: result.total, txid: `PED${result.orderNumber}` });
+        } catch { payload = ''; }
+        setManualPixView({ orderNumber: result.orderNumber, total: result.total, payload });
+      }
       window.alert(`Pedido #${formatOrderNumber(result.orderNumber)} lançado com sucesso.`);
     } catch (manualOrderError) {
       window.alert(manualOrderError instanceof Error ? manualOrderError.message : 'Não foi possível lançar o pedido avulso.');
@@ -202,7 +257,7 @@ export default function OrdersAdmin() {
   const filtered = useMemo(() => {
     const term = query.toLowerCase().trim();
     const list = orders.filter((order) => {
-      const searchable = `${order.customerName} ${order.customerPhone ?? ''} ${order.id} ${order.orderNumber}`.toLowerCase();
+      const searchable = `${order.customerName} ${order.customerPhone ?? ''} ${order.customerInstagram ?? ''} ${order.acquisitionSource ?? ''} ${order.id} ${order.orderNumber}`.toLowerCase();
       return (!term || searchable.includes(term)) && (statusFilter === 'all' || order.status === statusFilter);
     });
     return [...list].sort((a, b) => {
@@ -291,7 +346,7 @@ export default function OrdersAdmin() {
         const highlighted = order.id === highlightedOrderId;
         return <tr key={order.id} ref={(node) => { rowsRef.current[order.id] = node; }} className={highlighted ? 'order-row-highlighted' : ''}>
           <td><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong><small className="order-fee-note">{orderSourceLabel[order.source || 'site']}</small>{order.whatsappClickedAt ? <small className="order-fee-note">WhatsApp aberto</small> : null}{highlighted ? <small>Pedido vindo do Financeiro</small> : null}</td>
-          <td><div className="order-customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span></div></td>
+          <td><div className="order-customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span>{order.acquisitionSource ? <small>Origem: {({ instagram: 'Instagram', whatsapp: 'WhatsApp', google: 'Google', indicacao: 'Indicação', outro: 'Outro' } as const)[order.acquisitionSource]}</small> : null}{order.customerInstagram ? <small>{order.customerInstagram}</small> : null}</div></td>
           <td><div className="order-customer"><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{order.deliveryType === 'delivery' && order.deliveryZoneName ? <span>{order.deliveryZoneName}{order.deliveryFee ? ` · ${currency.format(order.deliveryFee)}` : ''}</span> : null}{order.scheduledFor ? <span>Agendado: {formatDateTimeBR(order.scheduledFor)}</span> : null}{order.preparationEstimateMinutes ? <span>Estimativa: até {order.preparationEstimateMinutes} min</span> : null}</div></td>
           <td><div className="order-customer"><strong>{paymentLabel[order.paymentMethod]}</strong>{order.paymentMethod === 'cash' && order.needsChange && order.changeFor ? <span>Troco para {currency.format(order.changeFor)}</span> : null}</div></td>
           <td><strong>{currency.format(order.total)}</strong>{order.deliveryFee ? <small className="order-fee-note">inclui {currency.format(order.deliveryFee)} de entrega</small> : null}</td>
@@ -313,13 +368,14 @@ export default function OrdersAdmin() {
           <label>Origem<select value={manualOrder.source} onChange={(event) => setManualOrder((current) => ({ ...current, source: event.target.value as ManualOrderSource }))}>{manualSourceOptions.map((source) => <option key={source.value} value={source.value}>{source.label}</option>)}</select></label>
           <label>Pagamento<select value={manualOrder.paymentMethod} onChange={(event) => setManualOrder((current) => ({ ...current, paymentMethod: event.target.value as PaymentMethod }))}>{Object.entries(paymentLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
+          <label>Entrega futura <span className="optional-label">opcional</span><input type="datetime-local" min={localDateTimeInputValue(tomorrowStart())} value={manualOrder.scheduledFor || ''} onChange={(event) => setManualOrder((current) => ({ ...current, scheduledFor: event.target.value || undefined }))}/><small>Use quando o produto estiver sem estoque. Disponível somente a partir de amanhã.</small></label>
           <label className="checkbox-row"><input type="checkbox" checked={manualOrder.received} disabled={manualOrder.status === 'cancelled'} onChange={(event) => setManualOrder((current) => ({ ...current, received: event.target.checked }))}/>Recebimento já confirmado</label>
         </div>
 
         <section>
           <h3>Produtos</h3>
           <div className="form-grid">
-            <label>Adicionar produto<select value={manualProductId} onChange={(event) => setManualProductId(event.target.value)}><option value="">Selecione</option>{manualProducts.filter((product) => !manualItems.some((item) => item.productId === product.id)).map((product) => <option key={product.id} value={product.id}>{product.name} · {currency.format(product.promotionalPrice ?? product.price)}</option>)}</select></label>
+          <label>Adicionar produto<select value={manualProductId} onChange={(event) => setManualProductId(event.target.value)}><option value="">Selecione</option>{manualProducts.filter((product) => !manualItems.some((item) => item.productId === product.id)).map((product) => <option key={product.id} value={product.id}>{product.name} · {currency.format(product.promotionalPrice ?? product.price)}{product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable' ? ' · encomenda' : ''}</option>)}</select></label>
             <div><button className="secondary-button" type="button" onClick={addManualProduct} disabled={!manualProductId}>Adicionar item</button></div>
           </div>
           {!manualItems.length ? <p>Nenhum produto selecionado.</p> : manualItems.map((item) => {
@@ -339,6 +395,19 @@ export default function OrdersAdmin() {
         <p><strong>Resumo: {manualItems.reduce((sum, item) => sum + item.quantity, 0)} item(ns) · {currency.format(manualSubtotal)}</strong></p>
         <div className="master-modal-actions"><button type="button" className="secondary-button" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}>Cancelar</button><button className="primary-button" type="submit" disabled={manualSaving || !manualItems.length || !manualOrder.customerName.trim()}>{manualSaving ? 'Salvando...' : `Registrar pedido · ${currency.format(manualSubtotal)}`}</button></div>
       </form>
+    </div>}
+    {manualPixView && <div className="modal-overlay" role="presentation">
+      <section className="master-modal manual-pix-result-modal" role="dialog" aria-modal="true" aria-labelledby="manual-pix-result-title">
+        <button type="button" className="modal-close" aria-label="Fechar PIX do pedido avulso" onClick={() => setManualPixView(null)}><X/></button>
+        <span className="eyebrow">PAGAMENTO DO PEDIDO AVULSO</span>
+        <h2 id="manual-pix-result-title">PIX do pedido #{formatOrderNumber(manualPixView.orderNumber)}</h2>
+        <p>Use este QR Code ou o PIX Copia e Cola para enviar a cobrança ao cliente. O recebimento ainda deve ser conferido no painel.</p>
+        {manualPixView.payload ? <>
+          {manualPixQrCode ? <img className="manual-pix-result-qr" src={manualPixQrCode} alt={`QR Code PIX no valor de ${currency.format(manualPixView.total)}`} /> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
+          <label className="manual-pix-result-code">PIX Copia e Cola · {currency.format(manualPixView.total)}<div><textarea readOnly rows={4} value={manualPixView.payload}/><button type="button" className="secondary-button" onClick={() => void copyText(manualPixView.payload).then(() => window.alert('PIX Copia e Cola copiado.'))}><Copy size={16}/>Copiar</button></div></label>
+        </> : <div className="form-error">Configure uma chave PIX ou um PIX Copia e Cola válido nas configurações da loja para gerar a cobrança com valor.</div>}
+        <div className="master-modal-actions"><button type="button" className="primary-button" onClick={() => setManualPixView(null)}>Concluir</button></div>
+      </section>
     </div>}
   </>;
 }

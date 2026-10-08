@@ -1,6 +1,7 @@
 import { ArrowLeft, Banknote, Check, CheckCircle2, Copy, CreditCard, MessageCircle, QrCode, Store } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
+import QRCode from 'qrcode';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import type { OrderConfirmation } from '../../types';
@@ -17,6 +18,7 @@ export default function OrderSuccess() {
   const { markOrderWhatsAppClicked, settings, storeBasePath } = useStore();
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [pixQrCode, setPixQrCode] = useState('');
   const [whatsappMarkState, setWhatsappMarkState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
   const storefrontThemeStyle = getStorefrontThemeStyle(settings.visualTheme);
 
@@ -25,6 +27,19 @@ export default function OrderSuccess() {
     if (fromState?.orderId === orderId) return fromState;
     return readOrderConfirmation(orderId);
   }, [location.state, orderId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const payload = confirmation?.pixPayload || '';
+    if (!payload) {
+      setPixQrCode('');
+      return () => { cancelled = true; };
+    }
+    void QRCode.toDataURL(payload, { errorCorrectionLevel: 'M', margin: 2, width: 260 })
+      .then((dataUrl) => { if (!cancelled) setPixQrCode(dataUrl); })
+      .catch(() => { if (!cancelled) setPixQrCode(''); });
+    return () => { cancelled = true; };
+  }, [confirmation?.pixPayload]);
 
   if (!confirmation) {
     return (
@@ -42,12 +57,13 @@ export default function OrderSuccess() {
   const isPix = confirmation.paymentMethod === 'pix' && confirmation.pixEnabled;
   const isPixCopyPaste = isPix && confirmation.pixReceiptMode === 'copy_paste' && Boolean(confirmation.pixCopyPaste.trim());
   const isPixKey = isPix && confirmation.pixReceiptMode === 'key' && Boolean(confirmation.pixKey.trim());
+  const hasPixPayload = isPix && Boolean(confirmation.pixPayload?.trim());
   const isCard = confirmation.paymentMethod === 'card';
   const isCash = confirmation.paymentMethod === 'cash';
   const hasWhatsApp = Boolean(confirmation.storeWhatsapp?.trim());
   const whatsappMessage = buildPostOrderWhatsAppMessage(confirmation);
   const whatsappUrl = hasWhatsApp ? getWhatsAppUrl(confirmation.storeWhatsapp, whatsappMessage) : '';
-  const pixValue = isPixCopyPaste ? confirmation.pixCopyPaste : confirmation.pixKey;
+  const pixValue = isPixCopyPaste ? (confirmation.pixPayload || confirmation.pixCopyPaste) : confirmation.pixKey;
   const confirmationStatus = isPix ? 'Aguardando confirmação do PIX pela loja' : isCard ? 'Aguardando recebimento na entrega ou retirada' : isCash ? 'Aguardando recebimento em dinheiro' : 'Aguardando confirmação da loja';
 
   const handleCopyPix = async () => {
@@ -125,12 +141,13 @@ export default function OrderSuccess() {
                 {copied ? <Check size={21} /> : <Copy size={21} />}
               </button>
             </div>
+          {hasPixPayload && <div className="pix-qr-code"><span className="pix-key-label">QR Code PIX · valor preenchido</span>{pixQrCode ? <img src={pixQrCode} alt={`QR Code PIX no valor de ${currency.format(confirmation.total)}`} /> : <small>Gerando QR Code…</small>}<small>Escaneie com o aplicativo do seu banco.</small></div>}
           {isPixCopyPaste && <div className="pix-return-reminder" role="note"><strong>Depois de pagar, volte para esta página.</strong><span>O pedido só será confirmado pela loja após a conferência do pagamento. Não feche esta tela antes de concluir.</span></div>}
             {confirmation.pixReceiver && <small>Recebedor: {confirmation.pixReceiver}</small>}
           </div>
         )}
 
-        {!hasWhatsApp && <div className="order-channel-info" role="note"><Store size={19} /><div><strong>Confirmação sem WhatsApp</strong><span>Guarde o pedido <b>#{formatOrderNumber(confirmation.orderNumber)}</b>. O pagamento e o andamento serão conferidos internamente pela loja.</span></div></div>}
+        {!hasWhatsApp && <div className="order-channel-info" role="note"><Store size={19} /><div><strong>WhatsApp opcional, mas essencial</strong><span>Guarde o pedido <b>#{formatOrderNumber(confirmation.orderNumber)}</b>. A loja consegue acompanhar pelo painel, mas o WhatsApp é essencial para agilizar a confirmação do pagamento, o envio de comprovantes e eventuais dúvidas.</span></div></div>}
 
         {isCard && (
           <div className="card-link-info-box">
