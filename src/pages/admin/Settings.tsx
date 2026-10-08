@@ -11,6 +11,7 @@ import { PasswordChangeCard } from '../../components/admin/PasswordChangeCard';
 import { planHasFeature } from '../../utils/plan';
 import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ensureCustomerMessageVariables, normalizeCustomerMessageTemplates } from '../../utils/customerSales';
 import { DEFAULT_STORE_VISUAL_THEME, getStorefrontThemeStyle, isStoreVisualColor, STORE_VISUAL_THEME_PRESETS } from '../../utils/storeVisualTheme';
+import { requestPwaNotificationPermission } from '../../services/pwaNotifications';
 
 const isDoceLuaStore = (store: Pick<StoreSettings, 'slug' | 'name'>) =>
   `${store.slug} ${store.name}`.toLowerCase().replace(/[^a-z0-9]/g, '').includes('docelua');
@@ -48,9 +49,7 @@ export default function SettingsAdmin() {
   const updateMessageTemplate = (key: keyof NonNullable<StoreSettings['messageTemplates']>, value: string) => setForm((current) => ({ ...current, messageTemplates: { ...normalizeCustomerMessageTemplates(current.messageTemplates), [key]: ensureCustomerMessageVariables(key, value) } }));
   const toggleDesktopNotifications = (enabled: boolean) => {
     update('notificationsDesktopEnabled', enabled);
-    if (enabled && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-      void Notification.requestPermission();
-    }
+    if (enabled) void requestPwaNotificationPermission();
   };
   const activatePixReceiptMode = (mode: StoreSettings['pixReceiptMode']) => {
     update('pixReceiptMode', mode);
@@ -269,13 +268,13 @@ export default function SettingsAdmin() {
           <section className="admin-card form-section">
             <span className="eyebrow">ALERTAS DA OPERAÇÃO</span>
             <h2>Notificações do painel</h2>
-            <p className="muted">Receba um aviso dentro do Admin quando houver novidades. As notificações funcionam enquanto o painel estiver aberto; o navegador pode solicitar permissão para avisos fora da aba.</p>
+            <p className="muted">Receba avisos no painel e na barra de notificações do celular quando o Admin estiver instalado como PWA. O navegador solicitará permissão na primeira ativação.</p>
             <label className="switch-row"><span><strong>Novo pedido</strong><small>Avisa assim que um pedido novo for registrado.</small></span><input type="checkbox" checked={form.notificationsNewOrderEnabled} onChange={(e)=>update('notificationsNewOrderEnabled',e.target.checked)} /></label>
             <label className="switch-row"><span><strong>Pedido agendado próximo</strong><small>Avisa antes do horário de um pedido agendado para você se preparar.</small></span><input type="checkbox" checked={form.notificationsScheduledEnabled} onChange={(e)=>update('notificationsScheduledEnabled',e.target.checked)} /></label>
             {form.notificationsScheduledEnabled && <label>Antecedência do lembrete (minutos)<input type="number" min="5" max="1440" step="5" value={form.notificationsScheduledLeadMinutes} onChange={(e)=>update('notificationsScheduledLeadMinutes',Math.min(1440,Math.max(5,Number(e.target.value)||5)))} /><small>Ex.: 30 avisa quando faltarem aproximadamente 30 minutos.</small></label>}
-            <label className="switch-row"><span><strong>Avisos no computador</strong><small>Mostra uma notificação do navegador quando a permissão estiver disponível.</small></span><input type="checkbox" checked={form.notificationsDesktopEnabled} onChange={(e)=>toggleDesktopNotifications(e.target.checked)} /></label>
+            <label className="switch-row"><span><strong>Avisos no celular / PWA</strong><small>Usa a barra de notificações do dispositivo quando a permissão estiver disponível.</small></span><input type="checkbox" checked={form.notificationsDesktopEnabled} onChange={(e)=>toggleDesktopNotifications(e.target.checked)} /></label>
             <label className="switch-row"><span><strong>Som do alerta</strong><small>Toca um aviso discreto junto com a notificação, quando permitido pelo navegador.</small></span><input type="checkbox" checked={form.notificationsSoundEnabled} onChange={(e)=>update('notificationsSoundEnabled',e.target.checked)} /></label>
-            <div className="admin-info-box"><Info size={17}/><span>Para o aviso funcionar, mantenha uma aba do Admin aberta. A confirmação de pagamento continua sendo uma ação separada.</span></div>
+            <div className="admin-info-box"><Info size={17}/><span>Com o PWA aberto ou instalado, novos pedidos e lembretes aparecem como notificação do sistema. A confirmação de pagamento continua sendo uma ação separada.</span></div>
           </section>
 
           <section className="admin-card form-section growth-settings-v062">
