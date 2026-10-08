@@ -17,7 +17,10 @@ self.addEventListener('push', (event) => {
     icon: payload.icon || '/assets/food-logo.svg',
     badge: payload.badge || '/assets/food-logo.svg',
     tag: payload.tag || 'foodweb-admin',
-    renotify: true,
+    // Reenvios com o mesmo tag atualizam o aviso sem vibrar novamente.
+    // Isso evita duplicidade quando o navegador e o servidor tentam entregar
+    // o mesmo pedido durante uma reconexão.
+    renotify: false,
     data: { url: payload.url || '/admin/pedidos' },
   }));
 });
