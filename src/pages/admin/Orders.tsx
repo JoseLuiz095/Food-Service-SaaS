@@ -1,4 +1,4 @@
-import { CheckCircle2, ChefHat, CircleDollarSign, Copy, MessageCircle, Plus, QrCode, RefreshCw, RotateCcw, Search, ShoppingBag, Users, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChefHat, CircleDollarSign, Copy, MessageCircle, Plus, QrCode, RefreshCw, RotateCcw, Search, ShoppingBag, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
@@ -56,6 +56,12 @@ const tomorrowStart = () => {
   return date;
 };
 
+const tomorrowAt = (hour: number, minute = 0) => {
+  const date = tomorrowStart();
+  date.setHours(hour, minute, 0, 0);
+  return date;
+};
+
 type SortMode = (typeof sortOptions)[number]['value'];
 type CustomerSummary = { key: string; name: string; phone: string; orders: number; total: number; lastAt: string };
 type ManualPixView = { orderNumber: number; total: number; payload: string };
@@ -82,6 +88,7 @@ export default function OrdersAdmin() {
   const [manualSaving, setManualSaving] = useState(false);
   const [manualPixView, setManualPixView] = useState<ManualPixView | null>(null);
   const [manualPixQrCode, setManualPixQrCode] = useState('');
+  const [manualFormError, setManualFormError] = useState('');
   const refreshingRef = useRef(false);
   const rowsRef = useRef<Record<string, HTMLTableRowElement | null>>({});
   const highlightedOrderId = searchParams.get('highlight') || '';
@@ -117,6 +124,7 @@ export default function OrdersAdmin() {
     setManualOrder(newManualOrder());
     setManualItems([]);
     setManualProductId(manualProducts[0]?.id || '');
+    setManualFormError('');
     setManualOrderOpen(true);
   };
 
@@ -148,7 +156,7 @@ export default function OrdersAdmin() {
     if (manualOrder.status === 'cancelled' && manualOrder.received) return;
     const scheduledAt = manualOrder.scheduledFor ? new Date(manualOrder.scheduledFor) : null;
     if (scheduledAt && (!Number.isFinite(scheduledAt.getTime()) || scheduledAt < tomorrowStart())) {
-      window.alert('O lançamento futuro precisa ser agendado a partir de amanhã.');
+      setManualFormError('O lançamento futuro precisa ser agendado a partir de amanhã.');
       return;
     }
     const unavailableItem = manualItems.find((item) => {
@@ -156,7 +164,7 @@ export default function OrdersAdmin() {
       return !product || product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable' || (product.trackStock && item.quantity > (product.stockQuantity ?? 0));
     });
     if (unavailableItem && !scheduledAt) {
-      window.alert('Há produto sem disponibilidade ou estoque suficiente. Informe uma data a partir de amanhã para registrar como encomenda futura.');
+      setManualFormError('Há produto sem disponibilidade ou estoque suficiente. Informe uma data a partir de amanhã para registrar como encomenda futura.');
       return;
     }
     const incompleteProduct = manualItems.find((item) => {
@@ -164,9 +172,10 @@ export default function OrdersAdmin() {
       return product?.optionGroups.some((group) => group.active && new Set(item.options.filter((option) => option.groupId === group.id).map((option) => option.itemId)).size < group.minChoices);
     });
     if (incompleteProduct) {
-      window.alert('Revise as opções obrigatórias dos produtos selecionados.');
+      setManualFormError('Revise as opções obrigatórias dos produtos selecionados.');
       return;
     }
+    setManualFormError('');
     setManualSaving(true);
     try {
       const result = await trackInteraction('manual_order_create', () => createManualOrder({ ...manualOrder, items: manualItems }), { storeId: settings.id });
@@ -181,9 +190,8 @@ export default function OrdersAdmin() {
         } catch { payload = ''; }
         setManualPixView({ orderNumber: result.orderNumber, total: result.total, payload });
       }
-      window.alert(`Pedido #${formatOrderNumber(result.orderNumber)} lançado com sucesso.`);
     } catch (manualOrderError) {
-      window.alert(manualOrderError instanceof Error ? manualOrderError.message : 'Não foi possível lançar o pedido avulso.');
+      setManualFormError(manualOrderError instanceof Error ? manualOrderError.message : 'Não foi possível lançar o pedido avulso.');
     } finally {
       setManualSaving(false);
     }
@@ -374,15 +382,16 @@ export default function OrdersAdmin() {
         <button type="button" className="modal-close" aria-label="Fechar lançamento de pedido avulso" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}><X/></button>
         <span className="eyebrow">LANÇAMENTO OPERACIONAL</span>
         <h2 id="manual-order-title">Pedido avulso</h2>
-        <p>Registre uma venda feita fora do site. Os preços e as opções serão validados novamente pelo sistema antes de salvar.</p>
+        <p>Registre uma venda feita fora do site. O sistema valida estoque, opções e agendamento antes de salvar.</p>
+        {manualFormError && <div className="manual-order-feedback manual-order-feedback--error" role="alert"><AlertCircle size={17}/><span>{manualFormError}</span></div>}
         <div className="form-grid">
           <label>Cliente<input required value={manualOrder.customerName} onChange={(event) => setManualOrder((current) => ({ ...current, customerName: event.target.value }))} placeholder="Nome do cliente"/></label>
           <label>Telefone <span className="optional-label">opcional</span><input value={manualOrder.customerPhone || ''} onChange={(event) => setManualOrder((current) => ({ ...current, customerPhone: event.target.value }))} placeholder="(27) 99999-9999"/></label>
           <label>Origem<select value={manualOrder.source} onChange={(event) => setManualOrder((current) => ({ ...current, source: event.target.value as ManualOrderSource }))}>{manualSourceOptions.map((source) => <option key={source.value} value={source.value}>{source.label}</option>)}</select></label>
           <label>Pagamento<select value={manualOrder.paymentMethod} onChange={(event) => setManualOrder((current) => ({ ...current, paymentMethod: event.target.value as PaymentMethod }))}>{Object.entries(paymentLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
-          <label>Entrega futura <span className="optional-label">opcional</span><input type="datetime-local" min={localDateTimeInputValue(tomorrowStart())} value={manualOrder.scheduledFor || ''} onChange={(event) => setManualOrder((current) => ({ ...current, scheduledFor: event.target.value || undefined }))}/><small>Use quando o produto estiver sem estoque. Disponível somente a partir de amanhã.</small></label>
-          <label className="checkbox-row"><input type="checkbox" checked={manualOrder.received} disabled={manualOrder.status === 'cancelled'} onChange={(event) => setManualOrder((current) => ({ ...current, received: event.target.checked }))}/>Recebimento já confirmado</label>
+          <label>Recebimento<select value={manualOrder.received ? 'paid' : 'pending'} disabled={manualOrder.status === 'cancelled'} onChange={(event) => setManualOrder((current) => ({ ...current, received: event.target.value === 'paid' }))}><option value="pending">A receber do cliente</option><option value="paid">Recebido</option></select><small>Use “A receber” para confirmar depois no painel de pedidos.</small></label>
+          <label>Agendar pedido <span className="optional-label">opcional</span><input type="datetime-local" min={localDateTimeInputValue(tomorrowStart())} value={manualOrder.scheduledFor || ''} onChange={(event) => { setManualFormError(''); setManualOrder((current) => ({ ...current, scheduledFor: event.target.value || undefined })); }}/><span className="manual-order-schedule-actions"><button type="button" className="text-button" onClick={() => { setManualFormError(''); setManualOrder((current) => ({ ...current, scheduledFor: localDateTimeInputValue(tomorrowAt(18)) })); }}>Amanhã às 18h</button><small>Disponível somente a partir de amanhã.</small></span></label>
         </div>
 
         <section>
