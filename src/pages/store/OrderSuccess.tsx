@@ -142,12 +142,9 @@ export default function OrderSuccess() {
               </button>
             </div>
           {hasPixPayload && <div className="pix-qr-code"><span className="pix-key-label">QR Code PIX · valor preenchido</span>{pixQrCode ? <img src={pixQrCode} alt={`QR Code PIX no valor de ${currency.format(confirmation.total)}`} /> : <small>Gerando QR Code…</small>}<small>Escaneie com o aplicativo do seu banco.</small></div>}
-          {isPixCopyPaste && <div className="pix-return-reminder" role="note"><strong>Depois de pagar, volte para esta página.</strong><span>O pedido só será confirmado pela loja após a conferência do pagamento. Não feche esta tela antes de concluir.</span></div>}
             {confirmation.pixReceiver && <small>Recebedor: {confirmation.pixReceiver}</small>}
           </div>
         )}
-
-        {!hasWhatsApp && <div className="order-channel-info" role="note"><Store size={19} /><div><strong>WhatsApp opcional, mas essencial</strong><span>Guarde o pedido <b>#{formatOrderNumber(confirmation.orderNumber)}</b>. A loja consegue acompanhar pelo painel, mas o WhatsApp é essencial para agilizar a confirmação do pagamento, o envio de comprovantes e eventuais dúvidas.</span></div></div>}
 
         {isCard && (
           <div className="card-link-info-box">

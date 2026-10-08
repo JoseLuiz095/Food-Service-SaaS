@@ -3404,6 +3404,9 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 .manual-order-schedule-actions small{flex:1 1 180px}
 .text-button{border:0;background:transparent;color:#a95437;padding:0;font:inherit;font-size:.72rem;font-weight:800;cursor:pointer;text-align:left}
 .text-button:hover{text-decoration:underline}
+.manual-pix-charge-toggle{grid-column:1/-1!important;display:flex!important;align-items:flex-start;gap:10px;padding:11px 12px;border:1px dashed #e5c8ba;border-radius:12px;background:#fffaf7}
+.manual-pix-charge-toggle input{width:18px!important;min-height:18px!important;flex:0 0 auto;margin-top:2px;accent-color:#a95437}
+.manual-pix-charge-toggle span{display:grid;gap:3px}.manual-pix-charge-toggle strong{font-size:.78rem}.manual-pix-charge-toggle small{font-size:.68rem;color:#77736b;line-height:1.4}
 .master-modal fieldset{min-width:0;border:1px solid #ebe5df;border-radius:13px;padding:13px;margin:14px 0 0}
 .master-modal fieldset .form-grid{min-width:0}
 @media(max-width:560px){
