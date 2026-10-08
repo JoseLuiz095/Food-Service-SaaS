@@ -63,6 +63,23 @@ const sha256 = async (value: string) => {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 };
 
+const notifyStoreAdmins = async (url: string, service: string, payload: Record<string, unknown>) => {
+  try {
+    const response = await fetch(`${url}/functions/v1/food-send-push`, {
+      method: 'POST',
+      headers: {
+        apikey: service,
+        Authorization: `Bearer ${service}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) console.warn('Notificação push não enviada:', await response.text());
+  } catch (error) {
+    console.warn('Notificação push indisponível:', error);
+  }
+};
+
 const validateTurnstile = async (token: string, remoteIp: string, origin: string) => {
   const secret = Deno.env.get('TURNSTILE_SECRET_KEY') || '';
   const required = String(Deno.env.get('TURNSTILE_REQUIRED') || '').toLowerCase() === 'true';
@@ -241,6 +258,16 @@ Deno.serve(async (req) => {
         // Falha de analytics nunca pode invalidar um pedido já criado.
       }
     }
+
+    // O pedido continua válido mesmo que o push ainda não esteja configurado.
+    // A Edge Function usa apenas assinaturas ativas dos administradores da loja.
+    void notifyStoreAdmins(url, service, {
+      store_id: storeId,
+      title: 'Novo pedido na loja',
+      message: `Pedido #${created.order_number} · ${String(payloadRecord.customer_name || 'Cliente')} · R$ ${Number(created.order_total).toFixed(2).replace('.', ',')}`,
+      tag: `new-order:${created.order_id}`,
+      url: '/admin/pedidos',
+    });
 
     return new Response(JSON.stringify({
       orderId: created.order_id,

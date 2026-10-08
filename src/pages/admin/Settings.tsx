@@ -11,7 +11,8 @@ import { PasswordChangeCard } from '../../components/admin/PasswordChangeCard';
 import { planHasFeature } from '../../utils/plan';
 import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ensureCustomerMessageVariables, normalizeCustomerMessageTemplates } from '../../utils/customerSales';
 import { DEFAULT_STORE_VISUAL_THEME, getStorefrontThemeStyle, isStoreVisualColor, STORE_VISUAL_THEME_PRESETS } from '../../utils/storeVisualTheme';
-import { requestPwaNotificationPermission } from '../../services/pwaNotifications';
+import { pwaPushStatus, requestPwaNotificationPermission, showPwaNotification, subscribeToPwaPush } from '../../services/pwaNotifications';
+import { useAuth } from '../../contexts/AuthContext';
 
 const isDoceLuaStore = (store: Pick<StoreSettings, 'slug' | 'name'>) =>
   `${store.slug} ${store.name}`.toLowerCase().replace(/[^a-z0-9]/g, '').includes('docelua');
@@ -24,6 +25,7 @@ const cloneSettingsForForm = (settings: StoreSettings) => {
 
 export default function SettingsAdmin() {
   const { settings, saveSettings, resetDemo, uploadStoreAsset, dataMode, loading, error, reloadAdmin, planUsage } = useStore();
+  const { user, membership } = useAuth();
   const { showToast } = useToast();
   const [form, setForm] = useState<StoreSettings>(() => cloneSettingsForForm(settings));
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -33,6 +35,7 @@ export default function SettingsAdmin() {
   const canCustomBanner = planHasFeature(planUsage.plan, 'custom_banner');
   const canUseDoceLua = isDoceLuaStore(form);
   const messageTemplates = normalizeCustomerMessageTemplates(form.messageTemplates);
+  const pushStatus = pwaPushStatus();
 
   useEffect(() => setForm(cloneSettingsForForm(settings)), [settings]);
   const logoPreview = useMemo(() => logoFile ? URL.createObjectURL(logoFile) : form.logoUrl, [logoFile, form.logoUrl]);
@@ -47,9 +50,36 @@ export default function SettingsAdmin() {
   }));
   const applyVisualPreset = (preset: keyof typeof STORE_VISUAL_THEME_PRESETS) => setForm((current) => ({ ...current, visualTheme: { ...STORE_VISUAL_THEME_PRESETS[preset] } }));
   const updateMessageTemplate = (key: keyof NonNullable<StoreSettings['messageTemplates']>, value: string) => setForm((current) => ({ ...current, messageTemplates: { ...normalizeCustomerMessageTemplates(current.messageTemplates), [key]: ensureCustomerMessageVariables(key, value) } }));
-  const toggleDesktopNotifications = (enabled: boolean) => {
-    update('notificationsDesktopEnabled', enabled);
-    if (enabled) void requestPwaNotificationPermission();
+  const toggleDesktopNotifications = async (enabled: boolean) => {
+    if (!enabled) { update('notificationsDesktopEnabled', false); return; }
+    try {
+      if (pwaPushStatus() === 'not_configured') {
+        const permission = await requestPwaNotificationPermission();
+        if (permission !== 'granted') throw new Error('Permissão de notificações não concedida no telefone.');
+        update('notificationsDesktopEnabled', true);
+        showToast('Avisos locais ativados. Para receber com o PWA fechado, configure as chaves VAPID no servidor.', 'info');
+        return;
+      }
+      await subscribeToPwaPush(membership?.storeId, user?.id);
+      update('notificationsDesktopEnabled', true);
+      showToast('Notificações do telefone ativadas neste dispositivo.', 'success');
+    } catch (notificationError) {
+      update('notificationsDesktopEnabled', false);
+      showToast(notificationError instanceof Error ? notificationError.message : 'Não foi possível ativar as notificações do telefone.', 'error');
+    }
+  };
+  const sendTestNotification = async () => {
+    try {
+      if (pwaPushStatus() !== 'not_configured') await subscribeToPwaPush(membership?.storeId, user?.id);
+      else {
+        const permission = await requestPwaNotificationPermission();
+        if (permission !== 'granted') throw new Error('Permissão de notificações não concedida no telefone.');
+      }
+      await showPwaNotification('FoodWeb · teste', 'Se você recebeu este aviso, o PWA está autorizado neste telefone.', { tag: 'foodweb:test' });
+      showToast('Notificação de teste enviada.', 'success');
+    } catch (notificationError) {
+      showToast(notificationError instanceof Error ? notificationError.message : 'Não foi possível enviar o teste.', 'error');
+    }
   };
   const activatePixReceiptMode = (mode: StoreSettings['pixReceiptMode']) => {
     update('pixReceiptMode', mode);
@@ -268,13 +298,14 @@ export default function SettingsAdmin() {
           <section className="admin-card form-section">
             <span className="eyebrow">ALERTAS DA OPERAÇÃO</span>
             <h2>Notificações do painel</h2>
-            <p className="muted">Receba avisos no painel e na barra de notificações do celular quando o Admin estiver instalado como PWA. O navegador solicitará permissão na primeira ativação.</p>
+            <p className="muted">Receba novos pedidos na barra de notificações mesmo com o PWA em segundo plano. Instale o Admin no telefone e permita as notificações quando ativar.</p>
             <label className="switch-row"><span><strong>Novo pedido</strong><small>Avisa assim que um pedido novo for registrado.</small></span><input type="checkbox" checked={form.notificationsNewOrderEnabled} onChange={(e)=>update('notificationsNewOrderEnabled',e.target.checked)} /></label>
             <label className="switch-row"><span><strong>Pedido agendado próximo</strong><small>Avisa antes do horário de um pedido agendado para você se preparar.</small></span><input type="checkbox" checked={form.notificationsScheduledEnabled} onChange={(e)=>update('notificationsScheduledEnabled',e.target.checked)} /></label>
             {form.notificationsScheduledEnabled && <label>Antecedência do lembrete (minutos)<input type="number" min="5" max="1440" step="5" value={form.notificationsScheduledLeadMinutes} onChange={(e)=>update('notificationsScheduledLeadMinutes',Math.min(1440,Math.max(5,Number(e.target.value)||5)))} /><small>Ex.: 30 avisa quando faltarem aproximadamente 30 minutos.</small></label>}
             <label className="switch-row"><span><strong>Avisos no celular / PWA</strong><small>Usa a barra de notificações do dispositivo quando a permissão estiver disponível.</small></span><input type="checkbox" checked={form.notificationsDesktopEnabled} onChange={(e)=>toggleDesktopNotifications(e.target.checked)} /></label>
             <label className="switch-row"><span><strong>Som do alerta</strong><small>Toca um aviso discreto junto com a notificação, quando permitido pelo navegador.</small></span><input type="checkbox" checked={form.notificationsSoundEnabled} onChange={(e)=>update('notificationsSoundEnabled',e.target.checked)} /></label>
-            <div className="admin-info-box"><Info size={17}/><span>Com o PWA aberto ou instalado, novos pedidos e lembretes aparecem como notificação do sistema. A confirmação de pagamento continua sendo uma ação separada.</span></div>
+            <div className="admin-info-box"><Info size={17}/><span>{pushStatus === 'available' ? 'Este dispositivo está apto a receber push. A assinatura será vinculada à loja ao ativar o botão.' : pushStatus === 'blocked' ? 'As notificações foram bloqueadas pelo navegador. Libere-as nas configurações do site e tente novamente.' : pushStatus === 'not_configured' ? 'O servidor ainda precisa da chave pública VAPID para ativar notificações em segundo plano.' : 'Instale o PWA pelo Chrome/Edge em um dispositivo compatível para receber notificações.'}</span></div>
+            <button type="button" className="secondary-button" onClick={() => void sendTestNotification()}>Enviar notificação de teste</button>
           </section>
 
           <section className="admin-card form-section growth-settings-v062">

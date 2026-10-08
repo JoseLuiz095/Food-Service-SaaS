@@ -452,6 +452,8 @@ export type OrderConfirmation = {
   pixCopyPaste: string;
   /** Payload PIX dinâmico com o valor do pedido, usado também para gerar o QR Code. */
   pixPayload?: string;
+  /** Explicação exibida ao cliente quando a configuração do PIX não permitiu gerar o valor. */
+  pixGenerationError?: string;
   pixReceiver: string;
   orderMessage: string;
   changeAmount?: number;

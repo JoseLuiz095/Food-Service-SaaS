@@ -115,9 +115,12 @@ VITE_DEFAULT_STORE_SLUG=central-food-demo
 VITE_APP_ENV=production
 VITE_ANALYTICS_ENABLED=true
 VITE_TURNSTILE_SITE_KEY=SUA_SITE_KEY
+VITE_VAPID_PUBLIC_KEY=SUA_CHAVE_PUBLICA_VAPID
 ```
 
 Nunca coloque `service_role`, segredo do Turnstile ou token de IA em `VITE_*`.
+
+`VITE_VAPID_PUBLIC_KEY` é pública e serve apenas para registrar o telefone. A chave privada VAPID deve ficar somente nos secrets da Edge Function.
 
 ## Edge Functions
 

@@ -36,6 +36,7 @@ VITE_SUPABASE_ANON_KEY=SUA_CHAVE_PUBLICA
 VITE_TURNSTILE_SITE_KEY=SUA_SITE_KEY
 VITE_APP_ENV=production
 VITE_ANALYTICS_ENABLED=true
+VITE_VAPID_PUBLIC_KEY=SUA_CHAVE_PUBLICA_VAPID
 ```
 
 ## 4. Secrets das Edge Functions
@@ -53,6 +54,16 @@ Recomendado também:
 ```text
 CHECKOUT_FINGERPRINT_SALT=VALOR_ALEATORIO_LONGO
 ```
+
+Para notificações do telefone, configure também os secrets da Edge Function `food-send-push`:
+
+```text
+VAPID_PUBLIC_KEY=mesma_chave_publica_do_frontend
+VAPID_PRIVATE_KEY=chave_privada_gerada_com_web-push
+VAPID_SUBJECT=mailto:seu-email-de-suporte
+```
+
+Gere o par de chaves com `npx web-push generate-vapid-keys` e nunca publique a chave privada no frontend.
 
 O `TURNSTILE_SECRET_KEY` nunca deve ser colocado no `.env` do Vite.
 

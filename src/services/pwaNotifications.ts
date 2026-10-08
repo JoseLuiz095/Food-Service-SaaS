@@ -1,3 +1,6 @@
+import { appConfig, isSupabaseConfigured } from '../lib/config';
+import { restFetch } from '../lib/supabaseRest';
+
 type PwaNotificationOptions = {
   tag?: string;
   url?: string;
@@ -9,6 +12,52 @@ export const requestPwaNotificationPermission = async (): Promise<NotificationPe
   if (typeof window === 'undefined' || !('Notification' in window)) return null;
   if (Notification.permission === 'default') return Notification.requestPermission();
   return Notification.permission;
+};
+
+const decodeVapidKey = (value: string): Uint8Array => {
+  const padding = '='.repeat((4 - (value.length % 4)) % 4);
+  const base64 = `${value.replace(/-/g, '+').replace(/_/g, '/')}${padding}`;
+  const raw = window.atob(base64);
+  return Uint8Array.from(raw, (character) => character.charCodeAt(0));
+};
+
+export const pwaPushStatus = () => {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return 'unsupported' as const;
+  if (!appConfig.vapidPublicKey) return 'not_configured' as const;
+  if (!('Notification' in window)) return 'unsupported' as const;
+  if (Notification.permission === 'denied') return 'blocked' as const;
+  return 'available' as const;
+};
+
+/** Solicita permissão, cria a assinatura Web Push e a vincula à loja/usuário autenticado. */
+export const subscribeToPwaPush = async (storeId?: string, userId?: string): Promise<PushSubscription> => {
+  const status = pwaPushStatus();
+  if (status === 'unsupported') throw new Error('Este navegador não oferece notificações push para o PWA. Instale o app pelo Chrome/Edge no Android.');
+  if (status === 'not_configured') throw new Error('As notificações do telefone ainda não foram configuradas no servidor (VAPID).');
+  const permission = await requestPwaNotificationPermission();
+  if (permission !== 'granted') throw new Error('Permissão de notificações não concedida no telefone.');
+  const registration = await navigator.serviceWorker.ready;
+  const existing = await registration.pushManager.getSubscription();
+  const subscription = existing || await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: decodeVapidKey(appConfig.vapidPublicKey) as unknown as BufferSource });
+
+  if (storeId && userId && isSupabaseConfigured) {
+    const json = subscription.toJSON();
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) throw new Error('O navegador não retornou uma assinatura push válida.');
+    await restFetch('food_push_subscriptions?on_conflict=store_id,endpoint', {
+      method: 'POST',
+      prefer: 'resolution=merge-duplicates,return=minimal',
+      body: {
+        store_id: storeId,
+        user_id: userId,
+        endpoint: json.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+        user_agent: navigator.userAgent.slice(0, 500),
+        active: true,
+      },
+    });
+  }
+  return subscription;
 };
 
 /** Usa o service worker para seguir o padrão de notificações do PWA instalado. */
