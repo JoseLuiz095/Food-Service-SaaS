@@ -26,6 +26,8 @@ const initial: CheckoutData = {
 
 const REQUEST_KEY_PREFIX = 'foodservice_checkout_request_v1';
 const requestKey = (storeId: string) => `${REQUEST_KEY_PREFIX}:${storeId}`;
+const DRAFT_KEY_PREFIX = 'foodweb_checkout_draft_v1';
+const draftKey = (storeId: string) => `${DRAFT_KEY_PREFIX}:${storeId}`;
 const newRequestId = () => typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 const localDateTimeInputValue = (date: Date) => {
   const pad = (value: number) => String(value).padStart(2, '0');
@@ -44,6 +46,7 @@ export default function Checkout() {
   const [turnstileReset, setTurnstileReset] = useState(0);
   const [requestId, setRequestId] = useState('');
   const [rememberCustomer, setRememberCustomer] = useState(false);
+  const [draftReadyForStore, setDraftReadyForStore] = useState('');
   const trackedCheckout = useRef(false);
 
   const update = <K extends keyof CheckoutData>(key: K, value: CheckoutData[K]) => setForm((current) => ({ ...current, [key]: value }));
@@ -52,10 +55,15 @@ export default function Checkout() {
   useEffect(() => {
     if (!settings.id) return;
     const profile = loadCustomerCheckoutProfile(settings.id);
-    if (profile) {
-      setForm((current) => ({ ...current, ...profile }));
-      setRememberCustomer(true);
-    }
+    let draft: Partial<CheckoutData> = {};
+    try {
+      const stored = localStorage.getItem(draftKey(settings.id));
+      if (stored) draft = JSON.parse(stored) as Partial<CheckoutData>;
+    } catch { /* storage indisponível ou rascunho antigo inválido */ }
+    setDraftReadyForStore('');
+    setForm({ ...initial, ...(profile || {}), ...draft, deliveryFee: 0 });
+    if (profile) setRememberCustomer(true);
+    setDraftReadyForStore(settings.id);
     try {
       const key = requestKey(settings.id);
       const existing = sessionStorage.getItem(key);
@@ -64,6 +72,17 @@ export default function Checkout() {
       setRequestId(value);
     } catch { setRequestId(newRequestId()); }
   }, [settings.id]);
+
+  useEffect(() => {
+    if (!settings.id || draftReadyForStore !== settings.id) return;
+    const timer = window.setTimeout(() => {
+      try {
+        // O rascunho não contém token antifraude nem qualquer dado de pagamento.
+        localStorage.setItem(draftKey(settings.id), JSON.stringify(form));
+      } catch { /* modo privado ou cota do navegador esgotada */ }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [draftReadyForStore, form, settings.id]);
 
   useEffect(() => {
     if (!loading && items.length && settings.id && !trackedCheckout.current) {
@@ -206,6 +225,7 @@ export default function Checkout() {
         customerInstagram: form.customerInstagram, acquisitionSource: form.acquisitionSource,
       });
       clear();
+      try { localStorage.removeItem(draftKey(settings.id)); } catch { /* sem storage */ }
       try { sessionStorage.removeItem(requestKey(settings.id)); } catch { /* sem storage */ }
       navigate(storefrontPath(storeBasePath, `/pedido/${result.orderId}`), { state: confirmation });
     } catch (error) {
@@ -222,7 +242,7 @@ export default function Checkout() {
     <div className="checkout-trustbar-v44 container"><span><ShieldCheck size={17}/><b>Pedido protegido</b><small>Turnstile e validação no servidor</small></span><span><LockKeyhole size={17}/><b>Dados usados só no pedido</b><small>Sem exposição do suporte interno</small></span><span><CheckCircle2 size={17}/><b>{whatsappAvailable ? 'Pedido salvo primeiro' : 'WhatsApp opcional'}</b><small>{whatsappAvailable ? 'Essencial para agilizar confirmação e suporte' : 'Essencial para agilizar confirmação e suporte'}</small></span></div>
     <form className="container checkout-layout checkout-layout--premium" onSubmit={submit}>
       <section className="checkout-main">
-        <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Finalize seu pedido</h1><p>{whatsappAvailable ? 'O pedido será salvo antes de qualquer abertura do WhatsApp.' : 'O pedido será salvo e acompanhado pela loja diretamente no painel. O WhatsApp não é obrigatório, mas é essencial para agilizar confirmações e tirar dúvidas.'}</p></div>
+        <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Finalize seu pedido</h1><p>{whatsappAvailable ? 'O pedido será salvo antes de qualquer abertura do WhatsApp.' : 'O pedido será salvo e acompanhado pela loja diretamente no painel. O WhatsApp não é obrigatório, mas é essencial para agilizar confirmações e tirar dúvidas.'}</p><small className="checkout-draft-status">Se você recarregar a página, seus dados preenchidos serão restaurados automaticamente neste dispositivo.</small></div>
 
         {(!openStatus.open || stockSchedulingRequired || deliveryBlockedBeforeStart) && <div className="checkout-alert"><AlertCircle size={19}/><div><strong>{stockSchedulingRequired ? 'Agendamento necessário para este pedido' : deliveryBlockedBeforeStart ? 'Entregas começam mais tarde' : 'Loja fechada agora'}</strong><span>{stockSchedulingRequired ? 'Um ou mais itens não têm disponibilidade hoje. Escolha um horário a partir de amanhã.' : deliveryBlockedBeforeStart ? `A janela de entrega começa às ${settings.deliveryStartTime}. A retirada continua disponível normalmente.` : `${openStatus.detail}. ${settings.allowScheduledOrders ? 'Você pode agendar o pedido.' : 'Novos pedidos ficam bloqueados fora do horário.'}`}</span>{(settings.allowScheduledOrders || stockSchedulingRequired || deliveryBlockedBeforeStart) && <label className="scheduled-order-field">Agendar para<input type="datetime-local" value={form.scheduledFor} min={localDateTimeInputValue(stockSchedulingRequired ? tomorrowStart : new Date(Date.now()+30*60*1000))} onChange={(event)=>update('scheduledFor',event.target.value)}/><small>{stockSchedulingRequired ? 'Disponível somente a partir do dia seguinte.' : deliveryBlockedBeforeStart ? `Escolha ${settings.deliveryStartTime} ou mais tarde para delivery.` : 'Horário local do estabelecimento. A disponibilidade será validada novamente no servidor.'}</small></label>}</div></div>}
 

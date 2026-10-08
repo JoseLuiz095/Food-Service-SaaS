@@ -1360,7 +1360,24 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .order-payment-received strong{font-size:.72rem}
 .order-payment-received small{color:var(--muted);font-size:.62rem;white-space:nowrap}
 .order-payment-cancelled{display:inline-flex;color:#9b3434;background:#fff1f0;border:1px solid #f1cfcb;border-radius:999px;padding:6px 9px;font-size:.65rem;font-weight:800;white-space:nowrap}
+.order-payment-pending{display:inline-flex;align-items:center;gap:6px;color:#9a5a13;background:#fff8e9;border:1px solid #f0d69b;border-radius:999px;padding:6px 9px;font-size:.65rem;font-weight:850;white-space:nowrap;margin-bottom:7px}
+.order-payment-pending svg{flex:0 0 auto}
+.order-payment-confirm-button--prominent{min-height:42px;padding-inline:14px;background:var(--food-red,#c74d2f);border-color:var(--food-red,#c74d2f);color:#fff;box-shadow:0 8px 18px rgba(199,77,47,.16)}
+.order-payment-confirm-button--prominent:hover{background:#a93d28;border-color:#a93d28}
+.orders-payment-inbox{margin:0 0 16px;border-color:#f0d9aa;background:linear-gradient(135deg,#fffdf8,#fff8ec)}
+.orders-payment-inbox__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.orders-payment-inbox__heading h2{margin:5px 0 0}
+.orders-payment-inbox__heading p{margin:5px 0 0;max-width:760px}
+.orders-payment-inbox__heading>strong{display:grid;place-items:center;min-width:42px;height:42px;border-radius:999px;background:#f7e7bd;color:#8b5b13;font-size:1rem}
+.orders-payment-inbox__list{display:grid;gap:8px;margin-top:14px}
+.orders-payment-inbox__list article{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 13px;border:1px solid #f1e0bc;border-radius:13px;background:#fff}
+.orders-payment-inbox__list article>div{display:grid;gap:3px;min-width:0}
+.orders-payment-inbox__list article strong{font-size:.78rem}
+.orders-payment-inbox__list article span,.orders-payment-inbox__list article small{font-size:.68rem;color:var(--muted)}
+.orders-payment-inbox__empty{display:flex;align-items:center;gap:8px;margin-top:13px;padding:12px;border-radius:11px;background:#f5fbf6;color:#28724b;font-size:.75rem;font-weight:700}
+.checkout-draft-status{display:block;margin-top:8px;color:#8a6a5d;font-size:.74rem;line-height:1.45}
 @media(max-width:760px){.order-payment-confirm-button{width:100%;min-width:154px}}
+@media(max-width:680px){.orders-payment-inbox__heading{align-items:flex-start}.orders-payment-inbox__list article{align-items:stretch;flex-direction:column}.orders-payment-inbox__list article .order-payment-confirm-button{width:100%}}
 
 
 /* v0.5.0 - estabilidade, cobranca e diagnostico */

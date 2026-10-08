@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import { formatDateTimeBR } from '../../utils/format';
+import { showPwaNotification } from '../../services/pwaNotifications';
 
 const seenReminderKey = (storeId: string, orderId: string, scheduledFor: string) => `foodweb-notification-reminder:${storeId}:${orderId}:${scheduledFor}`;
 
@@ -24,11 +25,6 @@ const playAlertSound = () => {
     oscillator.stop(context.currentTime + 0.26);
     window.setTimeout(() => void context.close(), 400);
   } catch { /* Alguns navegadores bloqueiam áudio sem uma interação prévia. */ }
-};
-
-const showDesktopNotification = (title: string, body: string, enabled: boolean) => {
-  if (!enabled || !('Notification' in window) || Notification.permission !== 'granted') return;
-  try { new Notification(title, { body, icon: '/assets/food-logo.svg', tag: `${title}:${body}` }); } catch { /* fallback no painel permanece ativo */ }
 };
 
 export function AdminNotifications() {
@@ -55,7 +51,7 @@ export function AdminNotifications() {
       showToast(`${label} recebido · ${detail}`, 'success');
       setUnread((value) => value + 1);
       if (settings.notificationsSoundEnabled) playAlertSound();
-      showDesktopNotification('Novo pedido na loja', `${label} · ${detail}`, settings.notificationsDesktopEnabled);
+      if (settings.notificationsDesktopEnabled) void showPwaNotification('Novo pedido na loja', `${label} · ${detail}`, { tag: `new-order:${order.id}` });
     });
 
     if (settings.notificationsScheduledEnabled) {
@@ -73,7 +69,7 @@ export function AdminNotifications() {
         showToast(`${label} agendado para breve · ${detail}`, 'info');
         setUnread((value) => value + 1);
         if (settings.notificationsSoundEnabled) playAlertSound();
-        showDesktopNotification('Pedido agendado próximo', `${label} · ${detail}`, settings.notificationsDesktopEnabled);
+        if (settings.notificationsDesktopEnabled) void showPwaNotification('Pedido agendado próximo', `${label} · ${detail}`, { tag: `scheduled-order:${order.id}` });
       });
     }
   }, [orders, settings, showToast]);
