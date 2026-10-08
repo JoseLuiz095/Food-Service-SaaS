@@ -448,7 +448,7 @@ set search_path=public,pg_temp
 as $$
 declare
   v_store_id uuid; v_order_id uuid := gen_random_uuid(); v_order_number bigint;
-  v_customer_name text; v_customer_phone text; v_source text; v_payment_method text; v_status text;
+  v_customer_name text; v_customer_phone text; v_delivery_type text; v_source text; v_payment_method text; v_status text;
   v_received boolean := false; v_notes text; v_item jsonb; v_option jsonb; v_product public.food_products%rowtype;
   v_group record; v_option_record record; v_product_id uuid; v_group_id uuid; v_option_id uuid;
   v_quantity integer; v_option_quantity integer; v_choice_count integer; v_unit_price numeric(12,2); v_item_total numeric(12,2);
@@ -460,8 +460,9 @@ begin
   if payload is null or jsonb_typeof(payload) <> 'object' then raise exception 'Pedido avulso inválido.'; end if;
   begin v_store_id := (payload->>'store_id')::uuid; exception when others then raise exception 'Loja inválida.'; end;
   if not exists (select 1 from public.food_store_users su where su.store_id=v_store_id and su.user_id=auth.uid() and su.active and su.role in ('owner','admin','manager')) then raise exception 'Acesso negado para lançar pedidos desta loja.' using errcode='42501'; end if;
-  v_customer_name:=trim(coalesce(payload->>'customer_name','')); v_customer_phone:=nullif(trim(coalesce(payload->>'customer_phone','')),''); v_source:=coalesce(nullif(trim(payload->>'source'),''),'counter'); v_payment_method:=coalesce(nullif(trim(payload->>'payment_method'),''),'cash'); v_status:=coalesce(nullif(trim(payload->>'status'),''),'received'); v_notes:=nullif(left(trim(coalesce(payload->>'notes','')),500),'');
+  v_customer_name:=trim(coalesce(payload->>'customer_name','')); v_customer_phone:=nullif(trim(coalesce(payload->>'customer_phone','')),''); v_delivery_type:=coalesce(nullif(trim(payload->>'delivery_type'),''),'pickup'); v_source:=coalesce(nullif(trim(payload->>'source'),''),'counter'); v_payment_method:=coalesce(nullif(trim(payload->>'payment_method'),''),'cash'); v_status:=coalesce(nullif(trim(payload->>'status'),''),'received'); v_notes:=nullif(left(trim(coalesce(payload->>'notes','')),500),'');
   if length(v_customer_name)<2 then raise exception 'Informe o nome do cliente.'; end if;
+  if v_delivery_type not in ('delivery','pickup') then raise exception 'Forma de recebimento inválida.'; end if;
   if v_source not in ('counter','whatsapp','phone','ifood','other') then raise exception 'Origem do pedido inválida.'; end if;
   if v_payment_method not in ('confirm','pix','card','cash') then raise exception 'Forma de pagamento inválida.'; end if;
   if v_status not in ('received','confirmed','preparing','ready','out_for_delivery','delivered','picked_up','cancelled') then raise exception 'Status inicial inválido.'; end if;
@@ -506,7 +507,7 @@ begin
   end loop;
   v_subtotal:=round(v_subtotal,2); v_total:=v_subtotal;
   insert into public.food_orders(id,store_id,customer_name,customer_phone,delivery_type,desired_date,scheduled_for,notes,payment_method,review_confirmed,subtotal,total,status,payment_status,payment_received_at,payment_confirmed_by,preparation_estimate_minutes,source)
-  values(v_order_id,v_store_id,v_customer_name,v_customer_phone,'pickup',coalesce((v_scheduled_for at time zone v_timezone)::date,current_date),v_scheduled_for,v_notes,v_payment_method,true,v_subtotal,v_total,v_status,case when v_received then 'paid' else 'pending' end,case when v_received then now() else null end,case when v_received then auth.uid() else null end,v_preparation_extra,v_source) returning food_orders.order_number into v_order_number;
+  values(v_order_id,v_store_id,v_customer_name,v_customer_phone,v_delivery_type,coalesce((v_scheduled_for at time zone v_timezone)::date,current_date),v_scheduled_for,v_notes,v_payment_method,true,v_subtotal,v_total,v_status,case when v_received then 'paid' else 'pending' end,case when v_received then now() else null end,case when v_received then auth.uid() else null end,v_preparation_extra,v_source) returning food_orders.order_number into v_order_number;
   for v_item in select * from jsonb_array_elements(v_items_calculated) loop
     insert into public.food_order_items(order_id,product_id,product_name,quantity,unit_price,variant_name,variant_price_delta,addons,item_total) values(v_order_id,(v_item->>'product_id')::uuid,v_item->>'product_name',(v_item->>'quantity')::integer,(v_item->>'unit_price')::numeric,null,0,coalesce(v_item->'options','[]'::jsonb),(v_item->>'item_total')::numeric) returning id into v_order_item_id;
     for v_option in select * from jsonb_array_elements(coalesce(v_item->'options','[]'::jsonb)) loop

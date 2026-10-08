@@ -9,7 +9,7 @@ import { currency, formatDateTimeBR, roundMoney } from '../../utils/format';
 import type { ManualOrderInput, ManualOrderItemInput, ManualOrderSource, Order, OrderStatus, PaymentMethod } from '../../types';
 import { formatOrderNumber } from '../../utils/orderConfirmation';
 import { copyText } from '../../utils/clipboard';
-import { buildPixCopyPasteWithAmount, buildStaticPixCopyPaste } from '../../utils/pix';
+import { buildPixPayloadWithAmount } from '../../utils/pix';
 import { buildComeBackMessage, buildOrderStatusMessage, buildSalesRecoveryMessage, normalizeWhatsappPhone, openCustomerWhatsapp } from '../../utils/customerSales';
 
 const statusOptions: Array<{ value: OrderStatus; label: string }> = [
@@ -62,11 +62,29 @@ const tomorrowAt = (hour: number, minute = 0) => {
   return date;
 };
 
+const nextDeliveryWindow = (deliveryStartTime?: string) => {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(deliveryStartTime || '');
+  return tomorrowAt(match ? Number(match[1]) : 18, match ? Number(match[2]) : 0);
+};
+
+/** Saldo que ainda pode ser usado por um novo pedido. A reserva de pedidos
+ * pendentes também precisa ser descontada para que o avulso ofereça
+ * agendamento antes de chegar ao RPC e falhar na reserva. */
+const availableStock = (product: { trackStock: boolean; stockQuantity?: number; stockReservedQuantity?: number }) =>
+  product.trackStock
+    ? Math.max(0, Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0))
+    : Number.POSITIVE_INFINITY;
+
+const productNeedsFutureScheduling = (product: { availabilityStatus: string; stockStatus: string; trackStock: boolean; stockQuantity?: number; stockReservedQuantity?: number }, quantity = 1) =>
+  product.availabilityStatus !== 'available'
+  || product.stockStatus === 'unavailable'
+  || availableStock(product) < quantity;
+
 type SortMode = (typeof sortOptions)[number]['value'];
 type CustomerSummary = { key: string; name: string; phone: string; orders: number; total: number; lastAt: string };
-type ManualPixView = { orderNumber: number; total: number; payload: string };
+type ManualPixView = { orderNumber: number; total: number; payload: string; error?: string };
 const newManualOrder = (): Omit<ManualOrderInput, 'items'> => ({
-  customerName: '', customerPhone: '', source: 'counter', paymentMethod: 'cash', status: 'received', received: true, notes: '',
+  customerName: '', customerPhone: '', fulfillment: 'pickup', source: 'counter', paymentMethod: 'cash', status: 'received', received: true, notes: '',
 });
 
 export default function OrdersAdmin() {
@@ -88,6 +106,9 @@ export default function OrdersAdmin() {
   const [manualSaving, setManualSaving] = useState(false);
   const [manualPixView, setManualPixView] = useState<ManualPixView | null>(null);
   const [manualPixQrCode, setManualPixQrCode] = useState('');
+  const [manualPixQrCodeError, setManualPixQrCodeError] = useState('');
+  const [manualPixPreviewQrCode, setManualPixPreviewQrCode] = useState('');
+  const [manualPixPreviewQrCodeError, setManualPixPreviewQrCodeError] = useState('');
   const [manualPixChargeNow, setManualPixChargeNow] = useState(false);
   const [manualPixCopied, setManualPixCopied] = useState(false);
   const [manualFormError, setManualFormError] = useState('');
@@ -99,11 +120,13 @@ export default function OrdersAdmin() {
     let cancelled = false;
     if (!manualPixView?.payload) {
       setManualPixQrCode('');
+      setManualPixQrCodeError('');
       return () => { cancelled = true; };
     }
+    setManualPixQrCodeError('');
     void QRCode.toDataURL(manualPixView.payload, { errorCorrectionLevel: 'M', margin: 2, width: 260 })
       .then((dataUrl) => { if (!cancelled) setManualPixQrCode(dataUrl); })
-      .catch(() => { if (!cancelled) setManualPixQrCode(''); });
+      .catch(() => { if (!cancelled) { setManualPixQrCode(''); setManualPixQrCodeError('O QR Code não pôde ser desenhado neste aparelho. Use o PIX Copia e Cola abaixo.'); } });
     return () => { cancelled = true; };
   }, [manualPixView?.payload]);
 
@@ -122,6 +145,49 @@ export default function OrdersAdmin() {
     return sum + ((product.promotionalPrice ?? product.price) + optionsTotal) * item.quantity;
   }, 0)), [manualItems, products]);
 
+  const manualUnavailableItem = useMemo(() => manualItems.map((item) => {
+    const product = products.find((current) => current.id === item.productId);
+    if (!product) return null;
+    const unavailable = productNeedsFutureScheduling(product, item.quantity);
+    return unavailable ? { item, product } : null;
+  }).find(Boolean) || null, [manualItems, products]);
+
+  const manualPixPreview = useMemo(() => {
+    if (!manualPixChargeNow || manualOrder.paymentMethod !== 'pix') return { payload: '', error: '' };
+    if (manualSubtotal <= 0) return { payload: '', error: 'Adicione pelo menos um produto para calcular e gerar o PIX com valor.' };
+    try {
+      return {
+        payload: buildPixPayloadWithAmount({
+          receiptMode: settings.pixReceiptMode,
+          copyPaste: settings.pixCopyPaste,
+          key: settings.pixKey,
+          receiver: settings.pixReceiver,
+          city: settings.city || 'Linhares',
+          amount: manualSubtotal,
+          txid: 'PEDAVULSO',
+        }),
+        error: '',
+      };
+    } catch (error) {
+      return { payload: '', error: error instanceof Error ? error.message : 'Configure a chave PIX ou um PIX Copia e Cola estático válido nas configurações da loja.' };
+    }
+  }, [manualOrder.paymentMethod, manualPixChargeNow, manualSubtotal, settings.city, settings.pixCopyPaste, settings.pixKey, settings.pixReceiver, settings.pixReceiptMode]);
+  const manualPixPreviewPayload = manualPixPreview.payload;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!manualPixPreviewPayload) {
+      setManualPixPreviewQrCode('');
+      setManualPixPreviewQrCodeError('');
+      return () => { cancelled = true; };
+    }
+    setManualPixPreviewQrCodeError('');
+    void QRCode.toDataURL(manualPixPreviewPayload, { errorCorrectionLevel: 'M', margin: 2, width: 190 })
+      .then((dataUrl) => { if (!cancelled) setManualPixPreviewQrCode(dataUrl); })
+      .catch(() => { if (!cancelled) { setManualPixPreviewQrCode(''); setManualPixPreviewQrCodeError('O QR Code não pôde ser desenhado neste aparelho. Use o PIX Copia e Cola.'); } });
+    return () => { cancelled = true; };
+  }, [manualPixPreviewPayload]);
+
   const openManualOrder = () => {
     setManualOrder(newManualOrder());
     setManualItems([]);
@@ -135,6 +201,11 @@ export default function OrdersAdmin() {
     if (!manualProductId || manualItems.some((item) => item.productId === manualProductId)) return;
     setManualItems((items) => [...items, { productId: manualProductId, quantity: 1, options: [] }]);
     setManualProductId('');
+  };
+
+  const scheduleManualRestock = () => {
+    setManualFormError('');
+    setManualOrder((current) => ({ ...current, scheduledFor: localDateTimeInputValue(current.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart()) }));
   };
 
   const updateManualItem = (productId: string, patch: Partial<ManualOrderItemInput>) => {
@@ -157,14 +228,29 @@ export default function OrdersAdmin() {
     event.preventDefault();
     if (!manualOrder.customerName.trim() || !manualItems.length) return;
     if (manualOrder.status === 'cancelled' && manualOrder.received) return;
-    const scheduledAt = manualOrder.scheduledFor ? new Date(manualOrder.scheduledFor) : null;
-    if (scheduledAt && (!Number.isFinite(scheduledAt.getTime()) || scheduledAt < tomorrowStart())) {
-      setManualFormError('O lançamento futuro precisa ser agendado a partir de amanhã.');
+    if (manualOrder.fulfillment === 'delivery' && !settings.deliveryEnabled) {
+      setManualFormError('O delivery está desativado nas configurações da loja. Selecione retirada ou ative o delivery.');
       return;
+    }
+    const scheduledAt = manualOrder.scheduledFor ? new Date(manualOrder.scheduledFor) : null;
+    const minimumSchedule = manualOrder.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart();
+    if (scheduledAt && (!Number.isFinite(scheduledAt.getTime()) || scheduledAt < minimumSchedule)) {
+      setManualFormError(manualOrder.fulfillment === 'delivery'
+        ? `O delivery futuro precisa ser agendado a partir de amanhã às ${settings.deliveryStartTime || '18:00'}.`
+        : 'A retirada futura precisa ser agendada a partir de amanhã.');
+      return;
+    }
+    if (manualOrder.fulfillment === 'delivery' && !scheduledAt && settings.deliveryStartTime) {
+      const [startHour, startMinute] = settings.deliveryStartTime.split(':').map(Number);
+      const now = new Date();
+      if (now.getHours() * 60 + now.getMinutes() < startHour * 60 + startMinute) {
+        setManualFormError(`O delivery só pode ser lançado a partir das ${settings.deliveryStartTime}. Para antes desse horário, selecione retirada ou agende para amanhã.`);
+        return;
+      }
     }
     const unavailableItem = manualItems.find((item) => {
       const product = products.find((current) => current.id === item.productId);
-      return !product || product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable' || (product.trackStock && item.quantity > (product.stockQuantity ?? 0));
+      return !product || productNeedsFutureScheduling(product, item.quantity);
     });
     if (unavailableItem && !scheduledAt) {
       setManualFormError('Há produto sem disponibilidade ou estoque suficiente. Informe uma data a partir de amanhã para registrar como encomenda futura.');
@@ -178,6 +264,10 @@ export default function OrdersAdmin() {
       setManualFormError('Revise as opções obrigatórias dos produtos selecionados.');
       return;
     }
+    if (manualOrder.paymentMethod === 'pix' && manualPixChargeNow && !manualPixPreviewPayload) {
+      setManualFormError(manualPixPreview.error || 'Configure o PIX da loja antes de cobrar agora.');
+      return;
+    }
     setManualFormError('');
     setManualSaving(true);
     try {
@@ -186,12 +276,21 @@ export default function OrdersAdmin() {
       setManualOrderOpen(false);
       if (manualOrder.paymentMethod === 'pix' && manualPixChargeNow) {
         let payload = '';
+        let pixError = '';
         try {
-          payload = settings.pixReceiptMode === 'copy_paste'
-            ? buildPixCopyPasteWithAmount(settings.pixCopyPaste, result.total)
-            : buildStaticPixCopyPaste({ key: settings.pixKey, receiver: settings.pixReceiver, city: settings.city || 'Linhares', amount: result.total, txid: `PED${result.orderNumber}` });
-        } catch { payload = ''; }
-        setManualPixView({ orderNumber: result.orderNumber, total: result.total, payload });
+          payload = buildPixPayloadWithAmount({
+            receiptMode: settings.pixReceiptMode,
+            copyPaste: settings.pixCopyPaste,
+            key: settings.pixKey,
+            receiver: settings.pixReceiver,
+            city: settings.city || 'Linhares',
+            amount: result.total,
+            txid: `PED${result.orderNumber}`,
+          });
+        } catch (error) {
+          pixError = error instanceof Error ? error.message : 'Não foi possível gerar o PIX com valor.';
+        }
+        setManualPixView({ orderNumber: result.orderNumber, total: result.total, payload, error: pixError || undefined });
         setManualPixCopied(false);
       }
     } catch (manualOrderError) {
@@ -382,7 +481,7 @@ export default function OrdersAdmin() {
       })}</tbody></table></div>}
     </section>
     {manualOrderOpen && <div className="modal-overlay" role="presentation">
-      <form className="master-modal master-modal--wide" role="dialog" aria-modal="true" aria-labelledby="manual-order-title" onSubmit={saveManualOrder}>
+      <form className="master-modal master-modal--wide manual-order-modal" role="dialog" aria-modal="true" aria-labelledby="manual-order-title" onSubmit={saveManualOrder}>
         <button type="button" className="modal-close" aria-label="Fechar lançamento de pedido avulso" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}><X/></button>
         <span className="eyebrow">LANÇAMENTO OPERACIONAL</span>
         <h2 id="manual-order-title">Pedido avulso</h2>
@@ -390,17 +489,17 @@ export default function OrdersAdmin() {
         {manualFormError && <div className="manual-order-feedback manual-order-feedback--error" role="alert"><AlertCircle size={17}/><span>{manualFormError}</span></div>}
         <div className="form-grid">
           <label>Cliente<input required value={manualOrder.customerName} onChange={(event) => setManualOrder((current) => ({ ...current, customerName: event.target.value }))} placeholder="Nome do cliente"/></label>
-          <label>Telefone <span className="optional-label">opcional</span><input value={manualOrder.customerPhone || ''} onChange={(event) => setManualOrder((current) => ({ ...current, customerPhone: event.target.value }))} placeholder="(27) 99999-9999"/></label>
-          <label>Origem<select value={manualOrder.source} onChange={(event) => setManualOrder((current) => ({ ...current, source: event.target.value as ManualOrderSource }))}>{manualSourceOptions.map((source) => <option key={source.value} value={source.value}>{source.label}</option>)}</select></label>
+          <label>Como será recebido?<select value={manualOrder.fulfillment || 'pickup'} onChange={(event) => { const fulfillment = event.target.value as ManualOrderInput['fulfillment']; setManualOrder((current) => ({ ...current, fulfillment })); setManualFormError(''); }}><option value="pickup">Retirada</option><option value="delivery" disabled={!settings.deliveryEnabled}>Delivery{settings.deliveryEnabled ? '' : ' (desativado)'}</option></select><small>Delivery respeita o início configurado; retirada não.</small></label>
           <label>Pagamento<select value={manualOrder.paymentMethod} onChange={(event) => { const paymentMethod = event.target.value as PaymentMethod; setManualOrder((current) => ({ ...current, paymentMethod })); if (paymentMethod !== 'pix') setManualPixChargeNow(false); }}>{Object.entries(paymentLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
-          <label>Recebimento<select value={manualOrder.received ? 'paid' : 'pending'} disabled={manualOrder.status === 'cancelled'} onChange={(event) => setManualOrder((current) => ({ ...current, received: event.target.value === 'paid' }))}><option value="pending">A receber do cliente</option><option value="paid">Recebido</option></select><small>Use “A receber” para confirmar depois no painel de pedidos.</small></label>
-          <label>Agendar pedido <span className="optional-label">opcional</span><input type="datetime-local" min={localDateTimeInputValue(tomorrowStart())} value={manualOrder.scheduledFor || ''} onChange={(event) => { setManualFormError(''); setManualOrder((current) => ({ ...current, scheduledFor: event.target.value || undefined })); }}/><span className="manual-order-schedule-actions"><button type="button" className="text-button" onClick={() => { setManualFormError(''); setManualOrder((current) => ({ ...current, scheduledFor: localDateTimeInputValue(tomorrowAt(18)) })); }}>Amanhã às 18h</button><small>Disponível somente a partir de amanhã.</small></span></label>
-          <label className="manual-pix-charge-toggle"><input type="checkbox" checked={manualPixChargeNow} disabled={manualOrder.paymentMethod !== 'pix' || manualOrder.status === 'cancelled'} onChange={(event) => { const checked = event.target.checked; setManualPixChargeNow(checked); if (checked) setManualOrder((current) => ({ ...current, received: false })); }}/><span><strong>Cobrar agora via PIX</strong><small>Gera QR Code e PIX Copia e Cola após salvar. O recebimento continua “A receber” até a conferência.</small></span></label>
+          <label>Agendar pedido <span className="optional-label">opcional</span><input type="datetime-local" min={localDateTimeInputValue(manualOrder.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart())} value={manualOrder.scheduledFor || ''} onChange={(event) => { setManualFormError(''); setManualOrder((current) => ({ ...current, scheduledFor: event.target.value || undefined })); }}/><span className="manual-order-schedule-actions"><button type="button" className="text-button" onClick={scheduleManualRestock}>Amanhã{manualOrder.fulfillment === 'delivery' ? ` às ${settings.deliveryStartTime || '18:00'}` : ''}</button><small>Para encomendas sem estoque, disponível somente a partir de amanhã{manualOrder.fulfillment === 'delivery' && settings.deliveryStartTime ? ` e delivery após ${settings.deliveryStartTime}` : ''}.</small></span></label>
+          <label className="manual-pix-charge-toggle"><input type="checkbox" checked={manualPixChargeNow} disabled={manualOrder.paymentMethod !== 'pix' || manualOrder.status === 'cancelled'} onChange={(event) => { const checked = event.target.checked; setManualPixChargeNow(checked); if (checked) setManualOrder((current) => ({ ...current, received: false })); }}/><span><strong>Cobrar agora via PIX</strong><small>Gera o QR Code e o PIX Copia e Cola com o valor. O recebimento continua “A receber” até a conferência.</small></span></label>
+          {manualPixChargeNow && manualOrder.paymentMethod === 'pix' && <div className="manual-pix-live-preview"><div><QrCode size={18}/><span><strong>Cobrança via PIX</strong><small>O QR Code e o PIX Copia e Cola usam o valor atualizado do pedido.</small></span></div>{manualPixPreviewPayload ? <div className="manual-pix-live-preview__content">{manualPixPreviewQrCode ? <img src={manualPixPreviewQrCode} alt={`QR Code PIX no valor de ${currency.format(manualSubtotal)}`} /> : manualPixPreviewQrCodeError ? <span className="manual-pix-live-preview__error">{manualPixPreviewQrCodeError}</span> : <span className="manual-pix-result-loading">Gerando QR Code…</span>}<div><strong>{currency.format(manualSubtotal)}</strong><button type="button" className="text-button" onClick={() => void copyText(manualPixPreviewPayload).then(() => { setManualPixCopied(true); window.setTimeout(() => setManualPixCopied(false), 1800); })}><Copy size={14}/>{manualPixCopied ? 'Copiado' : 'Copiar PIX'}</button></div></div> : <div className="manual-pix-live-preview__error">{manualPixPreview.error}</div>}</div>}
+          <details className="manual-order-more-options"><summary>Mais opções <small>telefone, origem e recebimento</small></summary><div className="form-grid manual-order-more-options__grid"><label>Telefone <span className="optional-label">opcional</span><input value={manualOrder.customerPhone || ''} onChange={(event) => setManualOrder((current) => ({ ...current, customerPhone: event.target.value }))} placeholder="(27) 99999-9999"/></label><label>Origem<select value={manualOrder.source} onChange={(event) => setManualOrder((current) => ({ ...current, source: event.target.value as ManualOrderSource }))}>{manualSourceOptions.map((source) => <option key={source.value} value={source.value}>{source.label}</option>)}</select></label><label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label><label>Recebimento<select value={manualOrder.received ? 'paid' : 'pending'} disabled={manualOrder.status === 'cancelled'} onChange={(event) => setManualOrder((current) => ({ ...current, received: event.target.value === 'paid' }))}><option value="pending">A receber do cliente</option><option value="paid">Recebido</option></select><small>Use “A receber” para confirmar depois no painel.</small></label></div></details>
         </div>
 
         <section>
           <h3>Produtos</h3>
+          {manualUnavailableItem && !manualOrder.scheduledFor && <div className="manual-stock-schedule-card" role="status"><AlertCircle size={18}/><div><strong>{manualUnavailableItem.product.name} precisa de reposição</strong><span>Registre como encomenda futura e o estoque só será baixado após a reposição e confirmação.</span></div><button type="button" className="secondary-button" onClick={scheduleManualRestock}>Agendar amanhã</button></div>}
           <div className="form-grid">
           <label>Adicionar produto<select value={manualProductId} onChange={(event) => setManualProductId(event.target.value)}><option value="">Selecione</option>{manualProducts.filter((product) => !manualItems.some((item) => item.productId === product.id)).map((product) => <option key={product.id} value={product.id}>{product.name} · {currency.format(product.promotionalPrice ?? product.price)}{product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable' ? ' · encomenda' : ''}</option>)}</select></label>
             <div><button className="secondary-button" type="button" onClick={addManualProduct} disabled={!manualProductId}>Adicionar item</button></div>
@@ -430,9 +529,9 @@ export default function OrdersAdmin() {
         <h2 id="manual-pix-result-title">PIX do pedido #{formatOrderNumber(manualPixView.orderNumber)}</h2>
         <p>Use este QR Code ou o PIX Copia e Cola para enviar a cobrança ao cliente. O recebimento ainda deve ser conferido no painel.</p>
         {manualPixView.payload ? <>
-          {manualPixQrCode ? <img className="manual-pix-result-qr" src={manualPixQrCode} alt={`QR Code PIX no valor de ${currency.format(manualPixView.total)}`} /> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
+          {manualPixQrCode ? <img className="manual-pix-result-qr" src={manualPixQrCode} alt={`QR Code PIX no valor de ${currency.format(manualPixView.total)}`} /> : manualPixQrCodeError ? <div className="manual-pix-live-preview__error">{manualPixQrCodeError}</div> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
           <label className="manual-pix-result-code">PIX Copia e Cola · {currency.format(manualPixView.total)}<div><textarea readOnly rows={4} value={manualPixView.payload}/><button type="button" className="secondary-button" onClick={() => void copyText(manualPixView.payload).then(() => { setManualPixCopied(true); window.setTimeout(() => setManualPixCopied(false), 1800); })}><Copy size={16}/>{manualPixCopied ? 'Copiado' : 'Copiar'}</button></div></label>
-        </> : <div className="form-error">Configure uma chave PIX ou um PIX Copia e Cola válido nas configurações da loja para gerar a cobrança com valor.</div>}
+        </> : <div className="form-error">{manualPixView.error || 'Configure uma chave PIX ou um PIX Copia e Cola válido nas configurações da loja para gerar a cobrança com valor.'}</div>}
         <div className="master-modal-actions"><button type="button" className="primary-button" onClick={() => setManualPixView(null)}>Concluir</button></div>
       </section>
     </div>}
