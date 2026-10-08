@@ -31,6 +31,9 @@ const masterLogin=read('src/pages/master/Login.tsx');
 const auth=read('src/contexts/AuthContext.tsx');
 const home=read('src/pages/store/Home.tsx');
 const adminLayout=read('src/layouts/AdminLayout.tsx');
+const adminNotifications=read('src/components/admin/AdminNotifications.tsx');
+const pushFunction=read('supabase/functions/food-send-push/index.ts');
+const serviceWorker=read('public/sw.js');
 
 const registered=checkout.indexOf('await registerOrder(');
 const whatsappMessage=checkout.indexOf('buildWhatsAppMessage(');
@@ -61,6 +64,12 @@ check('Frontend valida grupos obrigatórios',product.includes('group.minChoices'
 check('Carrinho usa assinatura das personalizações',cart.includes('normalizedOptionKey'));
 check('WhatsApp só abre após pedido existente',success.includes('markOrderWhatsAppClicked(confirmation.orderId)'));
 check('Status operacional não depende do WhatsApp',orders.includes('Em preparação')&&orders.includes('Pronto')&&orders.includes('Saiu para entrega'));
+check('Notificações aguardam o snapshot inicial',adminNotifications.includes('if (!settings.id || loading) return;'));
+check('Pedidos cancelados não geram alerta de novo pedido',adminNotifications.includes("if (order.status === 'cancelled') return;"));
+check('Assinatura push é sincronizada no painel',adminNotifications.includes('subscribeToPwaPush(membership.storeId, user.id)'));
+check('Checkout aguarda o envio do push',edge.includes('await notifyStoreAdmins(url, service, {'));
+check('Push entrega somente assinaturas ativas',pushFunction.includes(".eq('active', true)"));
+check('Push repetido não vibra novamente',serviceWorker.includes('renotify: false'));
 check('Food Master lê apenas food_*',platformApi.includes('food_stores?')&&platformApi.includes('food_plans?')&&!platformApi.includes("'stores?"));
 check('Food Admin lê apenas food_*',storeApi.includes('food_products?')&&storeApi.includes('food_orders?')&&!storeApi.includes('`products?'));
 

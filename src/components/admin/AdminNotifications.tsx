@@ -1,8 +1,9 @@
 import { Bell, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../contexts/StoreContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { formatDateTimeBR } from '../../utils/format';
-import { showPwaNotification } from '../../services/pwaNotifications';
+import { pwaPushStatus, showPwaNotification, subscribeToPwaPush } from '../../services/pwaNotifications';
 
 const seenReminderKey = (storeId: string, orderId: string, scheduledFor: string) => `foodweb-notification-reminder:${storeId}:${orderId}:${scheduledFor}`;
 
@@ -27,22 +28,33 @@ const playAlertSound = () => {
 };
 
 export function AdminNotifications() {
-  const { settings, orders, reloadAdmin } = useStore();
+  const { settings, orders, loading, reloadAdmin } = useStore();
+  const { user, membership } = useAuth();
   const initialized = useRef(false);
+  const initializedStoreId = useRef('');
   const knownOrderIds = useRef(new Set<string>());
+  const pushSynced = useRef(false);
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
-    if (!settings.id) return;
-    if (!initialized.current) {
+    // Aguarda o primeiro snapshot completo. Antes disso o contexto ainda tem
+    // uma lista vazia; tratá-la como base fazia todos os pedidos históricos
+    // parecerem novos assim que chegavam do Supabase.
+    if (!settings.id || loading) return;
+    if (!initialized.current || initializedStoreId.current !== settings.id) {
+      initializedStoreId.current = settings.id;
       knownOrderIds.current = new Set(orders.map((order) => order.id));
       initialized.current = true;
       return;
     }
 
     const freshOrders = orders.filter((order) => !knownOrderIds.current.has(order.id));
+    // Atualiza a base com todos os registros, inclusive cancelados, para que
+    // uma alteração de status nunca seja interpretada como um novo pedido.
+    orders.forEach((order) => knownOrderIds.current.add(order.id));
     freshOrders.forEach((order) => {
-      knownOrderIds.current.add(order.id);
+      // Pedidos cancelados/testes não devem gerar alerta de pedido novo.
+      if (order.status === 'cancelled') return;
       if (!settings.notificationsNewOrderEnabled) return;
       const label = `Pedido #${order.orderNumber || order.id.slice(0, 8)}`;
       const detail = `${order.customerName} · R$ ${order.total.toFixed(2).replace('.', ',')}`;
@@ -68,7 +80,21 @@ export function AdminNotifications() {
         if (settings.notificationsDesktopEnabled) void showPwaNotification('Pedido agendado próximo', `${label} · ${detail}`, { tag: `scheduled-order:${order.id}` });
       });
     }
-  }, [orders, settings]);
+  }, [loading, orders, settings]);
+
+  useEffect(() => {
+    // Se a permissão já foi aceita anteriormente, garante a assinatura da
+    // loja mesmo que o admin não tenha voltado à tela de configurações.
+    if (!settings.id || !membership?.storeId || !user?.id || !settings.notificationsDesktopEnabled || pushSynced.current) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    if (pwaPushStatus() === 'not_configured' || pwaPushStatus() === 'unsupported' || pwaPushStatus() === 'blocked') return;
+    pushSynced.current = true;
+    void subscribeToPwaPush(membership.storeId, user.id).catch(() => {
+      // O alerta local continua funcionando quando o servidor VAPID ainda não
+      // foi configurado ou quando a assinatura antiga foi revogada.
+      pushSynced.current = false;
+    });
+  }, [membership?.storeId, settings.id, settings.notificationsDesktopEnabled, user?.id]);
 
   useEffect(() => {
     const interval = window.setInterval(() => { void reloadAdmin({ silent: true }).catch(() => undefined); }, 30_000);

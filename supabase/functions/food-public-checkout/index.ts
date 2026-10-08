@@ -261,7 +261,9 @@ Deno.serve(async (req) => {
 
     // O pedido continua válido mesmo que o push ainda não esteja configurado.
     // A Edge Function usa apenas assinaturas ativas dos administradores da loja.
-    void notifyStoreAdmins(url, service, {
+    // Aguarda o envio antes de encerrar a função. O helper trata as falhas
+    // internamente, então um push indisponível nunca invalida o pedido.
+    await notifyStoreAdmins(url, service, {
       store_id: storeId,
       title: 'Novo pedido na loja',
       message: `Pedido #${created.order_number} · ${String(payloadRecord.customer_name || 'Cliente')} · R$ ${Number(created.order_total).toFixed(2).replace('.', ',')}`,

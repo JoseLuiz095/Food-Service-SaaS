@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { QuantityControl } from '../../components/QuantityControl';
 import { useStore } from '../../contexts/StoreContext';
 import { trackInteraction } from '../../services/interactionTelemetry';
 import { currency, formatDateTimeBR, roundMoney } from '../../utils/format';
@@ -508,7 +509,7 @@ export default function OrdersAdmin() {
           {manualUnavailableItem && !manualOrder.scheduledFor && <div className="manual-stock-schedule-card" role="status"><AlertCircle size={18}/><div><strong>{manualUnavailableItem.product.name} precisa de reposição</strong><span>Registre como encomenda futura e o estoque só será baixado após a reposição e confirmação.</span></div><button type="button" className="secondary-button" onClick={scheduleManualRestock}>Agendar amanhã</button></div>}
           <div className="manual-product-quick-add">
             <label className="manual-product-quick-add__product">Adicionar produto<select value={manualProductId} onChange={(event) => setManualProductId(event.target.value)}><option value="">Selecione</option>{manualProducts.filter((product) => !manualItems.some((item) => item.productId === product.id)).map((product) => <option key={product.id} value={product.id}>{product.name} · {currency.format(product.promotionalPrice ?? product.price)}{product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable' ? ' · encomenda' : ''}</option>)}</select></label>
-            <label className="manual-product-quick-add__quantity">Qtd.<input type="number" min="1" max="99" value={manualQuantityDraft} onChange={(event) => setManualQuantityDraft(Math.max(1, Math.min(99, Number(event.target.value) || 1)))} /></label>
+            <div className="manual-product-quick-add__quantity"><span>Qtd.</span><QuantityControl value={manualQuantityDraft} onChange={setManualQuantityDraft}/></div>
             <button className="secondary-button" type="button" onClick={addManualProduct} disabled={!manualProductId}><Plus size={15}/>Adicionar</button>
           </div>
           <small className="manual-product-quick-add__hint">Escolha o produto e a quantidade uma única vez. Você pode ajustar opções e quantidades abaixo.</small>
@@ -518,7 +519,7 @@ export default function OrdersAdmin() {
             return <fieldset key={item.productId}>
               <legend>{product.name}</legend>
               <div className="form-grid">
-                <label>Quantidade<input type="number" min="1" max="99" value={item.quantity} onChange={(event) => updateManualItem(item.productId, { quantity: Math.max(1, Math.min(99, Number(event.target.value) || 1)) })}/></label>
+                <div className="manual-quantity-field"><span>Quantidade</span><QuantityControl value={item.quantity} onChange={(quantity) => updateManualItem(item.productId, { quantity })}/></div>
                 <div><strong>{currency.format(roundMoney(((product.promotionalPrice ?? product.price) + item.options.reduce((sum, option) => { const group = product.optionGroups.find((current) => current.id === option.groupId); const choice = group?.items.find((current) => current.id === option.itemId); return sum + (choice?.priceDelta || 0) * option.quantity; }, 0)) * item.quantity))}</strong><br/><button type="button" className="secondary-button" onClick={() => setManualItems((items) => items.filter((current) => current.productId !== item.productId))}>Remover item</button></div>
                 {product.optionGroups.filter((group) => group.active).map((group) => <label key={group.id} className="full">{group.name}{group.minChoices > 0 ? ' (obrigatório)' : ' (opcional)'}<select multiple={group.maxChoices > 1} value={group.maxChoices > 1 ? item.options.filter((option) => option.groupId === group.id).map((option) => option.itemId) : item.options.find((option) => option.groupId === group.id)?.itemId || ''} onChange={(event) => updateManualOptionGroup(item.productId, group.id, Array.from(event.currentTarget.selectedOptions, (option) => option.value))}>{group.minChoices === 0 && group.maxChoices <= 1 ? <option value="">Sem seleção</option> : null}{group.items.filter((choice) => choice.active).map((choice) => <option key={choice.id} value={choice.id}>{choice.name}{choice.priceDelta ? ` · ${choice.priceDelta > 0 ? '+' : ''}${currency.format(choice.priceDelta)}` : ''}</option>)}</select><small>{group.maxChoices > 1 ? `Selecione até ${group.maxChoices} opções.` : 'Selecione uma opção.'}</small></label>)}
               </div>
