@@ -229,7 +229,10 @@ begin
      updated_at = now()
    where id = new.order_id;
 
-  if v_order.payment_status = 'paid' then
+  -- Uma encomenda futura sem saldo pode ser marcada como recebida, mas não
+  -- deve baixar o estoque nem falhar neste momento. A baixa acontece somente
+  -- quando houver saldo e a confirmação operacional for processada.
+  if v_order.payment_status = 'paid' and not v_awaiting then
     perform public.food_commit_order_inventory(new.order_id);
   end if;
   return new;

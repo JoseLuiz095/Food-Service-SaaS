@@ -34,6 +34,10 @@ const adminLayout=read('src/layouts/AdminLayout.tsx');
 const adminNotifications=read('src/components/admin/AdminNotifications.tsx');
 const pushFunction=read('supabase/functions/food-send-push/index.ts');
 const serviceWorker=read('public/sw.js');
+const ordersAdmin=read('src/pages/admin/Orders.tsx');
+const inventoryPatch=read('supabase/patches/20261008_foodweb_inventory.sql');
+const inventoryGuard=read('supabase/migrations/202610082000_foodweb_future_inventory_paid_guard.sql');
+const styles=read('src/styles.css');
 
 const registered=checkout.indexOf('await registerOrder(');
 const whatsappMessage=checkout.indexOf('buildWhatsAppMessage(');
@@ -70,6 +74,9 @@ check('Assinatura push é sincronizada no painel',adminNotifications.includes('s
 check('Checkout aguarda o envio do push',edge.includes('await notifyStoreAdmins(url, service, {'));
 check('Push entrega somente assinaturas ativas',pushFunction.includes(".eq('active', true)"));
 check('Push repetido não vibra novamente',serviceWorker.includes('renotify: false'));
+check('Pedido avulso exibe erro de estoque como toast',ordersAdmin.includes('reportManualError')&&ordersAdmin.includes('showToast'));
+check('Toast fica acima do modal',styles.includes('.toast-stack{z-index:4000}'));
+check('Pedido futuro pago não baixa estoque sem reposição',inventoryPatch.includes("payment_status = 'paid' and not v_awaiting")&&inventoryGuard.includes("payment_status = 'paid' and not v_awaiting"));
 check('Food Master lê apenas food_*',platformApi.includes('food_stores?')&&platformApi.includes('food_plans?')&&!platformApi.includes("'stores?"));
 check('Food Admin lê apenas food_*',storeApi.includes('food_products?')&&storeApi.includes('food_orders?')&&!storeApi.includes('`products?'));
 

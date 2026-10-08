@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { QuantityControl } from '../../components/QuantityControl';
 import { useStore } from '../../contexts/StoreContext';
+import { useToast } from '../../contexts/ToastContext';
 import { trackInteraction } from '../../services/interactionTelemetry';
 import { currency, formatDateTimeBR, roundMoney } from '../../utils/format';
 import type { ManualOrderInput, ManualOrderItemInput, ManualOrderSource, Order, OrderStatus, PaymentMethod } from '../../types';
@@ -90,6 +91,7 @@ const newManualOrder = (): Omit<ManualOrderInput, 'items'> => ({
 
 export default function OrdersAdmin() {
   const { orders, products, loading, error, reloadAdmin, updateOrderStatus, confirmOrderPayment, createManualOrder, settings } = useStore();
+  const { showToast } = useToast();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
@@ -117,6 +119,10 @@ export default function OrdersAdmin() {
   const refreshingRef = useRef(false);
   const rowsRef = useRef<Record<string, HTMLTableRowElement | null>>({});
   const highlightedOrderId = searchParams.get('highlight') || '';
+  const reportManualError = (message: string) => {
+    setManualFormError(message);
+    showToast(`Pedido avulso não salvo: ${message}`, 'error');
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -234,13 +240,13 @@ export default function OrdersAdmin() {
     if (!manualOrder.customerName.trim() || !manualItems.length) return;
     if (manualOrder.status === 'cancelled' && manualOrder.received) return;
     if (manualOrder.fulfillment === 'delivery' && !settings.deliveryEnabled) {
-      setManualFormError('O delivery está desativado nas configurações da loja. Selecione retirada ou ative o delivery.');
+      reportManualError('O delivery está desativado nas configurações da loja. Selecione retirada ou ative o delivery.');
       return;
     }
     const scheduledAt = manualOrder.scheduledFor ? new Date(manualOrder.scheduledFor) : null;
     const minimumSchedule = manualOrder.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart();
     if (scheduledAt && (!Number.isFinite(scheduledAt.getTime()) || scheduledAt < minimumSchedule)) {
-      setManualFormError(manualOrder.fulfillment === 'delivery'
+      reportManualError(manualOrder.fulfillment === 'delivery'
         ? `O delivery futuro precisa ser agendado a partir de amanhã às ${settings.deliveryStartTime || '18:00'}.`
         : 'A retirada futura precisa ser agendada a partir de amanhã.');
       return;
@@ -249,7 +255,7 @@ export default function OrdersAdmin() {
       const [startHour, startMinute] = settings.deliveryStartTime.split(':').map(Number);
       const now = new Date();
       if (now.getHours() * 60 + now.getMinutes() < startHour * 60 + startMinute) {
-        setManualFormError(`O delivery só pode ser lançado a partir das ${settings.deliveryStartTime}. Para antes desse horário, selecione retirada ou agende para amanhã.`);
+        reportManualError(`O delivery só pode ser lançado a partir das ${settings.deliveryStartTime}. Para antes desse horário, selecione retirada ou agende para amanhã.`);
         return;
       }
     }
@@ -258,11 +264,11 @@ export default function OrdersAdmin() {
       return !product || productNeedsFutureScheduling(product, item.quantity);
     });
     if (unavailableItem && manualOrder.received) {
-      setManualFormError('Este produto precisa de reposição. Mantenha “A receber do cliente” e confirme o pagamento somente depois que o estoque for reposto.');
+      reportManualError('Este produto precisa de reposição. Mantenha “A receber do cliente” e confirme o pagamento somente depois que o estoque for reposto.');
       return;
     }
     if (unavailableItem && !scheduledAt) {
-      setManualFormError('Há produto sem disponibilidade ou estoque suficiente. Informe uma data a partir de amanhã para registrar como encomenda futura.');
+      reportManualError('Há produto sem disponibilidade ou estoque suficiente. Informe uma data a partir de amanhã para registrar como encomenda futura.');
       return;
     }
     const incompleteProduct = manualItems.find((item) => {
@@ -270,11 +276,11 @@ export default function OrdersAdmin() {
       return product?.optionGroups.some((group) => group.active && new Set(item.options.filter((option) => option.groupId === group.id).map((option) => option.itemId)).size < group.minChoices);
     });
     if (incompleteProduct) {
-      setManualFormError('Revise as opções obrigatórias dos produtos selecionados.');
+      reportManualError('Revise as opções obrigatórias dos produtos selecionados.');
       return;
     }
     if (manualOrder.paymentMethod === 'pix' && manualPixChargeNow && !manualPixPreviewPayload) {
-      setManualFormError(manualPixPreview.error || 'Configure o PIX da loja antes de cobrar agora.');
+      reportManualError(manualPixPreview.error || 'Configure o PIX da loja antes de cobrar agora.');
       return;
     }
     setManualFormError('');
@@ -303,7 +309,7 @@ export default function OrdersAdmin() {
         setManualPixCopied(false);
       }
     } catch (manualOrderError) {
-      setManualFormError(manualOrderError instanceof Error ? manualOrderError.message : 'Não foi possível lançar o pedido avulso.');
+      reportManualError(manualOrderError instanceof Error ? manualOrderError.message : 'Não foi possível lançar o pedido avulso.');
     } finally {
       setManualSaving(false);
     }
