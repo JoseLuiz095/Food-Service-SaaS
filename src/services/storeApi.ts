@@ -463,6 +463,13 @@ export const storeApi = {
       tomorrow.setHours(0, 0, 0, 0);
       tomorrow.setDate(tomorrow.getDate() + 1);
       if (scheduledAt && (!Number.isFinite(scheduledAt.getTime()) || scheduledAt < tomorrow)) throw new Error('O lançamento futuro precisa ser agendado a partir de amanhã.');
+      if (input.fulfillment === 'delivery' && store.deliveryStartTime) {
+        const [startHour, startMinute] = store.deliveryStartTime.split(':').map(Number);
+        const reference = scheduledAt || new Date();
+        if (reference.getHours() * 60 + reference.getMinutes() < startHour * 60 + startMinute) {
+          throw new Error(`O delivery só pode ser lançado a partir das ${store.deliveryStartTime}.`);
+        }
+      }
 
       for (const item of input.items) {
         const product = products.find((current) => current.id === item.productId);
@@ -472,7 +479,10 @@ export const storeApi = {
         }
         if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99) throw new Error('Quantidade inválida.');
         if (!product) throw new Error('Um dos produtos selecionados não foi encontrado.');
-        if (product.trackStock && item.quantity > (product.stockQuantity ?? 0)) {
+        const availableStock = product.trackStock
+          ? Math.max(0, Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0))
+          : Number.POSITIVE_INFINITY;
+        if (product.trackStock && item.quantity > availableStock) {
           if (!scheduledAt) throw new Error('Estoque insuficiente.');
           requiresRestock = true;
         }
@@ -511,7 +521,7 @@ export const storeApi = {
         storeId: store.id,
         customerName: input.customerName.trim(),
         customerPhone: input.customerPhone?.trim() || undefined,
-        deliveryType: 'pickup',
+        deliveryType: input.fulfillment || 'pickup',
         paymentMethod: input.paymentMethod,
         scheduledFor: scheduledAt?.toISOString(),
         subtotal: roundMoney(subtotal),
@@ -538,6 +548,7 @@ export const storeApi = {
             store_id: store.id,
             customer_name: input.customerName.trim(),
             customer_phone: input.customerPhone?.trim() || null,
+            delivery_type: input.fulfillment || 'pickup',
             source: input.source,
             payment_method: input.paymentMethod,
             status: input.status,

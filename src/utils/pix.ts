@@ -132,3 +132,40 @@ export const buildStaticPixCopyPaste = ({ key, receiver, city, amount, txid = '*
   const withoutCrc = fields.map(serializeField).join('') + '6304';
   return withoutCrc + crc16CcittFalse(withoutCrc);
 };
+
+/**
+ * Gera um PIX com valor para cobranças operacionais (por exemplo, pedido avulso).
+ * O modo escolhido pela loja é priorizado, mas uma configuração compatível
+ * alternativa é tentada para evitar uma cobrança sem QR Code quando a loja
+ * possui os dois dados cadastrados.
+ */
+export type PixAmountSettings = {
+  receiptMode: 'copy_paste' | 'key';
+  copyPaste?: string;
+  key?: string;
+  receiver?: string;
+  city?: string;
+  amount: number;
+  txid?: string;
+};
+
+export const buildPixPayloadWithAmount = ({ receiptMode, copyPaste = '', key = '', receiver = '', city = '', amount, txid = '***' }: PixAmountSettings) => {
+  const attempts = receiptMode === 'copy_paste'
+    ? [
+      () => buildPixCopyPasteWithAmount(copyPaste, amount),
+      () => buildStaticPixCopyPaste({ key, receiver, city, amount, txid }),
+    ]
+    : [
+      () => buildStaticPixCopyPaste({ key, receiver, city, amount, txid }),
+      () => buildPixCopyPasteWithAmount(copyPaste, amount),
+    ];
+  const errors: string[] = [];
+  for (const attempt of attempts) {
+    try {
+      return attempt();
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : 'Configuração PIX incompatível.');
+    }
+  }
+  throw new Error(`Não foi possível gerar o PIX com valor. ${errors.join(' ')}`);
+};

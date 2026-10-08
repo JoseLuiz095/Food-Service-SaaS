@@ -426,6 +426,8 @@ export type ManualOrderItemInput = {
 export type ManualOrderInput = {
   customerName: string;
   customerPhone?: string;
+  /** Forma operacional combinada com o cliente. Mantém retirada como padrão. */
+  fulfillment?: 'delivery' | 'pickup';
   source: ManualOrderSource;
   paymentMethod: PaymentMethod;
   status: OrderStatus;
