@@ -126,7 +126,7 @@ export default function Checkout() {
   const additionalPrep = items.reduce((max, item) => Math.max(max, products.find((product) => product.id === item.productId)?.preparationTimeMinutes || 0), 0);
   const stockUnavailableItems = items.filter((item) => {
     const product = products.find((candidate) => candidate.id === item.productId);
-    return Boolean(product?.trackStock && Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) < item.quantity);
+    return Boolean(!product || product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable' || (product.trackStock && Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) < item.quantity));
   });
   const stockSchedulingRequired = stockUnavailableItems.length > 0;
   const deliveryStartMinutes = settings.deliveryStartTime ? Number(settings.deliveryStartTime.slice(0, 2)) * 60 + Number(settings.deliveryStartTime.slice(3, 5)) : null;

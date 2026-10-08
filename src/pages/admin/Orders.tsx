@@ -84,7 +84,7 @@ type SortMode = (typeof sortOptions)[number]['value'];
 type CustomerSummary = { key: string; name: string; phone: string; orders: number; total: number; lastAt: string };
 type ManualPixView = { orderNumber: number; total: number; payload: string; error?: string };
 const newManualOrder = (): Omit<ManualOrderInput, 'items'> => ({
-  customerName: '', customerPhone: '', fulfillment: 'pickup', source: 'counter', paymentMethod: 'cash', status: 'received', received: true, notes: '',
+  customerName: '', customerPhone: '', fulfillment: 'pickup', source: 'counter', paymentMethod: 'cash', status: 'received', received: false, notes: '',
 });
 
 export default function OrdersAdmin() {
@@ -103,6 +103,7 @@ export default function OrdersAdmin() {
   const [manualOrder, setManualOrder] = useState<Omit<ManualOrderInput, 'items'>>(newManualOrder);
   const [manualItems, setManualItems] = useState<ManualOrderItemInput[]>([]);
   const [manualProductId, setManualProductId] = useState('');
+  const [manualQuantityDraft, setManualQuantityDraft] = useState(1);
   const [manualSaving, setManualSaving] = useState(false);
   const [manualPixView, setManualPixView] = useState<ManualPixView | null>(null);
   const [manualPixQrCode, setManualPixQrCode] = useState('');
@@ -124,7 +125,7 @@ export default function OrdersAdmin() {
       return () => { cancelled = true; };
     }
     setManualPixQrCodeError('');
-    void QRCode.toDataURL(manualPixView.payload, { errorCorrectionLevel: 'M', margin: 2, width: 260 })
+    void QRCode.toDataURL(manualPixView.payload, { errorCorrectionLevel: 'M', margin: 2, width: 360 })
       .then((dataUrl) => { if (!cancelled) setManualPixQrCode(dataUrl); })
       .catch(() => { if (!cancelled) { setManualPixQrCode(''); setManualPixQrCodeError('O QR Code não pôde ser desenhado neste aparelho. Use o PIX Copia e Cola abaixo.'); } });
     return () => { cancelled = true; };
@@ -182,7 +183,7 @@ export default function OrdersAdmin() {
       return () => { cancelled = true; };
     }
     setManualPixPreviewQrCodeError('');
-    void QRCode.toDataURL(manualPixPreviewPayload, { errorCorrectionLevel: 'M', margin: 2, width: 190 })
+    void QRCode.toDataURL(manualPixPreviewPayload, { errorCorrectionLevel: 'M', margin: 2, width: 280 })
       .then((dataUrl) => { if (!cancelled) setManualPixPreviewQrCode(dataUrl); })
       .catch(() => { if (!cancelled) { setManualPixPreviewQrCode(''); setManualPixPreviewQrCodeError('O QR Code não pôde ser desenhado neste aparelho. Use o PIX Copia e Cola.'); } });
     return () => { cancelled = true; };
@@ -192,6 +193,7 @@ export default function OrdersAdmin() {
     setManualOrder(newManualOrder());
     setManualItems([]);
     setManualProductId(manualProducts[0]?.id || '');
+    setManualQuantityDraft(1);
     setManualPixChargeNow(false);
     setManualFormError('');
     setManualOrderOpen(true);
@@ -199,8 +201,10 @@ export default function OrdersAdmin() {
 
   const addManualProduct = () => {
     if (!manualProductId || manualItems.some((item) => item.productId === manualProductId)) return;
-    setManualItems((items) => [...items, { productId: manualProductId, quantity: 1, options: [] }]);
+    const quantity = Math.max(1, Math.min(99, Number(manualQuantityDraft) || 1));
+    setManualItems((items) => [...items, { productId: manualProductId, quantity, options: [] }]);
     setManualProductId('');
+    setManualQuantityDraft(1);
   };
 
   const scheduleManualRestock = () => {
@@ -252,6 +256,10 @@ export default function OrdersAdmin() {
       const product = products.find((current) => current.id === item.productId);
       return !product || productNeedsFutureScheduling(product, item.quantity);
     });
+    if (unavailableItem && manualOrder.received) {
+      setManualFormError('Este produto precisa de reposição. Mantenha “A receber do cliente” e confirme o pagamento somente depois que o estoque for reposto.');
+      return;
+    }
     if (unavailableItem && !scheduledAt) {
       setManualFormError('Há produto sem disponibilidade ou estoque suficiente. Informe uma data a partir de amanhã para registrar como encomenda futura.');
       return;
@@ -498,10 +506,12 @@ export default function OrdersAdmin() {
         <section>
           <h3>Produtos</h3>
           {manualUnavailableItem && !manualOrder.scheduledFor && <div className="manual-stock-schedule-card" role="status"><AlertCircle size={18}/><div><strong>{manualUnavailableItem.product.name} precisa de reposição</strong><span>Registre como encomenda futura e o estoque só será baixado após a reposição e confirmação.</span></div><button type="button" className="secondary-button" onClick={scheduleManualRestock}>Agendar amanhã</button></div>}
-          <div className="form-grid">
-          <label>Adicionar produto<select value={manualProductId} onChange={(event) => setManualProductId(event.target.value)}><option value="">Selecione</option>{manualProducts.filter((product) => !manualItems.some((item) => item.productId === product.id)).map((product) => <option key={product.id} value={product.id}>{product.name} · {currency.format(product.promotionalPrice ?? product.price)}{product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable' ? ' · encomenda' : ''}</option>)}</select></label>
-            <div><button className="secondary-button" type="button" onClick={addManualProduct} disabled={!manualProductId}>Adicionar item</button></div>
+          <div className="manual-product-quick-add">
+            <label className="manual-product-quick-add__product">Adicionar produto<select value={manualProductId} onChange={(event) => setManualProductId(event.target.value)}><option value="">Selecione</option>{manualProducts.filter((product) => !manualItems.some((item) => item.productId === product.id)).map((product) => <option key={product.id} value={product.id}>{product.name} · {currency.format(product.promotionalPrice ?? product.price)}{product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable' ? ' · encomenda' : ''}</option>)}</select></label>
+            <label className="manual-product-quick-add__quantity">Qtd.<input type="number" min="1" max="99" value={manualQuantityDraft} onChange={(event) => setManualQuantityDraft(Math.max(1, Math.min(99, Number(event.target.value) || 1)))} /></label>
+            <button className="secondary-button" type="button" onClick={addManualProduct} disabled={!manualProductId}><Plus size={15}/>Adicionar</button>
           </div>
+          <small className="manual-product-quick-add__hint">Escolha o produto e a quantidade uma única vez. Você pode ajustar opções e quantidades abaixo.</small>
           {!manualItems.length ? <p>Nenhum produto selecionado.</p> : manualItems.map((item) => {
             const product = products.find((current) => current.id === item.productId);
             if (!product) return null;
