@@ -88,6 +88,8 @@ export default function OrdersAdmin() {
   const [manualSaving, setManualSaving] = useState(false);
   const [manualPixView, setManualPixView] = useState<ManualPixView | null>(null);
   const [manualPixQrCode, setManualPixQrCode] = useState('');
+  const [manualPixChargeNow, setManualPixChargeNow] = useState(false);
+  const [manualPixCopied, setManualPixCopied] = useState(false);
   const [manualFormError, setManualFormError] = useState('');
   const refreshingRef = useRef(false);
   const rowsRef = useRef<Record<string, HTMLTableRowElement | null>>({});
@@ -124,6 +126,7 @@ export default function OrdersAdmin() {
     setManualOrder(newManualOrder());
     setManualItems([]);
     setManualProductId(manualProducts[0]?.id || '');
+    setManualPixChargeNow(false);
     setManualFormError('');
     setManualOrderOpen(true);
   };
@@ -181,7 +184,7 @@ export default function OrdersAdmin() {
       const result = await trackInteraction('manual_order_create', () => createManualOrder({ ...manualOrder, items: manualItems }), { storeId: settings.id });
       setLastUpdatedAt(new Date());
       setManualOrderOpen(false);
-      if (manualOrder.paymentMethod === 'pix') {
+      if (manualOrder.paymentMethod === 'pix' && manualPixChargeNow) {
         let payload = '';
         try {
           payload = settings.pixReceiptMode === 'copy_paste'
@@ -189,6 +192,7 @@ export default function OrdersAdmin() {
             : buildStaticPixCopyPaste({ key: settings.pixKey, receiver: settings.pixReceiver, city: settings.city || 'Linhares', amount: result.total, txid: `PED${result.orderNumber}` });
         } catch { payload = ''; }
         setManualPixView({ orderNumber: result.orderNumber, total: result.total, payload });
+        setManualPixCopied(false);
       }
     } catch (manualOrderError) {
       setManualFormError(manualOrderError instanceof Error ? manualOrderError.message : 'Não foi possível lançar o pedido avulso.');
@@ -388,10 +392,11 @@ export default function OrdersAdmin() {
           <label>Cliente<input required value={manualOrder.customerName} onChange={(event) => setManualOrder((current) => ({ ...current, customerName: event.target.value }))} placeholder="Nome do cliente"/></label>
           <label>Telefone <span className="optional-label">opcional</span><input value={manualOrder.customerPhone || ''} onChange={(event) => setManualOrder((current) => ({ ...current, customerPhone: event.target.value }))} placeholder="(27) 99999-9999"/></label>
           <label>Origem<select value={manualOrder.source} onChange={(event) => setManualOrder((current) => ({ ...current, source: event.target.value as ManualOrderSource }))}>{manualSourceOptions.map((source) => <option key={source.value} value={source.value}>{source.label}</option>)}</select></label>
-          <label>Pagamento<select value={manualOrder.paymentMethod} onChange={(event) => setManualOrder((current) => ({ ...current, paymentMethod: event.target.value as PaymentMethod }))}>{Object.entries(paymentLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label>Pagamento<select value={manualOrder.paymentMethod} onChange={(event) => { const paymentMethod = event.target.value as PaymentMethod; setManualOrder((current) => ({ ...current, paymentMethod })); if (paymentMethod !== 'pix') setManualPixChargeNow(false); }}>{Object.entries(paymentLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
           <label>Recebimento<select value={manualOrder.received ? 'paid' : 'pending'} disabled={manualOrder.status === 'cancelled'} onChange={(event) => setManualOrder((current) => ({ ...current, received: event.target.value === 'paid' }))}><option value="pending">A receber do cliente</option><option value="paid">Recebido</option></select><small>Use “A receber” para confirmar depois no painel de pedidos.</small></label>
           <label>Agendar pedido <span className="optional-label">opcional</span><input type="datetime-local" min={localDateTimeInputValue(tomorrowStart())} value={manualOrder.scheduledFor || ''} onChange={(event) => { setManualFormError(''); setManualOrder((current) => ({ ...current, scheduledFor: event.target.value || undefined })); }}/><span className="manual-order-schedule-actions"><button type="button" className="text-button" onClick={() => { setManualFormError(''); setManualOrder((current) => ({ ...current, scheduledFor: localDateTimeInputValue(tomorrowAt(18)) })); }}>Amanhã às 18h</button><small>Disponível somente a partir de amanhã.</small></span></label>
+          <label className="manual-pix-charge-toggle"><input type="checkbox" checked={manualPixChargeNow} disabled={manualOrder.paymentMethod !== 'pix' || manualOrder.status === 'cancelled'} onChange={(event) => { const checked = event.target.checked; setManualPixChargeNow(checked); if (checked) setManualOrder((current) => ({ ...current, received: false })); }}/><span><strong>Cobrar agora via PIX</strong><small>Gera QR Code e PIX Copia e Cola após salvar. O recebimento continua “A receber” até a conferência.</small></span></label>
         </div>
 
         <section>
@@ -426,7 +431,7 @@ export default function OrdersAdmin() {
         <p>Use este QR Code ou o PIX Copia e Cola para enviar a cobrança ao cliente. O recebimento ainda deve ser conferido no painel.</p>
         {manualPixView.payload ? <>
           {manualPixQrCode ? <img className="manual-pix-result-qr" src={manualPixQrCode} alt={`QR Code PIX no valor de ${currency.format(manualPixView.total)}`} /> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
-          <label className="manual-pix-result-code">PIX Copia e Cola · {currency.format(manualPixView.total)}<div><textarea readOnly rows={4} value={manualPixView.payload}/><button type="button" className="secondary-button" onClick={() => void copyText(manualPixView.payload).then(() => window.alert('PIX Copia e Cola copiado.'))}><Copy size={16}/>Copiar</button></div></label>
+          <label className="manual-pix-result-code">PIX Copia e Cola · {currency.format(manualPixView.total)}<div><textarea readOnly rows={4} value={manualPixView.payload}/><button type="button" className="secondary-button" onClick={() => void copyText(manualPixView.payload).then(() => { setManualPixCopied(true); window.setTimeout(() => setManualPixCopied(false), 1800); })}><Copy size={16}/>{manualPixCopied ? 'Copiado' : 'Copiar'}</button></div></label>
         </> : <div className="form-error">Configure uma chave PIX ou um PIX Copia e Cola válido nas configurações da loja para gerar a cobrança com valor.</div>}
         <div className="master-modal-actions"><button type="button" className="primary-button" onClick={() => setManualPixView(null)}>Concluir</button></div>
       </section>
