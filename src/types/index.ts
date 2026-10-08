@@ -218,6 +218,12 @@ export type StoreSettings = {
   allowScheduledOrders: boolean;
   kdsEnabled: boolean;
   kdsNotifyCustomer: boolean;
+  /** Alertas operacionais exibidos dentro do painel e, quando permitido, pelo navegador. */
+  notificationsNewOrderEnabled: boolean;
+  notificationsScheduledEnabled: boolean;
+  notificationsScheduledLeadMinutes: number;
+  notificationsDesktopEnabled: boolean;
+  notificationsSoundEnabled: boolean;
   salesRecoveryEnabled: boolean;
   salesRecoveryMinutes: number;
   salesRecoveryWindowHours?: number;
