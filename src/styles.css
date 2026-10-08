@@ -3393,3 +3393,22 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
   .admin-sidebar nav{display:flex!important;flex:0 0 auto;min-height:0;overflow:visible!important}
   .admin-sidebar__bottom{display:grid!important;gap:4px;margin-top:20px}
 }
+
+/* Pedido avulso: campos de texto ocupam toda a largura e o feedback não bloqueia a tela. */
+.master-modal textarea{width:100%;min-height:92px;border:1px solid #dcd9d0;border-radius:11px;padding:11px 12px;background:#fff;resize:vertical;font:inherit;line-height:1.45;box-sizing:border-box}
+.master-modal textarea:focus{outline:0;border-color:#bd6948;box-shadow:0 0 0 3px rgba(189,105,72,.12)}
+.manual-order-feedback{display:flex;align-items:flex-start;gap:9px;margin:-7px 0 18px;padding:12px 13px;border-radius:12px;font-size:.78rem;line-height:1.45}
+.manual-order-feedback svg{flex:0 0 auto;margin-top:1px}
+.manual-order-feedback--error{border:1px solid #efc4bb;background:#fff5f2;color:#963c2d}
+.manual-order-schedule-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.manual-order-schedule-actions small{flex:1 1 180px}
+.text-button{border:0;background:transparent;color:#a95437;padding:0;font:inherit;font-size:.72rem;font-weight:800;cursor:pointer;text-align:left}
+.text-button:hover{text-decoration:underline}
+.master-modal fieldset{min-width:0;border:1px solid #ebe5df;border-radius:13px;padding:13px;margin:14px 0 0}
+.master-modal fieldset .form-grid{min-width:0}
+@media(max-width:560px){
+  .master-modal textarea{min-height:116px;font-size:.84rem}
+  .manual-order-feedback{margin-top:-3px;font-size:.75rem}
+  .manual-order-schedule-actions{align-items:flex-start;flex-direction:column;gap:4px}
+  .master-modal fieldset{padding:11px}
+}
