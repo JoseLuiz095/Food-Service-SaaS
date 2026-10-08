@@ -1765,6 +1765,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .admin-live-status.is-online{background:#edf8f1;color:#176a43}
 .admin-live-status.is-offline{background:#fff0ee;color:#9c3c34}
 .admin-topbar__actions{display:flex;align-items:center;gap:12px;min-width:0}
+.admin-notification-badge{display:inline-flex;align-items:center;gap:5px;border:1px solid #e6c879;background:#fff8e8;color:#7b5710;border-radius:999px;min-height:34px;padding:0 9px;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(116,78,18,.08)}
+.admin-notification-badge:hover{border-color:#c9972e;background:#fff3d5;transform:translateY(-1px)}
+.admin-notification-badge span{min-width:16px;text-align:center}.admin-notification-badge>svg:last-child{opacity:.55}
+@media(max-width:560px){.admin-notification-badge{min-width:38px;width:38px;height:38px;padding:0;justify-content:center;border-radius:50%}.admin-notification-badge span{font-size:.68rem}.admin-notification-badge>svg:last-child{display:none}}
 .admin-topbar__store-link{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--food-admin-line);background:#fff;border-radius:10px;padding:8px 10px;font-size:.7rem;font-weight:780;color:var(--food-admin-accent);white-space:nowrap}
 .admin-topbar__store-link:hover{background:var(--food-admin-accent-soft);border-color:#efc9b8}
 .admin-user{display:flex;align-items:center;gap:9px;min-width:0;overflow:hidden}
@@ -3169,3 +3173,197 @@ button:disabled,input:disabled,textarea:disabled,select:disabled{opacity:.72}
 .finance-document-items__heading{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.finance-document-items__heading>div{display:grid;gap:4px}.finance-document-items__heading h3{margin:0;color:var(--food-ink);font-size:.95rem}.finance-document-items__heading p{margin:0;color:var(--food-muted);font-size:.7rem;line-height:1.45}.finance-document-items__heading>span{flex:0 0 auto;padding:5px 9px;border-radius:999px;background:#f5e9df;color:#8a4d31;font-size:.64rem;font-weight:800}
 .finance-document-items__list{display:grid;gap:7px}.finance-document-items__list>label{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:10px 11px;border:1px solid #eee5df;border-radius:10px;background:#fff;cursor:pointer;transition:border-color .18s ease,background .18s ease,opacity .18s ease}.finance-document-items__list>label:hover{border-color:#d8b9a7}.finance-document-items__list>label.is-excluded{background:#f8f1ed;border-color:#dfcfc6;opacity:.72}.finance-document-items__list input{accent-color:var(--food-red);width:16px;height:16px}.finance-document-items__copy{display:grid;gap:3px;min-width:0}.finance-document-items__copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.74rem;color:var(--food-ink)}.finance-document-items__copy small{color:var(--food-muted);font-size:.63rem}.finance-document-items__list b{font-size:.74rem;color:var(--food-ink);white-space:nowrap}.finance-document-items__list em{font-style:normal;font-size:.58rem;font-weight:800;color:#6e8b78;white-space:nowrap}.finance-document-items__list>label.is-excluded em{color:#a16b58}.finance-document-items__summary{display:flex;justify-content:flex-end;gap:18px;flex-wrap:wrap;padding-top:10px;border-top:1px solid #eadfd9;color:var(--food-muted);font-size:.66rem}.finance-document-items__summary span{display:grid;gap:2px}.finance-document-items__summary strong{color:var(--food-ink);font-size:.8rem}.finance-document-items__summary span:last-child strong{color:var(--food-success)}
 @media(max-width:640px){.finance-document-items{padding:13px}.finance-document-items__heading{display:grid;gap:8px}.finance-document-items__list>label{grid-template-columns:auto minmax(0,1fr) auto}.finance-document-items__list em{grid-column:2/-1;margin-top:-5px}.finance-document-items__summary{justify-content:space-between;gap:10px}}
+
+/* ========================================================================== */
+/* Mobile premium pass — experiência pública e operação                       */
+/* Mantém o desktop intacto; concentra apenas densidade, toque e overflow.  */
+/* ========================================================================== */
+html{overflow-x:hidden}
+body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+
+@media (max-width:820px){
+  .container,.container-wide{width:min(100% - 28px,1180px)}
+  .primary-button,.secondary-button,.outline-action,.icon-action{min-height:46px}
+  .food-storefront-theme .primary-button{min-height:48px}
+
+  /* Vitrine: perfil e navegação ficam legíveis sem apertar o conteúdo. */
+  .food-store-hero-v43{height:220px}
+  .food-store-hero-v43>.container{padding-bottom:70px}
+  .food-store-profile-v43{width:calc(100% - 28px);margin-top:-48px;padding:16px;grid-template-columns:76px minmax(0,1fr);gap:12px;border-radius:18px}
+  .food-store-profile-logo{width:76px;height:76px;border-radius:16px}
+  .food-store-profile-title{align-items:flex-start;gap:7px}
+  .food-store-profile-title h1{font-size:clamp(1.15rem,5vw,1.45rem);line-height:1.1}
+  .food-store-profile-location{font-size:.7rem;line-height:1.35}
+  .food-store-profile-meta{grid-column:1/-1;gap:6px;margin-top:2px}
+  .food-store-profile-meta>span{padding:6px 8px;font-size:.62rem}
+  .food-store-profile-actions{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;min-width:0}
+  .food-store-profile-actions>a{grid-column:1/-1;min-height:44px}
+  .food-fulfillment-pill,.food-store-profile-actions>a{min-height:44px;padding-inline:10px}
+  .food-marketplace-body{padding:14px 14px calc(102px + env(safe-area-inset-bottom))}
+  .food-discovery-bar{padding-inline:0}
+  .food-commerce-strip{gap:10px;padding-bottom:4px}
+  .food-commerce-strip>div+div{padding-left:10px}
+  .food-order-summary{border-radius:16px;padding:13px}
+  .food-product-grid{gap:11px}
+  .product-card--food{min-width:0;grid-template-columns:minmax(0,1fr) 112px;min-height:136px;border-radius:16px}
+  .product-card--food .product-card__image-wrap{min-height:136px}
+  .product-card--food .product-card__content{padding:13px 10px 12px 13px}
+  .product-card--food h3{font-size:.9rem;line-height:1.25}
+  .product-card--food p{font-size:.7rem;line-height:1.4}
+  .food-cart-dock,.mobile-cart-dock{bottom:calc(10px + env(safe-area-inset-bottom));left:12px;right:12px;width:auto;border-radius:18px;min-height:62px;padding:10px 13px;z-index:30}
+  .mobile-cart-dock__action{white-space:nowrap}
+  .foodweb-help-fab{bottom:calc(84px + env(safe-area-inset-bottom));z-index:31}
+
+  /* Carrinho, produto e checkout: uma coluna com áreas de ação confortáveis. */
+  .simple-topbar{min-height:64px;height:auto;padding-block:10px;gap:12px}
+  .simple-topbar a,.simple-topbar span{font-size:.78rem;line-height:1.25}
+  .product-detail-layout{width:min(100% - 28px,1180px);padding-top:0;gap:24px}
+  .product-gallery{border-radius:18px}
+  .product-main-image{border-radius:18px;aspect-ratio:1/1}
+  .gallery-thumbs{gap:7px;overflow-x:auto;padding-bottom:3px}
+  .gallery-thumbs button{flex:0 0 58px;width:58px;height:58px}
+  .product-detail-info h1{font-size:clamp(1.8rem,9vw,2.55rem);line-height:1.06}
+  .option-group__heading{align-items:flex-start;gap:10px}
+  .option-limit-badge{white-space:normal;text-align:right}
+  .variation-list{gap:8px}
+  .variation-list button,.addon-option-main-v060{min-height:48px}
+  .buy-box{position:sticky;bottom:calc(8px + env(safe-area-inset-bottom));z-index:20;margin-inline:-2px;border-radius:16px;padding:12px;background:color-mix(in srgb,#fff 94%,transparent);backdrop-filter:blur(12px);grid-template-columns:auto minmax(0,1fr);box-shadow:0 12px 32px rgba(32,39,34,.16)}
+  .buy-box>.primary-button{grid-column:1/-1;width:100%;min-height:52px}
+  .cart-layout,.checkout-layout,.checkout-layout--premium{width:min(100% - 28px,1180px);padding-top:24px;padding-bottom:calc(42px + env(safe-area-inset-bottom));gap:17px}
+  .cart-layout .page-title h1,.checkout-title h1{font-size:clamp(1.85rem,8vw,2.35rem)}
+  .cart-item{grid-template-columns:72px minmax(0,1fr) 38px!important;gap:10px;padding:11px;border-radius:16px}
+  .cart-item img{width:72px;height:72px}
+  .cart-item__main>strong{font-size:.86rem}
+  .cart-item__main>span{font-size:.7rem}
+  .row-delete{width:38px;height:38px}
+  .order-summary{padding:18px;border-radius:17px}
+  .checkout-topbar-v44{min-height:60px;padding-block:10px}
+  .checkout-topbar-v44>a{font-size:.76rem}
+  .checkout-topbar-v44>span{max-width:42vw}
+  .checkout-trustbar-v44{display:none}
+  .checkout-page-v44 .checkout-layout--premium{padding-top:18px}
+  .checkout-page-v44 .checkout-card{padding:17px 14px;border-radius:17px}
+  .checkout-page-v44 .checkout-card__title{margin-bottom:14px}
+  .checkout-page-v44 .checkout-card__title>svg{width:36px;height:36px;flex:0 0 36px}
+  .checkout-form-grid,.form-grid,.address-grid{grid-template-columns:1fr!important;gap:12px}
+  .checkout-form-grid .field--full,.form-grid .full{grid-column:auto}
+  .fulfillment-options{grid-template-columns:1fr!important}
+  .fulfillment-options button,.payment-options button{min-height:58px;padding:13px;border-radius:14px}
+  .payment-options label{padding:13px;border-radius:14px}
+  .checkout-summary--sticky,.checkout-page-v44 .checkout-summary{position:static;top:auto;order:initial;padding:17px;border-radius:17px}
+  .checkout-submit{min-height:56px!important;border-radius:14px!important}
+  .checkout-page-v44 .checkout-submit{font-size:.82rem}
+  .checkout-success{padding:18px 12px calc(26px + env(safe-area-inset-bottom));align-items:flex-start}
+  .order-success-page{padding:18px 12px calc(28px + env(safe-area-inset-bottom));align-items:flex-start}
+  .order-success-card{width:100%;padding:30px 16px 24px;border-radius:18px;box-shadow:none}
+  .pix-confirmation-box{padding:16px 13px;border-radius:15px}
+  .pix-key-row{grid-template-columns:minmax(0,1fr) 48px}
+  .pix-key-row code{font-size:.78rem;padding:12px}
+
+  /* Admin: menu, cabeçalho, cards e filtros respeitam áreas seguras. */
+  .admin-mobile-menu{left:12px;top:calc(10px + env(safe-area-inset-top));width:44px;height:44px;border-radius:13px}
+  .admin-sidebar{width:min(300px,86vw)!important;padding:22px 15px calc(20px + env(safe-area-inset-bottom))!important}
+  .admin-topbar{padding-left:68px!important;padding-right:13px;min-height:68px;gap:10px}
+  .admin-topbar__context{min-width:0}
+  .admin-topbar__context strong{display:block;max-width:52vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .admin-topbar__meta{flex-wrap:wrap;gap:5px}
+  .admin-topbar__actions{min-width:0}
+  .admin-user{min-width:34px}
+  .admin-page{padding:20px 14px calc(48px + env(safe-area-inset-bottom));overflow:hidden}
+  .admin-page-title{gap:14px;margin-bottom:18px}
+  .admin-page-title h1{font-size:clamp(1.55rem,7vw,1.95rem);line-height:1.08}
+  .admin-page-title p{font-size:.78rem;line-height:1.5}
+  .admin-page-title>.primary-button{width:100%}
+  .stat-grid,.master-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stat-card{padding:15px;border-radius:15px}
+  .stat-card strong{font-size:1.5rem}
+  .admin-card{padding:16px;border-radius:16px}
+  .admin-card__header{gap:10px}
+  .admin-card__header h2,.admin-card h2{font-size:1rem}
+  .dashboard-grid,.admin-form-layout,.finance-workspace,.master-commercial-config{grid-template-columns:1fr;gap:13px}
+  .table-toolbar,.category-list-toolbar,.delivery-zone-toolbar{align-items:stretch;flex-direction:column;gap:10px;padding:14px}
+  .table-toolbar .admin-search,.category-search,.table-toolbar .primary-button{width:100%;max-width:none}
+  .responsive-table{margin-inline:-1px;border-radius:10px;overflow-x:auto;overscroll-behavior-x:contain}
+  .responsive-table table{min-width:760px}
+  .responsive-table th,.responsive-table td{padding:11px 12px;font-size:.72rem}
+  .product-cell{min-width:205px}
+  .orders-toolbar__sync{align-items:stretch;justify-content:stretch;flex-direction:column;gap:8px}
+  .orders-toolbar__sync .compact-button{width:100%}
+  .toolbar-selects{grid-template-columns:1fr!important;width:100%}
+  .delivery-zone-head{display:none}
+  .delivery-zone-list>article{grid-template-columns:1fr 1fr;gap:9px;padding:14px}
+  .delivery-zone-name{grid-column:1/-1}
+  .opening-hours-grid{max-width:calc(100vw - 28px)}
+  .kds-board-v061{padding:13px;border-radius:16px}
+  .kds-columns-v061{grid-template-columns:repeat(5,220px);gap:8px}
+  .sales-ops-list-v061 article{align-items:flex-start;flex-direction:column}
+  .sales-ops-list-v061 article .order-whatsapp-action-v061{width:100%}
+
+  /* Modais ocupam a tela com margem segura e rolagem interna. */
+  .modal-overlay{place-items:end center;padding:10px 10px calc(10px + env(safe-area-inset-bottom));overflow:auto}
+  .master-modal,.master-modal--wide,.manual-pix-result-modal{width:100%;max-width:none;max-height:min(92dvh,760px);padding:22px 16px;border-radius:20px}
+  .master-modal h2{font-size:1.3rem;padding-right:30px}
+  .master-modal .form-grid{grid-template-columns:1fr}
+  .master-modal .form-grid .full{grid-column:auto}
+  .master-modal-actions{flex-direction:column-reverse;gap:8px}
+  .master-modal-actions button{width:100%;min-height:48px}
+  .modal-close{right:12px;top:12px;width:40px;height:40px}
+  .human-contact-overlay{padding:12px}
+  .human-contact-card{width:100%;max-height:calc(100dvh - 24px);overflow:auto;padding:24px 17px;border-radius:20px}
+}
+
+@media (max-width:560px){
+  .container,.container-wide{width:min(100% - 24px,1180px)}
+  .food-store-hero-v43{height:185px}
+  .food-store-hero-v43>.container{padding-bottom:53px}
+  .food-store-profile-v43{width:calc(100% - 20px);margin-top:-38px;padding:14px;grid-template-columns:62px minmax(0,1fr);gap:10px}
+  .food-store-profile-logo{width:62px;height:62px;border-radius:14px}
+  .food-store-profile-title h1{font-size:1.12rem}
+  .food-store-profile-actions{gap:7px}
+  .food-store-profile-actions>a,.food-fulfillment-pill{font-size:.68rem}
+  .food-marketplace-body{padding-inline:10px}
+  .food-product-grid{grid-template-columns:1fr}
+  .product-card--food{grid-template-columns:minmax(0,1fr) 116px;min-height:140px}
+  .product-card--food .product-card__image-wrap{min-height:140px}
+  .food-cart-dock,.mobile-cart-dock{left:10px;right:10px}
+  .mobile-cart-dock__action{font-size:.7rem}
+  .store-footer .container{align-items:flex-start;flex-direction:column;gap:9px}
+  .product-detail-layout{width:calc(100% - 24px)}
+  .product-detail-info h1{font-size:2rem}
+  .option-group__heading{display:grid;grid-template-columns:minmax(0,1fr) auto}
+  .option-limit-badge{font-size:.6rem}
+  .buy-box{margin-inline:0}
+  .cart-layout,.checkout-layout,.checkout-layout--premium{width:calc(100% - 24px)}
+  .cart-item{grid-template-columns:64px minmax(0,1fr) 36px!important}
+  .cart-item img{width:64px;height:64px}
+  .checkout-topbar-v44{padding-inline:0}
+  .checkout-topbar-v44>span{max-width:38vw;font-size:.66rem}
+  .checkout-page-v44 .checkout-layout--premium{padding-top:14px}
+  .checkout-page-v44 .checkout-card{padding:15px 13px}
+  .checkout-title h1{font-size:1.85rem}
+  .checkout-title p{font-size:.78rem}
+  .admin-page{padding-inline:12px}
+  .stat-grid,.master-stat-grid{grid-template-columns:1fr 1fr;gap:9px}
+  .stat-card{padding:13px 12px}
+  .stat-icon{margin-bottom:12px}
+  .stat-card strong{font-size:1.3rem}
+  .admin-card{padding:14px}
+  .admin-page-title>.primary-button{font-size:.76rem}
+  .responsive-table table{min-width:700px}
+  .master-payment-summary-v046,.food-payment-admin-meta-v046{grid-template-columns:1fr}
+  .master-payment-list article{grid-template-columns:1fr}
+  .payment-amount{text-align:left}
+  .master-modal,.master-modal--wide,.manual-pix-result-modal{padding:20px 14px;border-radius:18px}
+  .settings-storefront-preview__products{grid-template-columns:1fr}
+}
+
+@media (max-width:380px){
+  .food-store-profile-v43{grid-template-columns:1fr}
+  .food-store-profile-logo{width:58px;height:58px}
+  .food-store-profile-meta,.food-store-profile-actions{grid-column:auto}
+  .food-store-profile-actions{grid-template-columns:1fr}
+  .food-store-profile-actions>a{grid-column:auto}
+  .product-card--food{grid-template-columns:minmax(0,1fr) 104px}
+  .product-card--food .product-card__content{padding-left:11px}
+  .stat-grid,.master-stat-grid{grid-template-columns:1fr}
+}

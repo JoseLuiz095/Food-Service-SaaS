@@ -23,6 +23,7 @@ import {
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PlatformHelpButton } from '../components/PlatformHelpButton';
+import { AdminNotifications } from '../components/admin/AdminNotifications';
 import { ImageWithFallback } from '../components/ui/ImageWithFallback';
 import { useAuth } from '../contexts/AuthContext';
 import { useStore } from '../contexts/StoreContext';
@@ -184,6 +185,7 @@ export default function AdminLayout() {
           </div>
 
           <div className="admin-topbar__actions">
+            <AdminNotifications />
             {billingStatus.visible && (
               <button
                 type="button"

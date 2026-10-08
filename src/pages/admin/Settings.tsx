@@ -46,6 +46,12 @@ export default function SettingsAdmin() {
   }));
   const applyVisualPreset = (preset: keyof typeof STORE_VISUAL_THEME_PRESETS) => setForm((current) => ({ ...current, visualTheme: { ...STORE_VISUAL_THEME_PRESETS[preset] } }));
   const updateMessageTemplate = (key: keyof NonNullable<StoreSettings['messageTemplates']>, value: string) => setForm((current) => ({ ...current, messageTemplates: { ...normalizeCustomerMessageTemplates(current.messageTemplates), [key]: ensureCustomerMessageVariables(key, value) } }));
+  const toggleDesktopNotifications = (enabled: boolean) => {
+    update('notificationsDesktopEnabled', enabled);
+    if (enabled && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      void Notification.requestPermission();
+    }
+  };
   const activatePixReceiptMode = (mode: StoreSettings['pixReceiptMode']) => {
     update('pixReceiptMode', mode);
     if (mode === 'copy_paste') {
@@ -258,6 +264,18 @@ export default function SettingsAdmin() {
             <label className="switch-row"><span><strong>Permitir pedido agendado</strong><small>Quando a loja estiver fechada, o cliente poderá selecionar um horário futuro.</small></span><input type="checkbox" checked={form.allowScheduledOrders} onChange={(e)=>update('allowScheduledOrders',e.target.checked)} /></label>
             <label className="switch-row"><span><strong>Modo cozinha / KDS</strong><small>Exibe um quadro operacional dentro de Pedidos e libera mensagens prontas de atualização para o cliente.</small></span><input type="checkbox" checked={form.kdsEnabled} onChange={(e)=>update('kdsEnabled',e.target.checked)} /></label>
             {form.kdsEnabled && <label className="switch-row"><span><strong>Preparar mensagem ao mudar status</strong><small>Ao avançar o pedido, abre o WhatsApp com uma mensagem pronta para o lojista apenas confirmar o envio.</small></span><input type="checkbox" checked={form.kdsNotifyCustomer} onChange={(e)=>update('kdsNotifyCustomer',e.target.checked)} /></label>}
+          </section>
+
+          <section className="admin-card form-section">
+            <span className="eyebrow">ALERTAS DA OPERAÇÃO</span>
+            <h2>Notificações do painel</h2>
+            <p className="muted">Receba um aviso dentro do Admin quando houver novidades. As notificações funcionam enquanto o painel estiver aberto; o navegador pode solicitar permissão para avisos fora da aba.</p>
+            <label className="switch-row"><span><strong>Novo pedido</strong><small>Avisa assim que um pedido novo for registrado.</small></span><input type="checkbox" checked={form.notificationsNewOrderEnabled} onChange={(e)=>update('notificationsNewOrderEnabled',e.target.checked)} /></label>
+            <label className="switch-row"><span><strong>Pedido agendado próximo</strong><small>Avisa antes do horário de um pedido agendado para você se preparar.</small></span><input type="checkbox" checked={form.notificationsScheduledEnabled} onChange={(e)=>update('notificationsScheduledEnabled',e.target.checked)} /></label>
+            {form.notificationsScheduledEnabled && <label>Antecedência do lembrete (minutos)<input type="number" min="5" max="1440" step="5" value={form.notificationsScheduledLeadMinutes} onChange={(e)=>update('notificationsScheduledLeadMinutes',Math.min(1440,Math.max(5,Number(e.target.value)||5)))} /><small>Ex.: 30 avisa quando faltarem aproximadamente 30 minutos.</small></label>}
+            <label className="switch-row"><span><strong>Avisos no computador</strong><small>Mostra uma notificação do navegador quando a permissão estiver disponível.</small></span><input type="checkbox" checked={form.notificationsDesktopEnabled} onChange={(e)=>toggleDesktopNotifications(e.target.checked)} /></label>
+            <label className="switch-row"><span><strong>Som do alerta</strong><small>Toca um aviso discreto junto com a notificação, quando permitido pelo navegador.</small></span><input type="checkbox" checked={form.notificationsSoundEnabled} onChange={(e)=>update('notificationsSoundEnabled',e.target.checked)} /></label>
+            <div className="admin-info-box"><Info size={17}/><span>Para o aviso funcionar, mantenha uma aba do Admin aberta. A confirmação de pagamento continua sendo uma ação separada.</span></div>
           </section>
 
           <section className="admin-card form-section growth-settings-v062">
