@@ -210,6 +210,8 @@ export type StoreSettings = {
   paymentMethodOrder: PaymentMethod[];
   deliveryEnabled: boolean;
   pickupEnabled: boolean;
+  /** Horário a partir do qual pedidos para entrega podem ser registrados. Retirada não é afetada. */
+  deliveryStartTime?: string;
   minimumOrder: number;
   averagePreparationMin: number;
   averagePreparationMax: number;
@@ -387,6 +389,9 @@ export type CheckoutData = {
   changeFor: number | null;
   scheduledFor: string;
   reviewConfirmed: boolean;
+  /** Dados opcionais de atribuição informados pelo cliente no checkout. */
+  customerInstagram?: string;
+  acquisitionSource?: 'instagram' | 'whatsapp' | 'google' | 'indicacao' | 'outro';
 };
 
 export type OrderStatus = 'received' | 'confirmed' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'picked_up' | 'cancelled';
@@ -419,6 +424,8 @@ export type ManualOrderInput = {
   paymentMethod: PaymentMethod;
   status: OrderStatus;
   received: boolean;
+  /** Quando informado, o pedido fica programado para um horário futuro. */
+  scheduledFor?: string;
   notes?: string;
   items: ManualOrderItemInput[];
 };
@@ -437,6 +444,8 @@ export type OrderConfirmation = {
   pixKeyType: string;
   pixKey: string;
   pixCopyPaste: string;
+  /** Payload PIX dinâmico com o valor do pedido, usado também para gerar o QR Code. */
+  pixPayload?: string;
   pixReceiver: string;
   orderMessage: string;
   changeAmount?: number;
@@ -485,6 +494,8 @@ export type Order = {
   scheduledFor?: string;
   preparationEstimateMinutes?: number;
   source?: 'site' | 'whatsapp' | 'counter' | 'phone' | 'ifood' | 'other';
+  customerInstagram?: string;
+  acquisitionSource?: 'instagram' | 'whatsapp' | 'google' | 'indicacao' | 'outro';
   whatsappClickedAt?: string;
   createdAt: string;
 };

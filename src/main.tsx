@@ -11,6 +11,14 @@ import './styles.css';
 
 installGlobalInteractionTelemetry();
 
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js').catch(() => {
+      // O app continua funcionando normalmente mesmo sem o modo instalável.
+    });
+  });
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Elemento #root não encontrado.');
 

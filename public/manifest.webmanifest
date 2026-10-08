@@ -1,0 +1,19 @@
+{
+  "name": "FoodWeb Administração",
+  "short_name": "FoodWeb Admin",
+  "description": "Painel de administração da loja FoodWeb.",
+  "lang": "pt-BR",
+  "start_url": "/admin",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f7f4",
+  "theme_color": "#123d28",
+  "icons": [
+    {
+      "src": "/favicon-foodweb-v054.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

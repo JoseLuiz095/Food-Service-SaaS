@@ -211,6 +211,22 @@ Deno.serve(async (req) => {
     const created = Array.isArray(rpcPayload) ? rpcPayload[0] : null;
     if (!created?.order_id) throw new Error('O banco não retornou o identificador do pedido.');
 
+    // Atribuição de marketing é opcional e não participa do cálculo do pedido.
+    // Gravamos após o RPC para manter compatibilidade com instalações que ainda
+    // não aplicaram as colunas de origem/Instagram.
+    const customerInstagram = String(payloadRecord.customer_instagram || '').trim().slice(0, 120);
+    const allowedSources = new Set(['instagram', 'whatsapp', 'google', 'indicacao', 'outro']);
+    const acquisitionSource = String(payloadRecord.acquisition_source || '').trim();
+    if (customerInstagram || allowedSources.has(acquisitionSource)) {
+      const { error: attributionError } = await adminClient.from('food_orders').update({
+        customer_instagram: customerInstagram || null,
+        acquisition_source: allowedSources.has(acquisitionSource) ? acquisitionSource : null,
+      }).eq('id', created.order_id).eq('store_id', storeId);
+      // A atualização nunca deve invalidar um pedido já criado. Em ambientes
+      // antigos a coluna pode ainda não existir no schema cache.
+      if (attributionError) console.warn('Atribuição do pedido não foi salva:', attributionError.message);
+    }
+
     if (UUID_PATTERN.test(analyticsSessionId)) {
       try {
         if (UUID_PATTERN.test(storeId)) {

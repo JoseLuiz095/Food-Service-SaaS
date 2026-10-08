@@ -450,6 +450,7 @@ declare
   v_group record; v_option_record record; v_product_id uuid; v_group_id uuid; v_option_id uuid;
   v_quantity integer; v_option_quantity integer; v_choice_count integer; v_unit_price numeric(12,2); v_item_total numeric(12,2);
   v_subtotal numeric(12,2) := 0; v_total numeric(12,2) := 0; v_preparation_extra integer := 0; v_order_item_id uuid;
+  v_scheduled_for timestamptz; v_allow_future boolean := false; v_timezone text := 'America/Sao_Paulo';
   v_items_calculated jsonb := '[]'::jsonb; v_options_calculated jsonb;
 begin
   if auth.uid() is null then raise exception 'Sessão autenticada obrigatória.' using errcode='42501'; end if;
@@ -463,13 +464,21 @@ begin
   if v_status not in ('received','confirmed','preparing','ready','out_for_delivery','delivered','picked_up','cancelled') then raise exception 'Status inicial inválido.'; end if;
   begin v_received:=coalesce((payload->>'received')::boolean,false); exception when others then raise exception 'Situação de recebimento inválida.'; end;
   if v_status='cancelled' and v_received then raise exception 'Um pedido cancelado não pode ser marcado como recebido.'; end if;
+  if nullif(payload->>'scheduled_for','') is not null then
+    begin v_scheduled_for := (payload->>'scheduled_for')::timestamptz; exception when others then raise exception 'Agendamento inválido.'; end;
+    select coalesce(nullif(opening_hours->>'timezone',''),'America/Sao_Paulo') into v_timezone from public.food_stores where id=v_store_id;
+    if v_scheduled_for <= now() or (v_scheduled_for at time zone v_timezone)::date < ((now() at time zone v_timezone)::date + 1) then
+      raise exception 'O lançamento futuro precisa ser agendado a partir de amanhã.';
+    end if;
+    v_allow_future := true;
+  end if;
   if jsonb_typeof(payload->'items')<>'array' or jsonb_array_length(payload->'items')=0 then raise exception 'Selecione ao menos um produto.'; end if;
   if jsonb_array_length(payload->'items')>50 then raise exception 'O pedido excede o limite de itens.'; end if;
 
   for v_item in select * from jsonb_array_elements(payload->'items') loop
     begin v_product_id:=(v_item->>'product_id')::uuid; v_quantity:=(v_item->>'quantity')::integer; exception when others then raise exception 'Produto ou quantidade inválidos.'; end;
     if v_quantity<1 or v_quantity>99 then raise exception 'Quantidade inválida.'; end if;
-    select * into v_product from public.food_products p where p.id=v_product_id and p.store_id=v_store_id and p.active and p.availability_status='available' and p.stock_status<>'unavailable' and exists(select 1 from public.food_categories c where c.id=p.category_id and c.store_id=p.store_id and c.active);
+    select * into v_product from public.food_products p where p.id=v_product_id and p.store_id=v_store_id and p.active and (v_allow_future or (p.availability_status='available' and p.stock_status<>'unavailable')) and exists(select 1 from public.food_categories c where c.id=p.category_id and c.store_id=p.store_id and c.active);
     if v_product.id is null then raise exception 'Um dos produtos não está disponível.'; end if;
     v_unit_price:=coalesce(v_product.promotional_price,v_product.price); v_options_calculated:='[]'::jsonb;
     for v_group in select og.* from public.food_option_groups og join public.food_product_option_groups pog on pog.option_group_id=og.id and pog.store_id=og.store_id where pog.product_id=v_product.id and pog.store_id=v_store_id and og.active order by pog.sort_order,og.sort_order loop
@@ -493,8 +502,8 @@ begin
     v_items_calculated:=v_items_calculated||jsonb_build_array(jsonb_build_object('product_id',v_product.id,'product_name',v_product.name,'quantity',v_quantity,'unit_price',round(v_unit_price,2),'options',v_options_calculated,'item_total',v_item_total));
   end loop;
   v_subtotal:=round(v_subtotal,2); v_total:=v_subtotal;
-  insert into public.food_orders(id,store_id,customer_name,customer_phone,delivery_type,desired_date,notes,payment_method,review_confirmed,subtotal,total,status,payment_status,payment_received_at,payment_confirmed_by,preparation_estimate_minutes,source)
-  values(v_order_id,v_store_id,v_customer_name,v_customer_phone,'pickup',current_date,v_notes,v_payment_method,true,v_subtotal,v_total,v_status,case when v_received then 'paid' else 'pending' end,case when v_received then now() else null end,case when v_received then auth.uid() else null end,v_preparation_extra,v_source) returning food_orders.order_number into v_order_number;
+  insert into public.food_orders(id,store_id,customer_name,customer_phone,delivery_type,desired_date,scheduled_for,notes,payment_method,review_confirmed,subtotal,total,status,payment_status,payment_received_at,payment_confirmed_by,preparation_estimate_minutes,source)
+  values(v_order_id,v_store_id,v_customer_name,v_customer_phone,'pickup',coalesce((v_scheduled_for at time zone v_timezone)::date,current_date),v_scheduled_for,v_notes,v_payment_method,true,v_subtotal,v_total,v_status,case when v_received then 'paid' else 'pending' end,case when v_received then now() else null end,case when v_received then auth.uid() else null end,v_preparation_extra,v_source) returning food_orders.order_number into v_order_number;
   for v_item in select * from jsonb_array_elements(v_items_calculated) loop
     insert into public.food_order_items(order_id,product_id,product_name,quantity,unit_price,variant_name,variant_price_delta,addons,item_total) values(v_order_id,(v_item->>'product_id')::uuid,v_item->>'product_name',(v_item->>'quantity')::integer,(v_item->>'unit_price')::numeric,null,0,coalesce(v_item->'options','[]'::jsonb),(v_item->>'item_total')::numeric) returning id into v_order_item_id;
     for v_option in select * from jsonb_array_elements(coalesce(v_item->'options','[]'::jsonb)) loop

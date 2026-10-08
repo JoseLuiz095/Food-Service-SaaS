@@ -145,6 +145,9 @@ button:disabled,.primary-button:disabled{opacity:.55;cursor:not-allowed;transfor
 .pix-key-row code{min-width:0;padding:13px 14px;border-radius:10px;background:#f5f4f1;color:#27252a;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.96rem;line-height:1.35;overflow-wrap:anywhere;text-align:left}
 .pix-key-row button{border:1px solid #dedbd5;border-radius:10px;background:#fff;color:#313033;display:grid;place-items:center;cursor:pointer}
 .pix-key-row button:hover{background:var(--green-soft);border-color:#b9d1c3;color:var(--green)}
+.pix-qr-code{display:grid;justify-items:center;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid #ece9e3;text-align:center}
+.pix-qr-code img{width:min(260px,100%);height:auto;padding:10px;background:#fff;border:1px solid #e4e0d9;border-radius:14px;image-rendering:pixelated}
+.pix-qr-code small{color:#7b756e;font-size:.76rem}
 .pix-confirmation-box>small{display:block;margin-top:10px;color:#7b756e;font-size:.76rem}
 .pix-return-reminder{display:grid;gap:3px;margin-top:16px;padding:12px 13px;border-radius:12px;background:#fff7df;border:1px solid #f0d38a;color:#795b15;line-height:1.4}
 .pix-return-reminder strong{font-size:.82rem}
@@ -661,6 +664,13 @@ body{background:#fbfaf7;color:#17201a;-webkit-font-smoothing:antialiased}
 /* === FloriWeb 2.9.0: onboarding, demo e indisponibilidade === */
 .field-help-error{color:#b42318!important;font-weight:700}
 .master-modal--wide{max-width:860px}
+.manual-pix-result-modal{max-width:560px}
+.manual-pix-result-qr{display:block;width:min(260px,100%);margin:18px auto;padding:10px;background:#fff;border:1px solid #e4e0d9;border-radius:14px;image-rendering:pixelated}
+.manual-pix-result-loading{display:flex;align-items:center;justify-content:center;gap:8px;min-height:100px;color:var(--muted)}
+.manual-pix-result-code{display:grid;gap:7px;font-size:.78rem;font-weight:800}
+.manual-pix-result-code>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.manual-pix-result-code textarea{width:100%;min-height:96px;resize:vertical;font:500 .75rem/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:10px;border:1px solid var(--line);border-radius:10px;background:#faf9f6}
+.manual-pix-result-code button{align-self:stretch}
 .demo-plan-create-note{display:flex;gap:8px;flex-direction:column;padding:14px 16px;border:1px solid #b8ddc7;background:#f3fbf6;border-radius:14px;color:#174d31}
 .demo-plan-create-note strong{font-size:14px}.demo-plan-create-note span{font-size:13px;line-height:1.45}
 .credential-setup-card{margin-top:18px;padding:18px;border:1px solid #e2ded7;border-radius:18px;background:#fbfaf7}
