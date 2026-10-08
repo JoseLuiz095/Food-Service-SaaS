@@ -145,6 +145,12 @@ export default function OrderSuccess() {
             {confirmation.pixReceiver && <small>Recebedor: {confirmation.pixReceiver}</small>}
           </div>
         )}
+        {isPix && confirmation.pixGenerationError && !hasPixPayload && !isPixKey && !isPixCopyPaste && (
+          <div className="pix-generation-warning" role="alert">
+            <strong>PIX com valor não gerado</strong>
+            <span>{confirmation.pixGenerationError} A loja precisa revisar a chave PIX, o titular e a cidade nas configurações.</span>
+          </div>
+        )}
 
         {isCard && (
           <div className="card-link-info-box">

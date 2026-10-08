@@ -342,7 +342,7 @@ declare
   v_product_id uuid; v_group_id uuid; v_option_id uuid; v_quantity integer; v_option_quantity integer; v_choice_count integer;
   v_unit_price numeric(12,2); v_item_total numeric(12,2); v_payment_method text; v_review_confirmed boolean;
   v_needs_change boolean:=false; v_change_for numeric(12,2); v_change_amount numeric(12,2);
-  v_scheduled_for timestamptz; v_preparation_extra integer:=0; v_order_item_id uuid;
+  v_scheduled_for timestamptz; v_allow_future boolean:=false; v_preparation_extra integer:=0; v_order_item_id uuid;
 begin
   if payload is null or jsonb_typeof(payload)<>'object' then raise exception 'Pedido inválido.'; end if;
   begin v_request_id := (payload->>'public_request_id')::uuid; exception when others then raise exception 'Identificador de tentativa inválido.'; end;
@@ -363,9 +363,11 @@ begin
     begin v_scheduled_for := (payload->>'scheduled_for')::timestamptz; exception when others then raise exception 'Informe data e horário para o pedido agendado.'; end;
     if v_scheduled_for <= now() then raise exception 'O agendamento precisa ser futuro.'; end if;
     if not public.food_store_is_accepting_orders(v_store.id,v_scheduled_for) then raise exception 'O horário agendado está fora do funcionamento da loja.'; end if;
+    v_allow_future := (v_scheduled_for at time zone coalesce(v_store.opening_hours->>'timezone','America/Sao_Paulo'))::date >= ((now() at time zone coalesce(v_store.opening_hours->>'timezone','America/Sao_Paulo'))::date + 1);
   elsif nullif(payload->>'scheduled_for','') is not null then
     begin v_scheduled_for := (payload->>'scheduled_for')::timestamptz; exception when others then raise exception 'Agendamento inválido.'; end;
     if v_scheduled_for <= now() or not public.food_store_is_accepting_orders(v_store.id,v_scheduled_for) then raise exception 'Horário agendado inválido.'; end if;
+    v_allow_future := (v_scheduled_for at time zone coalesce(v_store.opening_hours->>'timezone','America/Sao_Paulo'))::date >= ((now() at time zone coalesce(v_store.opening_hours->>'timezone','America/Sao_Paulo'))::date + 1);
   end if;
 
   v_payment_method := coalesce(nullif(payload->>'payment_method',''),'confirm');
@@ -386,8 +388,9 @@ begin
   for v_item in select * from jsonb_array_elements(payload->'items') loop
     begin v_product_id := (v_item->>'product_id')::uuid; exception when others then raise exception 'Produto inválido.'; end;
     select * into v_product from public.food_products p
-      where p.id=v_product_id and p.store_id=v_store.id and p.active and p.availability_status='available'
-        and p.stock_status<>'unavailable'
+      where p.id=v_product_id and p.store_id=v_store.id and p.active
+        and p.availability_status='available'
+        and (v_allow_future or p.stock_status<>'unavailable')
         and exists(select 1 from public.food_categories c where c.id=p.category_id and c.store_id=p.store_id and c.active);
     if v_product.id is null then raise exception 'Um dos produtos não está mais disponível.'; end if;
     begin v_quantity := (v_item->>'quantity')::integer; exception when others then raise exception 'Quantidade inválida.'; end;
