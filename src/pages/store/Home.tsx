@@ -39,7 +39,7 @@ function StorefrontHome(){
 
   return <>
     <StoreHeader/>
-    <main className="container storefront-body food-marketplace-body">
+    <main id="cardapio" className="container storefront-body food-marketplace-body">
       <section className="food-order-summary"><div><Truck size={17}/><strong>{settings.deliveryEnabled&&settings.pickupEnabled?'Delivery ou retirada':settings.deliveryEnabled?'Delivery':'Retirada'}</strong><span>{settings.minimumOrder>0?`Pedido mínimo ${currency.format(settings.minimumOrder)}`:'Sem pedido mínimo'}</span></div><div><Sparkles size={17}/><strong>Peça em poucos minutos</strong><span>Personalize e finalize online</span></div></section>
 
       <div className="food-discovery-bar">

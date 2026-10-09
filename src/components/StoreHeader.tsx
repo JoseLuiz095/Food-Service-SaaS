@@ -1,10 +1,11 @@
-import { Clock3, Info, MapPin, MessageCircle, ShieldCheck, ShoppingBag, Store, Truck } from 'lucide-react';
+import { ChevronDown, Clock3, Info, MapPin, MessageCircle, ShieldCheck, ShoppingBag, Store, Truck } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useStore } from '../contexts/StoreContext';
 import { storefrontPath } from '../utils/storefrontRoute';
 import { sanitizeWhatsAppNumber } from '../utils/format';
 import { getOpeningScheduleOverview, getStoreOpenStatus } from '../utils/storeHours';
+import { loadFulfillmentPreference, saveFulfillmentPreference } from '../utils/fulfillmentPreference';
 import { ImageWithFallback } from './ui/ImageWithFallback';
 
 export function StoreHeader(){
@@ -15,8 +16,10 @@ export function StoreHeader(){
   const scheduleOverview=useMemo(()=>getOpeningScheduleOverview(settings.openingSchedule),[settings.openingSchedule]);
   const todaySchedule = scheduleOverview.today?.summary || 'Consulte os horários';
   const [hoursOpen,setHoursOpen]=useState(false);
+  const [preferredFulfillment,setPreferredFulfillment]=useState<'delivery'|'pickup'|null>(null);
   const hoursRef=useRef<HTMLDivElement|null>(null);
   useEffect(()=>{document.title=`${settings.name} · FoodWeb`;},[settings.name]);
+  useEffect(()=>{setPreferredFulfillment(loadFulfillmentPreference(settings.id));},[settings.id]);
   useEffect(()=>{
     const onPointerDown=(event:PointerEvent)=>{
       if(!hoursOpen)return;
@@ -41,18 +44,16 @@ export function StoreHeader(){
         <div className="food-store-profile-location"><MapPin size={14}/>{locationLabel}</div>
         <p>{settings.description||settings.tagline}</p>
         <div className="food-store-profile-meta">
-          <div className="food-hours-panel">
-            <div className="food-hours-summary"><Clock3 size={14}/><div><strong>Hoje</strong><span>{todaySchedule}</span></div></div>
-            <div className="food-hours-popover" ref={hoursRef}><button type="button" className="food-hours-button" aria-expanded={hoursOpen} onClick={()=>setHoursOpen((current)=>!current)}>Ver horários da semana</button>{hoursOpen&&<div className="hours-details-list food-hours-list food-hours-flyout" role="dialog" aria-label="Horários da semana">{scheduleOverview.days.map((day)=><div key={day.day} className={`hours-details-item ${day.isToday?'is-today':''}`}><strong>{day.shortLabel}</strong><span>{day.summary}</span></div>)}</div>}</div>
+          <div className="food-hours-popover" ref={hoursRef}><button type="button" className="food-hours-button food-hours-button--compact" aria-expanded={hoursOpen} onClick={()=>setHoursOpen((current)=>!current)}><Clock3 size={15}/><span><small>Hoje</small><strong>{todaySchedule}</strong></span><ChevronDown size={15} aria-hidden="true"/></button>
+            {hoursOpen&&<div className="hours-details-list food-hours-list food-hours-flyout" role="dialog" aria-label="Horários da semana">{scheduleOverview.days.map((day)=><div key={day.day} className={`hours-details-item ${day.isToday?'is-today':''}`}><strong>{day.shortLabel}</strong><span>{day.summary}</span></div>)}</div>}
           </div>
-          <span><Truck size={14}/>{fulfillment}</span>
-          {settings.minimumOrder>0&&<span><Store size={14}/>Pedido mínimo R$ {settings.minimumOrder.toFixed(2).replace('.',',')}</span>}
+          {settings.minimumOrder>0&&<span><Store size={14}/>Mínimo R$ {settings.minimumOrder.toFixed(2).replace('.',',')}</span>}
         </div>
       </div>
       <div className="food-store-profile-actions">
-        <div className="food-open-details"><span className={`open-pill ${status.open?'is-open':'is-closed'}`}>{status.label}</span><small>{status.detail}</small></div>
-        {settings.deliveryEnabled&&<span className="food-fulfillment-pill active"><Truck size={16}/>Delivery</span>}
-        {settings.pickupEnabled&&<span className="food-fulfillment-pill"><ShoppingBag size={16}/>Retirada</span>}
+        <div className="food-open-details"><span className={`open-pill ${status.open?'is-open':'is-closed'}`}>{status.label}</span><small>{status.detail}</small><span className="food-service-summary"><Truck size={13}/>{fulfillment}</span></div>
+        {settings.deliveryEnabled&&<a className={`food-fulfillment-pill ${preferredFulfillment==='delivery'?'active':''}`} href="#cardapio" onClick={()=>{saveFulfillmentPreference(settings.id,'delivery');setPreferredFulfillment('delivery');}}><Truck size={16}/><span><strong>Delivery</strong><small>Escolher endereço depois</small></span></a>}
+        {settings.pickupEnabled&&<a className={`food-fulfillment-pill ${preferredFulfillment==='pickup'?'active':''}`} href="#cardapio" onClick={()=>{saveFulfillmentPreference(settings.id,'pickup');setPreferredFulfillment('pickup');}}><ShoppingBag size={16}/><span><strong>Retirada</strong><small>Local combinado com a loja</small></span></a>}
         {settings.showWhatsApp !== false && whatsapp&&<a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer"><MessageCircle size={17}/>Falar com a loja</a>}
       </div>
     </section>

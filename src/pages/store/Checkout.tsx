@@ -18,6 +18,7 @@ import { storefrontPath } from '../../utils/storefrontRoute';
 import { normalizeText } from '../../utils/text';
 import { getStoreOpenStatus } from '../../utils/storeHours';
 import { loadCustomerCheckoutProfile, saveCustomerCheckoutProfile, saveRecentOrder } from '../../utils/customerSales';
+import { loadFulfillmentPreference } from '../../utils/fulfillmentPreference';
 
 const initial: CheckoutData = {
   customerName: '', customerPhone: '', customerEmail: '', fulfillment: 'delivery', zipCode: '', street: '', addressNumber: '', complement: '',
@@ -67,8 +68,9 @@ export default function Checkout() {
       const stored = localStorage.getItem(draftKey(settings.id));
       if (stored) draft = JSON.parse(stored) as Partial<CheckoutData>;
     } catch { /* storage indisponível ou rascunho antigo inválido */ }
+    const preferredFulfillment = loadFulfillmentPreference(settings.id);
     setDraftReadyForStore('');
-    setForm({ ...initial, ...(profile || {}), ...draft, deliveryFee: 0 });
+    setForm({ ...initial, ...(profile || {}), ...draft, ...(preferredFulfillment ? { fulfillment: preferredFulfillment } : {}), deliveryFee: 0 });
     if (profile) setRememberCustomer(true);
     setDraftReadyForStore(settings.id);
     try {

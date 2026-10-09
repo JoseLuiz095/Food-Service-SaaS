@@ -261,7 +261,7 @@ const settingsV052=read('src/pages/admin/Settings.tsx');
 const orderSuccessV052=read('src/pages/store/OrderSuccess.tsx');
 ok('v0.5.2 pedidos possuem filtros e ordenacao',orders.includes('orders-toolbar--filters')&&orders.includes('Ordenar por')&&orders.includes('statusFilter'));
 ok('v0.5.2 pedido relacionado abre destacado',financePage.includes('/admin/pedidos?highlight=')&&orders.includes('order-row-highlighted')&&orders.includes('highlightedOrderId'));
-ok('v0.5.2 horario de hoje com outros dias',header.includes('<strong>Hoje</strong>')&&header.includes('Ver horários da semana')&&header.includes('food-hours-popover'));
+ok('v0.5.2 horario de hoje com outros dias',header.includes('<small>Hoje</small>')&&header.includes('Horários da semana')&&header.includes('food-hours-popover'));
 ok('v0.5.2 popover fecha ao clicar fora',header.includes('pointerdown')&&header.includes('hoursRef'));
 ok('v0.5.2 pausa de almoco configuravel',settingsV052.includes('breakStart')&&settingsV052.includes('breakEnd')&&settingsV052.includes('Fechar para almoço'));
 ok('v0.5.2 PIX possui botao textual para copiar',orderSuccessV052.includes('Copiar PIX'));
