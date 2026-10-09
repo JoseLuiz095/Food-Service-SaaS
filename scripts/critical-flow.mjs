@@ -37,6 +37,7 @@ const serviceWorker=read('public/sw.js');
 const ordersAdmin=read('src/pages/admin/Orders.tsx');
 const inventoryPatch=read('supabase/patches/20261008_foodweb_inventory.sql');
 const inventoryGuard=read('supabase/migrations/202610082000_foodweb_future_inventory_paid_guard.sql');
+const manualOndemand=read('supabase/migrations/202610091200_foodweb_manual_ondemand_inventory.sql');
 const styles=read('src/styles.css');
 
 const registered=checkout.indexOf('await registerOrder(');
@@ -77,6 +78,12 @@ check('Push repetido não vibra novamente',serviceWorker.includes('renotify: fal
 check('Pedido avulso exibe erro de estoque como toast',ordersAdmin.includes('reportManualError')&&ordersAdmin.includes('showToast'));
 check('Toast fica acima do modal',styles.includes('.toast-stack{z-index:4000}'));
 check('Pedido futuro pago não baixa estoque sem reposição',inventoryPatch.includes("payment_status = 'paid' and not v_awaiting")&&inventoryGuard.includes("payment_status = 'paid' and not v_awaiting"));
+check('Pedido avulso futuro reaplica RPC permissivo',manualOndemand.includes('v_allow_future := true')&&manualOndemand.includes('(v_allow_future or (p.availability_status=\'available\''));
+check('Trigger avulso respeita fuso e data desejada',manualOndemand.includes('v_local_scheduled_date')&&manualOndemand.includes('v_order.desired_date'));
+check('Pagamento aguardando reposição não falha',manualOndemand.includes("<> 'awaiting_restock'")&&manualOndemand.includes('food_confirm_order_payment_v1'));
+check('Reposição tenta concluir pedido já pago',manualOndemand.includes('food_commit_restocked_orders_on_product_update')&&manualOndemand.includes('food_products_restock_commit_trg'));
+check('Pedidos admin têm cards compactos no mobile',ordersAdmin.includes('orders-mobile-list')&&styles.includes('.orders-mobile-list'));
+check('Vitrine tem entrada suave com toque reduzido',styles.includes('.food-storefront-theme .store-route-view')&&styles.includes('food-route-enter')&&styles.includes('prefers-reduced-motion'));
 check('Food Master lê apenas food_*',platformApi.includes('food_stores?')&&platformApi.includes('food_plans?')&&!platformApi.includes("'stores?"));
 check('Food Admin lê apenas food_*',storeApi.includes('food_products?')&&storeApi.includes('food_orders?')&&!storeApi.includes('`products?'));
 
