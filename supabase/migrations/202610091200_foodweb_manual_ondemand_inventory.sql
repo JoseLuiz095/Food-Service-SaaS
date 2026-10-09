@@ -151,7 +151,7 @@ begin
   return jsonb_build_object('ok',true,'alreadyPaid',v_already_paid,'orderId',v_order.id,'paymentReceivedAt',v_order.payment_received_at,'amount',v_order.total,'inventoryStatus',v_order.inventory_status);
 end;
 $$;
-revoke all on function public.food_confirm_order_payment_v1(uuid) from public;
+revoke all on function public.food_confirm_order_payment_v1(uuid) from public,anon;
 grant execute on function public.food_confirm_order_payment_v1(uuid) to authenticated;
 
 -- Quando a loja repõe o produto, tenta concluir automaticamente os pedidos
