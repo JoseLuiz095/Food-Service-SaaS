@@ -3489,11 +3489,44 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
   .orders-mobile-card__status .order-payment-confirm-button{flex:1 1 170px;width:100%;min-height:42px}
   .orders-mobile-card__received{display:inline-flex;align-items:center;gap:5px;color:#28724b;font-size:.72rem;font-weight:750}
   .orders-mobile-card.order-row-highlighted{border-color:#e2b675;box-shadow:0 0 0 3px rgba(226,182,117,.18)}
-  .responsive-table{display:none}
+  .orders-desktop-table{display:none}
 }
 @media(max-width:560px){
   .manual-stock-schedule-card.is-scheduled{grid-template-columns:auto minmax(0,1fr)}
   .manual-stock-schedule-card.is-scheduled>svg{align-self:start}
   .manual-stock-schedule-card.is-scheduled span{font-size:.68rem}
   .orders-payment-inbox__heading>strong{margin-left:0}
+}
+
+/* Perfil da vitrine: informações essenciais primeiro; escolha de recebimento
+   passa a ser uma ação real que já prepara o checkout. */
+.food-store-profile-v43{align-items:start}
+.food-store-profile-main{align-self:center}
+.food-store-profile-meta{align-items:center}
+.food-hours-button--compact{width:100%;min-height:48px;display:flex;align-items:center;gap:9px;padding:8px 11px;text-align:left}
+.food-hours-button--compact>span{display:grid;gap:1px;min-width:0}.food-hours-button--compact small{font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;color:var(--food-store-muted,#777)}
+.food-hours-button--compact strong{font-size:.76rem;color:var(--food-store-text,#2d2826);white-space:nowrap}.food-hours-button--compact>svg:last-child{margin-left:auto;transition:transform .18s ease}
+.food-hours-button--compact[aria-expanded="true"]>svg:last-child{transform:rotate(180deg)}
+.food-store-profile-actions{align-self:center}.food-open-details{grid-column:1/-1;display:flex;align-items:center;gap:7px;min-height:30px;color:var(--food-store-muted,#777);font-size:.68rem}
+.food-open-details small{font-size:inherit}.food-service-summary{display:inline-flex;align-items:center;gap:4px;margin-left:auto;color:var(--food-store-muted,#777);font-weight:750}
+.food-store-profile-actions>a.food-fulfillment-pill{grid-column:auto;min-height:52px;padding:8px 11px;border-radius:14px;text-decoration:none;align-items:center;justify-content:flex-start;transition:transform .18s ease,border-color .18s ease,background .18s ease}
+.food-store-profile-actions>a.food-fulfillment-pill:hover{transform:translateY(-1px)}
+.food-store-profile-actions>a.food-fulfillment-pill>span{display:grid;gap:1px;min-width:0}.food-store-profile-actions>a.food-fulfillment-pill strong{font-size:.72rem}.food-store-profile-actions>a.food-fulfillment-pill small{font-size:.6rem;line-height:1.2;color:inherit;opacity:.78}
+.food-storefront-theme .food-store-profile-actions>a.food-fulfillment-pill{border-color:var(--food-store-border);background:var(--food-store-surface);color:var(--food-store-primary)}
+.food-storefront-theme .food-store-profile-actions>a.food-fulfillment-pill.active{border-color:var(--food-store-primary);background:var(--food-store-primary);color:#fff;box-shadow:0 10px 22px color-mix(in srgb,var(--food-store-primary) 24%,transparent)}
+
+@media(max-width:820px){
+  .food-store-profile-actions{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .food-store-profile-actions>a.food-fulfillment-pill{grid-column:auto}
+}
+@media(max-width:560px){
+  .food-store-profile-meta{display:grid;grid-template-columns:minmax(0,1fr) auto;width:100%;gap:7px;margin-top:9px}
+  .food-hours-button--compact{min-height:46px}.food-store-profile-meta>span{min-height:46px;justify-content:center;white-space:nowrap}
+  .food-open-details{padding:0 1px;gap:6px}.food-service-summary{display:none}
+  .food-store-profile-actions>a.food-fulfillment-pill{min-height:50px;padding:7px 9px}.food-store-profile-actions>a.food-fulfillment-pill small{display:none}
+}
+@media(max-width:380px){
+  .food-store-profile-v43{grid-template-columns:58px minmax(0,1fr)}
+  .food-store-profile-main,.food-store-profile-meta,.food-store-profile-actions{grid-column:1/-1}
+  .food-store-profile-main{display:contents}.food-store-profile-title,.food-store-profile-location{grid-column:2}.food-store-profile-meta{grid-column:1/-1}
 }
