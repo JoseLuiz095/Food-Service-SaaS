@@ -132,7 +132,6 @@ export type Product = {
   addons: Addon[];
 };
 
-
 export type OpeningDayConfig = {
   day: number;
   enabled: boolean;
@@ -725,4 +724,122 @@ export type FinancialDocumentSuggestion = {
   description?: string;
   categoryName?: string | null;
   confidence?: number;
+};
+
+export type InventoryItemType = 'ingredient' | 'packaging' | 'finished_good' | 'operating' | 'other';
+/** Categoria enxuta usada pela tela operacional; operating/other são materiais gerais. */
+export type InventoryItemKind = 'ingredient' | 'packaging' | 'material';
+export type InventoryUnit = 'g' | 'kg' | 'ml' | 'l' | 'un' | 'pack';
+export type InventoryMovementType = 'purchase' | 'adjustment_in' | 'adjustment_out' | 'consumption' | 'production' | 'loss' | 'return' | 'opening_balance';
+
+export type InventoryItem = {
+  id: string;
+  storeId: string;
+  productId?: string;
+  name: string;
+  sku?: string;
+  itemType: InventoryItemType;
+  kind: InventoryItemKind;
+  unit: InventoryUnit;
+  currentQuantity: number;
+  /** Alias de leitura da tela operacional. O valor canônico é currentQuantity. */
+  quantity: number;
+  averageUnitCost: number;
+  lastUnitCost?: number;
+  reorderPoint: number;
+  /** Alias de leitura da tela operacional. O valor canônico é reorderPoint. */
+  minimumQuantity: number;
+  active: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type InventoryMovement = {
+  id: string;
+  storeId: string;
+  inventoryItemId: string;
+  movementType: InventoryMovementType;
+  quantityDelta: number;
+  quantityBefore: number;
+  quantityAfter: number;
+  unitCost: number;
+  totalCost: number;
+  sourceType?: string;
+  sourceId?: string;
+  sourceReference?: string;
+  reason?: string;
+  notes?: string;
+  idempotencyKey?: string;
+  createdBy?: string;
+  createdAt: string;
+};
+
+export type InventoryPurchaseItemInput = {
+  inventoryItemId: string;
+  quantity: number;
+  unitCost: number;
+  notes?: string;
+};
+
+export type InventoryPurchaseInput = {
+  storeId: string;
+  items: InventoryPurchaseItemInput[];
+  supplier?: string;
+  occurredOn?: string;
+  paymentMethod?: string;
+  documentType?: string;
+  documentNumber?: string;
+  notes?: string;
+  idempotencyKey?: string;
+};
+
+export type InventoryPurchaseResult = {
+  purchaseId: string;
+  totalAmount: number;
+  duplicate: boolean;
+};
+
+export type InventoryAdjustmentInput = {
+  storeId: string;
+  inventoryItemId: string;
+  quantityDelta: number;
+  reason: string;
+  notes?: string;
+  unitCost?: number;
+  movementType?: Exclude<InventoryMovementType, 'purchase'>;
+  idempotencyKey?: string;
+};
+
+export type InventoryAdjustmentResult = {
+  movementId: string;
+  quantityAfter: number;
+  averageUnitCost: number;
+  duplicate: boolean;
+};
+
+export type ProductRecipe = {
+  id: string;
+  storeId: string;
+  productId: string;
+  name: string;
+  yieldQuantity: number;
+  yieldUnit: InventoryUnit;
+  active: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProductRecipeItem = {
+  id: string;
+  storeId: string;
+  recipeId: string;
+  inventoryItemId: string;
+  quantity: number;
+  unit: InventoryUnit;
+  wastePercent: number;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 };

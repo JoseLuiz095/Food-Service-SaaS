@@ -66,7 +66,9 @@ export default function ProductForm() {
   useEffect(() => {
     if (id && existing) {
       setProduct(structuredClone(existing));
-      setOpenGroups(Object.fromEntries(existing.optionGroups.map((group) => [group.id, true])));
+      // Comece recolhido para que o cadastro seja escaneável no celular;
+      // o lojista abre apenas o grupo que deseja editar.
+      setOpenGroups(Object.fromEntries(existing.optionGroups.map((group) => [group.id, false])));
     } else if (!id) setProduct((current) => current.storeId === settings.id ? current : emptyProduct(settings.id));
   }, [id, existing, settings.id]);
 
