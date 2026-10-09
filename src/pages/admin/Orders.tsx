@@ -117,7 +117,8 @@ export default function OrdersAdmin() {
   const [manualPixCopied, setManualPixCopied] = useState(false);
   const [manualFormError, setManualFormError] = useState('');
   const refreshingRef = useRef(false);
-  const rowsRef = useRef<Record<string, HTMLTableRowElement | null>>({});
+  const rowsRef = useRef<Record<string, HTMLElement | null>>({});
+  const mobileRowsRef = useRef<Record<string, HTMLElement | null>>({});
   const highlightedOrderId = searchParams.get('highlight') || '';
   const reportManualError = (message: string) => {
     setManualFormError(message);
@@ -209,7 +210,18 @@ export default function OrdersAdmin() {
   const addManualProduct = () => {
     if (!manualProductId || manualItems.some((item) => item.productId === manualProductId)) return;
     const quantity = Math.max(1, Math.min(99, Number(manualQuantityDraft) || 1));
+    const product = manualProducts.find((current) => current.id === manualProductId);
+    const needsFutureSchedule = product ? productNeedsFutureScheduling(product, quantity) : false;
     setManualItems((items) => [...items, { productId: manualProductId, quantity, options: [] }]);
+    // Ao adicionar um item sem saldo, já preparamos a encomenda para amanhã.
+    // O operador ainda pode ajustar o horário, mas não precisa descobrir a
+    // regra de estoque depois de preencher todo o lançamento.
+    if (needsFutureSchedule) {
+      setManualOrder((current) => current.scheduledFor ? current : {
+        ...current,
+        scheduledFor: localDateTimeInputValue(current.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart()),
+      });
+    }
     setManualProductId('');
     setManualQuantityDraft(1);
   };
@@ -437,7 +449,7 @@ export default function OrdersAdmin() {
     const highlightedOrder = orders.find((order) => order.id === highlightedOrderId);
     if (!highlightedOrder) return;
     setQuery(''); setStatusFilter('all');
-    const timer = window.setTimeout(() => rowsRef.current[highlightedOrderId]?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 180);
+    const timer = window.setTimeout(() => (rowsRef.current[highlightedOrderId] || mobileRowsRef.current[highlightedOrderId])?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 180);
     return () => window.clearTimeout(timer);
   }, [highlightedOrderId, orders]);
 
@@ -481,7 +493,8 @@ export default function OrdersAdmin() {
         <div className="orders-toolbar__sync" aria-live="polite"><span>{filtered.length} pedido{filtered.length === 1 ? '' : 's'}</span><small>{lastUpdatedAt ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualização automática ativa'}</small><button type="button" className="secondary-button compact-button" onClick={() => void refreshOrders()} disabled={refreshing} aria-busy={refreshing}><RefreshCw size={15} className={refreshing ? 'spin' : ''}/>{refreshing ? 'Atualizando...' : 'Atualizar'}</button></div>
       </div>
       {highlightedOrderId && <div className="highlight-order-banner">O pedido relacionado vindo do Financeiro foi destacado abaixo.</div>}
-      {filtered.length === 0 ? <div className="admin-empty"><ShoppingBag size={32}/><strong>Nenhum pedido encontrado</strong><span>Ajuste os filtros ou aguarde o próximo pedido.</span></div> : <div className="responsive-table"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega / retirada</th><th>Pagamento</th><th>Total</th><th>Recebimento</th><th>Status</th><th>Criado em</th></tr></thead><tbody>{filtered.map((order) => {
+      {filtered.length === 0 ? <div className="admin-empty"><ShoppingBag size={32}/><strong>Nenhum pedido encontrado</strong><span>Ajuste os filtros ou aguarde o próximo pedido.</span></div> : <>
+        <div className="responsive-table"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega / retirada</th><th>Pagamento</th><th>Total</th><th>Recebimento</th><th>Status</th><th>Criado em</th></tr></thead><tbody>{filtered.map((order) => {
         const highlighted = order.id === highlightedOrderId;
         return <tr key={order.id} ref={(node) => { rowsRef.current[order.id] = node; }} className={highlighted ? 'order-row-highlighted' : ''}>
           <td><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong><small className="order-fee-note">{orderSourceLabel[order.source || 'site']}</small>{order.whatsappClickedAt ? <small className="order-fee-note">WhatsApp aberto</small> : null}{highlighted ? <small>Pedido vindo do Financeiro</small> : null}</td>
@@ -493,7 +506,18 @@ export default function OrdersAdmin() {
           <td><div className="order-status-actions-v061"><label className={`order-status-control order-status-control--${order.status}`}><span>{statusLabel[order.status]}</span><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{settings.kdsNotifyCustomer && order.customerPhone && whatsappButton(order, 'status')}</div></td>
           <td>{formatDateTimeBR(order.createdAt)}</td>
         </tr>;
-      })}</tbody></table></div>}
+        })}</tbody></table></div>
+        <div className="orders-mobile-list" aria-label="Pedidos em formato compacto">{filtered.map((order) => {
+          const highlighted = order.id === highlightedOrderId;
+          const awaitingPayment = order.paymentStatus !== 'paid' && order.status !== 'cancelled';
+          return <article key={`mobile-${order.id}`} className={`orders-mobile-card ${highlighted ? 'order-row-highlighted' : ''}`} ref={(node) => { mobileRowsRef.current[order.id] = node; }}>
+            <div className="orders-mobile-card__top"><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong><span>{formatDateTimeBR(order.createdAt)}</span></div>
+            <div className="orders-mobile-card__customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span>{order.customerInstagram ? <small>{order.customerInstagram}</small> : null}</div>
+            <div className="orders-mobile-card__facts"><span><small>Recebimento</small><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{order.scheduledFor ? <em>Agendado: {formatDateTimeBR(order.scheduledFor)}</em> : null}</span><span><small>Pagamento</small><strong>{paymentLabel[order.paymentMethod]}</strong><strong className="orders-mobile-card__total">{currency.format(order.total)}</strong></span></div>
+            <div className="orders-mobile-card__status"><label><small>Status do pedido</small><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{awaitingPayment ? <button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={15}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button> : <span className="orders-mobile-card__received"><CheckCircle2 size={15}/>{order.status === 'cancelled' ? 'Pedido cancelado' : 'Pagamento recebido'}</span>}</div>
+          </article>;
+        })}</div>
+      </>}
     </section>
     {manualOrderOpen && <div className="modal-overlay" role="presentation">
       <form className="master-modal master-modal--wide manual-order-modal" role="dialog" aria-modal="true" aria-labelledby="manual-order-title" onSubmit={saveManualOrder}>
@@ -512,7 +536,7 @@ export default function OrdersAdmin() {
 
         <section>
           <h3>Produtos</h3>
-          {manualUnavailableItem && !manualOrder.scheduledFor && <div className="manual-stock-schedule-card" role="status"><AlertCircle size={18}/><div><strong>{manualUnavailableItem.product.name} precisa de reposição</strong><span>Registre como encomenda futura e o estoque só será baixado após a reposição e confirmação.</span></div><button type="button" className="secondary-button" onClick={scheduleManualRestock}>Agendar amanhã</button></div>}
+          {manualUnavailableItem && <div className={`manual-stock-schedule-card ${manualOrder.scheduledFor ? 'is-scheduled' : ''}`} role="status" aria-live="polite"><AlertCircle size={18}/><div><strong>{manualUnavailableItem.product.name} precisa de reposição</strong><span>{manualOrder.scheduledFor ? `Encomenda sob demanda preparada para ${new Date(manualOrder.scheduledFor).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}. O estoque só será baixado após a reposição e confirmação.` : 'Registre como encomenda futura e o estoque só será baixado após a reposição e confirmação.'}</span></div>{!manualOrder.scheduledFor && <button type="button" className="secondary-button" onClick={scheduleManualRestock}>Agendar amanhã</button>}</div>}
           <div className="manual-product-quick-add">
             <label className="manual-product-quick-add__product">Adicionar produto<select value={manualProductId} onChange={(event) => setManualProductId(event.target.value)}><option value="">Selecione</option>{manualProducts.filter((product) => !manualItems.some((item) => item.productId === product.id)).map((product) => <option key={product.id} value={product.id}>{product.name} · {currency.format(product.promotionalPrice ?? product.price)}{product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable' ? ' · encomenda' : ''}</option>)}</select></label>
             <div className="manual-product-quick-add__quantity"><span>Qtd.</span><QuantityControl value={manualQuantityDraft} onChange={setManualQuantityDraft}/></div>

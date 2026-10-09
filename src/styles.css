@@ -3434,3 +3434,66 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 
 /* Alertas de validação precisam permanecer visíveis mesmo sobre modais. */
 .toast-stack{z-index:4000}
+
+/* Pass premium final: feedback de toque e entrada suave somente na vitrine. */
+.food-storefront-theme .store-route-view{animation:food-route-enter .34s ease both}
+.food-storefront-theme .product-card--food,
+.food-storefront-theme .cart-item,
+.food-storefront-theme .checkout-card{transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.food-storefront-theme .product-card--food:active,
+.food-storefront-theme .cart-item:active{transform:translateY(1px) scale(.995)}
+.food-storefront-theme .product-card--food:focus-visible{border-color:var(--food-store-primary);box-shadow:0 0 0 4px color-mix(in srgb,var(--food-store-highlight) 26%,transparent)}
+.food-storefront-theme .category-strip button:active,
+.food-storefront-theme .payment-options button:active,
+.food-storefront-theme .fulfillment-options button:active{transform:scale(.985)}
+.food-storefront-theme .checkout-card:focus-within{border-color:color-mix(in srgb,var(--food-store-primary) 28%,var(--food-store-border));box-shadow:0 12px 32px color-mix(in srgb,var(--food-store-primary) 9%,transparent)}
+.food-storefront-theme .product-card--food:nth-child(2){animation-delay:35ms}
+.food-storefront-theme .product-card--food:nth-child(3){animation-delay:70ms}
+.food-storefront-theme .product-card--food:nth-child(4){animation-delay:105ms}
+@keyframes food-route-enter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* O avulso deixa explícito quando o agendamento sob demanda já está pronto. */
+.manual-stock-schedule-card.is-scheduled{border-color:#c9e1d1;background:#f3fbf5;color:#256141}
+.manual-stock-schedule-card.is-scheduled span{color:#527663}
+
+/* Densidade e overflow previsíveis para o painel no celular. */
+.admin-page>*{min-width:0}
+.orders-payment-inbox__heading>div{min-width:0}
+.admin-card,.table-toolbar,.orders-payment-inbox__list article,.sales-ops-panel-v061{min-width:0}
+.orders-mobile-list{display:none}
+@media(max-width:820px){
+  .admin-page input,.admin-page textarea,.admin-page select,.master-modal input,.master-modal textarea,.master-modal select{font-size:16px}
+  .admin-card__header,.orders-payment-inbox__heading{flex-wrap:wrap}
+  .orders-payment-inbox__heading>strong{margin-left:auto}
+  .kds-board-v061{overflow:hidden}
+  .kds-columns-v061{overflow-x:auto;padding-bottom:4px;scroll-snap-type:x proximity}
+  .kds-columns-v061>section{scroll-snap-align:start}
+  .manual-order-modal{overflow-y:auto;-webkit-overflow-scrolling:touch}
+}
+@media(max-width:760px){
+  .orders-mobile-list{display:grid;gap:10px;padding:12px}
+  .orders-mobile-card{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:0 6px 18px rgba(31,48,38,.045)}
+  .orders-mobile-card__top,.orders-mobile-card__facts,.orders-mobile-card__status{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .orders-mobile-card__top>span,.orders-mobile-card__customer>span,.orders-mobile-card__customer>small,.orders-mobile-card__facts small,.orders-mobile-card__facts em,.orders-mobile-card__status small{display:block;color:var(--muted);font-size:.68rem;font-style:normal}
+  .orders-mobile-card__customer{display:grid;gap:3px;min-width:0}
+  .orders-mobile-card__customer>strong{font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .orders-mobile-card__facts{align-items:flex-start;padding:10px 0;border-top:1px solid #f0ede8;border-bottom:1px solid #f0ede8}
+  .orders-mobile-card__facts>span{display:grid;gap:3px;min-width:0}
+  .orders-mobile-card__facts>span:last-child{text-align:right}
+  .orders-mobile-card__facts strong{font-size:.77rem}
+  .orders-mobile-card__facts em{white-space:normal}
+  .orders-mobile-card__total{color:var(--green);font-size:.96rem!important}
+  .orders-mobile-card__status{align-items:flex-end;flex-wrap:wrap}
+  .orders-mobile-card__status label{display:grid;gap:5px;flex:1 1 145px;min-width:0}
+  .orders-mobile-card__status select{width:100%;min-height:42px;border:1px solid #ded9d2;border-radius:10px;padding:9px 10px;background:#fff;font:inherit;font-size:.78rem}
+  .orders-mobile-card__status .order-payment-confirm-button{flex:1 1 170px;width:100%;min-height:42px}
+  .orders-mobile-card__received{display:inline-flex;align-items:center;gap:5px;color:#28724b;font-size:.72rem;font-weight:750}
+  .orders-mobile-card.order-row-highlighted{border-color:#e2b675;box-shadow:0 0 0 3px rgba(226,182,117,.18)}
+  .responsive-table{display:none}
+}
+@media(max-width:560px){
+  .manual-stock-schedule-card.is-scheduled{grid-template-columns:auto minmax(0,1fr)}
+  .manual-stock-schedule-card.is-scheduled>svg{align-self:start}
+  .manual-stock-schedule-card.is-scheduled span{font-size:.68rem}
+  .orders-payment-inbox__heading>strong{margin-left:0}
+}
