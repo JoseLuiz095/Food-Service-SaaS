@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Banknote, Clock3, CreditCard, ImagePlus, Info, QrCode, RotateCcw, Save } from 'lucide-react';
+import { ArrowDown, ArrowUp, Banknote, ChevronDown, Clock3, CreditCard, ImagePlus, Info, QrCode, RotateCcw, Save } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
@@ -31,11 +31,14 @@ export default function SettingsAdmin() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const pixCopyPasteRef = useRef<HTMLTextAreaElement | null>(null);
   const canCustomBanner = planHasFeature(planUsage.plan, 'custom_banner');
   const canUseDoceLua = isDoceLuaStore(form);
   const messageTemplates = normalizeCustomerMessageTemplates(form.messageTemplates);
   const pushStatus = pwaPushStatus();
+  const toggleSection = (id: string) => setCollapsedSections((current) => ({ ...current, [id]: !current[id] }));
+  const sectionToggle = (id: string, label: string) => <button type="button" className="settings-section-toggle" onClick={() => toggleSection(id)} aria-expanded={!collapsedSections[id]}><span>{label}</span><ChevronDown size={17} /></button>;
 
   useEffect(() => setForm(cloneSettingsForForm(settings)), [settings]);
   const logoPreview = useMemo(() => logoFile ? URL.createObjectURL(logoFile) : form.logoUrl, [logoFile, form.logoUrl]);
@@ -198,7 +201,8 @@ export default function SettingsAdmin() {
       </div>
 
       <form className="admin-form-layout" onSubmit={submit}>
-        <section className="admin-card form-section">
+        <section className={`admin-card form-section settings-collapsible ${collapsedSections.identity ? 'is-collapsed' : ''}`}>
+          {sectionToggle('identity', 'Dados do estabelecimento')}
           <div className="admin-card__header"><div><span className="eyebrow">IDENTIDADE</span><h2>Dados do estabelecimento</h2></div></div>
           <div className="form-grid">
             <label className="full">Nome<input required value={form.name} onChange={(e) => update('name', e.target.value)} /></label>
@@ -283,7 +287,8 @@ export default function SettingsAdmin() {
         </section>
 
         <aside>
-          <section className="admin-card form-section">
+          <section className={`admin-card form-section settings-collapsible ${collapsedSections.service ? 'is-collapsed' : ''}`}>
+            {sectionToggle('service', 'Pedido e recebimento')}
             <span className="eyebrow">ATENDIMENTO</span>
             <h2>Pedido e recebimento</h2>
             <label className="switch-row"><span><strong>Entrega</strong><small>Permitir pedido para entrega</small></span><input type="checkbox" checked={form.deliveryEnabled} onChange={(e) => update('deliveryEnabled', e.target.checked)} /></label>
@@ -295,7 +300,8 @@ export default function SettingsAdmin() {
             {form.kdsEnabled && <label className="switch-row"><span><strong>Preparar mensagem ao mudar status</strong><small>Ao avançar o pedido, abre o WhatsApp com uma mensagem pronta para o lojista apenas confirmar o envio.</small></span><input type="checkbox" checked={form.kdsNotifyCustomer} onChange={(e)=>update('kdsNotifyCustomer',e.target.checked)} /></label>}
           </section>
 
-          <section className="admin-card form-section">
+          <section className={`admin-card form-section settings-collapsible ${collapsedSections.alerts ? 'is-collapsed' : ''}`}>
+            {sectionToggle('alerts', 'Notificações do painel')}
             <span className="eyebrow">ALERTAS DA OPERAÇÃO</span>
             <h2>Notificações do painel</h2>
             <p className="muted">Receba novos pedidos na barra de notificações mesmo com o PWA em segundo plano. Instale o Admin no telefone e permita as notificações quando ativar.</p>
@@ -308,7 +314,8 @@ export default function SettingsAdmin() {
             <button type="button" className="secondary-button" onClick={() => void sendTestNotification()}>Enviar notificação de teste</button>
           </section>
 
-          <section className="admin-card form-section growth-settings-v062">
+          <section className={`admin-card form-section growth-settings-v062 settings-collapsible ${collapsedSections.growth ? 'is-collapsed' : ''}`}>
+            {sectionToggle('growth', 'Vendas e relacionamento')}
             <span className="eyebrow">VENDAS E RELACIONAMENTO</span>
             <h2>Recorrência e aumento de ticket</h2>
             <label className="switch-row"><span><strong>Recuperação de vendas</strong><small>Lista pedidos salvos cujo contato ainda não foi concluído.</small></span><input type="checkbox" checked={form.salesRecoveryEnabled} onChange={(e)=>update('salesRecoveryEnabled',e.target.checked)} /></label>
@@ -320,7 +327,8 @@ export default function SettingsAdmin() {
             <div className="admin-info-box"><Info size={17}/><span>Esses recursos usam os dados operacionais que o FoodWeb já possui e não criam uma nova área de ERP.</span></div>
           </section>
 
-          <section className="admin-card form-section message-templates-v063">
+          <section className={`admin-card form-section message-templates-v063 settings-collapsible ${collapsedSections.messages ? 'is-collapsed' : ''}`}>
+            {sectionToggle('messages', 'Mensagens programadas')}
             <span className="eyebrow">COMUNICAÇÃO</span>
             <h2>Mensagens programadas</h2>
             <p>Edite as mensagens abertas manualmente no WhatsApp. As variáveis entre chaves são protegidas: se alguma for apagada, ela será recolocada automaticamente e também será corrigida ao salvar.</p>
@@ -339,12 +347,14 @@ export default function SettingsAdmin() {
             <button type="button" className="secondary-button" onClick={()=>setForm((current)=>({...current,messageTemplates:normalizeCustomerMessageTemplates(DEFAULT_CUSTOMER_MESSAGE_TEMPLATES)}))}>Restaurar mensagens padrão</button>
           </section>
 
-          <section className="admin-card form-section payment-admin-section">
+          <section className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.confirm ? 'is-collapsed' : ''}`}>
+            {sectionToggle('confirm', 'Confirmação manual')}
             <div className="admin-card__header"><div><span className="eyebrow">PAGAMENTOS</span><h2>Confirmação manual</h2></div><Info size={21} /></div>
             <label className="switch-row"><span><strong>Confirmar com a loja</strong><small>Permite finalizar sem escolher PIX, cartão ou dinheiro. A loja combina o pagamento pelo WhatsApp.</small></span><input type="checkbox" checked={form.confirmationPaymentEnabled} onChange={(e) => update('confirmationPaymentEnabled', e.target.checked)} /></label>
           </section>
 
-          <section className="admin-card form-section payment-admin-section">
+          <section className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.pix ? 'is-collapsed' : ''}`}>
+            {sectionToggle('pix', 'PIX')}
             <div className="admin-card__header"><div><span className="eyebrow">PAGAMENTOS</span><h2>PIX</h2></div><QrCode size={21} /></div>
             <label className="switch-row"><span><strong>PIX habilitado</strong><small>Mostrar PIX como opção no checkout</small></span><input type="checkbox" checked={form.pixEnabled} onChange={(e) => update('pixEnabled', e.target.checked)} /></label>
 
@@ -387,20 +397,23 @@ export default function SettingsAdmin() {
             )}
           </section>
 
-          <section className="admin-card form-section payment-admin-section">
+          <section className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.card ? 'is-collapsed' : ''}`}>
+            {sectionToggle('card', 'Cartão')}
             <div className="admin-card__header"><div><span className="eyebrow">PAGAMENTOS</span><h2>Cartão</h2></div><CreditCard size={21} /></div>
             <label className="switch-row"><span><strong>Pagamento por cartão por aproximação (NFC)</strong><small>Permite cartão de crédito ou débito na entrega/retirada, com o WhatsApp disponível para confirmação.</small></span><input type="checkbox" checked={form.cardPaymentEnabled} disabled={form.showWhatsApp === false || !form.whatsapp.trim()} onChange={(e) => update('cardPaymentEnabled', e.target.checked)} /></label>
             {form.cardPaymentEnabled && <div className="admin-info-box"><Info size={17} /><span>A plataforma não captura dados do cartão. A cobrança é presencial pela loja e o WhatsApp permanece disponível para orientar o cliente.</span></div>}
             {(!form.whatsapp.trim() || form.showWhatsApp === false) && <div className="admin-info-box"><Info size={17} /><span>Cadastre um WhatsApp e deixe a exibição ativa para liberar esta forma de pagamento.</span></div>}
           </section>
 
-          <section className="admin-card form-section payment-admin-section">
+          <section className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.cash ? 'is-collapsed' : ''}`}>
+            {sectionToggle('cash', 'Dinheiro')}
             <div className="admin-card__header"><div><span className="eyebrow">PAGAMENTOS</span><h2>Dinheiro</h2></div><Banknote size={21} /></div>
             <label className="switch-row"><span><strong>Pagamento em dinheiro</strong><small>Permitir que o cliente escolha pagar em dinheiro na entrega ou retirada.</small></span><input type="checkbox" checked={form.cashPaymentEnabled} onChange={(e) => update('cashPaymentEnabled', e.target.checked)} /></label>
             {form.cashPaymentEnabled && <div className="admin-info-box"><Info size={17} /><span>O pedido será registrado como pagamento em dinheiro. Se o cliente precisar de troco, o valor informado ficará registrado no pedido.</span></div>}
           </section>
 
-          <section className="admin-card form-section payment-admin-section">
+          <section className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.order ? 'is-collapsed' : ''}`}>
+            {sectionToggle('order', 'Ordem no checkout')}
             <div className="admin-card__header"><div><span className="eyebrow">EXIBIÇÃO</span><h2>Ordem no checkout</h2></div></div>
             <p>Defina a sequência das formas de pagamento mostradas ao cliente. Opções desativadas ficam ocultas, mas mantêm sua posição.</p>
             <div className="payment-order-admin">

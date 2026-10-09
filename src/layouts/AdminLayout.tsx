@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   BadgeDollarSign,
   BarChart3,
+  Boxes,
   CircleCheckBig,
   Clock3,
   ExternalLink,
@@ -45,6 +46,7 @@ const navSections = [
     label: 'Catálogo',
     items: [
       { to: '/admin/produtos', label: 'Produtos', icon: Package },
+      { to: '/admin/estoque', label: 'Estoque e insumos', icon: Boxes },
       { to: '/admin/categorias', label: 'Categorias', icon: Tags },
       { to: '/admin/entregas', label: 'Entregas', icon: Truck },
     ],
@@ -152,7 +154,7 @@ export default function AdminLayout() {
 
         <nav className="admin-nav">
           {navSections.map((section) => {
-            const preparationNavAllowed = new Set(['/admin','/admin/primeiros-passos','/admin/produtos','/admin/categorias','/admin/entregas','/admin/configuracoes']);
+            const preparationNavAllowed = new Set(['/admin','/admin/primeiros-passos','/admin/produtos','/admin/estoque','/admin/categorias','/admin/entregas','/admin/configuracoes']);
             const items = section.items.filter((item) => (!item.requiresFeature || planHasFeature(planUsage.plan, item.requiresFeature)) && (!membership?.limitedAccess || preparationNavAllowed.has(item.to)));
             if (!items.length) return null;
             return (
