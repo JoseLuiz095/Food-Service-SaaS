@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Clock3, Minus, Plus, Share2, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clock3, Minus, Plus, Share2, ShoppingBag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ProductMedia, hasProductImage } from '../../components/ProductMedia';
@@ -76,7 +76,14 @@ export default function ProductDetail() {
 
   const category = categories.find((item) => item.id === product.categoryId);
   const realImage = hasProductImage(product.imageUrl, product.images.length);
-  const gallery = product.gallery.length ? product.gallery : realImage ? [product.imageUrl] : [];
+  const gallery = Array.from(new Set([
+    ...(realImage ? [product.imageUrl] : []),
+    ...product.gallery.filter(Boolean),
+  ]));
+  const moveImage = (direction: number) => {
+    if (gallery.length < 2) return;
+    setImageIndex((current) => (current + direction + gallery.length) % gallery.length);
+  };
   const unavailable = product.stockStatus === 'unavailable' || product.availabilityStatus !== 'available';
   const outOfStock = product.trackStock && Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) <= 0;
 
@@ -152,7 +159,17 @@ export default function ProductDetail() {
     <header className="simple-topbar container"><a href={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</a><button onClick={() => void share()}><Share2 size={18}/>Compartilhar</button></header>
     <div className="container product-detail-layout">
       <section className="product-gallery">
-        <div className="product-main-image"><ProductMedia src={gallery[imageIndex] || product.imageUrl} emoji={product.visualEmoji} imageCount={product.images.length} alt={product.name} emojiClassName="product-detail-emoji-v060"/>{product.preparationTimeMinutes > 0 && <span className="gallery-badge"><Clock3 size={14}/>+{product.preparationTimeMinutes} min</span>}</div>
+        <div className="product-main-image">
+          <ProductMedia src={gallery[imageIndex] || product.imageUrl} emoji={product.visualEmoji} imageCount={product.images.length} alt={product.name} emojiClassName="product-detail-emoji-v060"/>
+          {gallery.length > 1 && <>
+            <button type="button" className="gallery-arrow gallery-arrow--prev" onClick={() => moveImage(-1)} aria-label="Imagem anterior"><ChevronLeft size={20}/></button>
+            <button type="button" className="gallery-arrow gallery-arrow--next" onClick={() => moveImage(1)} aria-label="Próxima imagem"><ChevronRight size={20}/></button>
+            <div className="gallery-dots" role="tablist" aria-label="Imagens do produto">
+              {gallery.map((src, index) => <button type="button" key={`dot-${src}-${index}`} className={imageIndex === index ? "active" : ""} onClick={() => setImageIndex(index)} role="tab" aria-selected={imageIndex === index} aria-label={`Ver imagem ${index + 1}`} />)}
+            </div>
+          </>}
+          {product.preparationTimeMinutes > 0 && <span className="gallery-badge"><Clock3 size={14}/>+{product.preparationTimeMinutes} min</span>}
+        </div>
         {gallery.length > 1 && <div className="gallery-thumbs">{gallery.map((src, index) => <button key={`${src}-${index}`} className={imageIndex === index ? 'active' : ''} onClick={() => setImageIndex(index)}><ProductMedia src={src} alt={`${product.name} ${index + 1}`}/></button>)}</div>}
       </section>
 

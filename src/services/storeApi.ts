@@ -165,7 +165,10 @@ const buildProducts = (
   const groups = mapOptionGroups(optionGroups, optionItems);
   return rows.map((row) => {
     const productImages: ProductImage[] = images.filter((image) => image.product_id === row.id).sort((a,b) => a.sort_order - b.sort_order).map((image) => ({ id:image.id, productId:image.product_id, url:image.url, storagePath:image.storage_path || undefined, altText:image.alt_text || undefined, sortOrder:image.sort_order, isPrimary:image.is_primary }));
-    const primary = productImages.find((image) => image.isPrimary) || productImages[0];
+    const primaryIndex = productImages.findIndex((image) => image.isPrimary);
+    const primary = primaryIndex >= 0 ? productImages[primaryIndex] : productImages[0];
+    // A foto marcada como principal precisa ser também a primeira da galeria pública.
+    const orderedProductImages = primary ? [primary, ...productImages.filter((image) => image.id !== primary.id)] : productImages;
     const linkedGroupIds = productOptionLinks.filter((link) => link.product_id === row.id).sort((a,b) => a.sort_order - b.sort_order).map((link) => link.option_group_id);
     let productGroups = linkedGroupIds.map((groupId) => groups.find((group) => group.id === groupId)).filter((group): group is OptionGroup => Boolean(group));
 
@@ -186,7 +189,7 @@ const buildProducts = (
       stockLabel:row.stock_status === 'low_stock' ? 'Últimas unidades' : row.stock_status === 'unavailable' ? 'Indisponível' : undefined,
       internalCode:row.internal_code || undefined, availabilityStatus:row.availability_status || (row.stock_status === 'unavailable' ? 'unavailable' : 'available'),
       trackStock:row.track_stock ?? false, stockQuantity:row.stock_quantity ?? undefined, stockReservedQuantity:row.stock_reserved_quantity ?? 0, preparationTimeMinutes:row.preparation_time_minutes ?? 0, sortOrder:row.sort_order ?? 0,
-      images:productImages, imageUrl:primary?.url || '/assets/placeholder-food.svg', visualEmoji:row.visual_emoji || undefined, gallery:productImages.map((image) => image.url), optionGroups:productGroups,
+      images:orderedProductImages, imageUrl:primary?.url || '/assets/placeholder-food.svg', visualEmoji:row.visual_emoji || undefined, gallery:orderedProductImages.map((image) => image.url), optionGroups:productGroups,
       variations:legacyVariants.filter((variant) => variant.product_id === row.id).map((variant) => ({ id:variant.id, productId:variant.product_id, name:variant.name, priceDelta:toNumber(variant.price_delta), active:variant.active, sortOrder:variant.sort_order })),
       addons:legacyAddons.filter((addon) => legacyProductAddonIds.has(addon.id)),
     };
