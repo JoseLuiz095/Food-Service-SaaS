@@ -48,13 +48,17 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, saving }: 
   }, [order]);
 
   const submit = async () => {
-    await onSave({
-      customerName: draft.customerName.trim(),
-      customerPhone: draft.customerPhone?.trim() || undefined,
-      scheduledFor: draft.scheduledFor || undefined,
-      notes: draft.notes?.trim() || undefined,
-    });
-    setEditing(false);
+    try {
+      await onSave({
+        customerName: draft.customerName.trim(),
+        customerPhone: draft.customerPhone?.trim() || undefined,
+        scheduledFor: draft.scheduledFor || undefined,
+        notes: draft.notes?.trim() || undefined,
+      });
+      setEditing(false);
+    } catch {
+      // O painel exibe o erro por toast e mantém o formulário aberto para correção.
+    }
   };
 
   return <div className="modal-overlay order-details-modal-overlay" role="presentation">
