@@ -600,6 +600,50 @@ export const storeApi = {
     return {alreadyPaid:Boolean(result?.alreadyPaid),paymentReceivedAt:result?.paymentReceivedAt};
   },
 
+  async updateManualOrder(orderId: string, input: Omit<ManualOrderInput, 'items'>): Promise<void> {
+    const customerName = input.customerName.trim();
+    if (customerName.length < 2) throw new Error('Informe o nome do cliente.');
+    if (input.status === 'cancelled' && input.received) throw new Error('Um pedido cancelado não pode ser marcado como recebido.');
+
+    if (isDemoMode) {
+      const db = readDemo();
+      const index = db.orders.findIndex((order) => order.id === orderId && order.source !== 'site');
+      if (index < 0) throw new Error('Pedido avulso não encontrado.');
+      db.orders[index] = {
+        ...db.orders[index],
+        customerName,
+        customerPhone: input.customerPhone?.trim() || undefined,
+        deliveryType: input.fulfillment || 'pickup',
+        paymentMethod: input.paymentMethod,
+        status: input.status,
+        scheduledFor: input.scheduledFor || undefined,
+        notes: input.notes?.trim() || undefined,
+        source: input.source,
+      };
+      writeDemo(db);
+      return;
+    }
+
+    const rows = await restFetch<OrderRow[]>(
+      `food_orders?id=eq.${encode(orderId)}&source=neq.site&select=*`,
+      {
+        method: 'PATCH',
+        body: {
+          customer_name: customerName,
+          customer_phone: input.customerPhone?.trim() || null,
+          delivery_type: input.fulfillment || 'pickup',
+          payment_method: input.paymentMethod,
+          status: input.status,
+          scheduled_for: serializeScheduledDateTime(input.scheduledFor),
+          notes: input.notes?.trim() || null,
+          source: input.source,
+        },
+        prefer: 'return=representation',
+      },
+    );
+    if (!rows.length) throw new Error('Pedido avulso não encontrado ou sem permissão para atualização.');
+  },
+
   async updateOrderStatus(orderId:string,status:Order['status']):Promise<void>{
     if(isDemoMode){
       const db=readDemo();
