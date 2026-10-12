@@ -443,7 +443,7 @@ export const storeApi = {
       delivery_zone_id:form.fulfillment==='delivery'?form.deliveryZoneId||null:null,delivery_city:form.fulfillment==='delivery'?form.deliveryCity||null:null,
       delivery_state:form.fulfillment==='delivery'?form.deliveryState||null:null,reference_point:form.fulfillment==='delivery'?form.referencePoint||null:null,
       notes:form.notes||null,payment_method:form.paymentMethod,needs_change:form.paymentMethod==='cash'&&form.needsChange,change_for:form.paymentMethod==='cash'&&form.needsChange?form.changeFor:null,
-      scheduled_for:serializeScheduledDateTime(form.scheduledFor),review_confirmed:form.reviewConfirmed,
+      scheduled_for:serializeScheduledDateTime(form.scheduledFor),flexible_timing_confirmed:form.flexibleTimingConfirmed,review_confirmed:form.reviewConfirmed,
       // Atribuição opcional: a Edge Function grava estes dois campos quando a
       // migração correspondente já estiver ativa. O pedido continua compatível
       // com instalações antigas caso as colunas ainda não existam.

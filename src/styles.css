@@ -3634,3 +3634,17 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
   .orders-mobile-card .order-row-actions{padding-top:2px;border-top:1px solid #f0ede8}
   .orders-mobile-card .order-row-actions>*{flex:1}
 }
+
+/* Checkout fora do horário: explicação curta e confirmação explícita, sem travar o cliente em um agendamento automático. */
+.checkout-alert{display:flex;align-items:flex-start;gap:10px;padding:13px 14px;border:1px solid #efd59a;border-radius:13px;background:#fffaf0;color:#7d5a1e;box-shadow:0 8px 20px rgba(125,90,30,.06)}
+.checkout-alert>svg{flex:0 0 auto;margin-top:1px}
+.checkout-alert>div{display:grid;gap:5px;min-width:0}
+.checkout-alert strong{font-size:.76rem}
+.checkout-alert>div>span{font-size:.69rem;line-height:1.45}
+.scheduled-order-field__optional{display:inline-flex;width:max-content;margin-left:4px;padding:2px 5px;border-radius:999px;background:#fff1c9;color:#816b39;font-size:.58rem;font-weight:700}
+.schedule-flexible-confirmation{display:flex!important;align-items:flex-start;gap:8px;margin-top:12px;padding:10px 11px;border:1px solid #dfc98f;border-radius:10px;background:#fffdf7;cursor:pointer}
+.schedule-flexible-confirmation input{margin-top:2px;accent-color:#9b6d12}
+.schedule-flexible-confirmation span{display:grid;gap:3px}
+.schedule-flexible-confirmation strong{font-size:.68rem}
+.schedule-flexible-confirmation small{font-size:.64rem;line-height:1.4;color:#816b39;font-weight:500}
+@media(max-width:560px){.checkout-alert{padding:11px 12px}.scheduled-order-field__optional{display:block;width:max-content;margin:0}.schedule-flexible-confirmation{padding:9px 10px}}
