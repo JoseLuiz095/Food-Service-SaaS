@@ -141,8 +141,7 @@ begin
   end loop;
   return query select v_order_id,v_order_number,v_total;
 end;
-$function$
-
+$function$;
 
 create or replace function public.food_validate_delivery_start_time()
 returns trigger
