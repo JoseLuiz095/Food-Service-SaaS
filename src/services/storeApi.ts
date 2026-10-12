@@ -3,7 +3,7 @@ import { invokePublicFunction, restFetch, storageDelete, storageUpload } from '.
 import { seedAddons, seedCategories, seedDeliveryZones, seedOrders, seedPlan, seedProducts, seedSettings } from '../data/seed';
 import type {
   Addon, CartItem, Category, CheckoutData, CheckoutSecurityContext, CreateOrderResult, DeliveryZone,
-  ManualOrderInput, OptionGroup, OptionItem, Order, PaymentMethod, Plan, PlanUsage, Product, ProductImage, StoreSettings,
+  ManualOrderInput, OptionGroup, OptionItem, Order, OrderDetailsUpdate, OrderItem, OrderItemOption, PaymentMethod, Plan, PlanUsage, Product, ProductImage, StoreSettings,
 } from '../types';
 import { roundMoney, slugify } from '../utils/format';
 import { formatOpeningSchedule, normalizeOpeningSchedule } from '../utils/storeHours';
@@ -93,6 +93,14 @@ type OrderRow = {
   preparation_estimate_minutes?: number | null; inventory_status?: Order['inventoryStatus'] | null; source?: Order['source'] | null; customer_instagram?: string | null; acquisition_source?: Order['acquisitionSource'] | null; whatsapp_clicked_at: string | null; created_at: string;
 };
 
+type OrderItemRow = {
+  id: string; order_id: string; product_id?: string | null; product_name: string; quantity: number; unit_price: number | string;
+  variant_name?: string | null; variant_price_delta?: number | string | null; item_total: number | string; addons?: unknown;
+};
+type OrderItemOptionRow = {
+  id: string; order_item_id: string; group_name: string; option_name: string; option_kind: string;
+  price_delta: number | string | null; quantity: number | null;
+};
 const toNumber = (value: number | string | null | undefined) => value == null ? 0 : Number(value);
 const encode = (value: string) => encodeURIComponent(value);
 const inFilter = (ids: string[]) => `in.(${ids.join(',')})`;
@@ -149,6 +157,31 @@ const mapOrder = (row: OrderRow): Order => ({
   scheduledFor: row.scheduled_for || undefined, preparationEstimateMinutes: row.preparation_estimate_minutes ?? undefined, inventoryStatus: row.inventory_status || undefined, source: row.source || 'site', customerInstagram: row.customer_instagram || undefined, acquisitionSource: row.acquisition_source || undefined, whatsappClickedAt: row.whatsapp_clicked_at || undefined, createdAt: row.created_at,
 });
 
+const normalizeOrderItemOptionKind = (value: string): OrderItemOption['optionKind'] => {
+  const allowed: OrderItemOption['optionKind'][] = ['variant', 'choice', 'addon', 'removal'];
+  return allowed.includes(value as OrderItemOption['optionKind']) ? value as OrderItemOption['optionKind'] : 'choice';
+};
+
+const mapOrderItem = (row: OrderItemRow, optionRows: OrderItemOptionRow[]): OrderItem => ({
+  id: row.id,
+  orderId: row.order_id,
+  productId: row.product_id || undefined,
+  productName: row.product_name,
+  quantity: toNumber(row.quantity),
+  unitPrice: toNumber(row.unit_price),
+  variantName: row.variant_name || undefined,
+  variantPriceDelta: toNumber(row.variant_price_delta),
+  itemTotal: toNumber(row.item_total),
+  options: optionRows.map((option) => ({
+    id: option.id,
+    orderItemId: option.order_item_id,
+    groupName: option.group_name,
+    optionName: option.option_name,
+    optionKind: normalizeOrderItemOptionKind(option.option_kind),
+    priceDelta: toNumber(option.price_delta),
+    quantity: Math.max(1, toNumber(option.quantity)),
+  })),
+});
 const mapOptionGroups = (groups: OptionGroupRow[], items: OptionItemRow[]): OptionGroup[] => groups.map((group) => ({
   id: group.id, storeId: group.store_id, name: group.name, description: group.description || undefined, kind: group.kind,
   minChoices: group.min_choices, maxChoices: group.max_choices, active: group.active, sortOrder: group.sort_order,
@@ -298,7 +331,22 @@ const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promis
   const addons = addonRows.map(mapAddon);
   const deliveryZones = deliveryZoneRows.map(mapDeliveryZone);
   const products = buildProducts(productRows, imageRows, optionGroupRows, optionItemRows, optionLinks, variantRows, addons, addonLinks);
-  const orders = admin ? (await restFetch<OrderRow[]>(`food_orders?select=*&store_id=eq.${encode(settings.id)}&order=created_at.desc&limit=100`)).map(mapOrder) : [];
+  const orderRows = admin ? await restFetch<OrderRow[]>(`food_orders?select=*&store_id=eq.${encode(settings.id)}&order=created_at.desc&limit=100`) : [];
+  let orders = orderRows.map(mapOrder);
+  if (admin && orderRows.length) {
+    const orderIds = orderRows.map((order) => order.id);
+    const itemRows = await restFetch<OrderItemRow[]>(`food_order_items?select=*&order_id=${encode(inFilter(orderIds))}&order=created_at.asc`).catch(() => [] as OrderItemRow[]);
+    const itemIds = itemRows.map((item) => item.id);
+    const optionRows = itemIds.length
+      ? await restFetch<OrderItemOptionRow[]>(`food_order_item_options?select=*&order_item_id=${encode(inFilter(itemIds))}&order=created_at.asc`).catch(() => [] as OrderItemOptionRow[])
+      : [];
+    orders = orders.map((order) => ({
+      ...order,
+      items: itemRows
+        .filter((item) => item.order_id === order.id)
+        .map((item) => mapOrderItem(item, optionRows.filter((option) => option.order_item_id === item.id))),
+    }));
+  }
   const activeProductCount = products.filter((product) => product.active).length;
   const planUsage = admin ? await loadPlanUsage(settings.id, products.length, activeProductCount) : { plan:seedPlan, productCount:products.length, activeProductCount, canCreateProduct:true, canActivateProduct:true };
   return { settings, categories, products, addons, deliveryZones, orders, planUsage };
@@ -600,6 +648,40 @@ export const storeApi = {
     return {alreadyPaid:Boolean(result?.alreadyPaid),paymentReceivedAt:result?.paymentReceivedAt};
   },
 
+  async updateOrderDetails(orderId: string, input: OrderDetailsUpdate): Promise<void> {
+    const customerName = input.customerName.trim();
+    if (customerName.length < 2) throw new Error('Informe o nome do cliente.');
+
+    if (isDemoMode) {
+      const db = readDemo();
+      const index = db.orders.findIndex((order) => order.id === orderId && order.paymentStatus !== 'paid' && order.status !== 'cancelled');
+      if (index < 0) throw new Error('Pedido não encontrado, já recebido ou cancelado.');
+      db.orders[index] = {
+        ...db.orders[index],
+        customerName,
+        customerPhone: input.customerPhone?.trim() || undefined,
+        scheduledFor: input.scheduledFor || undefined,
+        notes: input.notes?.trim() || undefined,
+      };
+      writeDemo(db);
+      return;
+    }
+
+    const rows = await restFetch<OrderRow[]>(
+      `food_orders?id=eq.${encode(orderId)}&payment_status=neq.paid&status=neq.cancelled&select=*`,
+      {
+        method: 'PATCH',
+        body: {
+          customer_name: customerName,
+          customer_phone: input.customerPhone?.trim() || null,
+          scheduled_for: serializeScheduledDateTime(input.scheduledFor),
+          notes: input.notes?.trim() || null,
+        },
+        prefer: 'return=representation',
+      },
+    );
+    if (!rows.length) throw new Error('Pedido não encontrado, já recebido, cancelado ou sem permissão para atualização.');
+  },
   async updateManualOrder(orderId: string, input: Omit<ManualOrderInput, 'items'>): Promise<void> {
     const customerName = input.customerName.trim();
     if (customerName.length < 2) throw new Error('Informe o nome do cliente.');
