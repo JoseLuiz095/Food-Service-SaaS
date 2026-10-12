@@ -175,7 +175,6 @@ export default function Checkout() {
     deliveryStart.setHours(Math.floor(deliveryStartMinutes / 60), deliveryStartMinutes % 60, 0, 0);
     return deliveryStart > base ? deliveryStart : base;
   })();
-  const scheduleMinimumMs = scheduleMinimum.getTime();
   const scheduleRequired = stockSchedulingRequired;
   const showScheduleField = stockSchedulingRequired || (settings.allowScheduledOrders && (outsideHours || currentBeforeDeliveryStart || Boolean(form.scheduledFor)));
   const scheduleNoticeVisible = stockSchedulingRequired || outsideHours || currentBeforeDeliveryStart || Boolean(form.scheduledFor);
