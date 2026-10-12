@@ -537,6 +537,12 @@ export type Order = {
   items?: OrderItem[];
 };
 
+export type OrderDetailsUpdate = {
+  customerName: string;
+  customerPhone?: string;
+  scheduledFor?: string;
+  notes?: string;
+};
 export type SaveProductInput = Omit<Product, 'imageUrl' | 'gallery' | 'images'> & {
   images?: ProductImage[];
 };
