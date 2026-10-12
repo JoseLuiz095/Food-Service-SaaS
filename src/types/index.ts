@@ -465,6 +465,29 @@ export type OrderConfirmation = {
   createdAt: string;
 };
 
+export type OrderItemOption = {
+  id: string;
+  orderItemId: string;
+  groupName: string;
+  optionName: string;
+  optionKind: 'variant' | 'choice' | 'addon' | 'removal';
+  priceDelta: number;
+  quantity: number;
+};
+
+export type OrderItem = {
+  id: string;
+  orderId: string;
+  productId?: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  variantName?: string;
+  variantPriceDelta: number;
+  itemTotal: number;
+  options: OrderItemOption[];
+};
+
 export type Order = {
   id: string;
   orderNumber: number;
@@ -511,8 +534,15 @@ export type Order = {
   acquisitionSource?: 'instagram' | 'whatsapp' | 'google' | 'indicacao' | 'outro';
   whatsappClickedAt?: string;
   createdAt: string;
+  items?: OrderItem[];
 };
 
+export type OrderDetailsUpdate = {
+  customerName: string;
+  customerPhone?: string;
+  scheduledFor?: string;
+  notes?: string;
+};
 export type SaveProductInput = Omit<Product, 'imageUrl' | 'gallery' | 'images'> & {
   images?: ProductImage[];
 };

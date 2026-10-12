@@ -1,8 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { StorefrontUnavailableError, storeApi } from '../services/storeApi';
 import { seedAddons, seedCategories, seedDeliveryZones, seedPlan, seedProducts, seedSettings } from '../data/seed';
-import type { Addon, Category, DeliveryZone, ManualOrderInput, Order, PlanUsage, Product, ProductImage, StoreSettings } from '../types';
+import type { Addon, Category, DeliveryZone, ManualOrderInput, Order, OrderDetailsUpdate, PlanUsage, Product, ProductImage, StoreSettings } from '../types';
 import { useAuth } from './AuthContext';
 import { storeBasePathFromPath, storeSlugFromPath } from '../utils/storefrontRoute';
 import { isFoodWebMarketingRoot } from '../lib/config';
@@ -42,6 +42,7 @@ type StoreContextValue = {
   registerOrder: typeof storeApi.createOrder;
   createManualOrder: (input: ManualOrderInput) => Promise<Awaited<ReturnType<typeof storeApi.createManualOrder>>>;
   updateManualOrder: (orderId: string, input: Omit<ManualOrderInput, 'items'>) => Promise<void>;
+  updateOrderDetails: (orderId: string, input: OrderDetailsUpdate) => Promise<void>;
   markOrderWhatsAppClicked: typeof storeApi.markOrderWhatsAppClicked;
   confirmOrderPayment: typeof storeApi.confirmOrderPayment;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
@@ -50,6 +51,11 @@ type StoreContextValue = {
 const defaultPlanUsage: PlanUsage = { plan: seedPlan, productCount: seedProducts.length, activeProductCount: seedProducts.filter((product) => product.active).length, canCreateProduct: true, canActivateProduct: true };
 const StoreContext = createContext<StoreContextValue | null>(null);
 
+const wait = (milliseconds: number) => new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
+const shouldRetryAdminLoad = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  return /Loja não encontrada ou sem permissão|Sessão expirada|Failed to fetch|NetworkError|fetch failed/i.test(message);
+};
 const SYNC_KEY = 'foodservice_store_sync_v1';
 const notifyStoreChange = () => {
   try { localStorage.setItem(SYNC_KEY, String(Date.now())); } catch { /* sem storage */ }
@@ -57,7 +63,7 @@ const notifyStoreChange = () => {
 };
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const { membership, user } = useAuth();
+  const { membership, user, loading: authLoading } = useAuth();
   const location = useLocation();
   const publicStoreSlug = storeSlugFromPath(location.pathname);
   const storeBasePath = storeBasePathFromPath(location.pathname);
@@ -72,15 +78,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   const [storeUnavailable, setStoreUnavailable] = useState(false);
   const [unavailableStoreName, setUnavailableStoreName] = useState('');
+  const loadVersionRef = useRef(0);
 
   const applySnapshot = useCallback((snapshot: Awaited<ReturnType<typeof storeApi.loadPublic>>) => {
     setSettings(snapshot.settings); setCategories(snapshot.categories); setProducts(snapshot.products); setAddons(snapshot.addons); setDeliveryZones(snapshot.deliveryZones); setOrders(snapshot.orders); setPlanUsage(snapshot.planUsage);
   }, []);
 
   const reloadPublic = useCallback(async () => {
+    const requestVersion = ++loadVersionRef.current;
     setLoading(true); setError(''); setStoreUnavailable(false); setUnavailableStoreName('');
-    try { applySnapshot(await storeApi.loadPublic(publicStoreSlug, window.location.hostname)); }
+    try {
+      const snapshot = await storeApi.loadPublic(publicStoreSlug, window.location.hostname);
+      if (requestVersion !== loadVersionRef.current) return;
+      applySnapshot(snapshot);
+    }
     catch (e) {
+      if (requestVersion !== loadVersionRef.current) return;
       if (e instanceof StorefrontUnavailableError) {
         setStoreUnavailable(true);
         setUnavailableStoreName(e.storeName);
@@ -88,19 +101,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setError(e instanceof Error ? e.message : 'Não foi possível carregar a loja.');
       }
     }
-    finally { setLoading(false); }
+    finally { if (requestVersion === loadVersionRef.current) setLoading(false); }
   }, [applySnapshot, publicStoreSlug]);
 
   const reloadAdmin = useCallback(async (options?: { silent?: boolean }) => {
     if (!membership) return;
+    const requestVersion = ++loadVersionRef.current;
     const silent = Boolean(options?.silent);
     if (!silent) { setLoading(true); setError(''); }
-    try { applySnapshot(await storeApi.loadAdmin(membership.storeId)); }
+    try {
+      let lastError: unknown;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const snapshot = await storeApi.loadAdmin(membership.storeId);
+          if (requestVersion !== loadVersionRef.current) return;
+          applySnapshot(snapshot);
+          return;
+        } catch (error) {
+          lastError = error;
+          if (!shouldRetryAdminLoad(error) || attempt === 2) throw error;
+          await wait(350 * (attempt + 1));
+        }
+      }
+      if (lastError) throw lastError;
+    }
     catch (e) {
+      if (requestVersion !== loadVersionRef.current) return;
       if (!silent) setError(e instanceof Error ? e.message : 'Não foi possível carregar o painel.');
       else throw e;
     }
-    finally { if (!silent) setLoading(false); }
+    finally { if (!silent && requestVersion === loadVersionRef.current) setLoading(false); }
   }, [membership, applySnapshot]);
 
   useEffect(() => {
@@ -108,23 +138,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const isStoreAdminRoute = location.pathname === '/admin' || location.pathname.startsWith('/admin/');
     const marketingRoot = typeof window !== 'undefined' && isFoodWebMarketingRoot(location.pathname, window.location.hostname);
     if (isMasterRoute || marketingRoot) { setLoading(false); return; }
-    if (isStoreAdminRoute && user && membership) void reloadAdmin(); else void reloadPublic();
-  }, [user, membership, reloadAdmin, reloadPublic, location.pathname]);
+    if (authLoading) { setLoading(true); return; }
+    if (isStoreAdminRoute) {
+      if (user && membership) void reloadAdmin();
+      else { setLoading(false); setError(''); }
+      return;
+    }
+    void reloadPublic();
+  }, [authLoading, user, membership, reloadAdmin, reloadPublic, location.pathname]);
 
   useEffect(() => {
     const refresh = () => {
       const isMasterRoute = location.pathname.startsWith('/admin-master');
       const isStoreAdminRoute = location.pathname === '/admin' || location.pathname.startsWith('/admin/');
       const marketingRoot = typeof window !== 'undefined' && isFoodWebMarketingRoot(location.pathname, window.location.hostname);
-      if (isMasterRoute || marketingRoot) return;
-      if (isStoreAdminRoute && user && membership) void reloadAdmin(); else void reloadPublic();
+      if (isMasterRoute || marketingRoot || authLoading) return;
+      if (isStoreAdminRoute) {
+        if (user && membership) void reloadAdmin();
+        return;
+      }
+      void reloadPublic();
     };
     const onStorage = (event: StorageEvent) => { if (event.key === SYNC_KEY) refresh(); };
     window.addEventListener('storage', onStorage);
     let channel: BroadcastChannel | null = null;
     try { channel = new BroadcastChannel('foodservice-store-sync'); channel.onmessage = refresh; } catch { channel = null; }
     return () => { window.removeEventListener('storage', onStorage); channel?.close(); };
-  }, [user, membership, reloadAdmin, reloadPublic, location.pathname]);
+  }, [authLoading, user, membership, reloadAdmin, reloadPublic, location.pathname]);
 
   const value = useMemo<StoreContextValue>(() => ({
     products, categories, addons, deliveryZones, settings, orders, planUsage, loading, error, storeUnavailable, unavailableStoreName, dataMode: storeApi.mode, storeBasePath, publicStoreSlug,
@@ -148,6 +188,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     registerOrder: storeApi.createOrder,
     createManualOrder: async (input) => { const result = await storeApi.createManualOrder(settings, products, input); await reloadAdmin({ silent: true }); notifyStoreChange(); return result; },
     updateManualOrder: async (orderId, input) => { await storeApi.updateManualOrder(orderId, input); await reloadAdmin({ silent: true }); notifyStoreChange(); },
+    updateOrderDetails: async (orderId, input) => { await storeApi.updateOrderDetails(orderId, input); await reloadAdmin({ silent: true }); notifyStoreChange(); },
     markOrderWhatsAppClicked: storeApi.markOrderWhatsAppClicked,
     confirmOrderPayment: async (orderId) => { const result=await storeApi.confirmOrderPayment(orderId); await reloadAdmin({ silent: true }); notifyStoreChange(); return result; },
     updateOrderStatus: async (orderId, status) => { await storeApi.updateOrderStatus(orderId, status); await reloadAdmin({ silent: true }); notifyStoreChange(); },

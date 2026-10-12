@@ -1,14 +1,15 @@
-import { AlertCircle, CheckCircle2, ChefHat, CircleDollarSign, Copy, MessageCircle, Plus, Pencil, QrCode, RefreshCw, RotateCcw, Search, ShoppingBag, Users, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChefHat, CircleDollarSign, Copy, FileText, MessageCircle, Plus, Pencil, QrCode, RefreshCw, RotateCcw, Search, ShoppingBag, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { OrderDetailsModal } from '../../components/admin/OrderDetailsModal';
 import { QuantityControl } from '../../components/QuantityControl';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import { trackInteraction } from '../../services/interactionTelemetry';
 import { currency, formatDateTimeBR, roundMoney } from '../../utils/format';
-import type { ManualOrderInput, ManualOrderItemInput, ManualOrderSource, Order, OrderStatus, PaymentMethod } from '../../types';
+import type { ManualOrderInput, ManualOrderItemInput, ManualOrderSource, Order, OrderDetailsUpdate, OrderStatus, PaymentMethod } from '../../types';
 import { formatOrderNumber } from '../../utils/orderConfirmation';
 import { copyText } from '../../utils/clipboard';
 import { buildPixPayloadWithAmount } from '../../utils/pix';
@@ -90,7 +91,7 @@ const newManualOrder = (): Omit<ManualOrderInput, 'items'> => ({
 });
 
 export default function OrdersAdmin() {
-  const { orders, products, loading, error, reloadAdmin, updateOrderStatus, confirmOrderPayment, createManualOrder, updateManualOrder, settings } = useStore();
+  const { orders, products, loading, error, reloadAdmin, updateOrderStatus, confirmOrderPayment, createManualOrder, updateManualOrder, updateOrderDetails, settings } = useStore();
   const { showToast } = useToast();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState('');
@@ -117,6 +118,8 @@ export default function OrdersAdmin() {
   const [manualPixChargeNow, setManualPixChargeNow] = useState(false);
   const [manualPixCopied, setManualPixCopied] = useState(false);
   const [manualFormError, setManualFormError] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [savingOrderDetails, setSavingOrderDetails] = useState(false);
   const refreshingRef = useRef(false);
   const rowsRef = useRef<Record<string, HTMLElement | null>>({});
   const mobileRowsRef = useRef<Record<string, HTMLElement | null>>({});
@@ -229,6 +232,9 @@ export default function OrdersAdmin() {
     setManualOrderOpen(true);
   };
 
+  const openOrderDetails = (order: Order) => {
+    setSelectedOrder(order);
+  };
   const openOrderPix = (order: Order) => {
     let payload = '';
     let pixError = '';
@@ -442,6 +448,21 @@ export default function OrdersAdmin() {
     }
   };
 
+  const saveOrderDetails = async (input: OrderDetailsUpdate) => {
+    if (!selectedOrder) return;
+    setSavingOrderDetails(true);
+    try {
+      await trackInteraction('order_details_update', () => updateOrderDetails(selectedOrder.id, input), { storeId: settings.id });
+      setLastUpdatedAt(new Date());
+      setSelectedOrder(null);
+      showToast('Dados do pedido atualizados.', 'success');
+    } catch (saveError) {
+      showToast(saveError instanceof Error ? saveError.message : 'Não foi possível atualizar o pedido.', 'error');
+      throw saveError;
+    } finally {
+      setSavingOrderDetails(false);
+    }
+  };
   useEffect(() => { if (!loading && !lastUpdatedAt) setLastUpdatedAt(new Date()); }, [loading, lastUpdatedAt]);
   useEffect(() => {
     const interval = window.setInterval(() => { if (document.visibilityState === 'visible') void refreshOrders(); }, 15000);
@@ -542,7 +563,7 @@ export default function OrdersAdmin() {
 
     <section className="admin-card orders-payment-inbox" aria-labelledby="orders-payment-inbox-title">
       <div className="orders-payment-inbox__heading"><div><span className="eyebrow">FINANCEIRO</span><h2 id="orders-payment-inbox-title">A receber do cliente</h2><p>Confirme somente depois de conferir o pagamento. A confirmação baixa o estoque reservado e lança a entrada no Financeiro.</p></div><strong>{awaitingPaymentOrders.length}</strong></div>
-      {awaitingPaymentOrders.length ? <div className="orders-payment-inbox__list">{awaitingPaymentOrders.map((order) => <article key={order.id}><div><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{order.scheduledFor ? `Agendado: ${formatDateTimeBR(order.scheduledFor)}` : 'Pedido aguardando conferência do recebimento'}</small></div><div className="orders-payment-actions"><button type="button" className="order-payment-pix-button" onClick={() => openOrderPix(order)}><QrCode size={16}/>Abrir PIX</button><button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button></div></article>)}</div> : <div className="orders-payment-inbox__empty"><CheckCircle2 size={18}/>Nenhum pedido pendente de recebimento.</div>}
+      {awaitingPaymentOrders.length ? <div className="orders-payment-inbox__list">{awaitingPaymentOrders.map((order) => <article key={order.id}><div><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{order.scheduledFor ? `Agendado: ${formatDateTimeBR(order.scheduledFor)}` : 'Pedido aguardando conferência do recebimento'}</small></div><div className="orders-payment-actions"><button type="button" className="order-payment-details-button" onClick={() => openOrderDetails(order)}><FileText size={16}/>Ver pedido</button><button type="button" className="order-payment-pix-button" onClick={() => openOrderPix(order)}><QrCode size={16}/>Abrir PIX</button><button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button></div></article>)}</div> : <div className="orders-payment-inbox__empty"><CheckCircle2 size={18}/>Nenhum pedido pendente de recebimento.</div>}
     </section>
 
     <section className="admin-card no-padding">
@@ -563,7 +584,7 @@ export default function OrdersAdmin() {
           <td><strong>{currency.format(order.total)}</strong>{order.deliveryFee ? <small className="order-fee-note">inclui {currency.format(order.deliveryFee)} de entrega</small> : null}</td>
           <td>{order.paymentStatus === 'paid' ? <span className="order-payment-received"><CheckCircle2 size={15}/><span><strong>Recebido</strong>{order.paymentReceivedAt ? <small>{formatDateTimeBR(order.paymentReceivedAt)}</small> : null}</span></span> : order.status === 'cancelled' ? <span className="order-payment-cancelled">Pedido cancelado</span> : <><span className="order-payment-pending"><CircleDollarSign size={15}/><strong>A receber do cliente</strong></span><button type="button" className="order-payment-confirm-button" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={15}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button><small className={`order-inventory-note order-inventory-note--${order.inventoryStatus || 'not_tracked'}`}>{order.inventoryStatus === 'awaiting_restock' ? 'Aguardando reposição' : order.inventoryStatus === 'reserved' ? 'Estoque reservado' : order.inventoryStatus === 'committed' ? 'Estoque baixado' : 'Sem controle de estoque'}</small></>}</td>
           <td><div className="order-status-actions-v061"><label className={`order-status-control order-status-control--${order.status}`}><span>{statusLabel[order.status]}</span><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{settings.kdsNotifyCustomer && order.customerPhone && whatsappButton(order, 'status')}</div></td>
-          <td>{formatDateTimeBR(order.createdAt)}</td><td><div className="order-row-actions">{order.source !== 'site' && <button type="button" className="order-inline-action" onClick={() => openManualOrderEdit(order)}><Pencil size={14}/>Editar</button>}{order.paymentStatus !== 'paid' && order.status !== 'cancelled' && <button type="button" className="order-inline-action order-inline-action--pix" onClick={() => openOrderPix(order)}><QrCode size={14}/>PIX</button>}</div></td>
+          <td>{formatDateTimeBR(order.createdAt)}</td><td><div className="order-row-actions"><button type="button" className="order-inline-action" onClick={() => openOrderDetails(order)}><FileText size={14}/>Detalhes</button>{order.source !== 'site' && <button type="button" className="order-inline-action" onClick={() => openManualOrderEdit(order)}><Pencil size={14}/>Editar</button>}{order.paymentStatus !== 'paid' && order.status !== 'cancelled' && <button type="button" className="order-inline-action order-inline-action--pix" onClick={() => openOrderPix(order)}><QrCode size={14}/>PIX</button>}</div></td>
         </tr>;
         })}</tbody></table></div>
         <div className="orders-mobile-list" aria-label="Pedidos em formato compacto">{filtered.map((order) => {
@@ -574,11 +595,12 @@ export default function OrdersAdmin() {
             <div className="orders-mobile-card__customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span>{order.customerInstagram ? <small>{order.customerInstagram}</small> : null}</div>
             <div className="orders-mobile-card__facts"><span><small>Recebimento</small><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{order.scheduledFor ? <em>Agendado: {formatDateTimeBR(order.scheduledFor)}</em> : null}</span><span><small>Pagamento</small><strong>{paymentLabel[order.paymentMethod]}</strong><strong className="orders-mobile-card__total">{currency.format(order.total)}</strong></span></div>
             <div className="orders-mobile-card__status"><label><small>Status do pedido</small><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{awaitingPayment ? <button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={15}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button> : <span className="orders-mobile-card__received"><CheckCircle2 size={15}/>{order.status === 'cancelled' ? 'Pedido cancelado' : 'Pagamento recebido'}</span>}</div>
-           <div className="order-row-actions">{order.source !== 'site' && <button type="button" className="order-inline-action" onClick={() => openManualOrderEdit(order)}><Pencil size={14}/>Editar</button>}{awaitingPayment && <button type="button" className="order-inline-action order-inline-action--pix" onClick={() => openOrderPix(order)}><QrCode size={14}/>PIX</button>}</div>
+           <div className="order-row-actions"><button type="button" className="order-inline-action" onClick={() => openOrderDetails(order)}><FileText size={14}/>Detalhes</button>{order.source !== 'site' && <button type="button" className="order-inline-action" onClick={() => openManualOrderEdit(order)}><Pencil size={14}/>Editar</button>}{awaitingPayment && <button type="button" className="order-inline-action order-inline-action--pix" onClick={() => openOrderPix(order)}><QrCode size={14}/>PIX</button>}</div>
           </article>;
         })}</div>
       </>}
     </section>
+    {selectedOrder && <OrderDetailsModal order={selectedOrder} settings={settings} onClose={() => setSelectedOrder(null)} onSave={saveOrderDetails} saving={savingOrderDetails} />}
     {manualOrderOpen && <div className="modal-overlay" role="presentation">
       <form className="master-modal master-modal--wide manual-order-modal" role="dialog" aria-modal="true" aria-labelledby="manual-order-title" onSubmit={saveManualOrder}>
         <button type="button" className="modal-close" aria-label="Fechar formulário de pedido" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}><X/></button>
