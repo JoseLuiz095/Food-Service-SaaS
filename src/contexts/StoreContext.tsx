@@ -41,6 +41,7 @@ type StoreContextValue = {
   resetDemo: () => Promise<void>;
   registerOrder: typeof storeApi.createOrder;
   createManualOrder: (input: ManualOrderInput) => Promise<Awaited<ReturnType<typeof storeApi.createManualOrder>>>;
+  updateManualOrder: (orderId: string, input: Omit<ManualOrderInput, 'items'>) => Promise<void>;
   markOrderWhatsAppClicked: typeof storeApi.markOrderWhatsAppClicked;
   confirmOrderPayment: typeof storeApi.confirmOrderPayment;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
@@ -146,6 +147,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     resetDemo: async () => { applySnapshot(await storeApi.resetDemo()); },
     registerOrder: storeApi.createOrder,
     createManualOrder: async (input) => { const result = await storeApi.createManualOrder(settings, products, input); await reloadAdmin({ silent: true }); notifyStoreChange(); return result; },
+    updateManualOrder: async (orderId, input) => { await storeApi.updateManualOrder(orderId, input); await reloadAdmin({ silent: true }); notifyStoreChange(); },
     markOrderWhatsAppClicked: storeApi.markOrderWhatsAppClicked,
     confirmOrderPayment: async (orderId) => { const result=await storeApi.confirmOrderPayment(orderId); await reloadAdmin({ silent: true }); notifyStoreChange(); return result; },
     updateOrderStatus: async (orderId, status) => { await storeApi.updateOrderStatus(orderId, status); await reloadAdmin({ silent: true }); notifyStoreChange(); },
