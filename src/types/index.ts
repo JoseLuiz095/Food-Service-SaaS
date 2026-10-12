@@ -393,6 +393,10 @@ export type CheckoutData = {
   needsChange: boolean;
   changeFor: number | null;
   scheduledFor: string;
+  /** Confirma que aceita receber/retirar sem horário fixo quando a loja estiver fora da janela. */
+  flexibleTimingConfirmed: boolean;
+  /** Marca que o horário foi escolhido manualmente, evitando reaproveitar rascunhos automáticos antigos. */
+  scheduledForExplicit?: boolean;
   reviewConfirmed: boolean;
   /** Dados opcionais de atribuição informados pelo cliente no checkout. */
   customerInstagram?: string;
