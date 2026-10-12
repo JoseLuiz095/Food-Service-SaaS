@@ -3620,3 +3620,17 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
   .inventory-product-card .inventory-quantity-editor{grid-column:1/-1;max-width:none;justify-content:space-between}
   .inventory-product-card .inventory-quantity-input--product{width:64px}
 }
+/* A receber: ações separadas para abrir a cobrança e confirmar o pagamento. */
+.orders-payment-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.order-payment-pix-button,.order-inline-action{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid #d8c4b8;border-radius:9px;min-height:34px;padding:0 9px;background:#fffaf7;color:#9b5136;font:inherit;font-size:.67rem;font-weight:800;cursor:pointer}
+.order-payment-pix-button:hover,.order-inline-action:hover{background:#fff0e8}
+.order-row-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.order-inline-action{min-height:30px;padding:0 7px;font-size:.64rem}
+.order-inline-action--pix{border-color:#bed8c6;background:var(--green-soft);color:var(--green)}
+.order-inline-action--pix:hover{background:#dcefe2}
+@media(max-width:760px){
+  .orders-payment-actions{justify-content:stretch}
+  .orders-payment-actions>*{flex:1}
+  .orders-mobile-card .order-row-actions{padding-top:2px;border-top:1px solid #f0ede8}
+  .orders-mobile-card .order-row-actions>*{flex:1}
+}
