@@ -463,7 +463,7 @@ export default function OrdersAdmin() {
   if (error) return <ErrorState message={error} onRetry={() => void reloadAdmin()} />;
 
   return <>
-    <div className="admin-page-title"><div><span className="eyebrow">OPERAÇÃO</span><h1>Pedidos</h1><p>Fila operacional, recuperação de vendas e relacionamento com clientes usando os pedidos já registrados.</p></div><button type="button" className="primary-button" onClick={openManualOrder} disabled={!manualProducts.length}><Plus size={17}/>Lançar pedido avulso</button></div>
+    <div className="admin-page-title"><div><span className="eyebrow">OPERAÇÃO</span><h1>Pedidos</h1><p>Fila operacional, recuperação de vendas e relacionamento com clientes. Mesmo com a loja fechada, registre vendas presenciais e encomendas em Pedido avulso.</p></div><button type="button" className="primary-button" onClick={openManualOrder} disabled={!manualProducts.length}><Plus size={17}/>Lançar pedido avulso</button></div>
 
     <div className="sales-ops-grid-v061">
       <details className="sales-ops-panel-v061" open={recoveryOrders.length > 0}>
