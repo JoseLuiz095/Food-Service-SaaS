@@ -292,11 +292,12 @@ export default function OrdersAdmin() {
   const saveManualOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!manualOrder.customerName.trim() || (!editingManualOrderId && !manualItems.length)) return;
-    if (editingManualOrderId) {
+    const editingOrderId = editingManualOrderId;
+    if (editingOrderId) {
       setManualFormError('');
       setManualSaving(true);
       try {
-        await trackInteraction('manual_order_update', () => updateManualOrder(editingManualOrderId, manualOrder), { storeId: settings.id });
+        await trackInteraction('manual_order_update', () => updateManualOrder(editingOrderId, manualOrder), { storeId: settings.id });
         setLastUpdatedAt(new Date());
         setManualOrderOpen(false);
         setEditingManualOrderId(null);
