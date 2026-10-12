@@ -214,7 +214,7 @@ export default function OrdersAdmin() {
       customerName: order.customerName,
       customerPhone: order.customerPhone || '',
       fulfillment: order.deliveryType,
-      source: order.source && order.source !== 'site' ? order.source as ManualOrderSource : 'counter',
+      source: (order.source || 'counter') as ManualOrderSource,
       paymentMethod: order.paymentMethod,
       status: order.status,
       received: order.paymentStatus === 'paid',
