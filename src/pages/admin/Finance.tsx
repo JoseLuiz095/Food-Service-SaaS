@@ -36,6 +36,8 @@ export default function Finance(){
   const[readProgress,setReadProgress]=useState<LocalFinancialReadProgress|null>(null);
   const[readResult,setReadResult]=useState<LocalFinancialReadResult|null>(null);
   const[excludedItemIndexes,setExcludedItemIndexes]=useState<number[]>([]);
+  const[selectedMonthKey,setSelectedMonthKey]=useState<string|null>(null);
+  const[selectedExpenseCategory,setSelectedExpenseCategory]=useState<string|null>(null);
   const fileRef=useRef<HTMLInputElement|null>(null);
   const cameraRef=useRef<HTMLInputElement|null>(null);
 
@@ -89,6 +91,8 @@ export default function Finance(){
 
   const chartMax=Math.max(1,...monthly.flatMap((row)=>[row.income,row.expense]));
   const expenseMax=Math.max(1,...expenseRanking.map(([,value])=>value));
+  const selectedMonth=monthly.find((row)=>row.key===selectedMonthKey)||monthly[monthly.length-1];
+  const selectedExpense=expenseRanking.find(([name])=>name===selectedExpenseCategory);
   const categoryOptions=categories.filter((category)=>category.direction==='both'||category.direction===form.direction);
 
   const startEntry=(direction:FinancialDirection)=>{
@@ -219,23 +223,25 @@ export default function Finance(){
         <div className="finance-mini-chart">
           {monthly.map((row)=><div className="finance-month" key={row.key}>
             <div className="finance-month-bars">
-              <span className="income" title={`Entradas ${currency.format(row.income)}`} style={{height:`${Math.max(4,(row.income/chartMax)*100)}%`}}/>
-              <span className="expense" title={`Saídas ${currency.format(row.expense)}`} style={{height:`${Math.max(4,(row.expense/chartMax)*100)}%`}}/>
+              <button type="button" className={`income${selectedMonth?.key===row.key?' is-selected':''}`} aria-label={`${row.label}: entradas ${currency.format(row.income)}`} aria-pressed={selectedMonth?.key===row.key} title={`Entradas ${currency.format(row.income)}`} onClick={()=>setSelectedMonthKey(row.key)} style={{height:`${Math.max(4,(row.income/chartMax)*100)}%`}}/>
+              <button type="button" className={`expense${selectedMonth?.key===row.key?' is-selected':''}`} aria-label={`${row.label}: saídas ${currency.format(row.expense)}`} aria-pressed={selectedMonth?.key===row.key} title={`Saídas ${currency.format(row.expense)}`} onClick={()=>setSelectedMonthKey(row.key)} style={{height:`${Math.max(4,(row.expense/chartMax)*100)}%`}}/>
             </div>
             <small>{row.label}</small>
           </div>)}
         </div>
+        {selectedMonth&&<div className="finance-chart-selection" aria-live="polite"><div><span>Detalhe do período</span><strong>{selectedMonth.label}</strong></div><div><small>Entradas</small><b className="income">{currency.format(selectedMonth.income)}</b></div><div><small>Saídas</small><b className="expense">{currency.format(selectedMonth.expense)}</b></div><div><small>Saldo</small><b className={selectedMonth.income-selectedMonth.expense>=0?'income':'expense'}>{currency.format(selectedMonth.income-selectedMonth.expense)}</b></div></div>}
         <div className="finance-chart-legend"><span className="income">Entradas</span><span className="expense">Saídas</span></div>
       </article>
 
       <article className="admin-card finance-expense-card">
         <div className="section-heading"><div><span className="eyebrow">ONDE ESTOU GASTANDO?</span><h2>Principais despesas</h2><p>Ranking por categoria considerando valores realizados.</p></div><WalletCards size={21}/></div>
         {expenseRanking.length===0?<p className="analytics-empty">Registre despesas para visualizar a distribuição.</p>:<div className="finance-expense-ranking">
-          {expenseRanking.map(([name,value])=><div key={name}>
-            <div><span>{name}</span><strong>{currency.format(value)}</strong></div>
+          {expenseRanking.map(([name,value])=><button type="button" className={`finance-expense-row${selectedExpenseCategory===name?' is-selected':''}`} aria-pressed={selectedExpenseCategory===name} onClick={()=>setSelectedExpenseCategory(name)} key={name}>
+            <span className="finance-expense-row__heading"><span>{name}</span><strong>{currency.format(value)}</strong></span>
             <span className="finance-expense-track"><i style={{width:`${Math.max(3,(value/expenseMax)*100)}%`}}/></span>
-          </div>)}
+          </button>)}
         </div>}
+        {selectedExpense&&<div className="finance-expense-selection" aria-live="polite"><span>Categoria selecionada</span><strong>{selectedExpense[0]}</strong><b>{currency.format(selectedExpense[1])} realizados</b></div>}
       </article>
     </section>
 
