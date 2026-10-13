@@ -1,5 +1,5 @@
 import { Activity, BarChart3, CreditCard, Eye, MapPin, PackageCheck, ShieldCheck, ShoppingBag, ShoppingCart, Truck } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { useStore } from '../../contexts/StoreContext';
@@ -18,7 +18,11 @@ const sortedEntries = (record:Record<string,number>) => Object.entries(record).s
 
 function Distribution({title,icon:Icon,data}:{title:string;icon:typeof CreditCard;data:[string,number][]}){
   const max=Math.max(1,...data.map(([,value])=>value));
-  return <section className="admin-card analytics-distribution"><div className="admin-card__header"><div><span className="eyebrow">DISTRIBUIÇÃO</span><h2>{title}</h2></div><Icon size={21}/></div><div className="analytics-bars">{data.length?data.slice(0,8).map(([label,value])=><div key={label}><div><span>{label}</span><strong>{value}</strong></div><div className="analytics-track"><span style={{width:`${Math.max(4,(value/max)*100)}%`}}/></div></div>):<p className="analytics-empty">Ainda não há dados suficientes.</p>}</div></section>;
+  const visibleData=data.slice(0,8);
+  const [selectedLabel,setSelectedLabel]=useState<string|null>(visibleData[0]?.[0]||null);
+  const selected=visibleData.find(([label])=>label===selectedLabel)||visibleData[0];
+
+  return <section className="admin-card analytics-distribution"><div className="admin-card__header"><div><span className="eyebrow">DISTRIBUIÇÃO</span><h2>{title}</h2></div><Icon size={21}/></div><div className="analytics-bars">{visibleData.length?visibleData.map(([label,value])=><button type="button" className={`analytics-bar-row${label===selected?.[0]?' is-selected':''}`} aria-pressed={label===selected?.[0]} key={label} onClick={()=>setSelectedLabel(label)}><span className="analytics-bar-row__heading"><span>{label}</span><strong>{value}</strong></span><span className="analytics-track"><span style={{width:`${Math.max(4,(value/max)*100)}%`}}/></span></button>):<p className="analytics-empty">Ainda não há dados suficientes.</p>}</div>{selected&&<div className="analytics-selection-note"><span>Selecionado</span><strong>{selected[0]}</strong><b>{selected[1]} ocorrência{selected[1]===1?'':'s'}</b></div>}</section>;
 }
 
 function OrderRhythmChart({data}:{data:[string,number][]}){
@@ -28,8 +32,14 @@ function OrderRhythmChart({data}:{data:[string,number][]}){
   const chartBottom=204;
   const chartHeight=178;
   const chartDescription=data.map(([label,value])=>`${label}: ${value} pedido${value===1?'':'s'}`).join('; ');
+  const [selectedLabel,setSelectedLabel]=useState<string|null>(peakLabel==='—'?null:peakLabel);
+  const selected=data.find(([label])=>label===selectedLabel);
+  const selectBar=(label:string)=>setSelectedLabel(label);
+  const handleBarKey=(event:KeyboardEvent<SVGRectElement>,label:string)=>{
+    if(event.key==='Enter'||event.key===' '){event.preventDefault();selectBar(label);}
+  };
 
-  return <section className="admin-card analytics-chart-card"><div className="admin-card__header"><div><span className="eyebrow">RITMO DE PEDIDOS</span><h2>Pedidos por dia da semana</h2><p className="analytics-chart-helper">Identifique rapidamente os dias com maior movimento no histórico carregado.</p></div><BarChart3 size={21}/></div><div className="analytics-chart-wrap"><svg className="analytics-chart-svg" viewBox="0 0 700 270" role="img" aria-labelledby="analytics-chart-title analytics-chart-desc"><title id="analytics-chart-title">Pedidos por dia da semana</title><desc id="analytics-chart-desc">{chartDescription||'Ainda não há pedidos registrados.'}</desc>{[0,.5,1].map((ratio)=><g key={ratio}><line className="analytics-chart-gridline" x1="34" x2="668" y1={chartBottom-(chartHeight*ratio)} y2={chartBottom-(chartHeight*ratio)}/><text className="analytics-chart-axis-label" x="22" y={chartBottom-(chartHeight*ratio)+4} textAnchor="end">{Math.round(max*ratio)}</text></g>)}{data.map(([label,value],index)=>{const barHeight=value?Math.max(8,(value/max)*chartHeight):0;const x=38+(index*90);const y=chartBottom-barHeight;return <g key={`${label}-${index}`}><rect className={`analytics-chart-bar${label===peakLabel&&peakValue>0?' is-peak':''}`} x={x} y={y} width="54" height={barHeight} rx="8"><title>{label}: {value} pedido{value===1?'':'s'}</title></rect>{value>0&&<text className="analytics-chart-value" x={x+27} y={y-8} textAnchor="middle">{value}</text>}<text className="analytics-chart-label" x={x+27} y="227" textAnchor="middle">{label}</text></g>})}</svg><ol className="sr-only">{data.map(([label,value])=><li key={`summary-${label}`}>{label}: {value} pedido{value===1?'':'s'}</li>)}</ol></div><div className="analytics-chart-insight"><BarChart3 size={16}/><span>Maior movimento: <strong>{peakLabel}</strong> ({peakValue} pedido{peakValue===1?'':'s'}).</span></div></section>;
+  return <section className="admin-card analytics-chart-card"><div className="admin-card__header"><div><span className="eyebrow">RITMO DE PEDIDOS</span><h2>Pedidos por dia da semana</h2><p className="analytics-chart-helper">Identifique rapidamente os dias com maior movimento no histórico carregado.</p></div><BarChart3 size={21}/></div><div className="analytics-chart-wrap"><svg className="analytics-chart-svg" viewBox="0 0 700 270" role="img" aria-labelledby="analytics-chart-title analytics-chart-desc"><title id="analytics-chart-title">Pedidos por dia da semana</title><desc id="analytics-chart-desc">{chartDescription||'Ainda não há pedidos registrados.'}</desc>{[0,.5,1].map((ratio)=><g key={ratio}><line className="analytics-chart-gridline" x1="34" x2="668" y1={chartBottom-(chartHeight*ratio)} y2={chartBottom-(chartHeight*ratio)}/><text className="analytics-chart-axis-label" x="22" y={chartBottom-(chartHeight*ratio)+4} textAnchor="end">{Math.round(max*ratio)}</text></g>)}{data.map(([label,value],index)=>{const barHeight=value?Math.max(8,(value/max)*chartHeight):0;const x=38+(index*90);const y=chartBottom-barHeight;return <g key={`${label}-${index}`}><rect className={`analytics-chart-bar${label===peakLabel&&peakValue>0?' is-peak':''}${label===selectedLabel?' is-selected':''}`} x={x} y={y} width="54" height={barHeight} rx="8" tabIndex={0} role="button" aria-label={`${label}: ${value} pedido${value===1?'':'s'}`} aria-pressed={label===selectedLabel} onClick={()=>selectBar(label)} onKeyDown={(event)=>handleBarKey(event,label)}><title>{label}: {value} pedido{value===1?'':'s'}</title></rect>{value>0&&<text className="analytics-chart-value" x={x+27} y={y-8} textAnchor="middle">{value}</text>}<text className="analytics-chart-label" x={x+27} y="227" textAnchor="middle">{label}</text></g>})}</svg><ol className="sr-only">{data.map(([label,value])=><li key={`summary-${label}`}>{label}: {value} pedido{value===1?'':'s'}</li>)}</ol></div><div className="analytics-chart-insight"><BarChart3 size={16}/><span>{selected?<><strong>{selected[0]}</strong> selecionado: {selected[1]} pedido{selected[1]===1?'':'s'}.</>:<>Maior movimento: <strong>{peakLabel}</strong> ({peakValue} pedido{peakValue===1?'':'s'}).</>}</span></div></section>;
 }
 
 function WeekdayOrdersChart({data}:{data:[string,number][]}){
@@ -40,6 +50,12 @@ function WeekdayOrdersChart({data}:{data:[string,number][]}){
   const barWidth=Math.min(56,groupWidth-24);
   const max=Math.max(1,...data.map(([,value])=>value));
   const total=data.reduce((sum,[,value])=>sum+value,0);
+  const [selectedLabel,setSelectedLabel]=useState<string|null>(data.find(([,value])=>value===Math.max(...data.map(([,itemValue])=>itemValue)))?.[0]||null);
+  const selected=data.find(([label])=>label===selectedLabel);
+  const selectBar=(label:string)=>setSelectedLabel(label);
+  const handleBarKey=(event:KeyboardEvent<SVGRectElement>,label:string)=>{
+    if(event.key==='Enter'||event.key===' '){event.preventDefault();selectBar(label);}
+  };
 
   return <section className="admin-card analytics-chart-card" aria-labelledby="food-analytics-weekday-title">
     <div className="admin-card__header"><div><span className="eyebrow">RITMO DE VENDAS</span><h2 id="food-analytics-weekday-title">Pedidos por dia da semana</h2></div><BarChart3 size={21}/></div>
@@ -53,13 +69,14 @@ function WeekdayOrdersChart({data}:{data:[string,number][]}){
           const height=value?Math.max(5,(value/max)*chartHeight):0;
           const x=32+index*groupWidth+(groupWidth-barWidth)/2;
           const y=baseline-height;
-          return <g key={label}><rect className="analytics-chart__bar" x={x} y={y} width={barWidth} height={height} rx="8" aria-hidden="true"/><text className="analytics-chart__value" x={x+barWidth/2} y={value?y-8:baseline-8} textAnchor="middle">{value}</text><text className="analytics-chart__label" x={x+barWidth/2} y="222" textAnchor="middle">{label}</text></g>;
+          return <g key={label}><rect className={`analytics-chart__bar${label===selectedLabel?' is-selected':''}`} x={x} y={y} width={barWidth} height={height} rx="8" tabIndex={0} role="button" aria-label={`${label}: ${value} pedido${value===1?'':'s'}`} aria-pressed={label===selectedLabel} onClick={()=>selectBar(label)} onKeyDown={(event)=>handleBarKey(event,label)}><title>{label}: {value} pedido{value===1?'':'s'}</title></rect><text className="analytics-chart__value" x={x+barWidth/2} y={value?y-8:baseline-8} textAnchor="middle">{value}</text><text className="analytics-chart__label" x={x+barWidth/2} y="222" textAnchor="middle">{label}</text></g>;
         })}
       </svg>
     </div>
     <ul className="analytics-chart__sr-only" aria-label="Dados do gráfico de pedidos por dia da semana">
       {data.map(([label,value])=><li key={label}>{label}: {value} {value===1?'pedido':'pedidos'}</li>)}
     </ul>
+    {selected&&<div className="analytics-chart-insight analytics-chart-insight--selected"><BarChart3 size={16}/><span><strong>{selected[0]}</strong> selecionado: {selected[1]} pedido{selected[1]===1?'':'s'}.</span></div>}
   </section>;
 }
 
