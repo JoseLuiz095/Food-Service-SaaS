@@ -97,7 +97,7 @@ check('Consumo é proporcional ao rendimento e estorna correções',recipeConsum
 check('Reposição reprocessa consumo pendente sem recursão',recipeConsumption.includes('food_reconcile_recipe_orders_on_inventory_update')&&recipeGuard.includes('food_reconcile_order_recipe_consumption')&&!recipeGuard.includes("set_config('foodweb.recipe_reconcile'"));
 check('Estoque baixo tem limite e opção de alerta',recipeConsumption.includes('low_stock_alert_enabled')&&recipeConsumption.includes('food_list_low_stock_inventory')&&inventoryPage.includes('Avisar ao atingir o estoque mínimo'));
 check('Admin pode editar nome do insumo e ficha técnica',inventoryPage.includes('saveEditItem')&&inventoryPage.includes('saveRecipe')&&inventoryPage.includes('Editar'));
-check('Alerta de estoque baixo usa notificação PWA com deduplicação',inventoryPage.includes('showPwaNotification')&&inventoryPage.includes('low-stock-alert'));
+check('Alerta de estoque baixo usa notificação PWA com deduplicação',inventoryPage.includes('showPwaNotification')&&inventoryPage.includes('low-stock-alert')&&adminNotifications.includes('inventoryApi.listLowStock'));
 check('Vitrine tem entrada suave com toque reduzido',styles.includes('.food-storefront-theme .store-route-view')&&styles.includes('food-route-enter')&&styles.includes('prefers-reduced-motion'));
 check('Food Master lê apenas food_*',platformApi.includes('food_stores?')&&platformApi.includes('food_plans?')&&!platformApi.includes("'stores?"));
 check('Food Admin lê apenas food_*',storeApi.includes('food_products?')&&storeApi.includes('food_orders?')&&!storeApi.includes('`products?'));

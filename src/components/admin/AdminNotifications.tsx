@@ -4,6 +4,7 @@ import { useStore } from '../../contexts/StoreContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDateTimeBR } from '../../utils/format';
 import { pwaPushStatus, requestPwaNotificationPermission, showPwaNotification, subscribeToPwaPush } from '../../services/pwaNotifications';
+import { inventoryApi } from '../../services/inventoryApi';
 import type { Order } from '../../types';
 
 const seenReminderKey = (storeId: string, orderId: string, scheduledFor: string) => `foodweb-notification-reminder:${storeId}:${orderId}:${scheduledFor}`;
@@ -154,6 +155,34 @@ export function AdminNotifications() {
     const interval = window.setInterval(() => { void reloadAdmin({ silent: true }).catch(() => undefined); }, 30_000);
     return () => window.clearInterval(interval);
   }, [reloadAdmin]);
+
+  useEffect(() => {
+    // O painel administrativo também verifica insumos em segundo plano. O
+    // estado local evita repetir o mesmo aviso enquanto o saldo continuar
+    // abaixo do mínimo configurado.
+    if (!settings.id || loading || !settings.notificationsDesktopEnabled) return;
+    let cancelled = false;
+    const checkLowStock = async () => {
+      try {
+        const items = await inventoryApi.listLowStock(settings.id);
+        if (cancelled || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+        for (const item of items) {
+          const key = `foodweb:low-stock-alert:${settings.id}:${item.id}`;
+          let previous = '';
+          try { previous = window.localStorage.getItem(key) || ''; } catch { /* segue sem deduplicação local */ }
+          if (previous === 'low') continue;
+          try { window.localStorage.setItem(key, 'low'); } catch { /* o alerta ainda é útil */ }
+          void showPwaNotification('Estoque baixo', `${item.name}: ${item.currentQuantity} ${item.unit} · mínimo ${item.reorderPoint} ${item.unit}`, { tag: `low-stock:${settings.id}:${item.id}`, url: '/admin/estoque' });
+        }
+      } catch {
+        // Instalações antigas sem a migration de estoque continuam usando os
+        // demais avisos do painel normalmente.
+      }
+    };
+    void checkLowStock();
+    const interval = window.setInterval(() => { void checkLowStock(); }, 30_000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, [loading, settings.id, settings.notificationsDesktopEnabled]);
 
   if (!unread) return null;
   return <button type="button" className="admin-notification-badge" onClick={() => setUnread(0)} title="Marcar alertas como lidos" aria-label={`${unread} alerta${unread === 1 ? '' : 's'} nova${unread === 1 ? '' : 's'}`}><Bell size={16}/><span>{unread > 9 ? '9+' : unread}</span><X size={12}/></button>;
