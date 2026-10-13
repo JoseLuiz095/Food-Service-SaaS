@@ -88,6 +88,7 @@ check('Trigger avulso respeita fuso e data desejada',manualOndemand.includes('v_
 check('Pagamento aguardando reposição não falha',manualOndemand.includes("<> 'awaiting_restock'")&&manualOndemand.includes('food_confirm_order_payment_v1'));
 check('Reposição tenta concluir pedido já pago',manualOndemand.includes('food_commit_restocked_orders_on_product_update')&&manualOndemand.includes('food_products_restock_commit_trg'));
 check('Pedidos admin têm cards compactos no mobile',ordersAdmin.includes('orders-mobile-list')&&styles.includes('.orders-mobile-list'));
+check('Confirmação financeira aparece em um único local', (ordersAdmin.match(/Confirmar recebimento/g)||[]).length===1&&ordersAdmin.includes('A confirmação fica na área Financeiro acima.'));
 check('Pedidos ativos ficam separados do histórico',ordersAdmin.includes('orders-collection-section--active')&&ordersAdmin.includes('orders-history-panel')&&ordersAdmin.includes("historyStatuses = new Set<OrderStatus>"));
 check('Pedidos recebidos ficam em processamento até encerrar',ordersAdmin.includes('Recebidos · em processamento')&&ordersAdmin.includes("historyStatuses = new Set<OrderStatus>(['delivered', 'cancelled'])"));
 check('Entregue e cancelado são os últimos status',ordersAdmin.includes("{ value: 'delivered', label: 'Entregue' }")&&ordersAdmin.includes("{ value: 'cancelled', label: 'Cancelado' }"));
