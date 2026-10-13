@@ -11,6 +11,8 @@ import {
   LogOut,
   Menu,
   Package,
+  PanelLeftClose,
+  PanelLeftOpen,
   Rocket,
   Settings,
   ShieldCheck,
@@ -79,6 +81,7 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [billingOverview, setBillingOverview] = useState<StoreBillingOverview | null>(null);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
@@ -91,6 +94,13 @@ export default function AdminLayout() {
     return () => window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
   }, []);
 
+  useEffect(() => {
+    try { setSidebarCollapsed(window.localStorage.getItem('foodweb_admin_sidebar_collapsed') === '1'); } catch { /* storage indisponível */ }
+  }, []);
+
+  useEffect(() => {
+    try { window.localStorage.setItem('foodweb_admin_sidebar_collapsed', sidebarCollapsed ? '1' : '0'); } catch { /* storage indisponível */ }
+  }, [sidebarCollapsed]);
   const installAdminApp = async () => {
     if (!installPrompt) return;
     await installPrompt.prompt();
@@ -134,12 +144,13 @@ export default function AdminLayout() {
   });
 
   return (
-    <div className="admin-shell food-admin-parity-v054">
+    <div className={`admin-shell food-admin-parity-v054 ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
       <button className="admin-mobile-menu" onClick={() => setOpen(true)} aria-label="Abrir menu"><Menu size={21} /></button>
       {open && <button className="admin-backdrop" onClick={() => setOpen(false)} aria-label="Fechar menu" />}
 
       <aside className={`admin-sidebar ${open ? 'is-open' : ''}`}>
         <button className="admin-sidebar-close" onClick={() => setOpen(false)} aria-label="Fechar"><X /></button>
+        <button type="button" className="admin-sidebar-collapse" onClick={() => setSidebarCollapsed((current) => !current)} aria-pressed={sidebarCollapsed} aria-label={sidebarCollapsed ? "Expandir menu" : "Recolher menu"} title={sidebarCollapsed ? "Expandir menu" : "Recolher menu"}>{sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}</button>
         <div className="admin-brand"><UtensilsCrossed size={24} /><div><strong>FoodWeb</strong><span>Administração</span></div></div>
         <div className="admin-store-mini"><ImageWithFallback src={settings.logoUrl} alt={`Logo ${settings.name}`} /><div><strong>{settings.name}</strong><span>{settings.city} · {settings.state}</span></div></div>
 
@@ -161,7 +172,7 @@ export default function AdminLayout() {
               <div className="admin-nav__group" key={section.label}>
                 <span className="admin-nav__label">{section.label}</span>
                 {items.map(({ to, label, icon: Icon, end }) => (
-                  <NavLink key={to} to={to} end={end} onClick={() => setOpen(false)}><Icon size={18} />{label}</NavLink>
+                  <NavLink key={to} to={to} end={end} onClick={() => setOpen(false)}><Icon size={18} /><span className="admin-nav-text">{label}</span></NavLink>
                 ))}
               </div>
             );
@@ -169,10 +180,10 @@ export default function AdminLayout() {
         </nav>
 
         <div className="admin-sidebar__bottom">
-          {installPrompt && <button onClick={() => void installAdminApp()}><Smartphone size={18} /> Instalar app no celular</button>}
-          <a href={`/${settings.slug}`} target="_blank" rel="noreferrer"><ExternalLink size={18} /> Ver loja pública</a>
-          {platformAdmin && <a href="/admin-master"><LayoutDashboard size={18} /> Admin Master</a>}
-          <button onClick={() => void logout()}><LogOut size={18} /> Sair</button>
+          {installPrompt && <button onClick={() => void installAdminApp()}><Smartphone size={18} /><span className="admin-sidebar-text">Instalar app no celular</span></button>}
+          <a href={`/${settings.slug}`} target="_blank" rel="noreferrer"><ExternalLink size={18} /><span className="admin-sidebar-text">Ver loja pública</span></a>
+          {platformAdmin && <a href="/admin-master"><LayoutDashboard size={18} /><span className="admin-sidebar-text">Admin Master</span></a>}
+          <button onClick={() => void logout()}><LogOut size={18} /><span className="admin-sidebar-text">Sair</span></button>
         </div>
       </aside>
 

@@ -3,7 +3,7 @@ import { invokePublicFunction, restFetch, storageDelete, storageUpload } from '.
 import { seedAddons, seedCategories, seedDeliveryZones, seedOrders, seedPlan, seedProducts, seedSettings } from '../data/seed';
 import type {
   Addon, CartItem, Category, CheckoutData, CheckoutSecurityContext, CreateOrderResult, DeliveryZone,
-  ManualOrderInput, OptionGroup, OptionItem, Order, PaymentMethod, Plan, PlanUsage, Product, ProductImage, StoreSettings,
+  ManualOrderInput, OptionGroup, OptionItem, Order, OrderDetailsUpdate, OrderItem, OrderItemOption, PaymentMethod, Plan, PlanUsage, Product, ProductImage, StoreSettings,
 } from '../types';
 import { roundMoney, slugify } from '../utils/format';
 import { formatOpeningSchedule, normalizeOpeningSchedule } from '../utils/storeHours';
@@ -93,6 +93,14 @@ type OrderRow = {
   preparation_estimate_minutes?: number | null; inventory_status?: Order['inventoryStatus'] | null; source?: Order['source'] | null; customer_instagram?: string | null; acquisition_source?: Order['acquisitionSource'] | null; whatsapp_clicked_at: string | null; created_at: string;
 };
 
+type OrderItemRow = {
+  id: string; order_id: string; product_id?: string | null; product_name: string; quantity: number; unit_price: number | string;
+  variant_name?: string | null; variant_price_delta?: number | string | null; item_total: number | string; addons?: unknown;
+};
+type OrderItemOptionRow = {
+  id: string; order_item_id: string; group_name: string; option_name: string; option_kind: string;
+  price_delta: number | string | null; quantity: number | null;
+};
 const toNumber = (value: number | string | null | undefined) => value == null ? 0 : Number(value);
 const encode = (value: string) => encodeURIComponent(value);
 const inFilter = (ids: string[]) => `in.(${ids.join(',')})`;
@@ -150,6 +158,31 @@ const mapOrder = (row: OrderRow): Order => ({
   scheduledFor: row.scheduled_for || undefined, preparationEstimateMinutes: row.preparation_estimate_minutes ?? undefined, inventoryStatus: row.inventory_status || undefined, source: row.source || 'site', customerInstagram: row.customer_instagram || undefined, acquisitionSource: row.acquisition_source || undefined, whatsappClickedAt: row.whatsapp_clicked_at || undefined, createdAt: row.created_at,
 });
 
+const normalizeOrderItemOptionKind = (value: string): OrderItemOption['optionKind'] => {
+  const allowed: OrderItemOption['optionKind'][] = ['variant', 'choice', 'addon', 'removal'];
+  return allowed.includes(value as OrderItemOption['optionKind']) ? value as OrderItemOption['optionKind'] : 'choice';
+};
+
+const mapOrderItem = (row: OrderItemRow, optionRows: OrderItemOptionRow[]): OrderItem => ({
+  id: row.id,
+  orderId: row.order_id,
+  productId: row.product_id || undefined,
+  productName: row.product_name,
+  quantity: toNumber(row.quantity),
+  unitPrice: toNumber(row.unit_price),
+  variantName: row.variant_name || undefined,
+  variantPriceDelta: toNumber(row.variant_price_delta),
+  itemTotal: toNumber(row.item_total),
+  options: optionRows.map((option) => ({
+    id: option.id,
+    orderItemId: option.order_item_id,
+    groupName: option.group_name,
+    optionName: option.option_name,
+    optionKind: normalizeOrderItemOptionKind(option.option_kind),
+    priceDelta: toNumber(option.price_delta),
+    quantity: Math.max(1, toNumber(option.quantity)),
+  })),
+});
 const mapOptionGroups = (groups: OptionGroupRow[], items: OptionItemRow[]): OptionGroup[] => groups.map((group) => ({
   id: group.id, storeId: group.store_id, name: group.name, description: group.description || undefined, kind: group.kind,
   minChoices: group.min_choices, maxChoices: group.max_choices, active: group.active, sortOrder: group.sort_order,
@@ -166,7 +199,10 @@ const buildProducts = (
   const groups = mapOptionGroups(optionGroups, optionItems);
   return rows.map((row) => {
     const productImages: ProductImage[] = images.filter((image) => image.product_id === row.id).sort((a,b) => a.sort_order - b.sort_order).map((image) => ({ id:image.id, productId:image.product_id, url:image.url, storagePath:image.storage_path || undefined, altText:image.alt_text || undefined, sortOrder:image.sort_order, isPrimary:image.is_primary }));
-    const primary = productImages.find((image) => image.isPrimary) || productImages[0];
+    const primaryIndex = productImages.findIndex((image) => image.isPrimary);
+    const primary = primaryIndex >= 0 ? productImages[primaryIndex] : productImages[0];
+    // A foto marcada como principal precisa ser também a primeira da galeria pública.
+    const orderedProductImages = primary ? [primary, ...productImages.filter((image) => image.id !== primary.id)] : productImages;
     const linkedGroupIds = productOptionLinks.filter((link) => link.product_id === row.id).sort((a,b) => a.sort_order - b.sort_order).map((link) => link.option_group_id);
     let productGroups = linkedGroupIds.map((groupId) => groups.find((group) => group.id === groupId)).filter((group): group is OptionGroup => Boolean(group));
 
@@ -187,7 +223,7 @@ const buildProducts = (
       stockLabel:row.stock_status === 'low_stock' ? 'Últimas unidades' : row.stock_status === 'unavailable' ? 'Indisponível' : undefined,
       internalCode:row.internal_code || undefined, availabilityStatus:row.availability_status || (row.stock_status === 'unavailable' ? 'unavailable' : 'available'),
       trackStock:row.track_stock ?? false, stockQuantity:row.stock_quantity ?? undefined, stockReservedQuantity:row.stock_reserved_quantity ?? 0, preparationTimeMinutes:row.preparation_time_minutes ?? 0, sortOrder:row.sort_order ?? 0,
-      images:productImages, imageUrl:primary?.url || '/assets/placeholder-food.svg', visualEmoji:row.visual_emoji || undefined, gallery:productImages.map((image) => image.url), optionGroups:productGroups,
+      images:orderedProductImages, imageUrl:primary?.url || '/assets/placeholder-food.svg', visualEmoji:row.visual_emoji || undefined, gallery:orderedProductImages.map((image) => image.url), optionGroups:productGroups,
       variations:legacyVariants.filter((variant) => variant.product_id === row.id).map((variant) => ({ id:variant.id, productId:variant.product_id, name:variant.name, priceDelta:toNumber(variant.price_delta), active:variant.active, sortOrder:variant.sort_order })),
       addons:legacyAddons.filter((addon) => legacyProductAddonIds.has(addon.id)),
     };
@@ -296,7 +332,22 @@ const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promis
   const addons = addonRows.map(mapAddon);
   const deliveryZones = deliveryZoneRows.map(mapDeliveryZone);
   const products = buildProducts(productRows, imageRows, optionGroupRows, optionItemRows, optionLinks, variantRows, addons, addonLinks);
-  const orders = admin ? (await restFetch<OrderRow[]>(`food_orders?select=*&store_id=eq.${encode(settings.id)}&order=created_at.desc&limit=100`)).map(mapOrder) : [];
+  const orderRows = admin ? await restFetch<OrderRow[]>(`food_orders?select=*&store_id=eq.${encode(settings.id)}&order=created_at.desc&limit=100`) : [];
+  let orders = orderRows.map(mapOrder);
+  if (admin && orderRows.length) {
+    const orderIds = orderRows.map((order) => order.id);
+    const itemRows = await restFetch<OrderItemRow[]>(`food_order_items?select=*&order_id=${encode(inFilter(orderIds))}&order=created_at.asc`).catch(() => [] as OrderItemRow[]);
+    const itemIds = itemRows.map((item) => item.id);
+    const optionRows = itemIds.length
+      ? await restFetch<OrderItemOptionRow[]>(`food_order_item_options?select=*&order_item_id=${encode(inFilter(itemIds))}&order=created_at.asc`).catch(() => [] as OrderItemOptionRow[])
+      : [];
+    orders = orders.map((order) => ({
+      ...order,
+      items: itemRows
+        .filter((item) => item.order_id === order.id)
+        .map((item) => mapOrderItem(item, optionRows.filter((option) => option.order_item_id === item.id))),
+    }));
+  }
   const activeProductCount = products.filter((product) => product.active).length;
   const planUsage = admin ? await loadPlanUsage(settings.id, products.length, activeProductCount) : { plan:seedPlan, productCount:products.length, activeProductCount, canCreateProduct:true, canActivateProduct:true };
   return { settings, categories, products, addons, deliveryZones, orders, planUsage };
@@ -447,7 +498,7 @@ export const storeApi = {
       delivery_zone_id:form.fulfillment==='delivery'?form.deliveryZoneId||null:null,delivery_city:form.fulfillment==='delivery'?form.deliveryCity||null:null,
       delivery_state:form.fulfillment==='delivery'?form.deliveryState||null:null,reference_point:form.fulfillment==='delivery'?form.referencePoint||null:null,
       notes:form.notes||null,payment_method:form.paymentMethod,needs_change:form.paymentMethod==='cash'&&form.needsChange,change_for:form.paymentMethod==='cash'&&form.needsChange?form.changeFor:null,
-      scheduled_for:serializeScheduledDateTime(form.scheduledFor),review_confirmed:form.reviewConfirmed,
+      scheduled_for:serializeScheduledDateTime(form.scheduledFor),flexible_timing_confirmed:form.flexibleTimingConfirmed,review_confirmed:form.reviewConfirmed,
       // Atribuição opcional: a Edge Function grava estes dois campos quando a
       // migração correspondente já estiver ativa. O pedido continua compatível
       // com instalações antigas caso as colunas ainda não existam.
@@ -602,6 +653,84 @@ export const storeApi = {
     }
     const result=await restFetch<{ok:boolean;alreadyPaid?:boolean;paymentReceivedAt?:string}>('rpc/food_confirm_order_payment_v1',{method:'POST',body:{p_order_id:orderId}});
     return {alreadyPaid:Boolean(result?.alreadyPaid),paymentReceivedAt:result?.paymentReceivedAt};
+  },
+
+  async updateOrderDetails(orderId: string, input: OrderDetailsUpdate): Promise<void> {
+    const customerName = input.customerName.trim();
+    if (customerName.length < 2) throw new Error('Informe o nome do cliente.');
+
+    if (isDemoMode) {
+      const db = readDemo();
+      const index = db.orders.findIndex((order) => order.id === orderId && order.paymentStatus !== 'paid' && order.status !== 'cancelled');
+      if (index < 0) throw new Error('Pedido não encontrado, já recebido ou cancelado.');
+      db.orders[index] = {
+        ...db.orders[index],
+        customerName,
+        customerPhone: input.customerPhone?.trim() || undefined,
+        scheduledFor: input.scheduledFor || undefined,
+        notes: input.notes?.trim() || undefined,
+      };
+      writeDemo(db);
+      return;
+    }
+
+    const rows = await restFetch<OrderRow[]>(
+      `food_orders?id=eq.${encode(orderId)}&payment_status=neq.paid&status=neq.cancelled&select=*`,
+      {
+        method: 'PATCH',
+        body: {
+          customer_name: customerName,
+          customer_phone: input.customerPhone?.trim() || null,
+          scheduled_for: serializeScheduledDateTime(input.scheduledFor),
+          notes: input.notes?.trim() || null,
+        },
+        prefer: 'return=representation',
+      },
+    );
+    if (!rows.length) throw new Error('Pedido não encontrado, já recebido, cancelado ou sem permissão para atualização.');
+  },
+  async updateManualOrder(orderId: string, input: Omit<ManualOrderInput, 'items'>): Promise<void> {
+    const customerName = input.customerName.trim();
+    if (customerName.length < 2) throw new Error('Informe o nome do cliente.');
+    if (input.status === 'cancelled' && input.received) throw new Error('Um pedido cancelado não pode ser marcado como recebido.');
+
+    if (isDemoMode) {
+      const db = readDemo();
+      const index = db.orders.findIndex((order) => order.id === orderId && order.source !== 'site');
+      if (index < 0) throw new Error('Pedido avulso não encontrado.');
+      db.orders[index] = {
+        ...db.orders[index],
+        customerName,
+        customerPhone: input.customerPhone?.trim() || undefined,
+        deliveryType: input.fulfillment || 'pickup',
+        paymentMethod: input.paymentMethod,
+        status: input.status,
+        scheduledFor: input.scheduledFor || undefined,
+        notes: input.notes?.trim() || undefined,
+        source: input.source,
+      };
+      writeDemo(db);
+      return;
+    }
+
+    const rows = await restFetch<OrderRow[]>(
+      `food_orders?id=eq.${encode(orderId)}&source=neq.site&select=*`,
+      {
+        method: 'PATCH',
+        body: {
+          customer_name: customerName,
+          customer_phone: input.customerPhone?.trim() || null,
+          delivery_type: input.fulfillment || 'pickup',
+          payment_method: input.paymentMethod,
+          status: input.status,
+          scheduled_for: serializeScheduledDateTime(input.scheduledFor),
+          notes: input.notes?.trim() || null,
+          source: input.source,
+        },
+        prefer: 'return=representation',
+      },
+    );
+    if (!rows.length) throw new Error('Pedido avulso não encontrado ou sem permissão para atualização.');
   },
 
   async updateOrderStatus(orderId:string,status:Order['status']):Promise<void>{
