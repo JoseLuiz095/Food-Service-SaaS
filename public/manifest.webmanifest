@@ -10,9 +10,9 @@
   "theme_color": "#123d28",
   "icons": [
     {
-      "src": "/favicon-foodweb-v054.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/assets/marketing/app-splash-v2.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

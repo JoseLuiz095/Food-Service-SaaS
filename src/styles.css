@@ -21,6 +21,10 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; background: #faf9f6; color: var(--ink); }
+#foodweb-splash-screen{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:#fffdfa;transition:opacity .2s ease,visibility .2s ease}
+#foodweb-splash-screen img{width:min(184px,42vw);height:auto;display:block;border-radius:28px;box-shadow:0 20px 55px rgba(159,89,57,.12)}
+#foodweb-splash-screen.is-ready{opacity:0;visibility:hidden;pointer-events:none}
+@media(prefers-reduced-motion:reduce){#foodweb-splash-screen{transition:none}}
 a { color: inherit; text-decoration: none; }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
@@ -3767,17 +3771,3 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 @keyframes financeBarRise{from{opacity:.35;transform:scaleY(.35);transform-origin:bottom}to{opacity:1;transform:scaleY(1);transform-origin:bottom}}
 @media(max-width:560px){.analytics-selection-note{flex-wrap:wrap}.analytics-selection-note b{margin-left:0;width:100%}.finance-chart-selection{grid-template-columns:1fr 1fr}.finance-chart-selection>div:first-child{grid-column:1/-1;padding:0 0 7px;border-right:0;border-bottom:1px solid #e6eee8}.finance-expense-selection{align-items:flex-start;flex-wrap:wrap}.finance-expense-selection b{margin-left:0;width:100%}}
 @media(prefers-reduced-motion:reduce){.analytics-bar-row,.analytics-chart-bar,.analytics-chart__bar,.finance-month-bars button,.finance-expense-row{transition:none;animation:none}.analytics-bar-row:hover,.finance-expense-row:hover,.finance-month-bars button:hover{transform:none}}
-/* FoodWeb v0.6.6 — abertura premium e visualização imersiva */
-.login-brand-panel{
-  background-image:linear-gradient(145deg,rgba(20,31,26,.88) 0%,rgba(29,44,35,.72) 48%,rgba(93,48,35,.44) 100%),url('/assets/marketing/app-opening-hero.png');
-  background-size:cover;
-  background-position:center;
-  isolation:isolate;
-}
-.login-brand-panel:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(11,31,23,.1),rgba(11,31,23,.25));pointer-events:none}
-.login-brand-panel:after{background:rgba(255,235,215,.1);box-shadow:0 0 0 1px rgba(255,255,255,.04) inset}
-.sales-hero-v44 .sales-hero-visual-v44>img{aspect-ratio:1.35;object-fit:cover;object-position:center;border-radius:28px}
-
-@media(max-width:640px){
-  .sales-hero-v44 .sales-hero-visual-v44>img{aspect-ratio:1.2;border-radius:22px}
-}
