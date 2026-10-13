@@ -109,6 +109,7 @@ const isMissingSchemaColumn = (error: unknown, column: string) => {
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return message.includes(column.toLowerCase()) && (message.includes('schema cache') || message.includes('column'));
 };
+const normalizePixCopyPaste = (value: string | null | undefined) => (value || '').trim().replace(/[\r\n\t]+/g, '');
 
 const normalizePaymentOrder = (value: unknown): PaymentMethod[] => {
   const allowed: PaymentMethod[] = ['confirm', 'pix', 'card', 'cash'];
@@ -365,7 +366,13 @@ export const storeApi = {
         if (missingColumn === 'show_whatsapp') requestPayload.whatsapp = settings.showWhatsApp === false ? null : settings.whatsapp;
       }
     }
-    return mapStore(rows[0]);
+     const persistedRows = await restFetch<StoreRow[]>(`food_stores?id=eq.${encode(settings.id)}&select=*`);
+     const persisted = persistedRows[0] || rows[0];
+     if (!persisted) throw new Error('A loja não retornou a configuração salva. Recarregue a página e tente novamente.');
+     if (settings.pixReceiptMode === 'copy_paste' && normalizePixCopyPaste(settings.pixCopyPaste) && normalizePixCopyPaste(persisted.pix_copy_paste) !== normalizePixCopyPaste(settings.pixCopyPaste)) {
+       throw new Error('O PIX Copia e Cola não foi persistido pelo banco. A configuração anterior foi preservada; tente salvar novamente após atualizar a página.');
+     }
+     return mapStore(persisted);
   },
 
   async saveCategory(category: Category): Promise<Category> {
