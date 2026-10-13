@@ -37,3 +37,10 @@ createRoot(root).render(
     </BrowserRouter>
   </StrictMode>,
 );
+
+window.requestAnimationFrame(() => {
+  const splash = document.getElementById('foodweb-splash-screen');
+  if (!splash) return;
+  splash.classList.add('is-ready');
+  window.setTimeout(() => splash.remove(), 220);
+});
