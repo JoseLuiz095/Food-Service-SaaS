@@ -90,6 +90,7 @@ check('Reposição tenta concluir pedido já pago',manualOndemand.includes('food
 check('Pedidos admin têm cards compactos no mobile',ordersAdmin.includes('orders-mobile-list')&&styles.includes('.orders-mobile-list'));
 check('Confirmação financeira aparece em um único local', (ordersAdmin.match(/Confirmar recebimento/g)||[]).length===1&&ordersAdmin.includes('A confirmação fica na área Financeiro acima.'));
 check('Financeiro é o único local de recebimento pendente',!ordersAdmin.includes('orders-collection-section--active')&&ordersAdmin.includes('orders-payment-inbox')&&ordersAdmin.includes('Pedidos pendentes no Financeiro'));
+check('A receber permite editar e exibir QR Code PIX',ordersAdmin.includes('OrderDetailsModal')&&ordersAdmin.includes('setDetailsOrderId(order.id)')&&ordersAdmin.includes('Mostrar QR Code')&&ordersAdmin.includes('openPaymentPix(order)')&&ordersAdmin.includes('paymentPixView'));
 check('Pedidos ativos ficam separados do histórico',ordersAdmin.includes('orders-collection-section--processing')&&ordersAdmin.includes('orders-history-panel')&&ordersAdmin.includes("historyStatuses = new Set<OrderStatus>"));
 check('Pedidos recebidos ficam em processamento até encerrar',ordersAdmin.includes('Recebidos · em processamento')&&ordersAdmin.includes("historyStatuses = new Set<OrderStatus>(['delivered', 'cancelled'])"));
 check('Entregue e cancelado são os últimos status',ordersAdmin.includes("{ value: 'delivered', label: 'Entregue' }")&&ordersAdmin.includes("{ value: 'cancelled', label: 'Cancelado' }"));
