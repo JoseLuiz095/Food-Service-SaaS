@@ -1376,10 +1376,12 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .orders-payment-inbox__list article>div{display:grid;gap:3px;min-width:0}
 .orders-payment-inbox__list article strong{font-size:.78rem}
 .orders-payment-inbox__list article span,.orders-payment-inbox__list article small{font-size:.68rem;color:var(--muted)}
+.orders-payment-inbox__actions{display:flex!important;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.orders-payment-inbox__actions .secondary-button,.orders-payment-inbox__actions .order-payment-confirm-button{min-height:38px;white-space:nowrap}
 .orders-payment-inbox__empty{display:flex;align-items:center;gap:8px;margin-top:13px;padding:12px;border-radius:11px;background:#f5fbf6;color:#28724b;font-size:.75rem;font-weight:700}
 .checkout-draft-status{display:block;margin-top:8px;color:#8a6a5d;font-size:.74rem;line-height:1.45}
 @media(max-width:760px){.order-payment-confirm-button{width:100%;min-width:154px}}
-@media(max-width:680px){.orders-payment-inbox__heading{align-items:flex-start}.orders-payment-inbox__list article{align-items:stretch;flex-direction:column}.orders-payment-inbox__list article .order-payment-confirm-button{width:100%}}
+@media(max-width:680px){.orders-payment-inbox__heading{align-items:flex-start}.orders-payment-inbox__list article{align-items:stretch;flex-direction:column}.orders-payment-inbox__actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.orders-payment-inbox__actions .order-payment-confirm-button{grid-column:1/-1;width:100%}.orders-payment-inbox__actions .secondary-button{width:100%;justify-content:center}}
 
 
 /* v0.5.0 - estabilidade, cobranca e diagnostico */

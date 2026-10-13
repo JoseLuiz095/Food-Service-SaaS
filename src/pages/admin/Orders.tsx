@@ -1,8 +1,9 @@
-import { AlertCircle, CheckCircle2, ChefHat, CircleDollarSign, Copy, MessageCircle, Plus, QrCode, RefreshCw, RotateCcw, Search, ShoppingBag, Users, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChefHat, CircleDollarSign, Copy, MessageCircle, Pencil, Plus, QrCode, RefreshCw, RotateCcw, Search, ShoppingBag, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { OrderDetailsModal } from '../../components/admin/OrderDetailsModal';
 import { QuantityControl } from '../../components/QuantityControl';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -98,7 +99,7 @@ const newManualOrder = (): Omit<ManualOrderInput, 'items'> => ({
 });
 
 export default function OrdersAdmin() {
-  const { orders, products, loading, error, reloadAdmin, updateOrderStatus, confirmOrderPayment, createManualOrder, settings } = useStore();
+  const { orders, products, loading, error, reloadAdmin, updateOrderStatus, updateOrderDetails, confirmOrderPayment, createManualOrder, settings } = useStore();
   const { showToast } = useToast();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState('');
@@ -122,6 +123,12 @@ export default function OrdersAdmin() {
   const [manualPixView, setManualPixView] = useState<ManualPixView | null>(null);
   const [manualPixQrCode, setManualPixQrCode] = useState('');
   const [manualPixQrCodeError, setManualPixQrCodeError] = useState('');
+  const [paymentPixView, setPaymentPixView] = useState<ManualPixView | null>(null);
+  const [paymentPixQrCode, setPaymentPixQrCode] = useState('');
+  const [paymentPixQrCodeError, setPaymentPixQrCodeError] = useState('');
+  const [paymentPixCopied, setPaymentPixCopied] = useState(false);
+  const [detailsOrderId, setDetailsOrderId] = useState<string | null>(null);
+  const [detailsSaving, setDetailsSaving] = useState(false);
   const [manualPixPreviewQrCode, setManualPixPreviewQrCode] = useState('');
   const [manualPixPreviewQrCodeError, setManualPixPreviewQrCodeError] = useState('');
   const [manualPixChargeNow, setManualPixChargeNow] = useState(false);
@@ -150,6 +157,20 @@ export default function OrdersAdmin() {
       .catch(() => { if (!cancelled) { setManualPixQrCode(''); setManualPixQrCodeError('O QR Code não pôde ser desenhado neste aparelho. Use o PIX Copia e Cola abaixo.'); } });
     return () => { cancelled = true; };
   }, [manualPixView?.payload]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!paymentPixView?.payload) {
+      setPaymentPixQrCode('');
+      setPaymentPixQrCodeError('');
+      return () => { cancelled = true; };
+    }
+    setPaymentPixQrCodeError('');
+    void QRCode.toDataURL(paymentPixView.payload, { errorCorrectionLevel: 'M', margin: 2, width: 420 })
+      .then((dataUrl) => { if (!cancelled) setPaymentPixQrCode(dataUrl); })
+      .catch(() => { if (!cancelled) { setPaymentPixQrCode(''); setPaymentPixQrCodeError('O QR Code não pôde ser desenhado neste aparelho. Use o PIX Copia e Cola abaixo.'); } });
+    return () => { cancelled = true; };
+  }, [paymentPixView?.payload]);
 
   // Itens indisponíveis também aparecem para que o administrador possa
   // registrá-los como encomenda futura. A validação abaixo impede salvar sem
@@ -339,6 +360,42 @@ export default function OrdersAdmin() {
     }
   };
 
+  const openPaymentPix = (order: Order) => {
+    if (order.paymentMethod !== 'pix') return;
+    let payload = '';
+    let pixError = '';
+    try {
+      payload = buildPixPayloadWithAmount({
+        receiptMode: settings.pixReceiptMode,
+        copyPaste: settings.pixCopyPaste,
+        key: settings.pixKey,
+        receiver: settings.pixReceiver,
+        city: settings.city || 'Linhares',
+        amount: order.total,
+        txid: `PED${order.orderNumber}`,
+      });
+    } catch (error) {
+      pixError = error instanceof Error ? error.message : 'Não foi possível gerar o PIX com valor.';
+    }
+    setPaymentPixView({ orderNumber: order.orderNumber, total: order.total, payload, error: pixError || undefined });
+    setPaymentPixCopied(false);
+  };
+
+  const saveOrderDetails = async (input: Parameters<typeof updateOrderDetails>[1]) => {
+    if (!detailsOrderId) return;
+    setDetailsSaving(true);
+    try {
+      await updateOrderDetails(detailsOrderId, input);
+      setLastUpdatedAt(new Date());
+      showToast('Dados do pedido atualizados.', 'success');
+    } catch (detailsError) {
+      showToast(detailsError instanceof Error ? detailsError.message : 'Não foi possível editar o pedido.', 'error');
+      throw detailsError;
+    } finally {
+      setDetailsSaving(false);
+    }
+  };
+
   const refreshOrders = useCallback(async () => {
     if (refreshingRef.current) return;
     refreshingRef.current = true;
@@ -453,6 +510,7 @@ export default function OrdersAdmin() {
     .filter((order) => order.paymentStatus !== 'paid' && order.status !== 'cancelled')
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     .slice(0, 12), [orders]);
+  const detailsOrder = detailsOrderId ? orders.find((order) => order.id === detailsOrderId) || null : null;
 
   const recoveryOrders = useMemo(() => {
     const now = Date.now();
@@ -561,7 +619,7 @@ export default function OrdersAdmin() {
 
     <section className="admin-card orders-payment-inbox" aria-labelledby="orders-payment-inbox-title">
       <div className="orders-payment-inbox__heading"><div><span className="eyebrow">FINANCEIRO</span><h2 id="orders-payment-inbox-title">A receber do cliente</h2><p>Confirme somente depois de conferir o pagamento. A confirmação baixa o estoque reservado e lança a entrada no Financeiro.</p></div><strong>{awaitingPaymentOrders.length}</strong></div>
-      {awaitingPaymentOrders.length ? <div className="orders-payment-inbox__list">{awaitingPaymentOrders.map((order) => <article key={order.id}><div><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{order.scheduledFor ? `Agendado: ${formatDateTimeBR(order.scheduledFor)}` : 'Pedido aguardando conferência do recebimento'}</small></div><button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button></article>)}</div> : <div className="orders-payment-inbox__empty"><CheckCircle2 size={18}/>Nenhum pedido pendente de recebimento.</div>}
+      {awaitingPaymentOrders.length ? <div className="orders-payment-inbox__list">{awaitingPaymentOrders.map((order) => <article key={order.id}><div><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{order.scheduledFor ? `Agendado: ${formatDateTimeBR(order.scheduledFor)}` : 'Pedido aguardando conferência do recebimento'}</small></div><div className="orders-payment-inbox__actions"><button type="button" className="secondary-button compact-button" onClick={() => setDetailsOrderId(order.id)}><Pencil size={15}/>Editar</button>{order.paymentMethod === 'pix' && <button type="button" className="secondary-button compact-button" onClick={() => openPaymentPix(order)}><QrCode size={15}/>Mostrar QR Code</button>}<button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button></div></article>)}</div> : <div className="orders-payment-inbox__empty"><CheckCircle2 size={18}/>Nenhum pedido pendente de recebimento.</div>}
     </section>
 
     <section className="admin-card no-padding orders-workspace">
@@ -582,6 +640,7 @@ export default function OrdersAdmin() {
         </details>
       </>}
     </section>
+    {detailsOrder && <OrderDetailsModal order={detailsOrder} settings={settings} onClose={() => setDetailsOrderId(null)} onSave={saveOrderDetails} saving={detailsSaving} />}
     {manualOrderOpen && <div className="modal-overlay" role="presentation">
       <form className="master-modal master-modal--wide manual-order-modal" role="dialog" aria-modal="true" aria-labelledby="manual-order-title" onSubmit={saveManualOrder}>
         <button type="button" className="modal-close" aria-label="Fechar lançamento de pedido avulso" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}><X/></button>
@@ -639,6 +698,19 @@ export default function OrdersAdmin() {
           <label className="manual-pix-result-code">PIX Copia e Cola · {currency.format(manualPixView.total)}<div><textarea readOnly rows={4} value={manualPixView.payload}/><button type="button" className="secondary-button" onClick={() => void copyText(manualPixView.payload).then(() => { setManualPixCopied(true); window.setTimeout(() => setManualPixCopied(false), 1800); })}><Copy size={16}/>{manualPixCopied ? 'Copiado' : 'Copiar'}</button></div></label>
         </> : <div className="form-error">{manualPixView.error || 'Configure uma chave PIX ou um PIX Copia e Cola válido nas configurações da loja para gerar a cobrança com valor.'}</div>}
         <div className="master-modal-actions"><button type="button" className="primary-button" onClick={() => setManualPixView(null)}>Concluir</button></div>
+      </section>
+    </div>}
+    {paymentPixView && <div className="modal-overlay" role="presentation">
+      <section className="master-modal manual-pix-result-modal" role="dialog" aria-modal="true" aria-labelledby="payment-pix-result-title">
+        <button type="button" className="modal-close" aria-label="Fechar PIX do pedido" onClick={() => setPaymentPixView(null)}><X/></button>
+        <span className="eyebrow">CONFERÊNCIA FINANCEIRA</span>
+        <h2 id="payment-pix-result-title">PIX do pedido #{formatOrderNumber(paymentPixView.orderNumber)}</h2>
+        <p>Confira este valor com o comprovante recebido antes de confirmar o pagamento do cliente.</p>
+        {paymentPixView.payload ? <>
+          {paymentPixQrCode ? <img className="manual-pix-result-qr" src={paymentPixQrCode} alt={`QR Code PIX no valor de ${currency.format(paymentPixView.total)}`} /> : paymentPixQrCodeError ? <div className="manual-pix-live-preview__error">{paymentPixQrCodeError}</div> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
+          <label className="manual-pix-result-code">PIX Copia e Cola · {currency.format(paymentPixView.total)}<div><textarea readOnly rows={4} value={paymentPixView.payload}/><button type="button" className="secondary-button" onClick={() => void copyText(paymentPixView.payload).then(() => { setPaymentPixCopied(true); window.setTimeout(() => setPaymentPixCopied(false), 1800); })}><Copy size={16}/>{paymentPixCopied ? 'Copiado' : 'Copiar'}</button></div></label>
+        </> : <div className="form-error">{paymentPixView.error || 'Configure uma chave PIX ou um PIX Copia e Cola válido nas configurações da loja para gerar a cobrança com valor.'}</div>}
+        <div className="master-modal-actions"><button type="button" className="primary-button" onClick={() => setPaymentPixView(null)}>Concluir</button></div>
       </section>
     </div>}
   </>;
