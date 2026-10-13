@@ -781,6 +781,8 @@ export type InventoryItem = {
   averageUnitCost: number;
   lastUnitCost?: number;
   reorderPoint: number;
+  /** Permite alertar o painel/PWA quando o saldo atingir o mínimo. */
+  lowStockAlertEnabled: boolean;
   /** Alias de leitura da tela operacional. O valor canônico é reorderPoint. */
   minimumQuantity: number;
   active: boolean;
@@ -876,4 +878,8 @@ export type ProductRecipeItem = {
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
+};
+
+export type LowStockInventoryItem = Pick<InventoryItem, 'id' | 'name' | 'itemType' | 'unit' | 'currentQuantity' | 'reorderPoint' | 'averageUnitCost'> & {
+  alertEnabled: boolean;
 };

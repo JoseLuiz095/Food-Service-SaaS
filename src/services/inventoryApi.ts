@@ -11,6 +11,7 @@ import type {
   ProductRecipeItem,
   InventoryItemType,
   InventoryUnit,
+  LowStockInventoryItem,
 } from '../types';
 
 export type InventoryItemDraft = {
@@ -20,6 +21,7 @@ export type InventoryItemDraft = {
   reorderPoint: number;
   quantity?: number;
   averageUnitCost?: number;
+  lowStockAlertEnabled?: boolean;
 };
 
 export const inventoryLabels: Record<InventoryItemType, string> = {
@@ -51,6 +53,7 @@ type InventoryItemRow = {
   average_unit_cost: number | string;
   last_unit_cost: number | string | null;
   reorder_point: number | string;
+  low_stock_alert_enabled?: boolean | null;
   active: boolean;
   notes: string | null;
   created_at: string;
@@ -99,6 +102,17 @@ type RecipeItemRow = {
   updated_at: string;
 };
 
+type LowStockInventoryRow = {
+  inventory_item_id: string;
+  name: string;
+  item_type: InventoryItem['itemType'];
+  unit: InventoryUnit;
+  current_quantity: number | string;
+  reorder_point: number | string;
+  average_unit_cost: number | string;
+  alert_enabled: boolean;
+};
+
 const numberValue = (value: number | string | null | undefined): number => Number(value ?? 0);
 
 const mapItem = (row: InventoryItemRow): InventoryItem => ({
@@ -116,6 +130,7 @@ const mapItem = (row: InventoryItemRow): InventoryItem => ({
   lastUnitCost: row.last_unit_cost == null ? undefined : numberValue(row.last_unit_cost),
   reorderPoint: numberValue(row.reorder_point),
   minimumQuantity: numberValue(row.reorder_point),
+  lowStockAlertEnabled: row.low_stock_alert_enabled !== false,
   active: row.active,
   notes: row.notes || undefined,
   createdAt: row.created_at,
@@ -190,6 +205,44 @@ export const inventoryApi = {
     return rows.map(mapMovement);
   },
 
+  async listLowStock(storeId: string): Promise<LowStockInventoryItem[]> {
+    if (isDemoMode) return [];
+    const rows = await restFetch<LowStockInventoryRow[] | LowStockInventoryRow>(`rpc/food_list_low_stock_inventory`, {
+      method: 'POST',
+      body: { p_store_id: storeId },
+    });
+    const entries = Array.isArray(rows) ? rows : [rows];
+    return entries.filter(Boolean).map((row) => ({
+      id: row.inventory_item_id,
+      name: row.name,
+      itemType: row.item_type,
+      kind: row.item_type === 'ingredient' ? 'ingredient' : row.item_type === 'packaging' ? 'packaging' : 'material',
+      unit: row.unit,
+      currentQuantity: numberValue(row.current_quantity),
+      quantity: numberValue(row.current_quantity),
+      averageUnitCost: numberValue(row.average_unit_cost),
+      reorderPoint: numberValue(row.reorder_point),
+      minimumQuantity: numberValue(row.reorder_point),
+      alertEnabled: row.alert_enabled,
+    }));
+  },
+
+  async updateItem(storeId: string, itemId: string, input: { name?: string; reorderPoint?: number; lowStockAlertEnabled?: boolean }): Promise<InventoryItem> {
+    if (isDemoMode) throw new Error('A edição de insumos exige o modo conectado ao Supabase.');
+    const body: Record<string, unknown> = {};
+    if (input.name !== undefined) body.name = input.name.trim();
+    if (input.reorderPoint !== undefined) body.reorder_point = Math.max(0, input.reorderPoint);
+    if (input.lowStockAlertEnabled !== undefined) body.low_stock_alert_enabled = input.lowStockAlertEnabled;
+    if (input.name !== undefined && !String(input.name).trim()) throw new Error('Informe o nome do insumo.');
+    const rows = await restFetch<InventoryItemRow[]>(`food_inventory_items?select=*&id=eq.${encodeURIComponent(itemId)}&store_id=eq.${encodeURIComponent(storeId)}`, {
+      method: 'PATCH',
+      body,
+      prefer: 'return=representation',
+    });
+    if (!rows[0]) throw new Error('O insumo não foi encontrado ou não pôde ser atualizado.');
+    return mapItem(rows[0]);
+  },
+
   async createItem(input: { storeId: string; name: string; itemType: InventoryItemType; unit: InventoryUnit; reorderPoint: number; currentQuantity?: number; averageUnitCost?: number }): Promise<InventoryItem> {
     if (isDemoMode) throw new Error('O cadastro de insumos exige o modo conectado ao Supabase.');
     const rows = await restFetch<InventoryItemRow[]>('food_inventory_items?select=*', {
@@ -234,6 +287,47 @@ export const inventoryApi = {
     if (isDemoMode) return [];
     const rows = await restFetch<RecipeItemRow[]>(`food_product_recipe_items?select=*&store_id=eq.${encodeURIComponent(storeId)}&recipe_id=eq.${encodeURIComponent(recipeId)}&order=sort_order.asc`);
     return rows.map(mapRecipeItem);
+  },
+
+  async saveRecipe(input: {
+    storeId: string;
+    productId: string;
+    name?: string;
+    yieldQuantity: number;
+    yieldUnit: InventoryUnit;
+    notes?: string;
+    items: Array<{ inventoryItemId: string; quantity: number; unit: InventoryUnit; wastePercent?: number; sortOrder?: number }>;
+  }): Promise<ProductRecipe> {
+    if (isDemoMode) throw new Error('A ficha técnica exige o modo conectado ao Supabase.');
+    if (!Number.isFinite(input.yieldQuantity) || input.yieldQuantity <= 0) throw new Error('Informe um rendimento válido.');
+    if (!input.items.length) throw new Error('Adicione pelo menos um insumo à ficha técnica.');
+    const existing = (await restFetch<RecipeRow[]>(`food_product_recipes?select=*&store_id=eq.${encodeURIComponent(input.storeId)}&product_id=eq.${encodeURIComponent(input.productId)}`))[0];
+    let recipe: RecipeRow;
+    if (existing) {
+      const updated = await restFetch<RecipeRow[]>(`food_product_recipes?select=*&id=eq.${encodeURIComponent(existing.id)}&store_id=eq.${encodeURIComponent(input.storeId)}`, {
+        method: 'PATCH', prefer: 'return=representation', body: {
+          name: (input.name || 'Receita principal').trim(), yield_quantity: input.yieldQuantity, yield_unit: input.yieldUnit, notes: input.notes?.trim() || null, active: true,
+        },
+      });
+      if (!updated[0]) throw new Error('A ficha técnica não pôde ser atualizada.');
+      recipe = updated[0];
+      await restFetch(`food_product_recipe_items?recipe_id=eq.${encodeURIComponent(recipe.id)}&store_id=eq.${encodeURIComponent(input.storeId)}`, { method: 'DELETE' });
+    } else {
+      const created = await restFetch<RecipeRow[]>('food_product_recipes?select=*', {
+        method: 'POST', prefer: 'return=representation', body: {
+          store_id: input.storeId, product_id: input.productId, name: (input.name || 'Receita principal').trim(), yield_quantity: input.yieldQuantity, yield_unit: input.yieldUnit, notes: input.notes?.trim() || null, active: true,
+        },
+      });
+      if (!created[0]) throw new Error('A ficha técnica não pôde ser criada.');
+      recipe = created[0];
+    }
+    const rows = await restFetch<RecipeItemRow[]>('food_product_recipe_items?select=*', {
+      method: 'POST', prefer: 'return=representation', body: input.items.map((item, index) => ({
+        store_id: input.storeId, recipe_id: recipe.id, inventory_item_id: item.inventoryItemId, quantity: item.quantity, unit: item.unit, waste_percent: item.wastePercent || 0, sort_order: item.sortOrder ?? index,
+      })),
+    });
+    if (rows.length !== input.items.length) throw new Error('A ficha técnica foi salva, mas alguns insumos não puderam ser vinculados.');
+    return mapRecipe(recipe);
   },
 
   async recordPurchase(input: InventoryPurchaseInput): Promise<InventoryPurchaseResult> {
@@ -329,6 +423,7 @@ export const inventoryApi = {
         item_type: itemType,
         unit: draft.unit,
         reorder_point: Math.max(0, draft.reorderPoint || 0),
+        low_stock_alert_enabled: draft.lowStockAlertEnabled !== false,
         current_quantity: 0,
         average_unit_cost: 0,
         active: true,
