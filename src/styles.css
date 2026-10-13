@@ -3466,7 +3466,6 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 .orders-collection-heading h2{margin:4px 0 3px;font-size:1.05rem;letter-spacing:-.02em}
 .orders-collection-heading p{margin:0;color:var(--muted);font-size:.74rem;line-height:1.45}
 .orders-collection-heading>strong,.orders-history-panel>summary>b{display:grid;place-items:center;min-width:36px;height:36px;padding:0 9px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:.78rem}
-.orders-collection-section--active .orders-collection-heading>strong{background:#fff3d9;color:#936315}
 .orders-collection-section--processing{margin:0 16px 16px;border:1px solid #d8dfea;border-radius:16px;background:linear-gradient(135deg,#fbfcff,#f3f6ff);overflow:hidden;box-shadow:0 8px 22px rgba(57,75,112,.06)}
 .orders-collection-section--processing .orders-collection-heading{background:linear-gradient(135deg,#f8faff,#edf2ff);border-bottom:1px solid #dfe5f2}
 .orders-collection-section--processing .orders-collection-heading .eyebrow{color:#5d6f9d}
