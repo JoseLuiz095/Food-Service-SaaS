@@ -20,8 +20,10 @@ const statusOptions: Array<{ value: OrderStatus; label: string }> = [
   { value: 'preparing', label: 'Em preparação' },
   { value: 'ready', label: 'Pronto' },
   { value: 'out_for_delivery', label: 'Saiu para entrega' },
-  { value: 'delivered', label: 'Entregue' },
   { value: 'picked_up', label: 'Retirado' },
+  // Os dois estados finais ficam juntos no fim para facilitar a localização
+  // no seletor e evitar que um pedido seja encerrado por engano.
+  { value: 'delivered', label: 'Entregue' },
   { value: 'cancelled', label: 'Cancelado' },
 ];
 
@@ -69,7 +71,10 @@ const nextDeliveryWindow = (deliveryStartTime?: string) => {
   return tomorrowAt(match ? Number(match[1]) : 18, match ? Number(match[2]) : 0);
 };
 
-const historyStatuses = new Set<OrderStatus>(['delivered', 'picked_up', 'cancelled']);
+// Retirado é uma etapa operacional: o pedido só sai da fila quando for
+// encerrado como Entregue ou Cancelado. Isso mantém o acompanhamento completo
+// até a finalização real da venda.
+const historyStatuses = new Set<OrderStatus>(['delivered', 'cancelled']);
 const isHistoryOrder = (order: Pick<Order, 'status'>) => historyStatuses.has(order.status);
 
 /** Saldo que ainda pode ser usado por um novo pedido. A reserva de pedidos
@@ -101,6 +106,8 @@ export default function OrdersAdmin() {
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'pending' | 'paid'>('all');
   const [sortBy, setSortBy] = useState<SortMode>('newest');
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [dismissedRecoveryIds, setDismissedRecoveryIds] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -124,6 +131,7 @@ export default function OrdersAdmin() {
   const rowsRef = useRef<Record<string, HTMLElement | null>>({});
   const mobileRowsRef = useRef<Record<string, HTMLElement | null>>({});
   const highlightedOrderId = searchParams.get('highlight') || '';
+  const recoveryStorageKey = `foodweb:orders-recovery-dismissed:${settings.id}`;
   const reportManualError = (message: string) => {
     setManualFormError(message);
     showToast(`Pedido avulso não salvo: ${message}`, 'error');
@@ -366,7 +374,9 @@ export default function OrdersAdmin() {
     if (changed && settings.kdsNotifyCustomer && order.customerPhone) setNotifyOrderId(order.id);
   };
 
-  const operationalStatuses = (order: Order) => statusOptions.filter((option) => order.deliveryType === 'delivery' ? option.value !== 'picked_up' : option.value !== 'out_for_delivery' && option.value !== 'delivered');
+  const operationalStatuses = (order: Order) => statusOptions.filter((option) => order.deliveryType === 'delivery'
+    ? option.value !== 'picked_up'
+    : option.value !== 'out_for_delivery');
 
   const confirmPayment = async (orderId: string, orderNumber: number, total: number) => {
     const order = orders.find((current) => current.id === orderId);
@@ -388,6 +398,15 @@ export default function OrdersAdmin() {
   };
 
   useEffect(() => { if (!loading && !lastUpdatedAt) setLastUpdatedAt(new Date()); }, [loading, lastUpdatedAt]);
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(recoveryStorageKey);
+      const parsed = stored ? JSON.parse(stored) : [];
+      setDismissedRecoveryIds(Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : []);
+    } catch {
+      setDismissedRecoveryIds([]);
+    }
+  }, [recoveryStorageKey]);
   useEffect(() => {
     const interval = window.setInterval(() => { if (document.visibilityState === 'visible') void refreshOrders(); }, 15000);
     const onFocus = () => void refreshOrders();
@@ -415,6 +434,8 @@ export default function OrdersAdmin() {
   }, [orders, paymentFilter, query, statusFilter, sortBy]);
 
   const activeOrders = useMemo(() => filtered.filter((order) => !isHistoryOrder(order)), [filtered]);
+  const pendingOrders = useMemo(() => activeOrders.filter((order) => order.paymentStatus !== 'paid'), [activeOrders]);
+  const processingOrders = useMemo(() => activeOrders.filter((order) => order.paymentStatus === 'paid'), [activeOrders]);
   const historyOrders = useMemo(() => filtered.filter((order) => isHistoryOrder(order)), [filtered]);
 
   useEffect(() => {
@@ -437,9 +458,17 @@ export default function OrdersAdmin() {
     const now = Date.now();
     return orders.filter((order) => {
       const age = now - new Date(order.createdAt).getTime();
-      return settings.salesRecoveryEnabled && Boolean(order.customerPhone) && order.status === 'received' && !order.whatsappClickedAt && age >= settings.salesRecoveryMinutes * 60_000 && age <= (settings.salesRecoveryWindowHours ?? 48) * 60 * 60_000;
+      return settings.salesRecoveryEnabled && !dismissedRecoveryIds.includes(order.id) && Boolean(order.customerPhone) && order.status === 'received' && !order.whatsappClickedAt && age >= settings.salesRecoveryMinutes * 60_000 && age <= (settings.salesRecoveryWindowHours ?? 48) * 60 * 60_000;
     }).slice(0, 12);
-  }, [orders, settings.salesRecoveryEnabled, settings.salesRecoveryMinutes, settings.salesRecoveryWindowHours]);
+  }, [dismissedRecoveryIds, orders, settings.salesRecoveryEnabled, settings.salesRecoveryMinutes, settings.salesRecoveryWindowHours]);
+
+  const dismissRecoveryOrder = (orderId: string) => {
+    setDismissedRecoveryIds((current) => {
+      const next = [...new Set([...current, orderId])];
+      try { window.localStorage.setItem(recoveryStorageKey, JSON.stringify(next)); } catch { /* armazenamento local pode estar bloqueado */ }
+      return next;
+    });
+  };
 
   const customers = useMemo<CustomerSummary[]>(() => {
     const map = new Map<string, CustomerSummary>();
@@ -515,10 +544,10 @@ export default function OrdersAdmin() {
     <div className="admin-page-title"><div><span className="eyebrow">OPERAÇÃO</span><h1>Pedidos</h1><p>Fila operacional, recuperação de vendas e relacionamento com clientes usando os pedidos já registrados.</p></div><button type="button" className="primary-button" onClick={openManualOrder} disabled={!manualProducts.length}><Plus size={17}/>Lançar pedido avulso</button></div>
 
     <div className="sales-ops-grid-v061">
-      <details className="sales-ops-panel-v061" open={recoveryOrders.length > 0}>
+      <details className="sales-ops-panel-v061" open={recoveryOpen} onToggle={(event) => setRecoveryOpen(event.currentTarget.open)}>
         <summary><span><RotateCcw size={18}/><strong>Recuperação de vendas</strong></span><b>{recoveryOrders.length}</b></summary>
-        <p>Pedidos registrados após {settings.salesRecoveryMinutes} min e mantidos como oportunidade por até {settings.salesRecoveryWindowHours ?? 48} h. O envio continua manual.</p>
-        {recoveryOrders.length ? <div className="sales-ops-list-v061">{recoveryOrders.map((order) => <article key={order.id}><div><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span></div>{whatsappButton(order, 'recovery')}</article>)}</div> : <div className="sales-ops-empty-v061">Nenhuma oportunidade pendente agora.</div>}
+        <p>Há {recoveryOrders.length} oportunidade{recoveryOrders.length === 1 ? '' : 's'} pendente{recoveryOrders.length === 1 ? '' : 's'}. Expiram após {settings.salesRecoveryWindowHours ?? 48} h. Abra para enviar ou dispensar um teste.</p>
+        {recoveryOrders.length ? <div className="sales-ops-list-v061">{recoveryOrders.map((order) => <article key={order.id}><div><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span></div><div className="sales-ops-list-v061__actions">{whatsappButton(order, 'recovery')}<button type="button" className="sales-recovery-dismiss" onClick={() => dismissRecoveryOrder(order.id)} aria-label={`Dispensar recuperação do pedido ${formatOrderNumber(order.orderNumber)}`}><X size={14}/>Dispensar</button></div></article>)}</div> : <div className="sales-ops-empty-v061">Nenhuma oportunidade pendente agora.</div>}
       </details>
 
       {settings.crmEnabled && <details className="sales-ops-panel-v061">
@@ -539,16 +568,20 @@ export default function OrdersAdmin() {
       <div className="table-toolbar orders-toolbar orders-toolbar--filters">
         <div className="admin-search"><Search size={18}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar pedido, cliente ou telefone..."/></div>
         <div className="toolbar-selects"><label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'all' | OrderStatus)}><option value="all">Todos</option>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label><span>Recebimento</span><select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as 'all' | 'pending' | 'paid')}><option value="all">Todos</option><option value="pending">A receber do cliente</option><option value="paid">Recebido</option></select></label><label><span>Ordenar por</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortMode)}>{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>
-        <div className="orders-toolbar__sync" aria-live="polite"><span>{activeOrders.length} ativo{activeOrders.length === 1 ? '' : 's'} · {historyOrders.length} no histórico</span><small>{lastUpdatedAt ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualização automática ativa'}</small><button type="button" className="secondary-button compact-button" onClick={() => void refreshOrders()} disabled={refreshing} aria-busy={refreshing}><RefreshCw size={15} className={refreshing ? 'spin' : ''}/>{refreshing ? 'Atualizando...' : 'Atualizar'}</button></div>
+        <div className="orders-toolbar__sync" aria-live="polite"><span>{pendingOrders.length} aguardando · {processingOrders.length} em processamento · {historyOrders.length} no histórico</span><small>{lastUpdatedAt ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualização automática ativa'}</small><button type="button" className="secondary-button compact-button" onClick={() => void refreshOrders()} disabled={refreshing} aria-busy={refreshing}><RefreshCw size={15} className={refreshing ? 'spin' : ''}/>{refreshing ? 'Atualizando...' : 'Atualizar'}</button></div>
       </div>
       {highlightedOrderId && <div className="highlight-order-banner">O pedido relacionado vindo do Financeiro foi destacado abaixo.</div>}
       {filtered.length === 0 ? <div className="admin-empty"><ShoppingBag size={32}/><strong>Nenhum pedido encontrado</strong><span>Ajuste os filtros ou aguarde o próximo pedido.</span></div> : <>
-        <section className="orders-collection-section orders-collection-section--active" aria-labelledby="active-orders-title">
-          <header className="orders-collection-heading"><div><span className="eyebrow">OPERAÇÃO</span><h2 id="active-orders-title">Pedidos em andamento</h2><p>Pedidos que ainda precisam de preparo, entrega, retirada ou conferência.</p></div><strong>{activeOrders.length}</strong></header>
-          {activeOrders.length ? renderOrderCollection(activeOrders, 'Pedidos em andamento') : <div className="orders-collection-empty"><CheckCircle2 size={18}/>Nenhum pedido ativo com estes filtros.</div>}
+        <section className="orders-collection-section orders-collection-section--active" aria-labelledby="pending-orders-title">
+          <header className="orders-collection-heading"><div><span className="eyebrow">CONFERÊNCIA</span><h2 id="pending-orders-title">Aguardando recebimento</h2><p>Pedidos ainda não confirmados financeiramente. Confira o PIX ou outro meio antes de iniciar a produção.</p></div><strong>{pendingOrders.length}</strong></header>
+          {pendingOrders.length ? renderOrderCollection(pendingOrders, 'Pedidos aguardando recebimento') : <div className="orders-collection-empty"><CheckCircle2 size={18}/>Nenhum pedido aguardando recebimento.</div>}
+        </section>
+        <section className="orders-collection-section orders-collection-section--processing" aria-labelledby="processing-orders-title">
+          <header className="orders-collection-heading"><div><span className="eyebrow">OPERAÇÃO</span><h2 id="processing-orders-title">Recebidos · em processamento</h2><p>Depois de confirmar o recebimento, o pedido fica aqui até ser marcado como Entregue ou Cancelado.</p></div><strong>{processingOrders.length}</strong></header>
+          {processingOrders.length ? renderOrderCollection(processingOrders, 'Pedidos recebidos em processamento') : <div className="orders-collection-empty"><CheckCircle2 size={18}/>Nenhum pedido recebido em processamento.</div>}
         </section>
         <details className="orders-history-panel" open={historyOpen} onToggle={(event) => setHistoryOpen(event.currentTarget.open)}>
-          <summary><span><ShoppingBag size={18}/><strong>Histórico de pedidos</strong><small>Entregues, retirados e cancelados ficam aqui para não disputar espaço com a operação.</small></span><b>{historyOrders.length}</b></summary>
+          <summary><span><ShoppingBag size={18}/><strong>Histórico de pedidos</strong><small>Entregues e cancelados ficam aqui para não disputar espaço com a operação.</small></span><b>{historyOrders.length}</b></summary>
           {historyOrders.length ? renderOrderCollection(historyOrders, 'Histórico de pedidos') : <div className="orders-collection-empty"><CheckCircle2 size={18}/>Nenhum pedido finalizado com estes filtros.</div>}
         </details>
       </>}

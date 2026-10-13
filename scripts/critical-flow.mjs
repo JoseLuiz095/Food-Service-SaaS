@@ -38,6 +38,9 @@ const ordersAdmin=read('src/pages/admin/Orders.tsx');
 const inventoryPatch=read('supabase/patches/20261008_foodweb_inventory.sql');
 const inventoryGuard=read('supabase/migrations/202610082000_foodweb_future_inventory_paid_guard.sql');
 const manualOndemand=read('supabase/migrations/202610091200_foodweb_manual_ondemand_inventory.sql');
+const recipeConsumption=read('supabase/migrations/202610131200_foodweb_inventory_recipe_consumption.sql');
+const recipeGuard=read('supabase/migrations/202610131500_foodweb_inventory_recipe_guard_fix.sql');
+const inventoryPage=read('src/pages/admin/Inventory.tsx');
 const styles=read('src/styles.css');
 
 const registered=checkout.indexOf('await registerOrder(');
@@ -86,6 +89,15 @@ check('Pagamento aguardando reposição não falha',manualOndemand.includes("<> 
 check('Reposição tenta concluir pedido já pago',manualOndemand.includes('food_commit_restocked_orders_on_product_update')&&manualOndemand.includes('food_products_restock_commit_trg'));
 check('Pedidos admin têm cards compactos no mobile',ordersAdmin.includes('orders-mobile-list')&&styles.includes('.orders-mobile-list'));
 check('Pedidos ativos ficam separados do histórico',ordersAdmin.includes('orders-collection-section--active')&&ordersAdmin.includes('orders-history-panel')&&ordersAdmin.includes("historyStatuses = new Set<OrderStatus>"));
+check('Pedidos recebidos ficam em processamento até encerrar',ordersAdmin.includes('Recebidos · em processamento')&&ordersAdmin.includes("historyStatuses = new Set<OrderStatus>(['delivered', 'cancelled'])"));
+check('Entregue e cancelado são os últimos status',ordersAdmin.includes("{ value: 'delivered', label: 'Entregue' }")&&ordersAdmin.includes("{ value: 'cancelled', label: 'Cancelado' }"));
+check('Recuperação inicia minimizada e permite dispensar testes',ordersAdmin.includes('open={recoveryOpen}')&&ordersAdmin.includes('dismissRecoveryOrder'));
+check('Ficha técnica registra consumo por pedido',recipeConsumption.includes('food_inventory_order_consumptions')&&recipeConsumption.includes('food_reconcile_order_recipe_consumption')&&recipeConsumption.includes('order_recipe'));
+check('Consumo é proporcional ao rendimento e estorna correções',recipeConsumption.includes('oi.quantity::numeric * ri.quantity / nullif(r.yield_quantity, 0)')&&recipeConsumption.includes('Estorno de consumo após correção do pedido')&&recipeConsumption.includes('Estorno de consumo por item removido ou cancelamento'));
+check('Reposição reprocessa consumo pendente sem recursão',recipeConsumption.includes('food_reconcile_recipe_orders_on_inventory_update')&&recipeGuard.includes('food_reconcile_order_recipe_consumption')&&!recipeGuard.includes("set_config('foodweb.recipe_reconcile'"));
+check('Estoque baixo tem limite e opção de alerta',recipeConsumption.includes('low_stock_alert_enabled')&&recipeConsumption.includes('food_list_low_stock_inventory')&&inventoryPage.includes('Avisar ao atingir o estoque mínimo'));
+check('Admin pode editar nome do insumo e ficha técnica',inventoryPage.includes('saveEditItem')&&inventoryPage.includes('saveRecipe')&&inventoryPage.includes('Editar'));
+check('Alerta de estoque baixo usa notificação PWA com deduplicação',inventoryPage.includes('showPwaNotification')&&inventoryPage.includes('low-stock-alert'));
 check('Vitrine tem entrada suave com toque reduzido',styles.includes('.food-storefront-theme .store-route-view')&&styles.includes('food-route-enter')&&styles.includes('prefers-reduced-motion'));
 check('Food Master lê apenas food_*',platformApi.includes('food_stores?')&&platformApi.includes('food_plans?')&&!platformApi.includes("'stores?"));
 check('Food Admin lê apenas food_*',storeApi.includes('food_products?')&&storeApi.includes('food_orders?')&&!storeApi.includes('`products?'));
