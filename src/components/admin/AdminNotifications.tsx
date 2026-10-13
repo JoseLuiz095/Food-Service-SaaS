@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../contexts/StoreContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDateTimeBR } from '../../utils/format';
-import { pwaPushStatus, showPwaNotification, subscribeToPwaPush } from '../../services/pwaNotifications';
+import { pwaPushStatus, requestPwaNotificationPermission, showPwaNotification, subscribeToPwaPush } from '../../services/pwaNotifications';
+import type { Order } from '../../types';
 
 const seenReminderKey = (storeId: string, orderId: string, scheduledFor: string) => `foodweb-notification-reminder:${storeId}:${orderId}:${scheduledFor}`;
 
@@ -33,7 +34,9 @@ export function AdminNotifications() {
   const initialized = useRef(false);
   const initializedStoreId = useRef('');
   const knownOrderIds = useRef(new Set<string>());
+  const knownPaymentStatus = useRef(new Map<string, Order['paymentStatus']>());
   const pushSynced = useRef(false);
+  const permissionAttemptedFor = useRef('');
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
@@ -44,14 +47,23 @@ export function AdminNotifications() {
     if (!initialized.current || initializedStoreId.current !== settings.id) {
       initializedStoreId.current = settings.id;
       knownOrderIds.current = new Set(orders.map((order) => order.id));
+      knownPaymentStatus.current = new Map(orders.map((order) => [order.id, order.paymentStatus]));
       initialized.current = true;
       return;
     }
 
     const freshOrders = orders.filter((order) => !knownOrderIds.current.has(order.id));
+    const newlyPaidOrders = orders.filter((order) => (
+      order.status !== 'cancelled'
+      && order.paymentStatus === 'paid'
+      && knownPaymentStatus.current.get(order.id) === 'pending'
+    ));
     // Atualiza a base com todos os registros, inclusive cancelados, para que
     // uma alteração de status nunca seja interpretada como um novo pedido.
-    orders.forEach((order) => knownOrderIds.current.add(order.id));
+    orders.forEach((order) => {
+      knownOrderIds.current.add(order.id);
+      knownPaymentStatus.current.set(order.id, order.paymentStatus);
+    });
     freshOrders.forEach((order) => {
       // Pedidos cancelados/testes não devem gerar alerta de pedido novo.
       if (order.status === 'cancelled') return;
@@ -61,6 +73,19 @@ export function AdminNotifications() {
       setUnread((value) => value + 1);
       if (settings.notificationsSoundEnabled) playAlertSound();
       if (settings.notificationsDesktopEnabled) void showPwaNotification('Novo pedido na loja', `${label} · ${detail}`, { tag: `new-order:${order.id}` });
+    });
+
+    // O recebimento do PIX altera apenas o pagamento do pedido. Ele não cria
+    // um novo registro e, por isso, não passava pelo alerta de pedido novo.
+    // Detectamos somente a transição pendente -> pago, evitando repetir avisos
+    // em cada recarga ou para pedidos já pagos no snapshot inicial.
+    newlyPaidOrders.forEach((order) => {
+      if (!settings.notificationsDesktopEnabled) return;
+      const label = `Pedido #${order.orderNumber || order.id.slice(0, 8)}`;
+      const detail = `${order.customerName} · R$ ${order.total.toFixed(2).replace('.', ',')}`;
+      setUnread((value) => value + 1);
+      if (settings.notificationsSoundEnabled) playAlertSound();
+      void showPwaNotification('Pagamento confirmado', `${label} · ${detail}`, { tag: `payment-confirmed:${order.id}` });
     });
 
     if (settings.notificationsScheduledEnabled) {
@@ -83,18 +108,47 @@ export function AdminNotifications() {
   }, [loading, orders, settings]);
 
   useEffect(() => {
-    // Se a permissão já foi aceita anteriormente, garante a assinatura da
-    // loja mesmo que o admin não tenha voltado à tela de configurações.
-    if (!settings.id || !membership?.storeId || !user?.id || !settings.notificationsDesktopEnabled || pushSynced.current) return;
-    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-    if (pwaPushStatus() === 'not_configured' || pwaPushStatus() === 'unsupported' || pwaPushStatus() === 'blocked') return;
-    pushSynced.current = true;
-    void subscribeToPwaPush(membership.storeId, user.id).catch(() => {
-      // O alerta local continua funcionando quando o servidor VAPID ainda não
-      // foi configurado ou quando a assinatura antiga foi revogada.
-      pushSynced.current = false;
-    });
-  }, [membership?.storeId, settings.id, settings.notificationsDesktopEnabled, user?.id]);
+    // Verifica a permissão na abertura do painel. Quando ela ainda está em
+    // estado default, o navegador recebe uma única solicitação por abertura;
+    // quando já foi concedida, a assinatura é sincronizada automaticamente.
+    // O ajuste respeita o botão de notificações da loja e não mostra toasts
+    // durante a inicialização do painel.
+    if (!settings.id || loading || !membership?.storeId || !user?.id || !settings.notificationsDesktopEnabled) return;
+    const syncKey = `${settings.id}:${membership.storeId}:${user.id}`;
+    if (permissionAttemptedFor.current === syncKey) return;
+    permissionAttemptedFor.current = syncKey;
+    pushSynced.current = false;
+    let cancelled = false;
+
+    const ensurePermissionAndSubscription = async () => {
+      if (typeof Notification === 'undefined') return;
+      let permission: NotificationPermission | null = null;
+      try {
+        permission = await requestPwaNotificationPermission();
+      } catch {
+        // Alguns navegadores bloqueiam requestPermission sem gesto do usuário.
+        // A configuração manual em Configurações continua disponível.
+        return;
+      }
+      if (cancelled || permission !== 'granted') return;
+
+      // Mesmo sem VAPID configurado, pedir a permissão é útil para alertas
+      // locais enquanto o painel estiver aberto. A assinatura em segundo
+      // plano só é criada quando o servidor e o navegador estiverem aptos.
+      const status = pwaPushStatus();
+      if (status === 'not_configured' || status === 'unsupported' || status === 'blocked') return;
+      if (pushSynced.current) return;
+      pushSynced.current = true;
+      void subscribeToPwaPush(membership.storeId, user.id).catch(() => {
+        // O alerta local continua funcionando quando o servidor VAPID ainda
+        // não foi configurado ou quando a assinatura antiga foi revogada.
+        pushSynced.current = false;
+      });
+    };
+
+    void ensurePermissionAndSubscription();
+    return () => { cancelled = true; };
+  }, [loading, membership?.storeId, settings.id, settings.notificationsDesktopEnabled, user?.id]);
 
   useEffect(() => {
     const interval = window.setInterval(() => { void reloadAdmin({ silent: true }).catch(() => undefined); }, 30_000);

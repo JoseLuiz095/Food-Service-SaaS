@@ -72,6 +72,8 @@ check('Status operacional não depende do WhatsApp',orders.includes('Em prepara�
 check('Notificações aguardam o snapshot inicial',adminNotifications.includes('if (!settings.id || loading) return;'));
 check('Pedidos cancelados não geram alerta de novo pedido',adminNotifications.includes("if (order.status === 'cancelled') return;"));
 check('Assinatura push é sincronizada no painel',adminNotifications.includes('subscribeToPwaPush(membership.storeId, user.id)'));
+check('Painel verifica e solicita permissão de notificações na abertura',adminNotifications.includes('requestPwaNotificationPermission()')&&adminNotifications.includes('permissionAttemptedFor'));
+check('Pagamento confirmado gera alerta sem repetir snapshot',adminNotifications.includes('newlyPaidOrders')&&adminNotifications.includes("paymentStatus === 'paid'")&&adminNotifications.includes("knownPaymentStatus.current.get(order.id) === 'pending'"));
 check('Checkout aguarda o envio do push',edge.includes('await notifyStoreAdmins(url, service, {'));
 check('Push entrega somente assinaturas ativas',pushFunction.includes(".eq('active', true)"));
 check('Push repetido não vibra novamente',serviceWorker.includes('renotify: false'));
@@ -83,6 +85,7 @@ check('Trigger avulso respeita fuso e data desejada',manualOndemand.includes('v_
 check('Pagamento aguardando reposição não falha',manualOndemand.includes("<> 'awaiting_restock'")&&manualOndemand.includes('food_confirm_order_payment_v1'));
 check('Reposição tenta concluir pedido já pago',manualOndemand.includes('food_commit_restocked_orders_on_product_update')&&manualOndemand.includes('food_products_restock_commit_trg'));
 check('Pedidos admin têm cards compactos no mobile',ordersAdmin.includes('orders-mobile-list')&&styles.includes('.orders-mobile-list'));
+check('Pedidos ativos ficam separados do histórico',ordersAdmin.includes('orders-collection-section--active')&&ordersAdmin.includes('orders-history-panel')&&ordersAdmin.includes("historyStatuses = new Set<OrderStatus>"));
 check('Vitrine tem entrada suave com toque reduzido',styles.includes('.food-storefront-theme .store-route-view')&&styles.includes('food-route-enter')&&styles.includes('prefers-reduced-motion'));
 check('Food Master lê apenas food_*',platformApi.includes('food_stores?')&&platformApi.includes('food_plans?')&&!platformApi.includes("'stores?"));
 check('Food Admin lê apenas food_*',storeApi.includes('food_products?')&&storeApi.includes('food_orders?')&&!storeApi.includes('`products?'));

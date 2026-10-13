@@ -69,6 +69,9 @@ const nextDeliveryWindow = (deliveryStartTime?: string) => {
   return tomorrowAt(match ? Number(match[1]) : 18, match ? Number(match[2]) : 0);
 };
 
+const historyStatuses = new Set<OrderStatus>(['delivered', 'picked_up', 'cancelled']);
+const isHistoryOrder = (order: Pick<Order, 'status'>) => historyStatuses.has(order.status);
+
 /** Saldo que ainda pode ser usado por um novo pedido. A reserva de pedidos
  * pendentes também precisa ser descontada para que o avulso ofereça
  * agendamento antes de chegar ao RPC e falhar na reserva. */
@@ -97,6 +100,7 @@ export default function OrdersAdmin() {
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'pending' | 'paid'>('all');
   const [sortBy, setSortBy] = useState<SortMode>('newest');
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -410,6 +414,20 @@ export default function OrdersAdmin() {
     });
   }, [orders, paymentFilter, query, statusFilter, sortBy]);
 
+  const activeOrders = useMemo(() => filtered.filter((order) => !isHistoryOrder(order)), [filtered]);
+  const historyOrders = useMemo(() => filtered.filter((order) => isHistoryOrder(order)), [filtered]);
+
+  useEffect(() => {
+    // Se o operador escolheu um status terminal, abrir o histórico torna o
+    // resultado do filtro imediatamente visível, inclusive no celular.
+    if (statusFilter !== 'all' && historyStatuses.has(statusFilter)) setHistoryOpen(true);
+  }, [statusFilter]);
+
+  useEffect(() => {
+    // Uma busca que só encontra pedidos arquivados não deve parecer vazia.
+    if (query.trim() && !activeOrders.length && historyOrders.length) setHistoryOpen(true);
+  }, [activeOrders.length, historyOrders.length, query]);
+
   const awaitingPaymentOrders = useMemo(() => orders
     .filter((order) => order.paymentStatus !== 'paid' && order.status !== 'cancelled')
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
@@ -449,6 +467,7 @@ export default function OrdersAdmin() {
     const highlightedOrder = orders.find((order) => order.id === highlightedOrderId);
     if (!highlightedOrder) return;
     setQuery(''); setStatusFilter('all');
+    if (isHistoryOrder(highlightedOrder)) setHistoryOpen(true);
     const timer = window.setTimeout(() => (rowsRef.current[highlightedOrderId] || mobileRowsRef.current[highlightedOrderId])?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 180);
     return () => window.clearTimeout(timer);
   }, [highlightedOrderId, orders]);
@@ -458,6 +477,36 @@ export default function OrdersAdmin() {
       <MessageCircle size={15}/>{kind === 'recovery' ? 'Recuperar venda' : notifyOrderId === order.id ? 'Enviar atualização' : 'Avisar cliente'}
     </button>
   );
+
+  const renderDesktopOrder = (order: Order) => {
+    const highlighted = order.id === highlightedOrderId;
+    return <tr key={`desktop-${order.id}`} ref={(node) => { rowsRef.current[order.id] = node; }} className={highlighted ? 'order-row-highlighted' : ''}>
+      <td><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong><small className="order-fee-note">{orderSourceLabel[order.source || 'site']}</small>{order.whatsappClickedAt ? <small className="order-fee-note">WhatsApp aberto</small> : null}{highlighted ? <small>Pedido vindo do Financeiro</small> : null}</td>
+      <td><div className="order-customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span>{order.acquisitionSource ? <small>Origem: {({ instagram: 'Instagram', whatsapp: 'WhatsApp', google: 'Google', indicacao: 'Indicação', outro: 'Outro' } as const)[order.acquisitionSource]}</small> : null}{order.customerInstagram ? <small>{order.customerInstagram}</small> : null}</div></td>
+      <td><div className="order-customer"><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{order.deliveryType === 'delivery' && order.deliveryZoneName ? <span>{order.deliveryZoneName}{order.deliveryFee ? ` · ${currency.format(order.deliveryFee)}` : ''}</span> : null}{order.scheduledFor ? <span>Agendado: {formatDateTimeBR(order.scheduledFor)}</span> : null}{order.preparationEstimateMinutes ? <span>Estimativa: até {order.preparationEstimateMinutes} min</span> : null}</div></td>
+      <td><div className="order-customer"><strong>{paymentLabel[order.paymentMethod]}</strong>{order.paymentMethod === 'cash' && order.needsChange && order.changeFor ? <span>Troco para {currency.format(order.changeFor)}</span> : null}</div></td>
+      <td><strong>{currency.format(order.total)}</strong>{order.deliveryFee ? <small className="order-fee-note">inclui {currency.format(order.deliveryFee)} de entrega</small> : null}</td>
+      <td>{order.paymentStatus === 'paid' ? <span className="order-payment-received"><CheckCircle2 size={15}/><span><strong>Recebido</strong>{order.paymentReceivedAt ? <small>{formatDateTimeBR(order.paymentReceivedAt)}</small> : null}</span></span> : order.status === 'cancelled' ? <span className="order-payment-cancelled">Pedido cancelado</span> : <><span className="order-payment-pending"><CircleDollarSign size={15}/><strong>A receber do cliente</strong></span><button type="button" className="order-payment-confirm-button" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={15}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button><small className={`order-inventory-note order-inventory-note--${order.inventoryStatus || 'not_tracked'}`}>{order.inventoryStatus === 'awaiting_restock' ? 'Aguardando reposição' : order.inventoryStatus === 'reserved' ? 'Estoque reservado' : order.inventoryStatus === 'committed' ? 'Estoque baixado' : 'Sem controle de estoque'}</small></>}</td>
+      <td><div className="order-status-actions-v061"><label className={`order-status-control order-status-control--${order.status}`}><span>{statusLabel[order.status]}</span><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{settings.kdsNotifyCustomer && order.customerPhone && whatsappButton(order, 'status')}</div></td>
+      <td>{formatDateTimeBR(order.createdAt)}</td>
+    </tr>;
+  };
+
+  const renderMobileOrder = (order: Order) => {
+    const highlighted = order.id === highlightedOrderId;
+    const awaitingPayment = order.paymentStatus !== 'paid' && order.status !== 'cancelled';
+    return <article key={`mobile-${order.id}`} className={`orders-mobile-card ${highlighted ? 'order-row-highlighted' : ''}`} ref={(node) => { mobileRowsRef.current[order.id] = node; }}>
+      <div className="orders-mobile-card__top"><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong><span>{formatDateTimeBR(order.createdAt)}</span></div>
+      <div className="orders-mobile-card__customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span>{order.customerInstagram ? <small>{order.customerInstagram}</small> : null}</div>
+      <div className="orders-mobile-card__facts"><span><small>Recebimento</small><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{order.scheduledFor ? <em>Agendado: {formatDateTimeBR(order.scheduledFor)}</em> : null}</span><span><small>Pagamento</small><strong>{paymentLabel[order.paymentMethod]}</strong><strong className="orders-mobile-card__total">{currency.format(order.total)}</strong></span></div>
+      <div className="orders-mobile-card__status"><label><small>Status do pedido</small><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{awaitingPayment ? <button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={15}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button> : <span className="orders-mobile-card__received"><CheckCircle2 size={15}/>{order.status === 'cancelled' ? 'Pedido cancelado' : 'Pagamento recebido'}</span>}</div>
+    </article>;
+  };
+
+  const renderOrderCollection = (collection: Order[], label: string) => <div className="orders-collection" aria-label={label}>
+    <div className="responsive-table orders-desktop-table"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega / retirada</th><th>Pagamento</th><th>Total</th><th>Recebimento</th><th>Status</th><th>Criado em</th></tr></thead><tbody>{collection.map(renderDesktopOrder)}</tbody></table></div>
+    <div className="orders-mobile-list" aria-label={`${label} em formato compacto`}>{collection.map(renderMobileOrder)}</div>
+  </div>;
 
   if (loading) return <LoadingState label="Carregando pedidos..." />;
   if (error) return <ErrorState message={error} onRetry={() => void reloadAdmin()} />;
@@ -486,37 +535,22 @@ export default function OrdersAdmin() {
       {awaitingPaymentOrders.length ? <div className="orders-payment-inbox__list">{awaitingPaymentOrders.map((order) => <article key={order.id}><div><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{order.scheduledFor ? `Agendado: ${formatDateTimeBR(order.scheduledFor)}` : 'Pedido aguardando conferência do recebimento'}</small></div><button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button></article>)}</div> : <div className="orders-payment-inbox__empty"><CheckCircle2 size={18}/>Nenhum pedido pendente de recebimento.</div>}
     </section>
 
-    <section className="admin-card no-padding">
+    <section className="admin-card no-padding orders-workspace">
       <div className="table-toolbar orders-toolbar orders-toolbar--filters">
         <div className="admin-search"><Search size={18}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar pedido, cliente ou telefone..."/></div>
         <div className="toolbar-selects"><label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'all' | OrderStatus)}><option value="all">Todos</option>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label><span>Recebimento</span><select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as 'all' | 'pending' | 'paid')}><option value="all">Todos</option><option value="pending">A receber do cliente</option><option value="paid">Recebido</option></select></label><label><span>Ordenar por</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortMode)}>{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>
-        <div className="orders-toolbar__sync" aria-live="polite"><span>{filtered.length} pedido{filtered.length === 1 ? '' : 's'}</span><small>{lastUpdatedAt ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualização automática ativa'}</small><button type="button" className="secondary-button compact-button" onClick={() => void refreshOrders()} disabled={refreshing} aria-busy={refreshing}><RefreshCw size={15} className={refreshing ? 'spin' : ''}/>{refreshing ? 'Atualizando...' : 'Atualizar'}</button></div>
+        <div className="orders-toolbar__sync" aria-live="polite"><span>{activeOrders.length} ativo{activeOrders.length === 1 ? '' : 's'} · {historyOrders.length} no histórico</span><small>{lastUpdatedAt ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualização automática ativa'}</small><button type="button" className="secondary-button compact-button" onClick={() => void refreshOrders()} disabled={refreshing} aria-busy={refreshing}><RefreshCw size={15} className={refreshing ? 'spin' : ''}/>{refreshing ? 'Atualizando...' : 'Atualizar'}</button></div>
       </div>
       {highlightedOrderId && <div className="highlight-order-banner">O pedido relacionado vindo do Financeiro foi destacado abaixo.</div>}
       {filtered.length === 0 ? <div className="admin-empty"><ShoppingBag size={32}/><strong>Nenhum pedido encontrado</strong><span>Ajuste os filtros ou aguarde o próximo pedido.</span></div> : <>
-        <div className="responsive-table orders-desktop-table"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega / retirada</th><th>Pagamento</th><th>Total</th><th>Recebimento</th><th>Status</th><th>Criado em</th></tr></thead><tbody>{filtered.map((order) => {
-        const highlighted = order.id === highlightedOrderId;
-        return <tr key={order.id} ref={(node) => { rowsRef.current[order.id] = node; }} className={highlighted ? 'order-row-highlighted' : ''}>
-          <td><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong><small className="order-fee-note">{orderSourceLabel[order.source || 'site']}</small>{order.whatsappClickedAt ? <small className="order-fee-note">WhatsApp aberto</small> : null}{highlighted ? <small>Pedido vindo do Financeiro</small> : null}</td>
-          <td><div className="order-customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span>{order.acquisitionSource ? <small>Origem: {({ instagram: 'Instagram', whatsapp: 'WhatsApp', google: 'Google', indicacao: 'Indicação', outro: 'Outro' } as const)[order.acquisitionSource]}</small> : null}{order.customerInstagram ? <small>{order.customerInstagram}</small> : null}</div></td>
-          <td><div className="order-customer"><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{order.deliveryType === 'delivery' && order.deliveryZoneName ? <span>{order.deliveryZoneName}{order.deliveryFee ? ` · ${currency.format(order.deliveryFee)}` : ''}</span> : null}{order.scheduledFor ? <span>Agendado: {formatDateTimeBR(order.scheduledFor)}</span> : null}{order.preparationEstimateMinutes ? <span>Estimativa: até {order.preparationEstimateMinutes} min</span> : null}</div></td>
-          <td><div className="order-customer"><strong>{paymentLabel[order.paymentMethod]}</strong>{order.paymentMethod === 'cash' && order.needsChange && order.changeFor ? <span>Troco para {currency.format(order.changeFor)}</span> : null}</div></td>
-          <td><strong>{currency.format(order.total)}</strong>{order.deliveryFee ? <small className="order-fee-note">inclui {currency.format(order.deliveryFee)} de entrega</small> : null}</td>
-          <td>{order.paymentStatus === 'paid' ? <span className="order-payment-received"><CheckCircle2 size={15}/><span><strong>Recebido</strong>{order.paymentReceivedAt ? <small>{formatDateTimeBR(order.paymentReceivedAt)}</small> : null}</span></span> : order.status === 'cancelled' ? <span className="order-payment-cancelled">Pedido cancelado</span> : <><span className="order-payment-pending"><CircleDollarSign size={15}/><strong>A receber do cliente</strong></span><button type="button" className="order-payment-confirm-button" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={15}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button><small className={`order-inventory-note order-inventory-note--${order.inventoryStatus || 'not_tracked'}`}>{order.inventoryStatus === 'awaiting_restock' ? 'Aguardando reposição' : order.inventoryStatus === 'reserved' ? 'Estoque reservado' : order.inventoryStatus === 'committed' ? 'Estoque baixado' : 'Sem controle de estoque'}</small></>}</td>
-          <td><div className="order-status-actions-v061"><label className={`order-status-control order-status-control--${order.status}`}><span>{statusLabel[order.status]}</span><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{settings.kdsNotifyCustomer && order.customerPhone && whatsappButton(order, 'status')}</div></td>
-          <td>{formatDateTimeBR(order.createdAt)}</td>
-        </tr>;
-        })}</tbody></table></div>
-        <div className="orders-mobile-list" aria-label="Pedidos em formato compacto">{filtered.map((order) => {
-          const highlighted = order.id === highlightedOrderId;
-          const awaitingPayment = order.paymentStatus !== 'paid' && order.status !== 'cancelled';
-          return <article key={`mobile-${order.id}`} className={`orders-mobile-card ${highlighted ? 'order-row-highlighted' : ''}`} ref={(node) => { mobileRowsRef.current[order.id] = node; }}>
-            <div className="orders-mobile-card__top"><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong><span>{formatDateTimeBR(order.createdAt)}</span></div>
-            <div className="orders-mobile-card__customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span>{order.customerInstagram ? <small>{order.customerInstagram}</small> : null}</div>
-            <div className="orders-mobile-card__facts"><span><small>Recebimento</small><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{order.scheduledFor ? <em>Agendado: {formatDateTimeBR(order.scheduledFor)}</em> : null}</span><span><small>Pagamento</small><strong>{paymentLabel[order.paymentMethod]}</strong><strong className="orders-mobile-card__total">{currency.format(order.total)}</strong></span></div>
-            <div className="orders-mobile-card__status"><label><small>Status do pedido</small><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{awaitingPayment ? <button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={15}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button> : <span className="orders-mobile-card__received"><CheckCircle2 size={15}/>{order.status === 'cancelled' ? 'Pedido cancelado' : 'Pagamento recebido'}</span>}</div>
-          </article>;
-        })}</div>
+        <section className="orders-collection-section orders-collection-section--active" aria-labelledby="active-orders-title">
+          <header className="orders-collection-heading"><div><span className="eyebrow">OPERAÇÃO</span><h2 id="active-orders-title">Pedidos em andamento</h2><p>Pedidos que ainda precisam de preparo, entrega, retirada ou conferência.</p></div><strong>{activeOrders.length}</strong></header>
+          {activeOrders.length ? renderOrderCollection(activeOrders, 'Pedidos em andamento') : <div className="orders-collection-empty"><CheckCircle2 size={18}/>Nenhum pedido ativo com estes filtros.</div>}
+        </section>
+        <details className="orders-history-panel" open={historyOpen} onToggle={(event) => setHistoryOpen(event.currentTarget.open)}>
+          <summary><span><ShoppingBag size={18}/><strong>Histórico de pedidos</strong><small>Entregues, retirados e cancelados ficam aqui para não disputar espaço com a operação.</small></span><b>{historyOrders.length}</b></summary>
+          {historyOrders.length ? renderOrderCollection(historyOrders, 'Histórico de pedidos') : <div className="orders-collection-empty"><CheckCircle2 size={18}/>Nenhum pedido finalizado com estes filtros.</div>}
+        </details>
       </>}
     </section>
     {manualOrderOpen && <div className="modal-overlay" role="presentation">
