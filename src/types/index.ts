@@ -872,6 +872,8 @@ export type ProductRecipeItem = {
   storeId: string;
   recipeId: string;
   inventoryItemId: string;
+  /** Etapa da receita (ex.: Base, Finalização). Permite repetir o mesmo insumo em fases diferentes. */
+  stage: string;
   quantity: number;
   unit: InventoryUnit;
   wastePercent: number;

@@ -494,7 +494,9 @@ export default function OrdersAdmin() {
   const scheduledCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const order of orders) {
-      if (!order.scheduledFor) continue;
+      // A agenda serve apenas a operação ativa; pedidos entregues/cancelados
+      // continuam acessíveis no histórico, mas não poluem a contagem do dia.
+      if (!order.scheduledFor || isHistoryOrder(order)) continue;
       const date = new Date(order.scheduledFor);
       if (!Number.isFinite(date.getTime())) continue;
       const key = dateKey(date);
@@ -521,7 +523,7 @@ export default function OrdersAdmin() {
       return (!term || searchable.includes(term))
         && (statusFilter === 'all' || order.status === statusFilter)
         && (paymentFilter === 'all' || order.paymentStatus === paymentFilter)
-        && (!scheduledDateFilter || (order.scheduledFor && dateKey(new Date(order.scheduledFor)) === scheduledDateFilter));
+        && (!scheduledDateFilter || (!isHistoryOrder(order) && order.scheduledFor && dateKey(new Date(order.scheduledFor)) === scheduledDateFilter));
     });
     return [...list].sort((a, b) => {
       if (sortBy === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();

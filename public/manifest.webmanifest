@@ -6,11 +6,11 @@
   "start_url": "/admin",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f7f7f4",
+  "background_color": "#fffdfa",
   "theme_color": "#123d28",
   "icons": [
     {
-      "src": "/assets/marketing/app-splash-v2.png",
+      "src": "/assets/marketing/app-splash-v2.png?v=20261014",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any maskable"
