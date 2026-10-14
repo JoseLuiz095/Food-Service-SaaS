@@ -116,8 +116,8 @@ export const showPwaNotification = async (title: string, body: string, options: 
   if (!canNotify()) return;
   const notificationOptions: NotificationOptions & { data?: { url: string } } = {
     body,
-    icon: '/assets/food-logo.svg',
-    badge: '/assets/food-logo.svg',
+    icon: '/assets/marketing/app-splash-v2.png?v=20261015',
+    badge: '/assets/marketing/app-splash-v2.png?v=20261015',
     tag: options.tag || title,
     data: { url: options.url || '/admin/pedidos' },
   };

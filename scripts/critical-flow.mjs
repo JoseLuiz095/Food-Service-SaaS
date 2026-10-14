@@ -47,8 +47,8 @@ const inventoryGuard=read('supabase/migrations/202610082000_foodweb_future_inven
 const manualOndemand=read('supabase/migrations/202610091200_foodweb_manual_ondemand_inventory.sql');
 const recipeConsumption=read('supabase/migrations/202610131200_foodweb_inventory_recipe_consumption.sql');
 const recipeGuard=read('supabase/migrations/202610131500_foodweb_inventory_recipe_guard_fix.sql');
-const inventoryPage=read('src/pages/admin/Inventory.tsx');
 const styles=read('src/styles.css');
+const demoSeed=read('supabase/seed/seed_demo.sql');
 
 const registered=checkout.indexOf('await registerOrder(');
 const whatsappMessage=checkout.indexOf('buildWhatsAppMessage(');
@@ -146,7 +146,8 @@ check('Suporte da plataforma é somente autenticado',v044.includes('food_get_adm
 check('Logins enviam captchaToken ao Supabase Auth',adminLogin.includes('action="login"')&&masterLogin.includes('action="login"')&&auth.includes('options: captchaToken ? { captchaToken }'));
 check('Landing usa contato protegido sem wa.me público',landing.includes('ProtectedContactButton')&&!landing.includes('wa.me/')&&!landing.includes('marketingWhatsapp'));
 check('v0.4.4 preserva namespace Food',!/alter table public\.(stores|products|orders|plans|platform_settings)\b/i.test(v044));
-check('Splash Screen usa a arte quadrada na abertura',mainSource.includes('foodweb-splash-screen')&&mainSource.includes('minimumVisibleMs')&&mainSource.includes('splashImage')&&indexHtml.includes('/manifest.webmanifest?v=20261014')&&indexHtml.includes('/assets/marketing/app-splash-v2.png?v=20261014')&&manifest.includes('/assets/marketing/app-splash-v2.png?v=20261014')&&serviceWorker.includes("foodweb-shell-v2")&&styles.includes('#foodweb-splash-screen')&&styles.includes('prefers-reduced-motion'));
+check('Splash Screen usa a nova arte também como ícone',mainSource.includes('foodweb-splash-screen')&&mainSource.includes('minimumVisibleMs')&&mainSource.includes('splashImage')&&indexHtml.includes('/manifest.webmanifest?v=20261015')&&indexHtml.includes('rel="icon" type="image/png"')&&indexHtml.includes('/assets/marketing/app-splash-v2.png?v=20261015')&&manifest.includes('/assets/marketing/app-splash-v2.png?v=20261015')&&serviceWorker.includes("foodweb-shell-v3")&&serviceWorker.includes('FOODWEB_ICON')&&styles.includes('#foodweb-splash-screen')&&styles.includes('prefers-reduced-motion'));
+check('Nenhuma referência ao ícone FoodWeb antigo permanece nos fallbacks',!indexHtml.includes('favicon-foodweb-v054.svg')&&!serviceWorker.includes('/assets/food-logo.svg')&&!read('src/services/pwaNotifications.ts').includes('/assets/food-logo.svg')&&!read('src/services/storeApi.ts').includes('/assets/food-logo.svg')&&!read('src/services/landingApi.ts').includes('/assets/food-logo.svg')&&!read('src/data/seed.ts').includes('/assets/food-logo.svg')&&!read('src/pages/store/Landing.tsx').includes('favicon-foodweb-v046.svg')&&!demoSeed.includes('/assets/food-logo.svg'));
 check('Landing mantém a prévia original do cardápio',landing.includes('/assets/marketing/storefront-preview.webp')&&!landing.includes('app-opening-hero.png'));
 check('Interações ficam restritas a Analytics e Financeiro',analyticsPage.includes('aria-pressed')&&financePage.includes('finance-chart-selection')&&!ordersAdmin.includes('analytics-chart'));
 

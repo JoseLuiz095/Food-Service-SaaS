@@ -1,4 +1,5 @@
-const CACHE_NAME = 'foodweb-shell-v2';
+const CACHE_NAME = 'foodweb-shell-v3';
+const FOODWEB_ICON = '/assets/marketing/app-splash-v2.png?v=20261015';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());
@@ -23,8 +24,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'FoodWeb';
   event.waitUntil(self.registration.showNotification(title, {
     body: payload.body || 'Há uma atualização na operação da loja.',
-    icon: payload.icon || '/assets/food-logo.svg',
-    badge: payload.badge || '/assets/food-logo.svg',
+    icon: payload.icon || FOODWEB_ICON,
+    badge: payload.badge || FOODWEB_ICON,
     tag: payload.tag || 'foodweb-admin',
     // Reenvios com o mesmo tag atualizam o aviso sem vibrar novamente.
     // Isso evita duplicidade quando o navegador e o servidor tentam entregar

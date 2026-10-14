@@ -129,7 +129,7 @@ const normalizePaymentOrder = (value: unknown): PaymentMethod[] => {
 const mapStore = (row: StoreRow): StoreSettings => ({
   id: row.id, slug: row.slug, name: row.name, tagline: row.description || 'Pedidos rápidos e do seu jeito.', description: row.description || undefined,
   city: row.city || '', state: row.state || '', zipCode: row.zip_code || '', whatsapp: row.whatsapp || '', showWhatsApp: row.show_whatsapp ?? Boolean(row.whatsapp), instagram: row.instagram || '', address: row.address || '',
-  logoUrl: row.logo_url || '/assets/food-logo.svg', logoStoragePath: row.logo_storage_path || undefined,
+  logoUrl: row.logo_url || '/assets/marketing/app-splash-v2.png?v=20261015', logoStoragePath: row.logo_storage_path || undefined,
   heroUrl: row.cover_url || '/assets/food-hero.svg', heroStoragePath: row.cover_storage_path || undefined,
   visualTheme: normalizeStoreVisualTheme(row.visual_theme), storefrontNotice: row.storefront_notice || '', pickupInstructions: row.pickup_instructions || '', hidePublicAddress: row.hide_public_address ?? false,
   pixEnabled: row.pix_enabled, pixReceiptMode: row.pix_receipt_mode || 'key', pixKeyType: row.pix_key_type || '', pixKey: row.pix_key || '', pixCopyPaste: row.pix_copy_paste || '', pixReceiver: row.pix_holder_name || '',
