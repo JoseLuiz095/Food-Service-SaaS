@@ -21,7 +21,7 @@ export const financeApi={
   async saveEntry(input:Omit<FinancialEntry,'id'|'createdAt'|'source'> & {id?:string;source?:FinancialEntry['source']}):Promise<FinancialEntry>{
     if(isDemoMode)return {...input,id:input.id||createId(),source:input.source||'manual',createdAt:new Date().toISOString()};
     const body={id:input.id||undefined,store_id:input.storeId,direction:input.direction,source:input.source||'manual',order_id:input.orderId||null,category_id:input.categoryId||null,description:input.description.trim(),amount:input.amount,occurred_on:input.occurredOn,due_on:input.dueOn||null,paid_at:input.status==='paid'?(input.paidAt||new Date().toISOString()):null,status:input.status,payment_method:input.paymentMethod||null,counterparty:input.counterparty||null,document_type:input.documentType||'none',document_number:input.documentNumber||null,notes:input.notes||null};
-    const path=input.id?`food_financial_entries?id=eq.${encodeURIComponent(input.id)}&select=*`:'food_financial_entries?select=*';
+    const path=input.id?`food_financial_entries?id=eq.${encodeURIComponent(input.id)}&store_id=eq.${encodeURIComponent(input.storeId)}&select=*`:'food_financial_entries?select=*';
     const rows=await restFetch<EntryRow[]>(path,{method:input.id?'PATCH':'POST',body,prefer:'return=representation'});return mapEntry(rows[0]);
   },
 

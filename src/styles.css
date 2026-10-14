@@ -21,10 +21,14 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; background: #faf9f6; color: var(--ink); }
-#foodweb-splash-screen{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:#fffdfa;transition:opacity .2s ease,visibility .2s ease}
-#foodweb-splash-screen img{width:min(184px,42vw);height:auto;display:block;border-radius:28px;box-shadow:0 20px 55px rgba(159,89,57,.12)}
+#foodweb-splash-screen{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);background:#fffdfa;transition:opacity .28s cubic-bezier(.22,1,.36,1),visibility .28s ease}
+#foodweb-splash-screen img{width:clamp(160px,46vw,220px);aspect-ratio:1;object-fit:cover;height:auto;display:block;border-radius:28px;box-shadow:0 20px 55px rgba(159,89,57,.12);animation:foodwebSplashIn .5s cubic-bezier(.22,1,.36,1) both}
 #foodweb-splash-screen.is-ready{opacity:0;visibility:hidden;pointer-events:none}
-@media(prefers-reduced-motion:reduce){#foodweb-splash-screen{transition:none}}
+#foodweb-splash-screen.is-ready img{animation:foodwebSplashOut .2s ease both}
+@keyframes foodwebSplashIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+@keyframes foodwebSplashOut{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.98)}}
+@media(max-width:420px){#foodweb-splash-screen img{border-radius:24px}}
+@media(prefers-reduced-motion:reduce){#foodweb-splash-screen,#foodweb-splash-screen img{transition:none;animation:none}}
 a { color: inherit; text-decoration: none; }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
@@ -3680,6 +3684,35 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
   .orders-mobile-card .order-row-actions>*{flex:1}
 }
 
+/* Agenda e confirmação financeira: filtros rápidos sem tirar o operador da fila. */
+.orders-payment-status-select{display:grid;gap:4px;min-width:148px;color:#8a6a5d;font-size:.58rem;font-weight:850;letter-spacing:.02em}
+.orders-payment-status-select select{min-height:38px;border:1px solid #e1d5ca;border-radius:9px;padding:0 8px;background:#fff;font:inherit;color:var(--ink);font-size:.68rem;font-weight:750}
+.orders-calendar-card{display:grid;gap:14px;margin:0 0 16px;background:linear-gradient(145deg,#fff,#fdf9f4);border-color:#eaded2}
+.orders-calendar-card__header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.orders-calendar-card__header h2{display:flex;align-items:center;gap:8px;margin:5px 0 0;font-size:1rem}
+.orders-calendar-card__header p{margin:5px 0 0;color:var(--muted);font-size:.72rem}
+.orders-calendar-card__actions{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.orders-calendar-card__actions strong{min-width:148px;text-align:center;color:var(--ink);font-size:.77rem;text-transform:capitalize}
+.orders-calendar-card__actions .icon-button{display:grid;place-items:center;width:32px;height:32px;padding:0;border:1px solid #e6ddd5;border-radius:9px;background:#fff;color:#754330;cursor:pointer;transition:transform .18s ease,background .18s ease}
+.orders-calendar-card__actions .icon-button:hover{background:#fff2e9;transform:translateY(-1px)}
+.orders-calendar-weekdays,.orders-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.orders-calendar-weekdays{color:#9a897e;font-size:.63rem;font-weight:850;text-align:center;text-transform:uppercase;letter-spacing:.04em}
+.orders-calendar-day{position:relative;min-height:43px;padding:7px 6px;border:1px solid #eee5de;border-radius:10px;background:#fff;color:var(--ink);font:inherit;font-size:.7rem;font-weight:800;text-align:left;cursor:pointer;transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease}
+.orders-calendar-day:not(:disabled):hover{border-color:#cf987c;background:#fff8f2;box-shadow:0 6px 14px rgba(92,48,32,.08);transform:translateY(-1px)}
+.orders-calendar-day>span{display:block}.orders-calendar-day b{position:absolute;right:5px;bottom:5px;display:grid;place-items:center;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#f8e5d8;color:#9b5136;font-size:.58rem}
+.orders-calendar-day.is-outside{opacity:.38;background:#faf8f5}.orders-calendar-day.is-selected{border-color:#9b5136;background:#fff0e8;box-shadow:0 0 0 3px rgba(155,81,54,.1)}.orders-calendar-day.is-selected b{background:#9b5136;color:#fff}
+.orders-calendar-filter-chip{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid #e8cbb9;border-radius:10px;background:#fff7f1;color:#8b5036;font-size:.7rem}.orders-calendar-filter-chip>span{display:flex;align-items:center;gap:6px}.orders-calendar-filter-chip button{display:grid;place-items:center;width:27px;height:27px;padding:0;border:0;border-radius:50%;background:#9b5136;color:#fff;cursor:pointer;transition:transform .18s ease,background .18s ease}.orders-calendar-filter-chip button:hover{background:#713722;transform:rotate(-12deg)}
+.orders-active-filter{display:inline-flex;align-items:center;gap:5px;min-height:27px;padding:0 8px;border:1px solid #e8cbb9;border-radius:999px;background:#fff7f1;color:#8b5036;font:inherit;font-size:.62rem;font-weight:800;cursor:pointer}.orders-active-filter svg:last-child{width:13px;height:13px;padding:2px;border-radius:50%;background:#9b5136;color:#fff}
+.orders-mobile-card__actions{display:flex;justify-content:stretch;padding-top:2px;border-top:1px solid #f0ede8}.orders-mobile-card__actions .order-inline-action{width:100%;min-height:38px}
+@media(max-width:760px){
+  .orders-payment-status-select{grid-column:1/-1;min-width:0}
+  .orders-calendar-card{padding:15px 13px}
+  .orders-calendar-card__header{align-items:stretch;flex-direction:column;gap:10px}
+  .orders-calendar-card__actions{justify-content:space-between}.orders-calendar-card__actions strong{min-width:0}
+  .orders-calendar-weekdays,.orders-calendar-grid{gap:4px}.orders-calendar-day{min-height:40px;padding:6px 5px}
+}
+@media(max-width:430px){.orders-calendar-day{min-height:36px;font-size:.65rem}.orders-calendar-day b{right:3px;bottom:3px;min-width:16px;height:16px;font-size:.52rem}.orders-calendar-card__header p{font-size:.67rem}}
+
 /* Checkout fora do horário: explicação curta e confirmação explícita, sem travar o cliente em um agendamento automático. */
 .checkout-alert{display:flex;align-items:flex-start;gap:10px;padding:13px 14px;border:1px solid #efd59a;border-radius:13px;background:#fffaf0;color:#7d5a1e;box-shadow:0 8px 20px rgba(125,90,30,.06)}
 .checkout-alert>svg{flex:0 0 auto;margin-top:1px}
@@ -3771,3 +3804,8 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 @keyframes financeBarRise{from{opacity:.35;transform:scaleY(.35);transform-origin:bottom}to{opacity:1;transform:scaleY(1);transform-origin:bottom}}
 @media(max-width:560px){.analytics-selection-note{flex-wrap:wrap}.analytics-selection-note b{margin-left:0;width:100%}.finance-chart-selection{grid-template-columns:1fr 1fr}.finance-chart-selection>div:first-child{grid-column:1/-1;padding:0 0 7px;border-right:0;border-bottom:1px solid #e6eee8}.finance-expense-selection{align-items:flex-start;flex-wrap:wrap}.finance-expense-selection b{margin-left:0;width:100%}}
 @media(prefers-reduced-motion:reduce){.analytics-bar-row,.analytics-chart-bar,.analytics-chart__bar,.finance-month-bars button,.finance-expense-row{transition:none;animation:none}.analytics-bar-row:hover,.finance-expense-row:hover,.finance-month-bars button:hover{transform:none}}
+
+/* Financeiro: revisão de itens lidos e edição de lançamentos. */
+.finance-document-item{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(92px,.25fr) 30px auto;gap:10px;align-items:start;padding:11px;border:1px solid #eee5df;border-radius:10px;background:#fff;transition:border-color .18s ease,background .18s ease,opacity .18s ease}.finance-document-item:hover{border-color:#d8b9a7}.finance-document-item.is-excluded{background:#f8f1ed;border-color:#dfcfc6;opacity:.72}.finance-document-item>input[type=checkbox]{accent-color:var(--food-red);width:16px;height:16px;margin-top:9px}.finance-document-item__fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.finance-document-item__fields label,.finance-document-item__total{display:grid;gap:4px;color:var(--food-muted);font-size:.59rem;font-weight:800}.finance-document-item__fields input,.finance-document-item__total input,.finance-document-items__copy>input{width:100%;min-height:32px;padding:7px 8px;border:1px solid #dfd3cc;border-radius:8px;background:#fff;color:var(--food-ink);font:inherit;font-size:.68rem;outline:0}.finance-document-items__copy>input{font-size:.74rem;font-weight:800}.finance-document-item__fields input:focus,.finance-document-item__total input:focus,.finance-document-items__copy>input:focus{border-color:var(--food-red);box-shadow:0 0 0 3px rgba(181,75,45,.1)}.finance-document-item__total{min-width:92px}.finance-document-item__total input{font-size:.72rem;font-weight:800}.finance-document-item .icon-button{margin-top:4px;color:#9c5a45;font-size:1.1rem}.finance-document-item em{grid-column:2/-1;font-style:normal;font-size:.58rem;font-weight:800;color:#6e8b78}.finance-document-item.is-excluded em{color:#a16b58}.finance-document-item small{color:var(--food-muted);font-size:.61rem}.finance-document-items__add{justify-self:start;min-height:32px;padding:0 10px;font-size:.66rem}.finance-entry-action{display:inline-flex;align-items:center;justify-content:center;gap:4px;margin-top:6px;padding:5px 7px;border:1px solid #eadbd4;border-radius:7px;background:#fff;color:#7b4937;font:inherit;font-size:.61rem;font-weight:800;cursor:pointer}.finance-entry-action:hover{background:#fff5ef;border-color:#d9b09d}.finance-entry-details{margin-top:7px;font-size:.62rem}.finance-entry-details summary{display:inline-flex;align-items:center;gap:4px;color:#806f68;font-weight:800;cursor:pointer;list-style:none}.finance-entry-details summary::-webkit-details-marker{display:none}.finance-entry-details[open] summary svg{transform:rotate(180deg)}.finance-entry-details summary svg{transition:transform .18s ease}.finance-entry-details>div{display:grid;gap:5px;margin-top:7px;padding:9px;border:1px solid #eee5df;border-radius:9px;background:#fffaf7;color:var(--food-muted);line-height:1.35}.finance-entry-details>div .secondary-button{justify-self:start;min-height:29px;padding:0 8px;font-size:.61rem}.finance-ledger-list article{align-items:start}
+@media(max-width:640px){.finance-document-item{grid-template-columns:auto minmax(0,1fr) 30px}.finance-document-item__total{grid-column:2;max-width:140px}.finance-document-item em{grid-column:2/-1}.finance-document-item .icon-button{grid-column:3;grid-row:1;justify-self:end}.finance-entry-details>div{font-size:.62rem}.finance-quick-actions{grid-template-columns:1fr 1fr}.finance-quick-actions button:last-of-type{grid-column:1/-1}}
+@media(prefers-reduced-motion:reduce){.finance-document-item,.finance-entry-action,.finance-entry-details summary svg{transition:none}}

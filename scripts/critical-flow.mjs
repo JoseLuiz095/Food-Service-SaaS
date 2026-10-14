@@ -140,7 +140,7 @@ check('Suporte da plataforma é somente autenticado',v044.includes('food_get_adm
 check('Logins enviam captchaToken ao Supabase Auth',adminLogin.includes('action="login"')&&masterLogin.includes('action="login"')&&auth.includes('options: captchaToken ? { captchaToken }'));
 check('Landing usa contato protegido sem wa.me público',landing.includes('ProtectedContactButton')&&!landing.includes('wa.me/')&&!landing.includes('marketingWhatsapp'));
 check('v0.4.4 preserva namespace Food',!/alter table public\.(stores|products|orders|plans|platform_settings)\b/i.test(v044));
-check('Splash Screen usa a arte quadrada na abertura',mainSource.includes('foodweb-splash-screen')&&manifest.includes('/assets/marketing/app-splash-v2.png')&&styles.includes('#foodweb-splash-screen'));
+check('Splash Screen usa a arte quadrada na abertura',mainSource.includes('foodweb-splash-screen')&&mainSource.includes('minimumVisibleMs')&&manifest.includes('/assets/marketing/app-splash-v2.png')&&styles.includes('#foodweb-splash-screen')&&styles.includes('prefers-reduced-motion'));
 check('Landing mantém a prévia original do cardápio',landing.includes('/assets/marketing/storefront-preview.webp')&&!landing.includes('app-opening-hero.png'));
 check('Interações ficam restritas a Analytics e Financeiro',analyticsPage.includes('aria-pressed')&&financePage.includes('finance-chart-selection')&&!ordersAdmin.includes('analytics-chart'));
 

@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, Camera, FileSearch2, Loader2, Plus, ReceiptText, Save, TrendingUp, Upload, WalletCards } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Camera, ChevronDown, FileSearch2, Loader2, Pencil, Plus, ReceiptText, Save, TrendingUp, Upload, WalletCards } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -35,7 +35,9 @@ export default function Finance(){
   const[extractionInfo,setExtractionInfo]=useState<{recognizedFields:number;signals:string[];preview:string;confidence:number}|null>(null);
   const[readProgress,setReadProgress]=useState<LocalFinancialReadProgress|null>(null);
   const[readResult,setReadResult]=useState<LocalFinancialReadResult|null>(null);
+  const[documentItems,setDocumentItems]=useState<LocalFinancialReadResult['items']>([]);
   const[excludedItemIndexes,setExcludedItemIndexes]=useState<number[]>([]);
+  const[editingEntryId,setEditingEntryId]=useState<string|null>(null);
   const[selectedMonthKey,setSelectedMonthKey]=useState<string|null>(null);
   const[selectedExpenseCategory,setSelectedExpenseCategory]=useState<string|null>(null);
   const fileRef=useRef<HTMLInputElement|null>(null);
@@ -99,8 +101,10 @@ export default function Finance(){
     setForm(emptyForm(settings.id,direction));
     setExtractionInfo(null);
     setReadResult(null);
+    setDocumentItems([]);
     setReadProgress(null);
     setExcludedItemIndexes([]);
+    setEditingEntryId(null);
     requestAnimationFrame(()=>document.getElementById('finance-entry-form')?.scrollIntoView({behavior:'smooth',block:'start'}));
   };
 
@@ -126,6 +130,7 @@ export default function Finance(){
         confidence:suggestion.confidence,
       });
       setReadResult(suggestion);
+      setDocumentItems(suggestion.items);
       setExcludedItemIndexes([]);
 
       setForm((current)=>({
@@ -151,11 +156,12 @@ export default function Finance(){
     }finally{
       setExtracting(false);
       if(fileRef.current)fileRef.current.value='';
+      if(cameraRef.current)cameraRef.current.value='';
     }
   };
 
-  const documentItems=readResult?.items||[];
-  const documentGrossAmount=readResult?.amount??documentItems.reduce((sum,item)=>sum+item.total,0);
+  const documentItemsTotal=documentItems.reduce((sum,item)=>sum+item.total,0);
+  const documentGrossAmount=readResult?.amount??documentItemsTotal;
   const excludedItems=documentItems.filter((_,index)=>excludedItemIndexes.includes(index));
   const excludedAmount=excludedItems.reduce((sum,item)=>sum+item.total,0);
   const consideredDocumentAmount=Math.max(0,Number((documentGrossAmount-excludedAmount).toFixed(2)));
@@ -169,6 +175,39 @@ export default function Finance(){
       setForm((current)=>({...current,amount:Math.max(0,Number((documentGrossAmount-nextExcluded).toFixed(2)))}));
     }
   };
+  const updateDocumentItem=(index:number,field:'description'|'quantity'|'unitPrice'|'total',value:string)=>{
+    const numeric=Math.max(0,Number(value.replace(',','.'))||0);
+    const nextItems=documentItems.map((item,itemIndex)=>{
+      if(itemIndex!==index)return item;
+      if(field==='description')return {...item,description:value};
+      if(field==='quantity')return {...item,quantity:numeric||undefined,total:Number(((numeric||1)*(item.unitPrice||item.total)).toFixed(2))};
+      if(field==='unitPrice')return {...item,unitPrice:numeric,total:Number(((item.quantity||1)*numeric).toFixed(2))};
+      return {...item,total:numeric};
+    });
+    setDocumentItems(nextItems);
+    const nextTotal=nextItems.reduce((sum,item)=>sum+item.total,0);
+    const nextExcluded=nextItems.reduce((sum,item,itemIndex)=>sum+(excludedItemIndexes.includes(itemIndex)?item.total:0),0);
+    setForm((current)=>({...current,amount:Math.max(0,Number((nextTotal-nextExcluded).toFixed(2)))}));
+  };
+  const addDocumentItem=()=>{
+    setDocumentItems((current)=>[...current,{description:'Novo item',quantity:1,unitPrice:0,total:0,confidence:1}]);
+    setForm((current)=>({...current,amount:Math.max(0,Number((current.amount||0).toFixed(2)))}));
+  };
+  const removeDocumentItem=(index:number)=>{
+    const nextItems=documentItems.filter((_,itemIndex)=>itemIndex!==index);
+    const nextExcluded=excludedItemIndexes.filter((itemIndex)=>itemIndex!==index).map((itemIndex)=>itemIndex>index?itemIndex-1:itemIndex);
+    setDocumentItems(nextItems);
+    setExcludedItemIndexes(nextExcluded);
+    const nextExcludedAmount=nextItems.reduce((sum,item,itemIndex)=>sum+(nextExcluded.includes(itemIndex)?item.total:0),0);
+    setForm((current)=>({...current,amount:Math.max(0,Number((documentGrossAmount-nextExcludedAmount).toFixed(2)))}));
+  };
+
+  const editEntry=(entry:FinancialEntry)=>{
+    setEditingEntryId(entry.id);
+    setForm({storeId:entry.storeId,direction:entry.direction,categoryId:entry.categoryId||'',description:entry.description,amount:entry.amount,occurredOn:entry.occurredOn,dueOn:entry.dueOn||'',status:entry.status,paymentMethod:entry.paymentMethod||'',counterparty:entry.counterparty||'',documentType:entry.documentType,documentNumber:entry.documentNumber||'',notes:entry.notes||''});
+    setExtractionInfo(null);setReadResult(null);setDocumentItems([]);setExcludedItemIndexes([]);
+    requestAnimationFrame(()=>document.getElementById('finance-entry-form')?.scrollIntoView({behavior:'smooth',block:'start'}));
+  };
 
   const submit=async(event:FormEvent)=>{
     event.preventDefault();
@@ -180,17 +219,26 @@ export default function Finance(){
       const documentAdjustmentNote=excludedItems.length
         ? `Documento lido: total ${currency.format(documentGrossAmount)}; itens desconsiderados (${currency.format(excludedAmount)}): ${excludedItems.map((item)=>item.description).join(', ')}.`
         : '';
-      await trackInteraction('financial_entry_create', () => financeApi.saveEntry({
+      const documentItemsNote=documentItems.length
+        ? `Itens conferidos: ${documentItems.filter((_,index)=>!excludedItemIndexes.includes(index)).map((item)=>`${item.quantity||1}x ${item.description} (${currency.format(item.total)})`).join('; ')}.`
+        : '';
+      const existingEntry=editingEntryId ? entries.find((entry)=>entry.id===editingEntryId) : undefined;
+      await trackInteraction(editingEntryId?'financial_entry_update':'financial_entry_create', () => financeApi.saveEntry({
         ...form,
-        notes:[form.notes.trim(),documentAdjustmentNote].filter(Boolean).join('\n'),
+        id:editingEntryId||undefined,
+        source:editingEntryId ? entries.find((entry)=>entry.id===editingEntryId)?.source : 'manual',
+        orderId:editingEntryId ? entries.find((entry)=>entry.id===editingEntryId)?.orderId : undefined,
+        notes:[form.notes.trim(),documentAdjustmentNote,documentItemsNote].filter(Boolean).join('\n'),
         dueOn:form.dueOn||undefined,
         categoryId:form.categoryId||undefined,
-        paidAt:form.status==='paid'?new Date().toISOString():undefined,
+        paidAt:form.status==='paid' ? existingEntry?.paidAt || new Date().toISOString() : undefined,
       }), { storeId: settings.id });
       showToast('Lançamento financeiro salvo.','success');
       setForm(emptyForm(settings.id));
+      setEditingEntryId(null);
       setExtractionInfo(null);
       setReadResult(null);
+      setDocumentItems([]);
       setReadProgress(null);
       setExcludedItemIndexes([]);
       await reload();
@@ -248,13 +296,14 @@ export default function Finance(){
     <section className="finance-quick-actions">
       <button onClick={()=>startEntry('income')}><span className="income"><ArrowUpRight/></span><strong>Nova entrada</strong><small>Venda, recebimento ou outra receita</small></button>
       <button onClick={()=>startEntry('expense')}><span className="expense"><ArrowDownRight/></span><strong>Nova saída</strong><small>Compra, conta ou despesa operacional</small></button>
-      <button onClick={()=>cameraRef.current?.click()}><span className="document"><Camera/></span><strong>Tirar foto</strong><small>Use a camera traseira do celular</small></button>
+      <button type="button" onClick={()=>fileRef.current?.click()}><span className="document"><Upload/></span><strong>Abrir galeria</strong><small>Selecione foto ou PDF do cupom</small></button>
+      <button type="button" onClick={()=>cameraRef.current?.click()}><span className="document"><Camera/></span><strong>Fotografar documento</strong><small>A câmera traseira abre para enquadrar o cupom</small></button>
       <input ref={cameraRef} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event)=>void upload(event.target.files?.[0])}/>
     </section>
 
     <section className="finance-workspace finance-workspace-v4" id="finance-entry-form">
       <form className="finance-entry-form finance-entry-form-v4" onSubmit={submit}>
-        <div className="section-heading"><div><span className="eyebrow">CADASTRO RÁPIDO</span><h2>Novo lançamento</h2><p>Primeiro escolha se é entrada ou saída. O documento pode preencher os demais campos.</p></div></div>
+        <div className="section-heading"><div><span className="eyebrow">CADASTRO RÁPIDO</span><h2>{editingEntryId?'Editar lançamento':'Novo lançamento'}</h2><p>Primeiro escolha se é entrada ou saída. O documento pode preencher os demais campos.</p></div>{editingEntryId&&<button type="button" className="secondary-button" onClick={()=>{setEditingEntryId(null);setForm(emptyForm(settings.id));}}>Cancelar edição</button>}</div>
 
         <div className="finance-direction-toggle finance-direction-toggle-v4">
           <button type="button" className={form.direction==='income'?'active income':''} onClick={()=>setForm((current)=>({...current,direction:'income',categoryId:''}))}><ArrowUpRight/><span><strong>Entrada / ganho</strong><small>Dinheiro que entrou no negócio</small></span></button>
@@ -262,7 +311,7 @@ export default function Finance(){
         </div>
 
         <label className="finance-document-drop finance-document-drop-v4">
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event)=>void upload(event.target.files?.[0])}/>
+          <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(event)=>void upload(event.target.files?.[0])}/>
           {extracting?<Loader2 className="spin"/>:<Upload/>}
           <span><strong>{extracting?'Lendo documento...':'Preencher a partir de um documento'}</strong><small>Envie foto, cupom fiscal, nota, boleto ou PDF. A leitura ocorre no navegador e nunca salva automaticamente.</small></span>
         </label>
@@ -276,7 +325,8 @@ export default function Finance(){
 
         {documentItems.length>0&&<section className="finance-document-items" aria-labelledby="finance-document-items-title">
           <div className="finance-document-items__heading"><div><span className="eyebrow">CONFERÊNCIA DO DOCUMENTO</span><h3 id="finance-document-items-title">Itens identificados</h3><p>Marque apenas o que não deve entrar neste lançamento. O valor será recalculado, mas você continua podendo revisá-lo manualmente.</p></div><span>{documentItems.length} item{documentItems.length===1?'':'s'}</span></div>
-          <div className="finance-document-items__list">{documentItems.map((item,index)=>{const excluded=excludedItemIndexes.includes(index);return <label key={`${item.description}-${index}`} className={excluded?'is-excluded':''}><input type="checkbox" checked={excluded} onChange={()=>toggleDocumentItem(index)}/><span className="finance-document-items__copy"><strong>{item.description}</strong><small>{item.quantity?`${item.quantity}${item.unitPrice?` × ${currency.format(item.unitPrice)}`:''}`:item.unitPrice?`Unitário ${currency.format(item.unitPrice)}`:'Valor sugerido pelo documento'}{item.confidence<0.75?' · confira a leitura':''}</small></span><b>{currency.format(item.total)}</b><em>{excluded?'Desconsiderado':'Considerar'}</em></label>})}</div>
+          <div className="finance-document-items__list">{documentItems.map((item,index)=>{const excluded=excludedItemIndexes.includes(index);return <div key={`${item.description}-${index}`} className={`finance-document-item${excluded?' is-excluded':''}`}><input aria-label={`Desconsiderar ${item.description}`} type="checkbox" checked={excluded} onChange={()=>toggleDocumentItem(index)}/><div className="finance-document-items__copy"><input aria-label="Descrição do item" value={item.description} onChange={(event)=>updateDocumentItem(index,'description',event.target.value)}/><div className="finance-document-item__fields"><label>Qtd.<input type="number" min="0" step="0.001" value={item.quantity??''} onChange={(event)=>updateDocumentItem(index,'quantity',event.target.value)}/></label><label>Unitário<input type="number" min="0" step="0.01" value={item.unitPrice??''} onChange={(event)=>updateDocumentItem(index,'unitPrice',event.target.value)}/></label></div><small>{item.confidence<0.75?'Confira a leitura deste item.':'Identificado automaticamente'}</small></div><label className="finance-document-item__total">Total<input type="number" min="0" step="0.01" value={item.total} onChange={(event)=>updateDocumentItem(index,'total',event.target.value)}/></label><button type="button" className="icon-button" aria-label={`Remover ${item.description}`} title="Remover item" onClick={()=>removeDocumentItem(index)}>×</button><em>{excluded?'Desconsiderado':'Considerar'}</em></div>})}</div>
+          <button type="button" className="secondary-button finance-document-items__add" onClick={addDocumentItem}><Plus size={15}/>Adicionar item</button>
           <div className="finance-document-items__summary"><span>Total do documento <strong>{currency.format(documentGrossAmount)}</strong></span><span>Desconsiderado <strong>− {currency.format(excludedAmount)}</strong></span><span>Valor a lançar <strong>{currency.format(consideredDocumentAmount)}</strong></span></div>
         </section>}
 
@@ -285,14 +335,15 @@ export default function Finance(){
           <label className={readResult?.amount !== undefined ? 'is-autofilled-r69' : undefined}>Valor (R$)<span className="autofill-mark-r69">{readResult?.amount !== undefined ? '✓ identificado' : ''}</span><input type="number" min="0.01" step="0.01" value={form.amount||''} onChange={(event)=>setForm((current)=>({...current,amount:Number(event.target.value)}))} required/></label>
           <label>Categoria<select value={form.categoryId} onChange={(event)=>setForm((current)=>({...current,categoryId:event.target.value}))}><option value="">Sem categoria</option>{categoryOptions.map((category)=><option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
           <label className={readResult?.occurredOn ? 'is-autofilled-r69' : undefined}>Data<span className="autofill-mark-r69">{readResult?.occurredOn ? '✓ identificado' : ''}</span><input type="date" value={form.occurredOn} onChange={(event)=>setForm((current)=>({...current,occurredOn:event.target.value}))}/></label>
-          <label>Situação<select value={form.status} onChange={(event)=>setForm((current)=>({...current,status:event.target.value as FinancialEntryStatus}))}><option value="paid">Pago/recebido</option><option value="pending">Pendente</option></select></label>
+          <label>Situação<select value={form.status} onChange={(event)=>setForm((current)=>({...current,status:event.target.value as FinancialEntryStatus}))}><option value="paid">Pago/recebido</option><option value="pending">Pendente</option><option value="cancelled">Cancelado</option></select></label>
           <label>Vencimento<input type="date" value={form.dueOn} onChange={(event)=>setForm((current)=>({...current,dueOn:event.target.value}))}/></label>
           <label className={readResult?.counterparty ? 'is-autofilled-r69' : undefined}>Fornecedor / origem<span className="autofill-mark-r69">{readResult?.counterparty ? '✓ identificado' : ''}</span><input value={form.counterparty} onChange={(event)=>setForm((current)=>({...current,counterparty:event.target.value}))}/></label>
+          <label>Forma de pagamento<select value={form.paymentMethod} onChange={(event)=>setForm((current)=>({...current,paymentMethod:event.target.value}))}><option value="">Não informado</option><option value="pix">PIX</option><option value="credit_card">Cartão de crédito</option><option value="debit_card">Cartão de débito</option><option value="cash">Dinheiro</option><option value="transfer">Transferência</option><option value="other">Outro</option></select></label>
           <label className={readResult?.documentType && readResult.documentType !== 'other' && readResult.documentType !== 'none' ? 'is-autofilled-r69' : undefined}>Tipo de documento<span className="autofill-mark-r69">{readResult?.documentType && readResult.documentType !== 'other' && readResult.documentType !== 'none' ? '✓ identificado' : ''}</span><select value={form.documentType} onChange={(event)=>setForm((current)=>({...current,documentType:event.target.value as FinancialDocumentType}))}>{documentTypes.map((item)=><option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
           <label className={readResult?.documentNumber ? 'is-autofilled-r69' : undefined}>Número do documento<span className="autofill-mark-r69">{readResult?.documentNumber ? '✓ identificado' : ''}</span><input value={form.documentNumber} onChange={(event)=>setForm((current)=>({...current,documentNumber:event.target.value}))}/></label>
         </div>
         <label>Observação<textarea rows={3} value={form.notes} onChange={(event)=>setForm((current)=>({...current,notes:event.target.value}))}/></label>
-        <button className="primary-button" disabled={saving} type="submit"><Save size={17}/>{saving?'Salvando...':`Salvar ${form.direction==='income'?'entrada':'saída'}`}</button>
+        <button className="primary-button" disabled={saving} type="submit"><Save size={17}/>{saving?'Salvando...':`${editingEntryId?'Atualizar':'Salvar'} ${form.direction==='income'?'entrada':'saída'}`}</button>
       </form>
 
       <div className="finance-ledger finance-ledger-v4">
@@ -302,7 +353,7 @@ export default function Finance(){
         :<div className="finance-ledger-list">{entries.slice(0,50).map((entry)=><article key={entry.id}>
           <span className={`finance-entry-icon ${entry.direction}`}>{entry.direction==='income'?<ArrowUpRight/>:<ArrowDownRight/>}</span>
           <div><strong>{entry.description}</strong><small>{new Date(`${entry.occurredOn}T12:00:00`).toLocaleDateString('pt-BR')} · {categories.find((category)=>category.id===entry.categoryId)?.name||'Sem categoria'}</small><span className={`finance-origin-badge-r69 ${entry.source==='order'?'is-order':'is-manual'}`}>{entry.source==='order'?'Pedido automático':entry.source==='adjustment'?'Ajuste':'Lançamento manual'}</span>{entry.source==='order'&&entry.orderId?<a className="finance-order-link-r69" href={`/admin/pedidos?highlight=${encodeURIComponent(entry.orderId)}`}>Ver pedido relacionado</a>:null}</div>
-          <div className="finance-entry-value"><strong>{entry.direction==='income'?'+':'−'} {currency.format(entry.amount)}</strong><span className={`status-dot ${entry.status}`}>{entry.status==='paid'?'Realizado':entry.status==='pending'?'Pendente':'Cancelado'}</span></div>
+          <div className="finance-entry-value"><strong>{entry.direction==='income'?'+':'−'} {currency.format(entry.amount)}</strong><span className={`status-dot ${entry.status}`}>{entry.status==='paid'?'Realizado':entry.status==='pending'?'Pendente':'Cancelado'}</span><button type="button" className="finance-entry-action" onClick={()=>editEntry(entry)}><Pencil size={13}/>Editar</button><details className="finance-entry-details"><summary><ChevronDown size={13}/>Detalhes</summary><div><span>Documento: {documentTypes.find((item)=>item.value===entry.documentType)?.label||'Sem documento'}</span>{entry.documentNumber&&<span>Número: {entry.documentNumber}</span>}{entry.counterparty&&<span>Fornecedor/origem: {entry.counterparty}</span>}{entry.paymentMethod&&<span>Pagamento: {entry.paymentMethod}</span>}{entry.dueOn&&<span>Vencimento: {new Date(`${entry.dueOn}T12:00:00`).toLocaleDateString('pt-BR')}</span>}{entry.notes&&<span>Observação: {entry.notes}</span>}<button type="button" className="secondary-button" onClick={()=>editEntry(entry)}><Pencil size={13}/>Editar lançamento</button></div></details></div>
         </article>)}</div>}
       </div>
     </section>

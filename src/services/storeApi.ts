@@ -655,14 +655,14 @@ export const storeApi = {
     return {alreadyPaid:Boolean(result?.alreadyPaid),paymentReceivedAt:result?.paymentReceivedAt};
   },
 
-  async updateOrderDetails(orderId: string, input: OrderDetailsUpdate): Promise<void> {
+  async updateOrderDetails(storeId: string, orderId: string, input: OrderDetailsUpdate): Promise<void> {
     const customerName = input.customerName.trim();
     if (customerName.length < 2) throw new Error('Informe o nome do cliente.');
 
     if (isDemoMode) {
       const db = readDemo();
-      const index = db.orders.findIndex((order) => order.id === orderId && order.paymentStatus !== 'paid' && order.status !== 'cancelled');
-      if (index < 0) throw new Error('Pedido não encontrado, já recebido ou cancelado.');
+      const index = db.orders.findIndex((order) => order.id === orderId && order.storeId === storeId);
+      if (index < 0) throw new Error('Pedido não encontrado.');
       db.orders[index] = {
         ...db.orders[index],
         customerName,
@@ -675,7 +675,7 @@ export const storeApi = {
     }
 
     const rows = await restFetch<OrderRow[]>(
-      `food_orders?id=eq.${encode(orderId)}&payment_status=neq.paid&status=neq.cancelled&select=*`,
+      `food_orders?id=eq.${encode(orderId)}&store_id=eq.${encode(storeId)}&select=*`,
       {
         method: 'PATCH',
         body: {
@@ -687,7 +687,7 @@ export const storeApi = {
         prefer: 'return=representation',
       },
     );
-    if (!rows.length) throw new Error('Pedido não encontrado, já recebido, cancelado ou sem permissão para atualização.');
+    if (!rows.length) throw new Error('Pedido não encontrado ou sem permissão para atualização.');
   },
   async updateManualOrder(orderId: string, input: Omit<ManualOrderInput, 'items'>): Promise<void> {
     const customerName = input.customerName.trim();

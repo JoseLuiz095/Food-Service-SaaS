@@ -28,7 +28,10 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, saving }: 
     scheduledFor: toLocalDateTimeInput(order.scheduledFor),
     notes: order.notes || '',
   });
-  const canEdit = order.paymentStatus !== 'paid' && order.status !== 'cancelled';
+  // O detalhe precisa continuar editável mesmo depois do recebimento ou do
+  // encerramento: o histórico também pode receber correções operacionais
+  // (telefone, observação ou agendamento) sem reabrir o pedido.
+  const canEdit = true;
   const address = [
     order.deliveryStreet && `${order.deliveryStreet}${order.deliveryNumber ? `, ${order.deliveryNumber}` : ''}`,
     order.deliveryComplement,
@@ -90,7 +93,7 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, saving }: 
 
       {editing ? <section className="order-details-modal__section">
         <div className="order-details-modal__section-title"><Pencil size={17} /><h3>Editar dados operacionais</h3></div>
-        <p className="order-details-modal__hint">Produtos, estoque, taxa de entrega e valor permanecem protegidos. Edite somente o que precisa ser confirmado com o cliente.</p>
+        <p className="order-details-modal__hint">Produtos, estoque, taxa de entrega e valor permanecem protegidos. Edite dados de contato, agendamento e observações mesmo após o encerramento para manter o histórico correto.</p>
         <div className="order-details-modal__edit-grid">
           <label>Cliente<input required value={draft.customerName} onChange={(event) => setDraft((current) => ({ ...current, customerName: event.target.value }))} /></label>
           <label>Telefone<input value={draft.customerPhone || ''} onChange={(event) => setDraft((current) => ({ ...current, customerPhone: event.target.value }))} /></label>
