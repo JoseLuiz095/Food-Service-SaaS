@@ -188,7 +188,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     registerOrder: storeApi.createOrder,
     createManualOrder: async (input) => { const result = await storeApi.createManualOrder(settings, products, input); await reloadAdmin({ silent: true }); notifyStoreChange(); return result; },
     updateManualOrder: async (orderId, input) => { await storeApi.updateManualOrder(orderId, input); await reloadAdmin({ silent: true }); notifyStoreChange(); },
-    updateOrderDetails: async (orderId, input) => { await storeApi.updateOrderDetails(orderId, input); await reloadAdmin({ silent: true }); notifyStoreChange(); },
+    updateOrderDetails: async (orderId, input) => { await storeApi.updateOrderDetails(settings.id, orderId, input); await reloadAdmin({ silent: true }); notifyStoreChange(); },
     markOrderWhatsAppClicked: storeApi.markOrderWhatsAppClicked,
     confirmOrderPayment: async (orderId) => { const result=await storeApi.confirmOrderPayment(orderId); await reloadAdmin({ silent: true }); notifyStoreChange(); return result; },
     updateOrderStatus: async (orderId, status) => { await storeApi.updateOrderStatus(orderId, status); await reloadAdmin({ silent: true }); notifyStoreChange(); },

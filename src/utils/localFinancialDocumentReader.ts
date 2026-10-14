@@ -489,6 +489,9 @@ function extractAmount(text: string, type: LocalFinancialDocumentType, barcode?:
     /VALOR\s+COBRADO/,
     /VALOR\s+DO\s+DOCUMENTO/,
     /TOTAL\s+A\s+PAGAR/,
+    /VALOR\s+A\s+PAGAR/,
+    /VALOR\s+PAGO/,
+    /TOTAL\s+DA\s+NOTA/,
     /VALOR\s+TOTAL/,
     /TOTAL\s+R\$/,
     /^TOTAL\b/,
@@ -610,7 +613,7 @@ function identifyType(text: string, barcode?: string): LocalFinancialDocumentTyp
   const normalized = searchText(text);
   const boleto = boletoDigits(text, barcode);
   if (boleto || /BOLETO|LINHA\s+DIGITAVEL|NOSSO\s+NUMERO|FICHA\s+DE\s+COMPENSACAO/.test(normalized)) return 'boleto';
-  if (/NFC-E|NFCE/.test(normalized)) return 'nfce';
+  if (/NFC-E|NFCE|DOCUMENTO\s+AUXILIAR.*CONSUMIDOR/.test(normalized)) return 'nfce';
   if (/NFS-E|NFSE|NOTA\s+FISCAL\s+DE\s+SERVICO/.test(normalized)) return 'nfse';
   if (/NF-E|NOTA\s+FISCAL\s+ELETRONICA/.test(normalized)) return 'nfe';
   if (/CUPOM\s+FISCAL|\bCCF\b|\bCOO\b|\bECF\b/.test(normalized)) return 'coupon';

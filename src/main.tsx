@@ -38,9 +38,26 @@ createRoot(root).render(
   </StrictMode>,
 );
 
-window.requestAnimationFrame(() => {
-  const splash = document.getElementById('foodweb-splash-screen');
-  if (!splash) return;
-  splash.classList.add('is-ready');
-  window.setTimeout(() => splash.remove(), 220);
-});
+const splash = document.getElementById('foodweb-splash-screen');
+if (splash) {
+  const startedAt = performance.now();
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const minimumVisibleMs = reducedMotion ? 180 : 520;
+  let dismissed = false;
+
+  const dismissSplash = () => {
+    if (dismissed || !splash.isConnected) return;
+    dismissed = true;
+    const wait = Math.max(0, minimumVisibleMs - (performance.now() - startedAt));
+    window.setTimeout(() => {
+      if (!splash.isConnected) return;
+      splash.classList.add('is-ready');
+      window.setTimeout(() => splash.remove(), reducedMotion ? 0 : 280);
+    }, wait);
+  };
+
+  // Aguarda a primeira pintura do React para evitar um flash vazio entre a arte e o app.
+  window.requestAnimationFrame(() => window.requestAnimationFrame(dismissSplash));
+  // Fallback para redes lentas ou erros de carregamento de algum recurso externo.
+  window.setTimeout(dismissSplash, 2200);
+}

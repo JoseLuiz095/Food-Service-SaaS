@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, ChefHat, CircleDollarSign, Copy, MessageCircle, Pencil, Plus, QrCode, RefreshCw, RotateCcw, Search, ShoppingBag, Users, X } from 'lucide-react';
+import { AlertCircle, CalendarDays, CheckCircle2, ChefHat, ChevronLeft, ChevronRight, CircleDollarSign, Copy, Eye, MessageCircle, Plus, QrCode, RefreshCw, RotateCcw, Search, ShoppingBag, Slash, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
@@ -72,6 +72,18 @@ const nextDeliveryWindow = (deliveryStartTime?: string) => {
   return tomorrowAt(match ? Number(match[1]) : 18, match ? Number(match[2]) : 0);
 };
 
+const dateKey = (date: Date) => {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const parseDateKey = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const formatCalendarDate = (value: string) => parseDateKey(value).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+
 // Retirado é uma etapa operacional: o pedido só sai da fila quando for
 // encerrado como Entregue ou Cancelado. Isso mantém o acompanhamento completo
 // até a finalização real da venda.
@@ -106,6 +118,9 @@ export default function OrdersAdmin() {
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'pending' | 'paid'>('all');
   const [sortBy, setSortBy] = useState<SortMode>('newest');
+  const [calendarMonth, setCalendarMonth] = useState(() => { const date = new Date(); return new Date(date.getFullYear(), date.getMonth(), 1); });
+  const [scheduledDateFilter, setScheduledDateFilter] = useState<string | null>(null);
+  const [paymentStatusDrafts, setPaymentStatusDrafts] = useState<Record<string, OrderStatus>>({});
   const [historyOpen, setHistoryOpen] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [dismissedRecoveryIds, setDismissedRecoveryIds] = useState<string[]>([]);
@@ -435,7 +450,7 @@ export default function OrdersAdmin() {
     ? option.value !== 'picked_up'
     : option.value !== 'out_for_delivery');
 
-  const confirmPayment = async (orderId: string, orderNumber: number, total: number) => {
+  const confirmPayment = async (orderId: string, orderNumber: number, total: number, nextStatus?: OrderStatus) => {
     const order = orders.find((current) => current.id === orderId);
     const paymentDescription = order ? paymentLabel[order.paymentMethod] : 'pagamento informado';
     const inventoryDescription = order?.inventoryStatus === 'awaiting_restock'
@@ -446,6 +461,9 @@ export default function OrdersAdmin() {
     setConfirmingPaymentId(orderId);
     try {
       await trackInteraction('order_payment_confirm', () => confirmOrderPayment(orderId), { storeId: settings.id });
+      if (nextStatus && order && nextStatus !== order.status) {
+        await trackInteraction('order_status_update_after_payment', () => updateOrderStatus(orderId, nextStatus), { storeId: settings.id });
+      }
       setLastUpdatedAt(new Date());
     } catch (paymentError) {
       window.alert(paymentError instanceof Error ? paymentError.message : 'Não foi possível confirmar o recebimento.');
@@ -473,13 +491,37 @@ export default function OrdersAdmin() {
     return () => { window.clearInterval(interval); window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onVisibility); };
   }, [refreshOrders]);
 
+  const scheduledCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const order of orders) {
+      if (!order.scheduledFor) continue;
+      const date = new Date(order.scheduledFor);
+      if (!Number.isFinite(date.getTime())) continue;
+      const key = dateKey(date);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return counts;
+  }, [orders]);
+
+  const calendarDays = useMemo(() => {
+    const firstDay = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+    const gridStart = new Date(firstDay);
+    gridStart.setDate(firstDay.getDate() - firstDay.getDay());
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(gridStart);
+      date.setDate(gridStart.getDate() + index);
+      return { date, key: dateKey(date), inMonth: date.getMonth() === calendarMonth.getMonth(), count: scheduledCounts.get(dateKey(date)) || 0 };
+    });
+  }, [calendarMonth, scheduledCounts]);
+
   const filtered = useMemo(() => {
     const term = query.toLowerCase().trim();
     const list = orders.filter((order) => {
       const searchable = `${order.customerName} ${order.customerPhone ?? ''} ${order.customerInstagram ?? ''} ${order.acquisitionSource ?? ''} ${order.id} ${order.orderNumber}`.toLowerCase();
       return (!term || searchable.includes(term))
         && (statusFilter === 'all' || order.status === statusFilter)
-        && (paymentFilter === 'all' || order.paymentStatus === paymentFilter);
+        && (paymentFilter === 'all' || order.paymentStatus === paymentFilter)
+        && (!scheduledDateFilter || (order.scheduledFor && dateKey(new Date(order.scheduledFor)) === scheduledDateFilter));
     });
     return [...list].sort((a, b) => {
       if (sortBy === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -488,7 +530,7 @@ export default function OrdersAdmin() {
       if (sortBy === 'customer_asc') return a.customerName.localeCompare(b.customerName, 'pt-BR');
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [orders, paymentFilter, query, statusFilter, sortBy]);
+  }, [orders, paymentFilter, query, scheduledDateFilter, statusFilter, sortBy]);
 
   const activeOrders = useMemo(() => filtered.filter((order) => !isHistoryOrder(order)), [filtered]);
   const pendingOrders = useMemo(() => activeOrders.filter((order) => order.paymentStatus !== 'paid'), [activeOrders]);
@@ -507,10 +549,14 @@ export default function OrdersAdmin() {
   }, [activeOrders.length, historyOrders.length, query]);
 
   const awaitingPaymentOrders = useMemo(() => orders
-    .filter((order) => order.paymentStatus !== 'paid' && order.status !== 'cancelled')
+    .filter((order) => order.paymentStatus !== 'paid' && order.status !== 'cancelled' && (!scheduledDateFilter || (order.scheduledFor && dateKey(new Date(order.scheduledFor)) === scheduledDateFilter)))
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-    .slice(0, 12), [orders]);
+    .slice(0, 12), [orders, scheduledDateFilter]);
   const detailsOrder = detailsOrderId ? orders.find((order) => order.id === detailsOrderId) || null : null;
+  const scheduledFilterLabel = scheduledDateFilter ? formatCalendarDate(scheduledDateFilter) : '';
+
+  const moveCalendarMonth = (offset: number) => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  const clearScheduledFilter = () => setScheduledDateFilter(null);
 
   const recoveryOrders = useMemo(() => {
     const now = Date.now();
@@ -574,8 +620,9 @@ export default function OrdersAdmin() {
       <td><div className="order-customer"><strong>{paymentLabel[order.paymentMethod]}</strong>{order.paymentMethod === 'cash' && order.needsChange && order.changeFor ? <span>Troco para {currency.format(order.changeFor)}</span> : null}</div></td>
       <td><strong>{currency.format(order.total)}</strong>{order.deliveryFee ? <small className="order-fee-note">inclui {currency.format(order.deliveryFee)} de entrega</small> : null}</td>
        <td>{order.paymentStatus === 'paid' ? <span className="order-payment-received"><CheckCircle2 size={15}/><span><strong>Recebido</strong>{order.paymentReceivedAt ? <small>{formatDateTimeBR(order.paymentReceivedAt)}</small> : null}</span></span> : order.status === 'cancelled' ? <span className="order-payment-cancelled">Pedido cancelado</span> : <><span className="order-payment-pending"><CircleDollarSign size={15}/><strong>A receber do cliente</strong></span><small className={`order-inventory-note order-inventory-note--${order.inventoryStatus || 'not_tracked'}`}>{order.inventoryStatus === 'awaiting_restock' ? 'Aguardando reposição' : order.inventoryStatus === 'reserved' ? 'Estoque reservado' : order.inventoryStatus === 'committed' ? 'Estoque baixado' : 'A confirmação fica na área Financeiro acima.'}</small></>}</td>
-      <td><div className="order-status-actions-v061"><label className={`order-status-control order-status-control--${order.status}`}><span>{statusLabel[order.status]}</span><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{settings.kdsNotifyCustomer && order.customerPhone && whatsappButton(order, 'status')}</div></td>
+       <td><div className="order-status-actions-v061"><label className={`order-status-control order-status-control--${order.status}`}><span>{statusLabel[order.status]}</span><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{settings.kdsNotifyCustomer && order.customerPhone && whatsappButton(order, 'status')}</div></td>
       <td>{formatDateTimeBR(order.createdAt)}</td>
+       <td><button type="button" className="order-inline-action" onClick={() => setDetailsOrderId(order.id)}><Eye size={14}/>Detalhes</button></td>
     </tr>;
   };
 
@@ -587,11 +634,12 @@ export default function OrdersAdmin() {
       <div className="orders-mobile-card__customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span>{order.customerInstagram ? <small>{order.customerInstagram}</small> : null}</div>
       <div className="orders-mobile-card__facts"><span><small>Recebimento</small><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{order.scheduledFor ? <em>Agendado: {formatDateTimeBR(order.scheduledFor)}</em> : null}</span><span><small>Pagamento</small><strong>{paymentLabel[order.paymentMethod]}</strong><strong className="orders-mobile-card__total">{currency.format(order.total)}</strong></span></div>
        <div className="orders-mobile-card__status"><label><small>Status do pedido</small><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{awaitingPayment ? <span className="orders-mobile-card__payment-pending"><CircleDollarSign size={15}/>A confirmar no Financeiro</span> : <span className="orders-mobile-card__received"><CheckCircle2 size={15}/>{order.status === 'cancelled' ? 'Pedido cancelado' : 'Pagamento recebido'}</span>}</div>
+       <div className="orders-mobile-card__actions"><button type="button" className="order-inline-action" onClick={() => setDetailsOrderId(order.id)}><Eye size={14}/>Ver detalhes e editar</button></div>
     </article>;
   };
 
   const renderOrderCollection = (collection: Order[], label: string) => <div className="orders-collection" aria-label={label}>
-    <div className="responsive-table orders-desktop-table"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega / retirada</th><th>Pagamento</th><th>Total</th><th>Recebimento</th><th>Status</th><th>Criado em</th></tr></thead><tbody>{collection.map(renderDesktopOrder)}</tbody></table></div>
+    <div className="responsive-table orders-desktop-table"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega / retirada</th><th>Pagamento</th><th>Total</th><th>Recebimento</th><th>Status</th><th>Criado em</th><th>Ações</th></tr></thead><tbody>{collection.map(renderDesktopOrder)}</tbody></table></div>
     <div className="orders-mobile-list" aria-label={`${label} em formato compacto`}>{collection.map(renderMobileOrder)}</div>
   </div>;
 
@@ -619,14 +667,27 @@ export default function OrdersAdmin() {
 
     <section className="admin-card orders-payment-inbox" aria-labelledby="orders-payment-inbox-title">
       <div className="orders-payment-inbox__heading"><div><span className="eyebrow">FINANCEIRO</span><h2 id="orders-payment-inbox-title">A receber do cliente</h2><p>Confirme somente depois de conferir o pagamento. A confirmação baixa o estoque reservado e lança a entrada no Financeiro.</p></div><strong>{awaitingPaymentOrders.length}</strong></div>
-      {awaitingPaymentOrders.length ? <div className="orders-payment-inbox__list">{awaitingPaymentOrders.map((order) => <article key={order.id}><div><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{order.scheduledFor ? `Agendado: ${formatDateTimeBR(order.scheduledFor)}` : 'Pedido aguardando conferência do recebimento'}</small></div><div className="orders-payment-inbox__actions"><button type="button" className="secondary-button compact-button" onClick={() => setDetailsOrderId(order.id)}><Pencil size={15}/>Editar</button>{order.paymentMethod === 'pix' && <button type="button" className="secondary-button compact-button" onClick={() => openPaymentPix(order)}><QrCode size={15}/>Mostrar QR Code</button>}<button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button></div></article>)}</div> : <div className="orders-payment-inbox__empty"><CheckCircle2 size={18}/>Nenhum pedido pendente de recebimento.</div>}
+      {awaitingPaymentOrders.length ? <div className="orders-payment-inbox__list">{awaitingPaymentOrders.map((order) => {
+        const nextStatus = paymentStatusDrafts[order.id] || order.status;
+        return <article key={order.id}><div><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{order.scheduledFor ? `Agendado: ${formatDateTimeBR(order.scheduledFor)}` : 'Pedido aguardando conferência do recebimento'}</small></div><div className="orders-payment-inbox__actions"><label className="orders-payment-status-select"><span>Status após recebimento</span><select value={nextStatus} onChange={(event) => setPaymentStatusDrafts((current) => ({ ...current, [order.id]: event.target.value as OrderStatus }))} aria-label={`Status após recebimento do pedido ${order.orderNumber}`}>{operationalStatuses(order).filter((option) => option.value !== 'cancelled').map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><button type="button" className="secondary-button compact-button" onClick={() => setDetailsOrderId(order.id)}><Eye size={15}/>Detalhes / editar</button>{order.paymentMethod === 'pix' && <button type="button" className="secondary-button compact-button" onClick={() => openPaymentPix(order)}><QrCode size={15}/>Mostrar QR Code</button>}<button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total, nextStatus)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento e status'}</button></div></article>;
+      })}</div> : <div className="orders-payment-inbox__empty"><CheckCircle2 size={18}/>Nenhum pedido pendente de recebimento.</div>}
+    </section>
+
+    <section className="admin-card orders-calendar-card" aria-labelledby="orders-calendar-title">
+      <div className="orders-calendar-card__header">
+        <div><span className="eyebrow">AGENDA</span><h2 id="orders-calendar-title"><CalendarDays size={19}/>Pedidos agendados</h2><p>Escolha um dia para filtrar somente as encomendas programadas.</p></div>
+        <div className="orders-calendar-card__actions"><button type="button" className="icon-button" onClick={() => moveCalendarMonth(-1)} aria-label="Mês anterior"><ChevronLeft size={17}/></button><strong>{calendarMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</strong><button type="button" className="icon-button" onClick={() => moveCalendarMonth(1)} aria-label="Próximo mês"><ChevronRight size={17}/></button></div>
+      </div>
+      <div className="orders-calendar-weekdays" aria-hidden="true">{['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => <span key={day}>{day}</span>)}</div>
+      <div className="orders-calendar-grid" role="grid" aria-label="Calendário de pedidos agendados">{calendarDays.map(({ date, key, inMonth, count }) => <button type="button" role="gridcell" key={key} className={`orders-calendar-day ${inMonth ? '' : 'is-outside'} ${scheduledDateFilter === key ? 'is-selected' : ''}`} onClick={() => count ? setScheduledDateFilter(key) : undefined} disabled={!count} aria-label={`${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}${count ? `, ${count} pedido${count === 1 ? '' : 's'} agendado${count === 1 ? '' : 's'}` : ', sem pedidos agendados'}`}><span>{date.getDate()}</span>{count ? <b>{count}</b> : null}</button>)}</div>
+      {scheduledDateFilter && <div className="orders-calendar-filter-chip"><span><CalendarDays size={15}/>Filtrando: <strong>{scheduledFilterLabel}</strong></span><button type="button" onClick={clearScheduledFilter} aria-label="Limpar filtro de pedidos agendados" title="Limpar filtro"><Slash size={15}/></button></div>}
     </section>
 
     <section className="admin-card no-padding orders-workspace">
       <div className="table-toolbar orders-toolbar orders-toolbar--filters">
         <div className="admin-search"><Search size={18}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar pedido, cliente ou telefone..."/></div>
         <div className="toolbar-selects"><label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'all' | OrderStatus)}><option value="all">Todos</option>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label><span>Recebimento</span><select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as 'all' | 'pending' | 'paid')}><option value="all">Todos</option><option value="pending">A receber do cliente</option><option value="paid">Recebido</option></select></label><label><span>Ordenar por</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortMode)}>{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>
-        <div className="orders-toolbar__sync" aria-live="polite"><span>{pendingOrders.length} no Financeiro · {processingOrders.length} em processamento · {historyOrders.length} no histórico</span><small>{lastUpdatedAt ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualização automática ativa'}</small><button type="button" className="secondary-button compact-button" onClick={() => void refreshOrders()} disabled={refreshing} aria-busy={refreshing}><RefreshCw size={15} className={refreshing ? 'spin' : ''}/>{refreshing ? 'Atualizando...' : 'Atualizar'}</button></div>
+        <div className="orders-toolbar__sync" aria-live="polite"><span>{pendingOrders.length} no Financeiro · {processingOrders.length} em processamento · {historyOrders.length} no histórico</span>{scheduledDateFilter && <button type="button" className="orders-active-filter" onClick={clearScheduledFilter}><CalendarDays size={14}/>Agendados: {scheduledFilterLabel}<Slash size={14}/></button>}<small>{lastUpdatedAt ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualização automática ativa'}</small><button type="button" className="secondary-button compact-button" onClick={() => void refreshOrders()} disabled={refreshing} aria-busy={refreshing}><RefreshCw size={15} className={refreshing ? 'spin' : ''}/>{refreshing ? 'Atualizando...' : 'Atualizar'}</button></div>
       </div>
       {highlightedOrderId && <div className="highlight-order-banner">O pedido relacionado vindo do Financeiro foi destacado abaixo.</div>}
        {filtered.length === 0 ? <div className="admin-empty"><ShoppingBag size={32}/><strong>Nenhum pedido encontrado</strong><span>Ajuste os filtros ou aguarde o próximo pedido.</span></div> : (processingOrders.length === 0 && historyOrders.length === 0) ? <div className="admin-empty"><CircleDollarSign size={32}/><strong>Pedidos pendentes no Financeiro</strong><span>Os pedidos aguardando pagamento ficam exclusivamente no card “A receber do cliente” acima.</span></div> : <>
