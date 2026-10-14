@@ -94,6 +94,7 @@ type RecipeItemRow = {
   store_id: string;
   recipe_id: string;
   inventory_item_id: string;
+  stage?: string | null;
   quantity: number | string;
   unit: ProductRecipeItem['unit'];
   waste_percent: number | string;
@@ -175,6 +176,7 @@ const mapRecipeItem = (row: RecipeItemRow): ProductRecipeItem => ({
   storeId: row.store_id,
   recipeId: row.recipe_id,
   inventoryItemId: row.inventory_item_id,
+  stage: row.stage?.trim() || 'Geral',
   quantity: numberValue(row.quantity),
   unit: row.unit,
   wastePercent: numberValue(row.waste_percent),
@@ -296,7 +298,7 @@ export const inventoryApi = {
     yieldQuantity: number;
     yieldUnit: InventoryUnit;
     notes?: string;
-    items: Array<{ inventoryItemId: string; quantity: number; unit: InventoryUnit; wastePercent?: number; sortOrder?: number }>;
+    items: Array<{ inventoryItemId: string; stage?: string; quantity: number; unit: InventoryUnit; wastePercent?: number; sortOrder?: number }>;
   }): Promise<ProductRecipe> {
     if (isDemoMode) throw new Error('A ficha técnica exige o modo conectado ao Supabase.');
     if (!Number.isFinite(input.yieldQuantity) || input.yieldQuantity <= 0) throw new Error('Informe um rendimento válido.');
@@ -323,7 +325,9 @@ export const inventoryApi = {
     }
     const rows = await restFetch<RecipeItemRow[]>('food_product_recipe_items?select=*', {
       method: 'POST', prefer: 'return=representation', body: input.items.map((item, index) => ({
-        store_id: input.storeId, recipe_id: recipe.id, inventory_item_id: item.inventoryItemId, quantity: item.quantity, unit: item.unit, waste_percent: item.wastePercent || 0, sort_order: item.sortOrder ?? index,
+        store_id: input.storeId, recipe_id: recipe.id, inventory_item_id: item.inventoryItemId,
+        stage: item.stage?.trim() || 'Geral', quantity: item.quantity, unit: item.unit,
+        waste_percent: item.wastePercent || 0, sort_order: item.sortOrder ?? index,
       })),
     });
     if (rows.length !== input.items.length) throw new Error('A ficha técnica foi salva, mas alguns insumos não puderam ser vinculados.');

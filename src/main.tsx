@@ -43,10 +43,12 @@ if (splash) {
   const startedAt = performance.now();
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const minimumVisibleMs = reducedMotion ? 180 : 520;
+  const splashImage = splash.querySelector<HTMLImageElement>('img');
+  let imageReady = !splashImage || splashImage.complete;
   let dismissed = false;
 
-  const dismissSplash = () => {
-    if (dismissed || !splash.isConnected) return;
+  const dismissSplash = (force = false) => {
+    if (dismissed || !splash.isConnected || (!imageReady && !force)) return;
     dismissed = true;
     const wait = Math.max(0, minimumVisibleMs - (performance.now() - startedAt));
     window.setTimeout(() => {
@@ -57,7 +59,11 @@ if (splash) {
   };
 
   // Aguarda a primeira pintura do React para evitar um flash vazio entre a arte e o app.
-  window.requestAnimationFrame(() => window.requestAnimationFrame(dismissSplash));
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => dismissSplash()));
+  if (splashImage && !imageReady) {
+    splashImage.addEventListener('load', () => { imageReady = true; dismissSplash(); }, { once: true });
+    splashImage.addEventListener('error', () => { imageReady = true; dismissSplash(); }, { once: true });
+  }
   // Fallback para redes lentas ou erros de carregamento de algum recurso externo.
-  window.setTimeout(dismissSplash, 2200);
+  window.setTimeout(() => dismissSplash(true), 2200);
 }

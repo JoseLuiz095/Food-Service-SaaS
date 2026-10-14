@@ -26,7 +26,11 @@ const v043=read('supabase/migrations/202609021600_foodweb_v043_storefront_sales_
 const v044=read('supabase/migrations/202609031500_foodweb_v044_security_contact.sql');
 const landing=read('src/pages/store/Landing.tsx');
 const mainSource=read('src/main.tsx');
+const indexHtml=read('index.html');
 const manifest=read('public/manifest.webmanifest');
+const inventoryPage=read('src/pages/admin/Inventory.tsx');
+const inventoryApi=read('src/services/inventoryApi.ts');
+const recipeStagesMigration=read('supabase/migrations/202610141000_foodweb_recipe_stages.sql');
 const analyticsPage=read('src/pages/admin/Analytics.tsx');
 const publicContact=read('supabase/functions/food-public-contact/index.ts');
 const adminLogin=read('src/pages/admin/Login.tsx');
@@ -94,6 +98,8 @@ check('Pedidos admin têm cards compactos no mobile',ordersAdmin.includes('order
 check('Confirmação financeira aparece em um único local', (ordersAdmin.match(/Confirmar recebimento/g)||[]).length===1&&ordersAdmin.includes('A confirmação fica na área Financeiro acima.'));
 check('Financeiro é o único local de recebimento pendente',!ordersAdmin.includes('orders-collection-section--active')&&ordersAdmin.includes('orders-payment-inbox')&&ordersAdmin.includes('Pedidos pendentes no Financeiro'));
 check('A receber permite editar e exibir QR Code PIX',ordersAdmin.includes('OrderDetailsModal')&&ordersAdmin.includes('setDetailsOrderId(order.id)')&&ordersAdmin.includes('Mostrar QR Code')&&ordersAdmin.includes('openPaymentPix(order)')&&ordersAdmin.includes('paymentPixView'));
+check('Calendário exclui pedidos encerrados',ordersAdmin.includes('!order.scheduledFor || isHistoryOrder(order)')&&ordersAdmin.includes('!isHistoryOrder(order) && order.scheduledFor'));
+check('Ficha técnica separa etapas e permite repetir insumo',inventoryPage.includes('stage: string')&&inventoryPage.includes('inventory-recipe-stage')&&inventoryApi.includes('stage: item.stage')&&recipeStagesMigration.includes('drop constraint if exists food_product_recipe_items_recipe_id_inventory_item_id_key'));
 check('Pedidos ativos ficam separados do histórico',ordersAdmin.includes('orders-collection-section--processing')&&ordersAdmin.includes('orders-history-panel')&&ordersAdmin.includes("historyStatuses = new Set<OrderStatus>"));
 check('Pedidos recebidos ficam em processamento até encerrar',ordersAdmin.includes('Recebidos · em processamento')&&ordersAdmin.includes("historyStatuses = new Set<OrderStatus>(['delivered', 'cancelled'])"));
 check('Entregue e cancelado são os últimos status',ordersAdmin.includes("{ value: 'delivered', label: 'Entregue' }")&&ordersAdmin.includes("{ value: 'cancelled', label: 'Cancelado' }"));
@@ -140,7 +146,7 @@ check('Suporte da plataforma é somente autenticado',v044.includes('food_get_adm
 check('Logins enviam captchaToken ao Supabase Auth',adminLogin.includes('action="login"')&&masterLogin.includes('action="login"')&&auth.includes('options: captchaToken ? { captchaToken }'));
 check('Landing usa contato protegido sem wa.me público',landing.includes('ProtectedContactButton')&&!landing.includes('wa.me/')&&!landing.includes('marketingWhatsapp'));
 check('v0.4.4 preserva namespace Food',!/alter table public\.(stores|products|orders|plans|platform_settings)\b/i.test(v044));
-check('Splash Screen usa a arte quadrada na abertura',mainSource.includes('foodweb-splash-screen')&&mainSource.includes('minimumVisibleMs')&&manifest.includes('/assets/marketing/app-splash-v2.png')&&styles.includes('#foodweb-splash-screen')&&styles.includes('prefers-reduced-motion'));
+check('Splash Screen usa a arte quadrada na abertura',mainSource.includes('foodweb-splash-screen')&&mainSource.includes('minimumVisibleMs')&&mainSource.includes('splashImage')&&indexHtml.includes('/manifest.webmanifest?v=20261014')&&indexHtml.includes('/assets/marketing/app-splash-v2.png?v=20261014')&&manifest.includes('/assets/marketing/app-splash-v2.png?v=20261014')&&serviceWorker.includes("foodweb-shell-v2")&&styles.includes('#foodweb-splash-screen')&&styles.includes('prefers-reduced-motion'));
 check('Landing mantém a prévia original do cardápio',landing.includes('/assets/marketing/storefront-preview.webp')&&!landing.includes('app-opening-hero.png'));
 check('Interações ficam restritas a Analytics e Financeiro',analyticsPage.includes('aria-pressed')&&financePage.includes('finance-chart-selection')&&!ordersAdmin.includes('analytics-chart'));
 
