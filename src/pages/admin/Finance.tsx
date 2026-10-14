@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, Camera, ChevronDown, FileSearch2, Loader2, Pencil, Plus, ReceiptText, Save, TrendingUp, Upload, WalletCards } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Camera, ChevronDown, FileSearch2, Loader2, Pencil, Plus, ReceiptText, Save, TrendingUp, Upload, WalletCards, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -38,6 +38,9 @@ export default function Finance(){
   const[documentItems,setDocumentItems]=useState<LocalFinancialReadResult['items']>([]);
   const[excludedItemIndexes,setExcludedItemIndexes]=useState<number[]>([]);
   const[editingEntryId,setEditingEntryId]=useState<string|null>(null);
+  const[quickExpenseOpen,setQuickExpenseOpen]=useState(false);
+  const[quickExpense,setQuickExpense]=useState(()=>({...emptyForm(settings.id,'expense'),description:'Despesa operacional'}));
+  const[quickExpenseSaving,setQuickExpenseSaving]=useState(false);
   const[selectedMonthKey,setSelectedMonthKey]=useState<string|null>(null);
   const[selectedExpenseCategory,setSelectedExpenseCategory]=useState<string|null>(null);
   const fileRef=useRef<HTMLInputElement|null>(null);
@@ -55,6 +58,7 @@ export default function Finance(){
 
   useEffect(()=>{
     setForm(emptyForm(settings.id));
+    setQuickExpense({...emptyForm(settings.id,'expense'),description:'Despesa operacional'});
     if(enabled)void reload();else setLoading(false);
   },[settings.id,enabled]);
 
@@ -106,6 +110,29 @@ export default function Finance(){
     setExcludedItemIndexes([]);
     setEditingEntryId(null);
     requestAnimationFrame(()=>document.getElementById('finance-entry-form')?.scrollIntoView({behavior:'smooth',block:'start'}));
+  };
+
+  const openQuickExpense=()=>{
+    setQuickExpense({...emptyForm(settings.id,'expense'),description:'Despesa operacional'});
+    setQuickExpenseOpen(true);
+    requestAnimationFrame(()=>document.getElementById('finance-quick-expense')?.scrollIntoView({behavior:'smooth',block:'nearest'}));
+  };
+
+  const submitQuickExpense=async(event:FormEvent)=>{
+    event.preventDefault();
+    if(!quickExpense.categoryId||!quickExpense.paymentMethod||!quickExpense.description.trim()||quickExpense.amount<=0){
+      showToast('Informe categoria, descrição, valor e forma de pagamento.','error');return;
+    }
+    setQuickExpenseSaving(true);
+    try{
+      await trackInteraction('financial_quick_expense_create',()=>financeApi.saveEntry({...quickExpense,source:'manual',categoryId:quickExpense.categoryId||undefined,paymentMethod:quickExpense.paymentMethod||undefined}),{storeId:settings.id});
+      showToast('Despesa operacional registrada.','success');
+      setQuickExpenseOpen(false);
+      setQuickExpense({...emptyForm(settings.id,'expense'),description:'Despesa operacional'});
+      await reload();
+    }catch(err){
+      showToast(err instanceof Error?err.message:'Falha ao registrar despesa operacional.','error');
+    }finally{setQuickExpenseSaving(false)}
   };
 
   const upload=async(file?:File)=>{
@@ -294,12 +321,25 @@ export default function Finance(){
     </section>
 
     <section className="finance-quick-actions">
+      <button type="button" className="finance-quick-expense-trigger" onClick={openQuickExpense}><span className="expense"><WalletCards/></span><strong>Despesa rápida</strong><small>Categoria, valor e pagamento em poucos campos</small></button>
       <button onClick={()=>startEntry('income')}><span className="income"><ArrowUpRight/></span><strong>Nova entrada</strong><small>Venda, recebimento ou outra receita</small></button>
       <button onClick={()=>startEntry('expense')}><span className="expense"><ArrowDownRight/></span><strong>Nova saída</strong><small>Compra, conta ou despesa operacional</small></button>
       <button type="button" onClick={()=>fileRef.current?.click()}><span className="document"><Upload/></span><strong>Abrir galeria</strong><small>Selecione foto ou PDF do cupom</small></button>
       <button type="button" onClick={()=>cameraRef.current?.click()}><span className="document"><Camera/></span><strong>Fotografar documento</strong><small>A câmera traseira abre para enquadrar o cupom</small></button>
       <input ref={cameraRef} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event)=>void upload(event.target.files?.[0])}/>
     </section>
+
+    {quickExpenseOpen&&<section className="finance-quick-expense" id="finance-quick-expense" aria-labelledby="finance-quick-expense-title">
+      <div className="finance-quick-expense__heading"><div><span className="eyebrow">LANÇAMENTO OPERACIONAL</span><h2 id="finance-quick-expense-title">Registrar despesa rápida</h2><p>Registre um gasto do dia sem abrir todos os campos do financeiro.</p></div><button type="button" className="icon-button" aria-label="Fechar despesa rápida" onClick={()=>setQuickExpenseOpen(false)}><X size={18}/></button></div>
+      <form className="finance-quick-expense__form" onSubmit={submitQuickExpense}>
+        <label>Descrição<input value={quickExpense.description} onChange={(event)=>setQuickExpense((current)=>({...current,description:event.target.value}))} placeholder="Ex.: Leite em pó" required/></label>
+        <label>Categoria<select value={quickExpense.categoryId} onChange={(event)=>setQuickExpense((current)=>({...current,categoryId:event.target.value}))} required><option value="">Selecione</option>{categories.filter((category)=>category.direction==='expense'||category.direction==='both').map((category)=><option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+        <label>Valor (R$)<input type="number" min="0.01" step="0.01" value={quickExpense.amount||''} onChange={(event)=>setQuickExpense((current)=>({...current,amount:Number(event.target.value)}))} placeholder="0,00" required/></label>
+        <label>Data<input type="date" value={quickExpense.occurredOn} onChange={(event)=>setQuickExpense((current)=>({...current,occurredOn:event.target.value}))} required/></label>
+        <label>Forma de pagamento<select value={quickExpense.paymentMethod} onChange={(event)=>setQuickExpense((current)=>({...current,paymentMethod:event.target.value}))} required><option value="">Selecione</option><option value="pix">PIX</option><option value="credit_card">Cartão de crédito</option><option value="debit_card">Cartão de débito</option><option value="cash">Dinheiro</option><option value="transfer">Transferência</option><option value="other">Outro</option></select></label>
+        <div className="finance-quick-expense__actions"><button type="button" className="secondary-button" onClick={()=>setQuickExpenseOpen(false)}>Cancelar</button><button type="submit" className="primary-button" disabled={quickExpenseSaving}><Save size={15}/>{quickExpenseSaving?'Salvando...':'Salvar despesa'}</button></div>
+      </form>
+    </section>}
 
     <section className="finance-workspace finance-workspace-v4" id="finance-entry-form">
       <form className="finance-entry-form finance-entry-form-v4" onSubmit={submit}>

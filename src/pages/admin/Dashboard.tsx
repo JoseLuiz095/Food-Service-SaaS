@@ -1,4 +1,4 @@
-import { ArrowUpRight, Boxes, CheckCircle2, Circle, Eye, PackageCheck, PackageX, Rocket, ShoppingBag, Tags } from 'lucide-react';
+import { ArrowUpRight, Boxes, CalendarDays, CheckCircle2, Circle, CircleDollarSign, Clock3, Eye, PackageCheck, PackageOpen, PackageX, Rocket, ShoppingBag, Tags } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
@@ -14,6 +14,15 @@ export default function Dashboard(){
   const inactive=products.length-active;
   const limit=planUsage.plan.productLimit;
   const usage=limit?Math.min(100,(active/limit)*100):0;
+  const pad=(value:number)=>String(value).padStart(2,'0');
+  const dateKey=(date:Date)=>`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`;
+  const todayKey=dateKey(new Date());
+  const activeOrder=(order:typeof orders[number])=>order.status!=='cancelled'&&order.status!=='delivered';
+  const newOrdersToday=orders.filter((order)=>activeOrder(order)&&dateKey(new Date(order.createdAt))===todayKey);
+  const processingOrders=orders.filter((order)=>activeOrder(order)&&order.paymentStatus==='paid');
+  const pendingPayments=orders.filter((order)=>activeOrder(order)&&order.paymentStatus!=='paid');
+  const scheduledToday=orders.filter((order)=>activeOrder(order)&&order.scheduledFor&&dateKey(new Date(order.scheduledFor))===todayKey);
+  const lowStockProducts=products.filter((product)=>{if(!product.trackStock)return false;const available=Math.max(0,Number(product.stockQuantity||0)-Number(product.stockReservedQuantity||0));return product.stockStatus==='low_stock'||available<=3;});
   const cards=[
     {label:'Produtos cadastrados',value:products.length,icon:Boxes},
     {label:'Produtos ativos',value:active,icon:PackageCheck},
@@ -28,6 +37,17 @@ export default function Dashboard(){
   return <>
     <div className="admin-page-title"><div><span className="eyebrow">VISÃO GERAL</span><h1>Painel do estabelecimento</h1><p>Acompanhe a operação e deixe o cardápio pronto para receber pedidos.</p></div><a className="secondary-button" href={`/${settings.slug}`} target="_blank" rel="noreferrer"><Eye size={17}/>Abrir loja <ArrowUpRight size={16}/></a></div>
     <div className="stat-grid">{cards.map(({label,value,icon:Icon})=><article className="stat-card" key={label}><div className="stat-icon"><Icon size={20}/></div><span>{label}</span><strong>{value}</strong></article>)}</div>
+
+    <section className="admin-card dashboard-today-card" aria-labelledby="dashboard-today-title">
+      <div className="dashboard-today-card__header"><div><span className="eyebrow">ACOMPANHAMENTO RÁPIDO</span><h2 id="dashboard-today-title">Hoje</h2><p>Uma leitura operacional para você decidir o próximo passo sem abrir várias telas.</p></div><span className="dashboard-today-card__date"><CalendarDays size={15}/>{new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'})}</span></div>
+      <div className="dashboard-today-grid">
+        <Link to="/admin/pedidos" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-orange"><ShoppingBag size={17}/></span><span><small>Pedidos novos</small><strong>{newOrdersToday.length}</strong><em>registrados hoje</em></span><ArrowUpRight size={15}/></Link>
+        <Link to="/admin/pedidos" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-green"><Clock3 size={17}/></span><span><small>Em processamento</small><strong>{processingOrders.length}</strong><em>recebidos e ativos</em></span><ArrowUpRight size={15}/></Link>
+        <Link to="/admin/pedidos" className={`dashboard-today-metric ${pendingPayments.length?'is-attention':''}`}><span className="dashboard-today-metric__icon is-yellow"><CircleDollarSign size={17}/></span><span><small>Pagamentos pendentes</small><strong>{pendingPayments.length}</strong><em>aguardando conferência</em></span><ArrowUpRight size={15}/></Link>
+        <Link to="/admin/pedidos" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-purple"><CalendarDays size={17}/></span><span><small>Agendados hoje</small><strong>{scheduledToday.length}</strong><em>encomendas programadas</em></span><ArrowUpRight size={15}/></Link>
+        <Link to="/admin/estoque" className={`dashboard-today-metric ${lowStockProducts.length?'is-attention':''}`}><span className="dashboard-today-metric__icon is-red"><PackageOpen size={17}/></span><span><small>Estoque baixo</small><strong>{lowStockProducts.length}</strong><em>{lowStockProducts.length?'itens para revisar':'tudo sob controle'}</em></span><ArrowUpRight size={15}/></Link>
+      </div>
+    </section>
 
     <section className={`admin-card store-readiness ${launchReady?'is-ready':''}`}><div className="store-readiness__heading"><div><span className="eyebrow">PRONTO PARA VENDER</span><h2>{launchReady?'Sua vitrine está operacional':'Finalize a configuração comercial'}</h2><p>{launchReady?'Os itens essenciais estão configurados. Faça um pedido de teste antes de divulgar o link.':'Conclua os pontos abaixo para evitar que um cliente chegue a uma vitrine incompleta.'}</p><Link to="/admin/primeiros-passos" className="text-link">Abrir roteiro de implantação →</Link></div><div className="store-readiness__score"><Rocket size={22}/><strong>{readinessPercent}%</strong><span>{readyCount}/{total} itens</span></div></div><div className="progress-track store-readiness__progress"><div style={{width:`${readinessPercent}%`}}/></div><div className="store-readiness-list">{readiness.map((item)=><Link to={item.to} key={item.key} className={item.ready?'is-done':''}>{item.ready?<CheckCircle2 size={19}/>:<Circle size={19}/>}<div><strong>{item.label}</strong><span>{item.ready?'Configurado':item.help}</span></div><ArrowUpRight size={16}/></Link>)}</div></section>
 
