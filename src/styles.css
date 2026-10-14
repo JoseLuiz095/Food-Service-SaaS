@@ -3673,6 +3673,7 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 .inventory-quantity-save:disabled{opacity:.45;cursor:not-allowed}
 .inventory-material-actions .inventory-quantity-editor{max-width:100%}
 .inventory-material-actions .inventory-quantity-editor .inventory-quantity-input{width:64px}
+.inventory-archived-toggle{min-height:38px;border:1px solid #ded9d2;border-radius:9px;padding:0 10px;background:#fff;color:var(--muted);font:inherit;font-size:.68rem;font-weight:800;cursor:pointer;white-space:nowrap}.inventory-archived-toggle:hover,.inventory-archived-toggle.is-active{border-color:#c89576;background:#fff5ee;color:#8f4c34}.inventory-danger-action{color:#a64239!important}.inventory-danger-action:hover{background:#fff0ee!important}.inventory-danger-button{color:#a64239;border-color:#e8c5bf}.inventory-archived-label{font-size:.68rem;font-weight:800;color:#8d8177;padding:0 5px}.inventory-helper-text{display:block;margin-top:7px;color:var(--muted);font-size:.68rem;line-height:1.4;font-weight:600}
 @media(max-width:760px){
   .inventory-material-actions .inventory-quantity-editor{flex:1;justify-content:space-between;max-width:none}
   .inventory-material-actions .inventory-quantity-editor .inventory-quantity-input{width:76px}

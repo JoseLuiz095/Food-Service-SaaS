@@ -48,6 +48,7 @@ const inventoryGuard=read('supabase/migrations/202610082000_foodweb_future_inven
 const manualOndemand=read('supabase/migrations/202610091200_foodweb_manual_ondemand_inventory.sql');
 const recipeConsumption=read('supabase/migrations/202610131200_foodweb_inventory_recipe_consumption.sql');
 const recipeGuard=read('supabase/migrations/202610131500_foodweb_inventory_recipe_guard_fix.sql');
+const inventoryArchiving=read('supabase/migrations/202610141800_foodweb_inventory_archiving.sql');
 const styles=read('src/styles.css');
 const demoSeed=read('supabase/seed/seed_demo.sql');
 
@@ -110,6 +111,9 @@ check('Consumo é proporcional ao rendimento e estorna correções',recipeConsum
 check('Reposição reprocessa consumo pendente sem recursão',recipeConsumption.includes('food_reconcile_recipe_orders_on_inventory_update')&&recipeGuard.includes('food_reconcile_order_recipe_consumption')&&!recipeGuard.includes("set_config('foodweb.recipe_reconcile'"));
 check('Estoque baixo tem limite e opção de alerta',recipeConsumption.includes('low_stock_alert_enabled')&&recipeConsumption.includes('food_list_low_stock_inventory')&&inventoryPage.includes('Avisar ao atingir o estoque mínimo'));
 check('Admin pode editar nome do insumo e ficha técnica',inventoryPage.includes('saveEditItem')&&inventoryPage.includes('saveRecipe')&&inventoryPage.includes('Editar'));
+check('Insumos usam arquivamento seguro e permitem novo cadastro duplicado',inventoryApi.includes('archiveItem')&&inventoryApi.includes('restoreItem')&&inventoryArchiving.includes('where active'));
+check('Ficha técnica permite remover automação sem apagar histórico',inventoryApi.includes('archiveRecipe')&&inventoryPage.includes('Remover automação'));
+check('Lançamentos financeiros continuam editáveis e detalhados',financePage.includes('editEntry')&&financePage.includes('finance-entry-action')&&financePage.includes('finance-entry-details'));
 check('Alerta de estoque baixo usa notificação PWA com deduplicação',inventoryPage.includes('showPwaNotification')&&inventoryPage.includes('low-stock-alert')&&adminNotifications.includes('inventoryApi.listLowStock'));
 check('Vitrine tem entrada suave com toque reduzido',styles.includes('.food-storefront-theme .store-route-view')&&styles.includes('food-route-enter')&&styles.includes('prefers-reduced-motion'));
 check('Food Master lê apenas food_*',platformApi.includes('food_stores?')&&platformApi.includes('food_plans?')&&!platformApi.includes("'stores?"));
