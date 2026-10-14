@@ -20,6 +20,7 @@ const v040=read('supabase/migrations/202609020800_foodweb_v040_manual_pix_financ
 const config=read('supabase/config.toml');
 const localReader=read('src/utils/localFinancialDocumentReader.ts');
 const financePage=read('src/pages/admin/Finance.tsx');
+const dashboardPage=read('src/pages/admin/Dashboard.tsx');
 const planPage=read('src/pages/admin/Plan.tsx');
 const masterPlans=read('src/pages/master/Plans.tsx');
 const v043=read('supabase/migrations/202609021600_foodweb_v043_storefront_sales_whatsapp.sql');
@@ -150,6 +151,9 @@ check('Splash Screen usa a nova arte também como ícone',mainSource.includes('f
 check('Nenhuma referência ao ícone FoodWeb antigo permanece nos fallbacks',!indexHtml.includes('favicon-foodweb-v054.svg')&&!serviceWorker.includes('/assets/food-logo.svg')&&!read('src/services/pwaNotifications.ts').includes('/assets/food-logo.svg')&&!read('src/services/storeApi.ts').includes('/assets/food-logo.svg')&&!read('src/services/landingApi.ts').includes('/assets/food-logo.svg')&&!read('src/data/seed.ts').includes('/assets/food-logo.svg')&&!read('src/pages/store/Landing.tsx').includes('favicon-foodweb-v046.svg')&&!demoSeed.includes('/assets/food-logo.svg'));
 check('Landing mantém a prévia original do cardápio',landing.includes('/assets/marketing/storefront-preview.webp')&&!landing.includes('app-opening-hero.png'));
 check('Interações ficam restritas a Analytics e Financeiro',analyticsPage.includes('aria-pressed')&&financePage.includes('finance-chart-selection')&&!ordersAdmin.includes('analytics-chart'));
+check('Financeiro permite registrar despesa operacional rápida',financePage.includes('finance-quick-expense')&&financePage.includes('submitQuickExpense')&&financePage.includes('financial_quick_expense_create')&&financePage.includes('Forma de pagamento'));
+check('Painel mostra resumo operacional do dia',dashboardPage.includes('dashboard-today-card')&&dashboardPage.includes('Pedidos novos')&&dashboardPage.includes('Pagamentos pendentes')&&dashboardPage.includes('Agendados hoje')&&dashboardPage.includes('/admin/estoque'));
+check('Estoque permite entrada de compras em lote com validação',inventoryPage.includes('Entrada em lote')&&inventoryPage.includes('saveBatchPurchase')&&inventoryPage.includes('line.quantity <= 0')&&inventoryPage.includes('unitCost: line.totalCost / line.quantity'));
 
 for(const[name,condition]of checks)console.log(`${condition?'OK  ':'FAIL'} ${name}`);
 if(failures.length){
