@@ -36,7 +36,7 @@ insert into public.food_stores(
 ) values(
   '00000000-0000-4000-8000-000000000001','central-food-demo','Central Food',
   'Hambúrgueres, porções, bebidas e sobremesas com pedido online rápido.',
-  '/assets/food-logo.svg','/assets/food-hero.svg','5527999999999','@centralfood',
+  '/assets/marketing/app-splash-v2.png?v=20261015','/assets/food-hero.svg','5527999999999','@centralfood',
   'Av. Demo, 100 - Centro','Linhares','ES','29900-000',true,true,true,'key','E-mail','demo@foodservice.local','Central Food',
   true,false,true,true,'["pix","card","cash","confirm"]'::jsonb,20,
   '{"display":"Seg 18:00–23:00 · Ter 18:00–23:00 · Qua 18:00–23:00 · Qui 18:00–23:30 · Sex 18:00–00:30 · Sáb 18:00–00:30 · Dom 18:00–23:00","timezone":"America/Sao_Paulo","days":[{"day":0,"enabled":true,"open":"18:00","close":"23:00"},{"day":1,"enabled":true,"open":"18:00","close":"23:00"},{"day":2,"enabled":true,"open":"18:00","close":"23:00"},{"day":3,"enabled":false,"open":"18:00","close":"23:00"},{"day":4,"enabled":true,"open":"18:00","close":"23:30"},{"day":5,"enabled":true,"open":"18:00","close":"00:30"},{"day":6,"enabled":true,"open":"18:00","close":"00:30"}]}'::jsonb,
