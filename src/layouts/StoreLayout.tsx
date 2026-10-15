@@ -7,6 +7,7 @@ import { currency } from '../utils/format';
 import { storefrontPath } from '../utils/storefrontRoute';
 import { isFoodWebMarketingRoot } from '../lib/config';
 import { getStorefrontThemeStyle } from '../utils/storeVisualTheme';
+import { StorePlatformFooter } from '../components/StorePlatformFooter';
 
 export default function StoreLayout(){
   const location=useLocation();
@@ -36,5 +37,5 @@ export default function StoreLayout(){
   const hideDock=path.includes('/carrinho')||path.includes('/finalizar')||path.includes('/pedido/');
   const showDock=totalItems>0&&!hideDock;
 
-  return <main className={`store-layout food-storefront-theme ${showDock?'has-mobile-cart-dock':''}`} style={storefrontThemeStyle}><div key={location.pathname} className="store-route-view"><Outlet/></div>{showDock&&<a className="mobile-cart-dock" href={storefrontPath(storeBasePath,'/carrinho')} aria-label={`Abrir carrinho com ${totalItems} item(ns)`}><span className="mobile-cart-dock__icon"><ShoppingBag size={19}/><b>{totalItems}</b></span><span className="mobile-cart-dock__copy"><small>Seu carrinho</small><strong>{currency.format(subtotal)}</strong></span><span className="mobile-cart-dock__action">Ver carrinho <ArrowRight size={17}/></span></a>}</main>;
+  return <main className={`store-layout food-storefront-theme ${showDock?'has-mobile-cart-dock':''}`} style={storefrontThemeStyle}><div key={location.pathname} className="store-route-view"><Outlet/></div><StorePlatformFooter/>{showDock&&<a className="mobile-cart-dock" href={storefrontPath(storeBasePath,'/carrinho')} aria-label={`Abrir carrinho com ${totalItems} item(ns)`}><span className="mobile-cart-dock__icon"><ShoppingBag size={19}/><b>{totalItems}</b></span><span className="mobile-cart-dock__copy"><small>Seu carrinho</small><strong>{currency.format(subtotal)}</strong></span><span className="mobile-cart-dock__action">Ver carrinho <ArrowRight size={17}/></span></a>}</main>;
 }
