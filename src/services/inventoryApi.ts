@@ -229,12 +229,13 @@ export const inventoryApi = {
     }));
   },
 
-  async updateItem(storeId: string, itemId: string, input: { name?: string; reorderPoint?: number; lowStockAlertEnabled?: boolean }): Promise<InventoryItem> {
+  async updateItem(storeId: string, itemId: string, input: { name?: string; reorderPoint?: number; lowStockAlertEnabled?: boolean; active?: boolean }): Promise<InventoryItem> {
     if (isDemoMode) throw new Error('A edição de insumos exige o modo conectado ao Supabase.');
     const body: Record<string, unknown> = {};
     if (input.name !== undefined) body.name = input.name.trim();
     if (input.reorderPoint !== undefined) body.reorder_point = Math.max(0, input.reorderPoint);
     if (input.lowStockAlertEnabled !== undefined) body.low_stock_alert_enabled = input.lowStockAlertEnabled;
+    if (input.active !== undefined) body.active = input.active;
     if (input.name !== undefined && !String(input.name).trim()) throw new Error('Informe o nome do insumo.');
     const rows = await restFetch<InventoryItemRow[]>(`food_inventory_items?select=*&id=eq.${encodeURIComponent(itemId)}&store_id=eq.${encodeURIComponent(storeId)}`, {
       method: 'PATCH',
@@ -243,6 +244,15 @@ export const inventoryApi = {
     });
     if (!rows[0]) throw new Error('O insumo não foi encontrado ou não pôde ser atualizado.');
     return mapItem(rows[0]);
+  },
+
+  /** Arquiva o cadastro sem apagar movimentos, compras ou fichas técnicas históricas. */
+  async archiveItem(storeId: string, itemId: string): Promise<InventoryItem> {
+    return this.updateItem(storeId, itemId, { active: false });
+  },
+
+  async restoreItem(storeId: string, itemId: string): Promise<InventoryItem> {
+    return this.updateItem(storeId, itemId, { active: true });
   },
 
   async createItem(input: { storeId: string; name: string; itemType: InventoryItemType; unit: InventoryUnit; reorderPoint: number; currentQuantity?: number; averageUnitCost?: number }): Promise<InventoryItem> {
@@ -281,8 +291,20 @@ export const inventoryApi = {
 
   async listRecipes(storeId: string): Promise<ProductRecipe[]> {
     if (isDemoMode) return [];
-    const rows = await restFetch<RecipeRow[]>(`food_product_recipes?select=*&store_id=eq.${encodeURIComponent(storeId)}&order=product_id.asc`);
+    const rows = await restFetch<RecipeRow[]>(`food_product_recipes?select=*&store_id=eq.${encodeURIComponent(storeId)}&active=eq.true&order=product_id.asc`);
     return rows.map(mapRecipe);
+  },
+
+  /** Arquiva a ficha sem apagar os movimentos de consumo já registrados. */
+  async archiveRecipe(storeId: string, productId: string): Promise<ProductRecipe> {
+    if (isDemoMode) throw new Error('A ficha técnica exige o modo conectado ao Supabase.');
+    const rows = await restFetch<RecipeRow[]>(`food_product_recipes?select=*&store_id=eq.${encodeURIComponent(storeId)}&product_id=eq.${encodeURIComponent(productId)}`, {
+      method: 'PATCH',
+      body: { active: false },
+      prefer: 'return=representation',
+    });
+    if (!rows[0]) throw new Error('A automação não foi encontrada.');
+    return mapRecipe(rows[0]);
   },
 
   async listRecipeItems(storeId: string, recipeId: string): Promise<ProductRecipeItem[]> {
