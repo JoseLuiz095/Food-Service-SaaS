@@ -42,12 +42,12 @@ export function StorePlatformFooter() {
           <strong>Que tal ter uma loja assim?</strong>
           <p>Venha conhecer o FoodWeb e crie sua própria vitrine agora.{trialMessage}</p>
         </div>
-        <a className="store-platform-footer__action" href="/cadastro?plan=DEMO">
-          Criar minha loja <ArrowRight size={16} />
+        <a className="store-platform-footer__action" href="https://foodweb.joseluizacama.workers.dev/">
+          Quero me cadastrar <ArrowRight size={16} />
         </a>
       </div>
       <div className="store-platform-footer__base container">
-        <span>Feito com FoodWeb</span>
+        <a href="https://portifolio-jl095.netlify.app/" target="_blank" rel="noopener noreferrer">Feito por Joseluiz095</a>
         <a href="/admin/login">Área do estabelecimento</a>
       </div>
     </footer>
