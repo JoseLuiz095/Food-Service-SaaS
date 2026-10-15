@@ -47,7 +47,7 @@ export function StorePlatformFooter() {
         </a>
       </div>
       <div className="store-platform-footer__base container">
-        <span>Feito com FoodWeb</span>
+        <a href="https://portifolio-jl095.netlify.app/" target="_blank" rel="noopener noreferrer">Feito por Joseluiz095</a>
         <a href="/admin/login">Área do estabelecimento</a>
       </div>
     </footer>
