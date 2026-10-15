@@ -4,12 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://challenges.cloudflare.com" />
+    <link rel="dns-prefetch" href="https://challenges.cloudflare.com" />
+    <link rel="preconnect" href="https://elttryavkeartoxgdgse.supabase.co" crossorigin />
+    <link rel="dns-prefetch" href="https://elttryavkeartoxgdgse.supabase.co" />
     <meta name="theme-color" content="#123d28" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="manifest" href="/manifest.webmanifest?v=20261015" />
-    <link rel="preload" as="image" href="/assets/marketing/app-splash-v2.png?v=20261015" type="image/png" fetchpriority="high" />
+    <link rel="preload" as="image" href="/assets/marketing/app-splash-v2.webp?v=20261015" type="image/webp" fetchpriority="high" />
     <link rel="apple-touch-icon" href="/assets/marketing/app-splash-v2.png?v=20261015" />
     <link rel="icon" type="image/png" sizes="1024x1024" href="/assets/marketing/app-splash-v2.png?v=20261015" />
     <meta name="description" content="Food Service SaaS — cardápio online, delivery, retirada e pedidos centralizados." />
@@ -17,7 +20,10 @@
   </head>
   <body>
     <div id="foodweb-splash-screen" role="status" aria-label="Splash Screen FoodWeb">
-      <img src="/assets/marketing/app-splash-v2.png?v=20261015" alt="" width="184" height="184" loading="eager" decoding="sync" fetchpriority="high" />
+      <picture>
+        <source srcset="/assets/marketing/app-splash-v2.webp?v=20261015" type="image/webp" />
+        <img src="/assets/marketing/app-splash-v2.png?v=20261015" alt="" width="184" height="184" loading="eager" decoding="sync" fetchpriority="high" />
+      </picture>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

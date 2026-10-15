@@ -4,11 +4,16 @@ import {
   Circle,
   ClipboardCheck,
   Copy,
+  Download,
   ExternalLink,
+  QrCode,
   Rocket,
   Send,
+  Share2,
   ShoppingBag,
 } from 'lucide-react';
+import QRCode from 'qrcode';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { useStore } from '../../contexts/StoreContext';
@@ -19,13 +24,31 @@ import { getStoreReadiness } from '../../utils/storeReadiness';
 export default function Onboarding() {
   const { settings, categories, products, deliveryZones, orders, loading, error, reloadAdmin } = useStore();
   const { showToast } = useToast();
+  const [storeQrCode, setStoreQrCode] = useState('');
+  const [storeQrCodeError, setStoreQrCodeError] = useState('');
+  const publicPath = `/${settings.slug}`;
+  const publicUrl = typeof window !== 'undefined' ? new URL(publicPath, window.location.origin).toString() : publicPath;
+
+  useEffect(() => {
+    let cancelled = false;
+    setStoreQrCode('');
+    setStoreQrCodeError('');
+    void QRCode.toDataURL(publicUrl, { errorCorrectionLevel: 'M', margin: 2, width: 320 })
+      .then((dataUrl) => {
+        if (!cancelled) setStoreQrCode(dataUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setStoreQrCodeError('Não foi possível gerar o QR Code neste aparelho. O link continua disponível para copiar.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [publicUrl]);
 
   if (loading) return <LoadingState label="Preparando primeiros passos..." />;
   if (error) return <ErrorState message={error} onRetry={() => void reloadAdmin()} />;
 
   const readiness = getStoreReadiness(settings, categories, products, deliveryZones);
-  const publicPath = `/${settings.slug}`;
-  const publicUrl = new URL(publicPath, window.location.origin).toString();
   const hasOrderFlow = orders.length > 0;
 
   const copyStoreUrl = async () => {
@@ -34,6 +57,20 @@ export default function Onboarding() {
       showToast('Link da loja copiado.', 'success');
     } catch {
       showToast('Não foi possível copiar o link.', 'error');
+    }
+  };
+
+  const shareStore = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: settings.name, text: `Acesse a loja ${settings.name} e faça seu pedido.`, url: publicUrl });
+        return;
+      }
+      await copyText(publicUrl);
+      showToast('Link da loja copiado.', 'success');
+    } catch (shareError) {
+      if (shareError instanceof DOMException && shareError.name === 'AbortError') return;
+      showToast('Não foi possível compartilhar o link.', 'error');
     }
   };
 
@@ -95,7 +132,17 @@ export default function Onboarding() {
             ? 'Configuração e fluxo de pedido já possuem evidências mínimas. Você pode começar a divulgar o catálogo.'
             : 'Recomendamos divulgar somente depois de concluir a configuração e testar um pedido do início ao fim.'}</p>
           <div className="onboarding-url"><span>Endereço público</span><code>{publicUrl}</code></div>
-          <button type="button" className="secondary-button full-button" onClick={() => void copyStoreUrl()}><Copy size={17}/>Copiar endereço</button>
+          <div className="onboarding-store-qr">
+            <div className="onboarding-store-qr__visual">
+              {storeQrCode ? <img src={storeQrCode} alt={`QR Code para abrir a loja ${settings.name}`} /> : <span className="onboarding-store-qr__loading"><QrCode size={28}/>{storeQrCodeError ? 'QR Code indisponível' : 'Gerando QR Code…'}</span>}
+            </div>
+            <div className="onboarding-store-qr__copy"><strong>QR Code da loja</strong><span>O cliente escaneia, abre a vitrine e monta o próprio pedido.</span>{storeQrCodeError && <small>{storeQrCodeError}</small>}</div>
+          </div>
+          <div className="onboarding-share-actions">
+            <button type="button" className="secondary-button" onClick={() => void shareStore()}><Share2 size={17}/>Compartilhar loja</button>
+            {storeQrCode ? <a className="secondary-button" href={storeQrCode} download={`${settings.slug || 'loja'}-qr-code.png`}><Download size={17}/>Baixar QR Code</a> : <button type="button" className="secondary-button" onClick={() => void copyStoreUrl()}><Copy size={17}/>Copiar endereço</button>}
+          </div>
+          <small className="onboarding-nfc-note">Para pagamento PIX por aproximação, é necessário um provedor ou terminal compatível com NFC. Este QR Code já agiliza o acesso à loja sem exigir esse equipamento.</small>
         </section>
       </aside>
     </div>

@@ -9,6 +9,8 @@ type PwaNotificationOptions = {
 export type CustomerOrderNotificationStatus = 'unsupported' | 'blocked' | 'prompt' | 'enabled';
 
 const CUSTOMER_ORDER_NOTIFICATION_PREFIX = 'foodweb_customer_order_notification_v1_';
+const recentNotificationAt = new Map<string, number>();
+const NOTIFICATION_DEDUP_WINDOW_MS = 3_000;
 
 const canNotify = () => typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
 
@@ -114,11 +116,24 @@ export const subscribeToPwaPush = async (storeId?: string, userId?: string): Pro
 /** Usa o service worker para seguir o padrão de notificações do PWA instalado. */
 export const showPwaNotification = async (title: string, body: string, options: PwaNotificationOptions = {}): Promise<void> => {
   if (!canNotify()) return;
-  const notificationOptions: NotificationOptions & { data?: { url: string } } = {
+  const tag = options.tag || title;
+  const now = Date.now();
+  const previous = recentNotificationAt.get(tag) || 0;
+  // Realtime, polling e retry podem entregar o mesmo evento quase juntos.
+  // O tag do navegador já substitui avisos antigos; este mapa evita sequer
+  // abrir duas notificações durante a mesma janela de reconexão.
+  if (now - previous < NOTIFICATION_DEDUP_WINDOW_MS) return;
+  recentNotificationAt.set(tag, now);
+  if (recentNotificationAt.size > 200) {
+    const cutoff = now - NOTIFICATION_DEDUP_WINDOW_MS;
+    for (const [key, timestamp] of recentNotificationAt) if (timestamp < cutoff) recentNotificationAt.delete(key);
+  }
+  const notificationOptions: NotificationOptions & { data?: { url: string }; renotify?: boolean } = {
     body,
     icon: '/assets/marketing/app-splash-v2.png?v=20261015',
     badge: '/assets/marketing/app-splash-v2.png?v=20261015',
-    tag: options.tag || title,
+    tag,
+    renotify: false,
     data: { url: options.url || '/admin/pedidos' },
   };
 
