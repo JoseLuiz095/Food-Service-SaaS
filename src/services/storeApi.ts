@@ -10,6 +10,7 @@ import { formatOpeningSchedule, normalizeOpeningSchedule } from '../utils/storeH
 import { createId } from '../utils/id';
 import { normalizeCustomerMessageTemplates } from '../utils/customerSales';
 import { normalizeStoreVisualTheme } from '../utils/storeVisualTheme';
+import { optimizeImageForUpload } from '../utils/imageUpload';
 
 export class StorefrontUnavailableError extends Error {
   storeName: string;
@@ -105,6 +106,43 @@ const toNumber = (value: number | string | null | undefined) => value == null ? 
 const encode = (value: string) => encodeURIComponent(value);
 const inFilter = (ids: string[]) => `in.(${ids.join(',')})`;
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+// A vitrine pública é lida por várias telas durante a navegação. Um cache curto
+// evita repetir o mesmo conjunto de consultas e o mapa de requisições em voo
+// impede duplicidade quando mais de um componente monta ao mesmo tempo.
+const PUBLIC_SNAPSHOT_CACHE_TTL_MS = 15_000;
+const publicSnapshotCache = new Map<string, { snapshot: StoreSnapshot; cachedAt: number }>();
+const publicSnapshotRequests = new Map<string, Promise<StoreSnapshot>>();
+
+const isSchemaProjectionError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  return /schema cache|column .* does not exist|could not find the .* column/i.test(message);
+};
+
+/** Mantém compatibilidade com instalações que ainda estão aplicando migrations.
+ * Em um schema atualizado a consulta enxuta é usada; se uma coluna opcional
+ * ainda não estiver no cache do PostgREST, volta apenas aquela consulta para *.
+ */
+const restFetchProjected = async <T>(table: string, select: string, suffix: string): Promise<T[]> => {
+  try {
+    return await restFetch<T[]>(`${table}?select=${select}${suffix}`);
+  } catch (error) {
+    if (select === '*' || !isSchemaProjectionError(error)) throw error;
+    return restFetch<T[]>(`${table}?select=*${suffix}`);
+  }
+};
+
+const PUBLIC_STORE_SELECT = 'id,slug,name,description,logo_url,logo_storage_path,cover_url,cover_storage_path,whatsapp,instagram,address,city,state,zip_code,delivery_enabled,pickup_enabled,show_whatsapp,pix_enabled,pix_receipt_mode,pix_key_type,pix_key,pix_copy_paste,pix_holder_name,show_pix_before_confirmation,confirmation_payment_enabled,card_payment_enabled,cash_payment_enabled,payment_method_order,minimum_order,opening_hours,active,access_status,average_preparation_min,average_preparation_max,allow_scheduled_orders,kds_enabled,kds_notify_customer,notifications_new_order_enabled,notifications_scheduled_enabled,notifications_scheduled_lead_minutes,notifications_desktop_enabled,notifications_sound_enabled,sales_recovery_enabled,sales_recovery_minutes,sales_recovery_window_hours,crm_enabled,crm_come_back_days,repeat_order_enabled,repeat_order_max_age_days,upsell_enabled,upsell_limit,customer_message_templates,billing_document,billing_phone,visual_theme,storefront_notice,pickup_instructions,hide_public_address';
+const PUBLIC_CATEGORY_SELECT = 'id,store_id,name,slug,description,active,sort_order';
+const PUBLIC_PRODUCT_SELECT = 'id,store_id,category_id,name,slug,description,price,promotional_price,active,featured,made_to_order,production_days,stock_status,internal_code,visual_emoji,availability_status,track_stock,stock_quantity,stock_reserved_quantity,preparation_time_minutes,sort_order';
+const PUBLIC_IMAGE_SELECT = 'id,product_id,url,storage_path,alt_text,sort_order,is_primary';
+const PUBLIC_ADDON_SELECT = 'id,store_id,name,description,price,active,image_url,image_storage_path';
+const PUBLIC_OPTION_GROUP_SELECT = 'id,store_id,name,description,kind,min_choices,max_choices,active,sort_order';
+const PUBLIC_OPTION_ITEM_SELECT = 'id,group_id,store_id,name,description,price_delta,active,sort_order';
+const PUBLIC_OPTION_LINK_SELECT = 'store_id,product_id,option_group_id,sort_order';
+const PUBLIC_VARIANT_SELECT = 'id,product_id,name,price_delta,active,sort_order';
+const PUBLIC_PRODUCT_ADDON_SELECT = 'product_id,addon_id';
+const PUBLIC_ZONE_SELECT = 'id,store_id,name,aliases,city,state,fee,active,sort_order';
 // datetime-local não carrega fuso horário. Serializar no navegador evita que
 // um agendamento à meia-noite local seja interpretado como o dia anterior
 // pelo Postgres e acabe acionando a validação de estoque imediato.
@@ -299,31 +337,31 @@ const loadPublicSnapshotFromRpc = async (slug: string, hostname: string): Promis
 const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promise<StoreSnapshot> => {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(slugOrId);
   const storeFilter = isUuid ? `id=eq.${encode(slugOrId)}` : `slug=eq.${encode(slugOrId)}`;
-  const stores = await restFetch<StoreRow[]>(`food_stores?select=*&${storeFilter}&limit=1`);
+  const stores = await restFetchProjected<StoreRow>('food_stores', admin ? '*' : PUBLIC_STORE_SELECT, `&${storeFilter}&limit=1`);
   if (!stores.length) throw new Error('Loja não encontrada ou sem permissão.');
   const settings = mapStore(stores[0]);
-  const categoryRows = await restFetch<CategoryRow[]>(`food_categories?select=*&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=sort_order.asc,name.asc`);
-  const productRows = await restFetch<ProductRow[]>(`food_products?select=*&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=featured.desc,sort_order.asc,name.asc`);
-  const deliveryZoneRows = await restFetch<DeliveryZoneRow[]>(`food_delivery_zones?select=*&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=sort_order.asc,name.asc`);
-  const addonRows = await restFetch<AddonRow[]>(`food_addons?select=*&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=name.asc`).catch(() => [] as AddonRow[]);
+  const categoryRows = await restFetchProjected<CategoryRow>('food_categories', admin ? '*' : PUBLIC_CATEGORY_SELECT, `&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=sort_order.asc,name.asc`);
+  const productRows = await restFetchProjected<ProductRow>('food_products', admin ? '*' : PUBLIC_PRODUCT_SELECT, `&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=featured.desc,sort_order.asc,name.asc`);
+  const deliveryZoneRows = await restFetchProjected<DeliveryZoneRow>('food_delivery_zones', admin ? '*' : PUBLIC_ZONE_SELECT, `&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=sort_order.asc,name.asc`);
+  const addonRows = await restFetchProjected<AddonRow>('food_addons', admin ? '*' : PUBLIC_ADDON_SELECT, `&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=name.asc`).catch(() => [] as AddonRow[]);
   const productIds = productRows.map((product) => product.id);
 
   let imageRows: ProductImageRow[] = [], optionGroupRows: OptionGroupRow[] = [], optionItemRows: OptionItemRow[] = [], optionLinks: ProductOptionGroupRow[] = [];
   let variantRows: ProductVariantRow[] = [], addonLinks: ProductAddonRow[] = [];
   if (productIds.length) {
-    imageRows = await restFetch<ProductImageRow[]>(`food_product_images?select=*&product_id=${encode(inFilter(productIds))}&order=sort_order.asc`);
+    imageRows = await restFetchProjected<ProductImageRow>('food_product_images', admin ? '*' : PUBLIC_IMAGE_SELECT, `&product_id=${encode(inFilter(productIds))}&order=sort_order.asc`);
     try {
-      optionLinks = await restFetch<ProductOptionGroupRow[]>(`food_product_option_groups?select=*&product_id=${encode(inFilter(productIds))}&order=sort_order.asc`);
+      optionLinks = await restFetchProjected<ProductOptionGroupRow>('food_product_option_groups', admin ? '*' : PUBLIC_OPTION_LINK_SELECT, `&product_id=${encode(inFilter(productIds))}&order=sort_order.asc`);
       const groupIds = [...new Set(optionLinks.map((link) => link.option_group_id))];
       if (groupIds.length) {
-        optionGroupRows = await restFetch<OptionGroupRow[]>(`food_option_groups?select=*&id=${encode(inFilter(groupIds))}${admin ? '' : '&active=eq.true'}&order=sort_order.asc`);
-        optionItemRows = await restFetch<OptionItemRow[]>(`food_option_items?select=*&group_id=${encode(inFilter(groupIds))}${admin ? '' : '&active=eq.true'}&order=sort_order.asc`);
+        optionGroupRows = await restFetchProjected<OptionGroupRow>('food_option_groups', admin ? '*' : PUBLIC_OPTION_GROUP_SELECT, `&id=${encode(inFilter(groupIds))}${admin ? '' : '&active=eq.true'}&order=sort_order.asc`);
+        optionItemRows = await restFetchProjected<OptionItemRow>('food_option_items', admin ? '*' : PUBLIC_OPTION_ITEM_SELECT, `&group_id=${encode(inFilter(groupIds))}${admin ? '' : '&active=eq.true'}&order=sort_order.asc`);
       }
     } catch { optionGroupRows = []; optionItemRows = []; optionLinks = []; }
     try {
       [variantRows, addonLinks] = await Promise.all([
-        restFetch<ProductVariantRow[]>(`food_product_variants?select=*&product_id=${encode(inFilter(productIds))}${admin ? '' : '&active=eq.true'}&order=sort_order.asc`),
-        restFetch<ProductAddonRow[]>(`food_product_addons?select=*&product_id=${encode(inFilter(productIds))}`),
+        restFetchProjected<ProductVariantRow>('food_product_variants', admin ? '*' : PUBLIC_VARIANT_SELECT, `&product_id=${encode(inFilter(productIds))}${admin ? '' : '&active=eq.true'}&order=sort_order.asc`),
+        restFetchProjected<ProductAddonRow>('food_product_addons', admin ? '*' : PUBLIC_PRODUCT_ADDON_SELECT, `&product_id=${encode(inFilter(productIds))}`),
       ]);
     } catch { variantRows = []; addonLinks = []; }
   }
@@ -360,23 +398,39 @@ export const storeApi = {
     if (!isDemoMode) {
       const requestedSlug = slug || appConfig.defaultStoreSlug;
       const publicHostname = hostname && !['localhost','127.0.0.1'].includes(hostname) ? hostname.toLowerCase() : '';
-      try { return await loadPublicSnapshotFromRpc(requestedSlug, publicHostname); }
-      catch (error) {
-        if (error instanceof StorefrontUnavailableError) throw error;
-        // Último fallback para instalações sem os RPCs consolidados.
-        try {
-          const status = await restFetch<StorefrontStatus>('rpc/food_resolve_storefront_status', { method:'POST', body:{ p_slug:requestedSlug || null, p_hostname:publicHostname || null } });
-          if (!status?.found || !status.id) throw new Error('Loja não encontrada.');
-          if (status.status !== 'online') throw new StorefrontUnavailableError(status.name || 'Loja');
-          return loadSnapshotFromSupabase(status.id, false);
-        } catch (fallbackError) {
-          if (fallbackError instanceof StorefrontUnavailableError) throw fallbackError;
-          let reference = slug || '';
-          if (!reference && publicHostname) {
-            try { const domains = await restFetch<StoreDomainRow[]>(`food_store_domains?select=store_id,domain,active,is_primary&domain=eq.${encode(publicHostname)}&active=eq.true&limit=1`); reference = domains[0]?.store_id || ''; } catch { /* fallback */ }
+      const cacheKey = `${requestedSlug}::${publicHostname}`;
+      const cached = publicSnapshotCache.get(cacheKey);
+      if (cached && Date.now() - cached.cachedAt < PUBLIC_SNAPSHOT_CACHE_TTL_MS) return clone(cached.snapshot);
+      const inFlight = publicSnapshotRequests.get(cacheKey);
+      if (inFlight) return clone(await inFlight);
+
+      const request = (async () => {
+        try { return await loadPublicSnapshotFromRpc(requestedSlug, publicHostname); }
+        catch (error) {
+          if (error instanceof StorefrontUnavailableError) throw error;
+          // Último fallback para instalações sem os RPCs consolidados.
+          try {
+            const status = await restFetch<StorefrontStatus>('rpc/food_resolve_storefront_status', { method:'POST', body:{ p_slug:requestedSlug || null, p_hostname:publicHostname || null } });
+            if (!status?.found || !status.id) throw new Error('Loja não encontrada.');
+            if (status.status !== 'online') throw new StorefrontUnavailableError(status.name || 'Loja');
+            return loadSnapshotFromSupabase(status.id, false);
+          } catch (fallbackError) {
+            if (fallbackError instanceof StorefrontUnavailableError) throw fallbackError;
+            let reference = slug || '';
+            if (!reference && publicHostname) {
+              try { const domains = await restFetch<StoreDomainRow[]>(`food_store_domains?select=store_id,domain,active,is_primary&domain=eq.${encode(publicHostname)}&active=eq.true&limit=1`); reference = domains[0]?.store_id || ''; } catch { /* fallback */ }
+            }
+            return loadSnapshotFromSupabase(reference || appConfig.defaultStoreSlug, false);
           }
-          return loadSnapshotFromSupabase(reference || appConfig.defaultStoreSlug, false);
         }
+      })();
+      publicSnapshotRequests.set(cacheKey, request);
+      try {
+        const snapshot = await request;
+        publicSnapshotCache.set(cacheKey, { snapshot, cachedAt: Date.now() });
+        return clone(snapshot);
+      } finally {
+        if (publicSnapshotRequests.get(cacheKey) === request) publicSnapshotRequests.delete(cacheKey);
       }
     }
     const db = readDemo();
@@ -385,6 +439,7 @@ export const storeApi = {
   },
 
   async loadAdmin(storeId: string) { return isDemoMode ? readDemo() : loadSnapshotFromSupabase(storeId, true); },
+  invalidatePublicCache() { publicSnapshotCache.clear(); },
   async resetDemo() { const db = createDemoDb(); writeDemo(db); return db; },
 
   async saveSettings(settings: StoreSettings): Promise<StoreSettings> {
@@ -445,8 +500,9 @@ export const storeApi = {
   async deleteAddon(id:string){ if(isDemoMode){const db=readDemo();db.addons=db.addons.filter((addon)=>addon.id!==id);writeDemo(db);return;} await restFetch<unknown>(`food_addons?id=eq.${encode(id)}`,{method:'DELETE'}); },
   async uploadAddonImage(storeId:string,addonId:string,file:File):Promise<{url:string;path?:string}>{
     const maxSize=5*1024*1024; const allowed=new Set(['image/jpeg','image/png','image/webp']); if(!allowed.has(file.type))throw new Error('Use uma imagem JPG, PNG ou WEBP.'); if(file.size>maxSize)throw new Error('A imagem excede 5 MB.');
-    if(isDemoMode){const url=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);});return{url};}
-    const ext=(file.name.split('.').pop()||'webp').toLowerCase().replace(/[^a-z0-9]/g,''); const path=`stores/${storeId}/options/${addonId}/${createId()}.${ext}`; return storageUpload('food-store-assets',path,file);
+    const prepared=await optimizeImageForUpload(file,'addon');
+    if(isDemoMode){const url=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(prepared);});return{url};}
+    const ext=(prepared.name.split('.').pop()||'webp').toLowerCase().replace(/[^a-z0-9]/g,''); const path=`stores/${storeId}/options/${addonId}/${createId()}.${ext}`; return storageUpload('food-store-assets',path,prepared);
   },
 
   async saveDeliveryZones(zones: DeliveryZone[]): Promise<DeliveryZone[]> {
@@ -481,12 +537,13 @@ export const storeApi = {
 
   async uploadProductImages(storeId:string,productId:string,files:File[],current:ProductImage[]):Promise<ProductImage[]>{
     const maxSize=5*1024*1024;const allowed=new Set(['image/jpeg','image/png','image/webp']);for(const file of files){if(!allowed.has(file.type))throw new Error(`Formato não permitido: ${file.name}`);if(file.size>maxSize)throw new Error(`${file.name} excede 5 MB.`);}
-    if(isDemoMode){const readFile=(file:File)=>new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);});const next=[...current];for(const file of files){const url=await readFile(file);next.push({id:createId(),productId,url,altText:file.name,sortOrder:next.length,isPrimary:next.length===0});}const db=readDemo();db.products=db.products.map((product)=>product.id===productId?{...product,images:next,imageUrl:(next.find((image)=>image.isPrimary)||next[0])?.url||product.imageUrl,gallery:next.map((image)=>image.url)}:product);writeDemo(db);return next;}
-    const added:ProductImage[]=[];for(const [index,file] of files.entries()){const ext=(file.name.split('.').pop()||'webp').toLowerCase().replace(/[^a-z0-9]/g,'');const path=`stores/${storeId}/products/${productId}/${createId()}.${ext}`;const uploaded=await storageUpload('food-product-images',path,file);const row={id:createId(),product_id:productId,url:uploaded.url,storage_path:uploaded.path,alt_text:file.name,sort_order:current.length+index,is_primary:current.length===0&&index===0};const result=await restFetch<ProductImageRow[]>('food_product_images?select=*',{method:'POST',body:row,prefer:'return=representation'});const saved=result[0];added.push({id:saved.id,productId:saved.product_id,url:saved.url,storagePath:saved.storage_path||undefined,altText:saved.alt_text||undefined,sortOrder:saved.sort_order,isPrimary:saved.is_primary});}return[...current,...added];
+    const preparedFiles=await Promise.all(files.map((file)=>optimizeImageForUpload(file,'product')));
+    if(isDemoMode){const readFile=(file:File)=>new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);});const next=[...current];for(const [index,file] of preparedFiles.entries()){const url=await readFile(file);next.push({id:createId(),productId,url,altText:files[index].name,sortOrder:next.length,isPrimary:next.length===0});}const db=readDemo();db.products=db.products.map((product)=>product.id===productId?{...product,images:next,imageUrl:(next.find((image)=>image.isPrimary)||next[0])?.url||product.imageUrl,gallery:next.map((image)=>image.url)}:product);writeDemo(db);return next;}
+    const added:ProductImage[]=[];for(const [index,file] of preparedFiles.entries()){const ext=(file.name.split('.').pop()||'webp').toLowerCase().replace(/[^a-z0-9]/g,'');const path=`stores/${storeId}/products/${productId}/${createId()}.${ext}`;const uploaded=await storageUpload('food-product-images',path,file);const row={id:createId(),product_id:productId,url:uploaded.url,storage_path:uploaded.path,alt_text:files[index].name,sort_order:current.length+index,is_primary:current.length===0&&index===0};const result=await restFetch<ProductImageRow[]>('food_product_images?select=*',{method:'POST',body:row,prefer:'return=representation'});const saved=result[0];added.push({id:saved.id,productId:saved.product_id,url:saved.url,storagePath:saved.storage_path||undefined,altText:saved.alt_text||undefined,sortOrder:saved.sort_order,isPrimary:saved.is_primary});}return[...current,...added];
   },
   async deleteProductImage(image:ProductImage){if(isDemoMode){const db=readDemo();db.products=db.products.map((product)=>{if(product.id!==image.productId)return product;let next=product.images.filter((item)=>item.id!==image.id);if(image.isPrimary&&next.length&&!next.some((item)=>item.isPrimary))next=next.map((item,index)=>({...item,isPrimary:index===0}));const primary=next.find((item)=>item.isPrimary)||next[0];return{...product,images:next,gallery:next.map((item)=>item.url),imageUrl:primary?.url||'/assets/placeholder-food.svg'};});writeDemo(db);return;}await restFetch<unknown>(`food_product_images?id=eq.${encode(image.id)}`,{method:'DELETE'});if(image.isPrimary){const remaining=await restFetch<ProductImageRow[]>(`food_product_images?select=*&product_id=eq.${encode(image.productId)}&order=sort_order.asc&limit=1`);if(remaining[0])await restFetch<unknown>(`food_product_images?id=eq.${encode(remaining[0].id)}`,{method:'PATCH',body:{is_primary:true}});}if(image.storagePath)await storageDelete('food-product-images',[image.storagePath]);},
   async setPrimaryImage(productId:string,imageId:string){if(isDemoMode){const db=readDemo();db.products=db.products.map((product)=>product.id===productId?{...product,images:product.images.map((image)=>({...image,isPrimary:image.id===imageId})),imageUrl:product.images.find((image)=>image.id===imageId)?.url||product.imageUrl}:product);writeDemo(db);return;}await restFetch<unknown>(`food_product_images?product_id=eq.${encode(productId)}`,{method:'PATCH',body:{is_primary:false}});await restFetch<unknown>(`food_product_images?id=eq.${encode(imageId)}`,{method:'PATCH',body:{is_primary:true}});},
-  async uploadStoreAsset(storeId:string,file:File,kind:'logo'|'cover'):Promise<{url:string;path?:string}>{const maxSize=5*1024*1024;const allowed=new Set(['image/jpeg','image/png','image/webp']);if(!allowed.has(file.type))throw new Error('Use uma imagem JPG, PNG ou WEBP.');if(file.size>maxSize)throw new Error('A imagem excede 5 MB.');if(isDemoMode){const url=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);});return{url};}const ext=(file.name.split('.').pop()||'webp').toLowerCase().replace(/[^a-z0-9]/g,'');const path=`stores/${storeId}/${kind}/${createId()}.${ext}`;return storageUpload('food-store-assets',path,file);},
+  async uploadStoreAsset(storeId:string,file:File,kind:'logo'|'cover'):Promise<{url:string;path?:string}>{const maxSize=5*1024*1024;const allowed=new Set(['image/jpeg','image/png','image/webp']);if(!allowed.has(file.type))throw new Error('Use uma imagem JPG, PNG ou WEBP.');if(file.size>maxSize)throw new Error('A imagem excede 5 MB.');const prepared=await optimizeImageForUpload(file,'storeAsset');if(isDemoMode){const url=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(prepared);});return{url};}const ext=(prepared.name.split('.').pop()||'webp').toLowerCase().replace(/[^a-z0-9]/g,'');const path=`stores/${storeId}/${kind}/${createId()}.${ext}`;return storageUpload('food-store-assets',path,prepared);},
 
   async createOrder(store:StoreSettings,items:CartItem[],form:CheckoutData,subtotal:number,security:CheckoutSecurityContext={}):Promise<CreateOrderResult>{
     const deliveryAddress=form.fulfillment==='delivery'?[`${form.street}${form.addressNumber?`, ${form.addressNumber}`:''}`,form.complement,`${form.neighborhood}${form.deliveryCity?` - ${form.deliveryCity}`:''}${form.deliveryState?`/${form.deliveryState}`:''}`,form.zipCode?`CEP ${form.zipCode}`:'',form.referencePoint?`Referência: ${form.referencePoint}`:''].filter(Boolean).join(' | '):null;

@@ -58,6 +58,9 @@ const shouldRetryAdminLoad = (error: unknown) => {
 };
 const SYNC_KEY = 'foodservice_store_sync_v1';
 const notifyStoreChange = () => {
+  // Evita que a própria sessão continue exibindo uma vitrine pública antiga
+  // depois de salvar produtos, configurações ou imagens no painel.
+  storeApi.invalidatePublicCache();
   try { localStorage.setItem(SYNC_KEY, String(Date.now())); } catch { /* sem storage */ }
   try { const channel = new BroadcastChannel('foodservice-store-sync'); channel.postMessage({ type: 'store-change', at: Date.now() }); channel.close(); } catch { /* browser sem BroadcastChannel */ }
 };
