@@ -313,6 +313,13 @@ export const inventoryApi = {
     return rows.map(mapRecipeItem);
   },
 
+  /** Carrega as linhas de todas as fichas em uma única consulta para os indicadores operacionais. */
+  async listAllRecipeItems(storeId: string): Promise<ProductRecipeItem[]> {
+    if (isDemoMode) return [];
+    const rows = await restFetch<RecipeItemRow[]>(`food_product_recipe_items?select=*&store_id=eq.${encodeURIComponent(storeId)}&order=recipe_id.asc,sort_order.asc`);
+    return rows.map(mapRecipeItem);
+  },
+
   async saveRecipe(input: {
     storeId: string;
     productId: string;

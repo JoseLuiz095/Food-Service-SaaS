@@ -1,8 +1,8 @@
-import { BarChart3, CheckCircle2, Clock3, FileText, MessageCircle, ShoppingBag, Truck, WalletCards } from 'lucide-react';
+import { BarChart3, Boxes, CheckCircle2, CircleDollarSign, Clock3, FileText, MessageCircle, ShoppingBag, Truck, WalletCards } from 'lucide-react';
 
 type Variant='food'|'flori';
 
-type ValueItem={title:string;description:string;icon:'orders'|'delivery'|'analytics'|'finance'|'document'|'whatsapp'};
+type ValueItem={title:string;description:string;icon:'orders'|'delivery'|'analytics'|'finance'|'document'|'whatsapp'|'inventory'|'margin'};
 
 const items:Record<Variant,ValueItem[]>={
   food:[
@@ -12,6 +12,9 @@ const items:Record<Variant,ValueItem[]>={
     {icon:'analytics',title:'Analytics do funil de vendas',description:'Acompanhe visualizações, produto visto, carrinho, checkout, conversão e oportunidades.'},
     {icon:'finance',title:'Financeiro ligado ao recebimento',description:'A receita do pedido entra no Financeiro após a confirmação de recebimento, evitando inflar o resultado.'},
     {icon:'document',title:'Leitura assistida de documentos',description:'Notas, cupons e boletos podem ser lidos localmente para apoiar o lançamento financeiro, mantendo revisão humana.'},
+    {icon:'inventory',title:'Estoque e compras sem adivinhação',description:'Saiba quais insumos estão acabando, registre entradas em lote e acompanhe saldo, custo médio e alertas de reposição.'},
+    {icon:'margin',title:'Custo e margem por produto',description:'Fichas técnicas relacionam ingredientes e embalagens às vendas para estimar o custo real de cada produto e o que sobra no caixa.'},
+    {icon:'analytics',title:'Automação que reduz retrabalho',description:'O consumo proporcional, os ajustes e os cancelamentos preservam um histórico confiável para você corrigir a operação sem perder o controle.'},
   ],
   flori:[
     {icon:'orders',title:'Pedido pensado para presente',description:'Destinatário, mensagem do cartão, entrega ou retirada e dados do pedido ficam organizados no mesmo fluxo.'},
@@ -29,6 +32,8 @@ function Icon({name}:{name:ValueItem['icon']}){
   if(name==='analytics')return <BarChart3/>;
   if(name==='finance')return <WalletCards/>;
   if(name==='document')return <FileText/>;
+  if(name==='inventory')return <Boxes/>;
+  if(name==='margin')return <CircleDollarSign/>;
   return <MessageCircle/>;
 }
 
