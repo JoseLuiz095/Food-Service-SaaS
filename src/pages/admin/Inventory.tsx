@@ -26,9 +26,9 @@ const convertQuantity = (quantity: number, from: InventoryUnit, to: InventoryUni
 type BatchPurchaseLine = { inventoryItemId: string; quantity: string; totalCost: string };
 
 function ProductStockCard({ product, onAdjust, busy }: { product: Product; onAdjust: (product: Product, delta: number) => void; busy: boolean }) {
-  const quantity = Number(product.stockQuantity || 0); const reserved = Number(product.stockReservedQuantity || 0); const available = Math.max(0, quantity - reserved);
+  const quantity = Math.max(0, Number(product.stockQuantity || 0)); const reserved = Math.max(0, Number(product.stockReservedQuantity || 0)); const available = Math.max(0, quantity - reserved);
   const low = product.trackStock && available <= 3 && available > 0; const zero = product.trackStock && available <= 0;
-  return <article className="inventory-product-card"><div className="inventory-product-card__main"><div className="inventory-product-card__icon"><Package size={18} /></div><div><strong>{product.name}</strong><span>{reserved} reservado{reserved === 1 ? '' : 's'} · {product.active ? 'Publicado' : 'Oculto'}</span></div></div><div className="inventory-product-card__status"><b className={zero ? 'is-zero' : low ? 'is-low' : 'is-ok'}>{available}</b><small>disponíveis</small></div><div className="inventory-stepper" aria-label={`Ajustar estoque de ${product.name}`}><button type="button" onClick={() => onAdjust(product, -1)} disabled={busy || quantity <= 0} aria-label={`Remover uma unidade de ${product.name}`}><Minus size={16} /></button><span>{quantity}</span><button type="button" onClick={() => onAdjust(product, 1)} disabled={busy} aria-label={`Adicionar uma unidade de ${product.name}`}><Plus size={16} /></button></div></article>;
+  return <article className="inventory-product-card"><div className="inventory-product-card__main"><div className="inventory-product-card__icon"><Package size={18} /></div><div><strong>{product.name}</strong><span>{reserved} reservado{reserved === 1 ? '' : 's'} · {product.active ? 'Publicado' : 'Oculto'}</span></div></div><div className="inventory-product-card__status"><b className={zero ? 'is-zero' : low ? 'is-low' : 'is-ok'}>{available}</b><small>disponíveis</small></div><div className="inventory-stepper" aria-label={`Ajustar estoque de ${product.name}`}><button type="button" onClick={() => onAdjust(product, -1)} disabled={busy || quantity <= reserved} aria-label={quantity <= reserved ? `Todas as unidades de ${product.name} estão reservadas` : `Remover uma unidade de ${product.name}`}><Minus size={16} /></button><span>{quantity}</span><button type="button" onClick={() => onAdjust(product, 1)} disabled={busy} aria-label={`Adicionar uma unidade de ${product.name}`}><Plus size={16} /></button></div></article>;
 }
 
 export default function InventoryAdmin() {
@@ -81,7 +81,34 @@ export default function InventoryAdmin() {
   }, [items, settings.id, settings.notificationsDesktopEnabled]);
   const trackedProducts = useMemo(() => products.filter((product) => product.trackStock), [products]); const productSummary = useMemo(() => ({ tracked: trackedProducts.length, zero: trackedProducts.filter((product) => Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) <= 0).length }), [trackedProducts]);
   const adjustItem = async (item: InventoryItem, direction: number) => { const quantityDelta = direction * stepForUnit(item.unit); setBusyId(item.id); try { const result = await inventoryApi.adjust({ storeId: settings.id, inventoryItemId: item.id, quantityDelta, reason: direction > 0 ? 'Ajuste rápido de entrada' : 'Ajuste rápido de saída', movementType: direction > 0 ? 'adjustment_in' : 'adjustment_out' }); setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, currentQuantity: result.quantityAfter, averageUnitCost: result.averageUnitCost, updatedAt: new Date().toISOString() } : entry)); } catch (err) { showToast(err instanceof Error ? err.message : 'Não foi possível ajustar o estoque.', 'error'); } finally { setBusyId(''); } };
-  const adjustProduct = async (product: Product, delta: number) => { if (!product.trackStock) return; setBusyId(product.id); try { const nextQuantity = Math.max(0, Number(product.stockQuantity || 0) + delta); await saveProduct({ ...product, stockQuantity: nextQuantity, stockStatus: nextQuantity > 0 ? 'available' : 'low_stock', availabilityStatus: nextQuantity > 0 ? 'available' : 'sold_out' }); showToast(`Estoque de ${product.name} atualizado.`, 'success'); } catch (err) { showToast(err instanceof Error ? err.message : 'Não foi possível ajustar o estoque do produto.', 'error'); } finally { setBusyId(''); } };
+  const adjustProduct = async (product: Product, delta: number) => {
+    if (!product.trackStock) return;
+    const currentQuantity = Math.max(0, Number(product.stockQuantity || 0));
+    const reservedQuantity = Math.max(0, Number(product.stockReservedQuantity || 0));
+    const nextQuantity = Math.max(0, currentQuantity + delta);
+    // Nunca permita que o ajuste manual consuma unidades já reservadas por
+    // pedidos pendentes. Isso evita saldo disponível negativo e mantém a
+    // confirmação/cancelamento desses pedidos idempotente no banco.
+    if (nextQuantity < reservedQuantity) {
+      showToast(`Não é possível retirar esta unidade: ${reservedQuantity} já está(ão) reservada(s) para pedidos.`, 'error');
+      return;
+    }
+    setBusyId(product.id);
+    try {
+      const availableQuantity = Math.max(0, nextQuantity - reservedQuantity);
+      await saveProduct({
+        ...product,
+        stockQuantity: nextQuantity,
+        stockStatus: availableQuantity <= 0 ? 'low_stock' : availableQuantity <= 3 ? 'low_stock' : 'available',
+        availabilityStatus: availableQuantity > 0 ? 'available' : 'sold_out',
+      });
+      showToast(`Estoque de ${product.name} atualizado.`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Não foi possível ajustar o estoque do produto.', 'error');
+    } finally {
+      setBusyId('');
+    }
+  };
   const saveNewItem = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const data = new FormData(event.currentTarget); const name = String(data.get('name') || '').trim(); if (!name) { showToast('Informe o nome do insumo.', 'error'); return; } setBusyId('new'); try { const item = await inventoryApi.saveItem(settings.id, { name, itemType: String(data.get('itemType') || 'ingredient') as InventoryItemType, unit: String(data.get('unit') || 'kg') as InventoryUnit, reorderPoint: Number(data.get('reorderPoint') || 0), quantity: Number(data.get('currentQuantity') || 0), averageUnitCost: Number(data.get('averageUnitCost') || 0), lowStockAlertEnabled: data.get('lowStockAlertEnabled') !== 'false' }); setItems((current) => [item, ...current]); setShowNew(false); event.currentTarget.reset(); showToast('Insumo cadastrado.', 'success'); } catch (err) { showToast(err instanceof Error ? err.message : 'Não foi possível cadastrar o insumo.', 'error'); } finally { setBusyId(''); } };
   const startEditItem = (item: InventoryItem) => { setEditingItemId(item.id); setEditingName(item.name); setEditingReorderPoint(String(item.reorderPoint)); setEditingAlert(item.lowStockAlertEnabled); };
   const cancelEditItem = () => { setEditingItemId(''); setEditingName(''); setEditingReorderPoint(''); setEditingAlert(true); };

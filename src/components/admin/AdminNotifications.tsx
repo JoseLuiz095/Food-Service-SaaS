@@ -1,4 +1,4 @@
-import { Bell, X } from 'lucide-react';
+import { Bell, CheckCircle2, CircleAlert, Info, Loader2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../contexts/StoreContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -39,6 +39,33 @@ export function AdminNotifications() {
   const pushSynced = useRef(false);
   const permissionAttemptedFor = useRef('');
   const [unread, setUnread] = useState(0);
+  const [diagnosticOpen, setDiagnosticOpen] = useState(false);
+  const [permission, setPermission] = useState<NotificationPermission | null>(null);
+  const [pushStatus, setPushStatus] = useState(() => pwaPushStatus());
+  const [testing, setTesting] = useState(false);
+  const [lastSignalAt, setLastSignalAt] = useState<string | null>(null);
+
+  const refreshNotificationStatus = () => {
+    setPermission(typeof Notification === 'undefined' ? null : Notification.permission);
+    setPushStatus(pwaPushStatus());
+  };
+
+  const sendTestNotification = async () => {
+    setTesting(true);
+    try {
+      const nextPermission = await requestPwaNotificationPermission();
+      setPermission(nextPermission);
+      setPushStatus(pwaPushStatus());
+      if (nextPermission !== 'granted') return;
+      await showPwaNotification('Teste de notificações', 'O FoodWeb conseguiu enviar um aviso para este dispositivo.', { tag: `notification-test:${settings.id}` });
+      setLastSignalAt(new Date().toISOString());
+    } catch {
+      // O navegador pode recusar a solicitação fora de um gesto explícito.
+      refreshNotificationStatus();
+    } finally {
+      setTesting(false);
+    }
+  };
 
   useEffect(() => {
     // Aguarda o primeiro snapshot completo. Antes disso o contexto ainda tem
@@ -72,6 +99,7 @@ export function AdminNotifications() {
       const label = `Pedido #${order.orderNumber || order.id.slice(0, 8)}`;
       const detail = `${order.customerName} · R$ ${order.total.toFixed(2).replace('.', ',')}`;
       setUnread((value) => value + 1);
+      setLastSignalAt(new Date().toISOString());
       if (settings.notificationsSoundEnabled) playAlertSound();
       if (settings.notificationsDesktopEnabled) void showPwaNotification('Novo pedido na loja', `${label} · ${detail}`, { tag: `new-order:${order.id}` });
     });
@@ -85,6 +113,7 @@ export function AdminNotifications() {
       const label = `Pedido #${order.orderNumber || order.id.slice(0, 8)}`;
       const detail = `${order.customerName} · R$ ${order.total.toFixed(2).replace('.', ',')}`;
       setUnread((value) => value + 1);
+      setLastSignalAt(new Date().toISOString());
       if (settings.notificationsSoundEnabled) playAlertSound();
       void showPwaNotification('Pagamento confirmado', `${label} · ${detail}`, { tag: `payment-confirmed:${order.id}` });
     });
@@ -102,6 +131,7 @@ export function AdminNotifications() {
         const label = `Pedido #${order.orderNumber || order.id.slice(0, 8)}`;
         const detail = `${order.customerName} · ${formatDateTimeBR(order.scheduledFor)}`;
         setUnread((value) => value + 1);
+        setLastSignalAt(new Date().toISOString());
         if (settings.notificationsSoundEnabled) playAlertSound();
         if (settings.notificationsDesktopEnabled) void showPwaNotification('Pedido agendado próximo', `${label} · ${detail}`, { tag: `scheduled-order:${order.id}` });
       });
@@ -152,9 +182,18 @@ export function AdminNotifications() {
   }, [loading, membership?.storeId, settings.id, settings.notificationsDesktopEnabled, user?.id]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => { void reloadAdmin({ silent: true }).catch(() => undefined); }, 30_000);
-    return () => window.clearInterval(interval);
-  }, [reloadAdmin]);
+    if (!settings.id || loading) return;
+    let inFlight = false;
+    const refresh = () => {
+      if (document.visibilityState === 'hidden' || inFlight) return;
+      inFlight = true;
+      void reloadAdmin({ silent: true }).catch(() => undefined).finally(() => { inFlight = false; });
+    };
+    const onVisibilityChange = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    const interval = window.setInterval(refresh, 60_000);
+    return () => { document.removeEventListener('visibilitychange', onVisibilityChange); window.clearInterval(interval); };
+  }, [loading, reloadAdmin, settings.id]);
 
   useEffect(() => {
     // O painel administrativo também verifica insumos em segundo plano. O
@@ -180,10 +219,28 @@ export function AdminNotifications() {
       }
     };
     void checkLowStock();
-    const interval = window.setInterval(() => { void checkLowStock(); }, 30_000);
+    const interval = window.setInterval(() => { if (document.visibilityState === 'visible') void checkLowStock(); }, 60_000);
     return () => { cancelled = true; window.clearInterval(interval); };
   }, [loading, settings.id, settings.notificationsDesktopEnabled]);
 
-  if (!unread) return null;
-  return <button type="button" className="admin-notification-badge" onClick={() => setUnread(0)} title="Marcar alertas como lidos" aria-label={`${unread} alerta${unread === 1 ? '' : 's'} nova${unread === 1 ? '' : 's'}`}><Bell size={16}/><span>{unread > 9 ? '9+' : unread}</span><X size={12}/></button>;
+  useEffect(() => {
+    refreshNotificationStatus();
+    const onVisibilityChange = () => { if (document.visibilityState === 'visible') refreshNotificationStatus(); };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
+
+  const permissionLabel = permission === 'granted' ? 'Permitida' : permission === 'denied' ? 'Bloqueada' : permission === 'default' ? 'Aguardando escolha' : 'Indisponível';
+  const statusIcon = permission === 'granted' ? <CheckCircle2 size={15}/> : permission === 'denied' ? <CircleAlert size={15}/> : <Info size={15}/>;
+  return <div className="admin-notification-center">
+    <button type="button" className={`admin-notification-badge${unread ? ' has-unread' : ''}`} onClick={() => { setUnread(0); setDiagnosticOpen((value) => !value); refreshNotificationStatus(); }} title="Abrir diagnóstico de notificações" aria-expanded={diagnosticOpen} aria-controls="admin-notification-diagnostic" aria-label={unread ? `${unread} alerta${unread === 1 ? '' : 's'} nova${unread === 1 ? '' : 's'}; abrir diagnóstico` : 'Abrir diagnóstico de notificações'}><Bell size={16}/>{unread ? <span>{unread > 9 ? '9+' : unread}</span> : null}</button>
+    {diagnosticOpen && <section className="admin-notification-diagnostic" id="admin-notification-diagnostic" role="dialog" aria-label="Diagnóstico de notificações">
+      <div className="admin-notification-diagnostic__heading"><div><span className="eyebrow">CENTRAL DE AVISOS</span><strong>Notificações do painel</strong></div><button type="button" className="icon-button" onClick={() => setDiagnosticOpen(false)} aria-label="Fechar diagnóstico"><X size={16}/></button></div>
+      <div className="admin-notification-diagnostic__status"><span>{statusIcon} Permissão do navegador</span><strong className={permission === 'granted' ? 'is-ok' : permission === 'denied' ? 'is-error' : ''}>{permissionLabel}</strong></div>
+      <div className="admin-notification-diagnostic__status"><span><Bell size={15}/> Push em segundo plano</span><strong>{pushStatus === 'available' ? 'Configurado' : pushStatus === 'not_configured' ? 'Ainda não configurado' : pushStatus === 'blocked' ? 'Bloqueado' : 'Indisponível'}</strong></div>
+      {lastSignalAt && <small className="admin-notification-diagnostic__last">Último sinal recebido nesta sessão: {formatDateTimeBR(lastSignalAt)}</small>}
+      <button type="button" className="secondary-button admin-notification-diagnostic__test" onClick={() => void sendTestNotification()} disabled={testing}>{testing ? <Loader2 className="spin" size={15}/> : <Bell size={15}/>} {testing ? 'Enviando teste...' : 'Enviar notificação de teste'}</button>
+      <p>Pedidos novos, pagamentos confirmados e agendamentos próximos são verificados ao abrir o painel e enquanto esta aba estiver ativa.</p>
+    </section>}
+  </div>;
 }
