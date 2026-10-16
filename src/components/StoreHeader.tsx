@@ -1,4 +1,4 @@
-import { ChevronDown, Clock3, Info, MapPin, MessageCircle, ShieldCheck, ShoppingBag, Store, Truck } from 'lucide-react';
+import { ChevronDown, Clock3, Info, MapPin, MessageCircle, ShieldCheck, ShoppingBag, Store, Truck, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useStore } from '../contexts/StoreContext';
@@ -51,7 +51,7 @@ export function StoreHeader(){
         {profileDescription&&<p>{profileDescription}</p>}
         <div className="food-store-profile-meta">
           <div className="food-hours-popover" ref={hoursRef}><button type="button" className="food-hours-button food-hours-button--compact" aria-expanded={hoursOpen} onClick={()=>setHoursOpen((current)=>!current)}><Clock3 size={15}/><span><small>Hoje</small><strong>{todaySchedule}</strong></span><ChevronDown size={15} aria-hidden="true"/></button>
-            {hoursOpen&&<div className="hours-details-list food-hours-list food-hours-flyout" role="dialog" aria-label="Horários da semana">{scheduleOverview.days.map((day)=><div key={day.day} className={`hours-details-item ${day.isToday?'is-today':''}`}><strong>{day.shortLabel}</strong><span>{day.summary}</span></div>)}</div>}
+            {hoursOpen&&<><div className="food-hours-backdrop" aria-hidden="true" onClick={()=>setHoursOpen(false)}/><div className="hours-details-list food-hours-list food-hours-flyout" role="dialog" aria-modal="true" aria-label="Horários da semana"><div className="food-hours-flyout__header"><div><strong>Horários da loja</strong><span>Confira os dias de atendimento</span></div><button type="button" className="food-hours-flyout__close" aria-label="Fechar horários" onClick={()=>setHoursOpen(false)}><X size={16}/></button></div><div className="food-hours-flyout__days">{scheduleOverview.days.map((day)=><div key={day.day} className={`hours-details-item ${day.isToday?'is-today':''}`}><strong>{day.shortLabel}</strong><span>{day.summary}</span></div>)}</div></div></>}
           </div>
           {settings.minimumOrder>0&&<span><Store size={14}/>Mínimo R$ {settings.minimumOrder.toFixed(2).replace('.',',')}</span>}
         </div>
