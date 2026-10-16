@@ -46,6 +46,7 @@ type StoreContextValue = {
   markOrderWhatsAppClicked: typeof storeApi.markOrderWhatsAppClicked;
   confirmOrderPayment: typeof storeApi.confirmOrderPayment;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
+  updateOrderStatuses: (updates: Array<{ orderId: string; status: Order['status'] }>) => Promise<void>;
 };
 
 const defaultPlanUsage: PlanUsage = { plan: seedPlan, productCount: seedProducts.length, activeProductCount: seedProducts.filter((product) => product.active).length, canCreateProduct: true, canActivateProduct: true };
@@ -195,6 +196,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     markOrderWhatsAppClicked: storeApi.markOrderWhatsAppClicked,
     confirmOrderPayment: async (orderId) => { const result=await storeApi.confirmOrderPayment(orderId); await reloadAdmin({ silent: true }); notifyStoreChange(); return result; },
     updateOrderStatus: async (orderId, status) => { await storeApi.updateOrderStatus(orderId, status); await reloadAdmin({ silent: true }); notifyStoreChange(); },
+    updateOrderStatuses: async (updates) => { await storeApi.updateOrderStatuses(updates); await reloadAdmin({ silent: true }); notifyStoreChange(); },
   }), [products,categories,addons,deliveryZones,settings,orders,planUsage,loading,error,storeUnavailable,unavailableStoreName,reloadPublic,reloadAdmin,applySnapshot,storeBasePath,publicStoreSlug]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

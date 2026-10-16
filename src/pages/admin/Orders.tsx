@@ -107,11 +107,11 @@ type SortMode = (typeof sortOptions)[number]['value'];
 type CustomerSummary = { key: string; name: string; phone: string; orders: number; total: number; lastAt: string };
 type ManualPixView = { orderNumber: number; total: number; payload: string; error?: string };
 const newManualOrder = (): Omit<ManualOrderInput, 'items'> => ({
-  customerName: '', customerPhone: '', fulfillment: 'pickup', source: 'counter', paymentMethod: 'cash', status: 'received', received: false, notes: '',
+  customerName: '', customerPhone: '', fulfillment: 'pickup', source: 'counter', paymentMethod: 'pix', status: 'received', received: false, notes: '',
 });
 
 export default function OrdersAdmin() {
-  const { orders, products, loading, error, reloadAdmin, updateOrderStatus, updateOrderDetails, confirmOrderPayment, createManualOrder, settings } = useStore();
+  const { orders, products, loading, error, reloadAdmin, updateOrderStatus, updateOrderStatuses, updateOrderDetails, confirmOrderPayment, createManualOrder, settings } = useStore();
   const { showToast } = useToast();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState('');
@@ -121,6 +121,9 @@ export default function OrdersAdmin() {
   const [calendarMonth, setCalendarMonth] = useState(() => { const date = new Date(); return new Date(date.getFullYear(), date.getMonth(), 1); });
   const [scheduledDateFilter, setScheduledDateFilter] = useState<string | null>(null);
   const [paymentStatusDrafts, setPaymentStatusDrafts] = useState<Record<string, OrderStatus>>({});
+  const [statusDrafts, setStatusDrafts] = useState<Record<string, OrderStatus>>({});
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [batchSaving, setBatchSaving] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [dismissedRecoveryIds, setDismissedRecoveryIds] = useState<string[]>([]);
@@ -261,6 +264,12 @@ export default function OrdersAdmin() {
     const product = manualProducts.find((current) => current.id === manualProductId);
     const needsFutureSchedule = product ? productNeedsFutureScheduling(product, quantity) : false;
     setManualItems((items) => [...items, { productId: manualProductId, quantity, options: [] }]);
+    // Produtos pré-produzidos podem começar em um status operacional próprio.
+    // Aplicamos a sugestão apenas no primeiro item para não sobrescrever uma
+    // escolha manual quando o lançamento tiver produtos diferentes.
+    if (!manualItems.length && product?.defaultOrderStatus) {
+      setManualOrder((current) => ({ ...current, status: product.defaultOrderStatus!, received: product.defaultOrderStatus === 'cancelled' ? false : current.received }));
+    }
     // Ao adicionar um item sem saldo, já preparamos a encomenda para amanhã.
     // O operador ainda pode ajustar o horário, mas não precisa descobrir a
     // regra de estoque depois de preencher todo o lançamento.
@@ -440,6 +449,60 @@ export default function OrdersAdmin() {
     }
   };
 
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrderIds((current) => current.includes(orderId)
+      ? current.filter((id) => id !== orderId)
+      : [...current, orderId]);
+  };
+
+  const setOrderStatusDraft = (order: Order, status: OrderStatus) => {
+    setStatusDrafts((current) => {
+      const next = { ...current };
+      if (status === order.status) delete next[order.id];
+      else next[order.id] = status;
+      return next;
+    });
+    setSelectedOrderIds((current) => current.includes(order.id) ? current : [...current, order.id]);
+  };
+
+  const pendingStatusChanges = useMemo(() => selectedOrderIds
+    .map((orderId) => {
+      const order = orders.find((current) => current.id === orderId);
+      const status = order ? statusDrafts[order.id] : undefined;
+      return order && status && status !== order.status ? { orderId: order.id, status } : null;
+    })
+    .filter((item): item is { orderId: string; status: OrderStatus } => Boolean(item)), [orders, selectedOrderIds, statusDrafts]);
+
+  const discardStatusDrafts = () => {
+    setStatusDrafts({});
+    setSelectedOrderIds([]);
+  };
+
+  const saveStatusBatch = async () => {
+    if (!pendingStatusChanges.length || batchSaving) return;
+    setBatchSaving(true);
+    try {
+      await trackInteraction('order_status_batch_update', () => updateOrderStatuses(pendingStatusChanges), { storeId: settings.id });
+      const count = pendingStatusChanges.length;
+      setStatusDrafts({});
+      setSelectedOrderIds([]);
+      setLastUpdatedAt(new Date());
+      showToast(`${count} ${count === 1 ? 'pedido atualizado' : 'pedidos atualizados'} com sucesso.`, 'success');
+    } catch (batchError) {
+      showToast(batchError instanceof Error ? batchError.message : 'Não foi possível salvar os status selecionados.', 'error');
+    } finally {
+      setBatchSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    // Limpa seleções de pedidos que saíram do resultado ou já foram
+    // atualizados por outra ação para não manter um rodapé obsoleto.
+    const availableIds = new Set(orders.map((order) => order.id));
+    setSelectedOrderIds((current) => current.filter((id) => availableIds.has(id)));
+    setStatusDrafts((current) => Object.fromEntries(Object.entries(current).filter(([id]) => availableIds.has(id))));
+  }, [orders]);
+
   const changeStatusWithCustomerDraft = async (order: Order, status: OrderStatus) => {
     if (order.status === status) return;
     const changed = await changeStatus(order.id, status);
@@ -615,14 +678,16 @@ export default function OrdersAdmin() {
 
   const renderDesktopOrder = (order: Order) => {
     const highlighted = order.id === highlightedOrderId;
+    const draftStatus = statusDrafts[order.id] || order.status;
+    const selected = selectedOrderIds.includes(order.id);
     return <tr key={`desktop-${order.id}`} ref={(node) => { rowsRef.current[order.id] = node; }} className={highlighted ? 'order-row-highlighted' : ''}>
-      <td><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong><small className="order-fee-note">{orderSourceLabel[order.source || 'site']}</small>{order.whatsappClickedAt ? <small className="order-fee-note">WhatsApp aberto</small> : null}{highlighted ? <small>Pedido vindo do Financeiro</small> : null}</td>
+      <td><label className="order-select-checkbox"><input type="checkbox" checked={selected} onChange={() => toggleOrderSelection(order.id)} aria-label={`Selecionar pedido ${order.orderNumber || order.id}`} /><span><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong></span></label><small className="order-fee-note">{orderSourceLabel[order.source || 'site']}</small>{order.whatsappClickedAt ? <small className="order-fee-note">WhatsApp aberto</small> : null}{highlighted ? <small>Pedido vindo do Financeiro</small> : null}</td>
       <td><div className="order-customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span>{order.acquisitionSource ? <small>Origem: {({ instagram: 'Instagram', whatsapp: 'WhatsApp', google: 'Google', indicacao: 'Indicação', outro: 'Outro' } as const)[order.acquisitionSource]}</small> : null}{order.customerInstagram ? <small>{order.customerInstagram}</small> : null}</div></td>
       <td><div className="order-customer"><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{order.deliveryType === 'delivery' && order.deliveryZoneName ? <span>{order.deliveryZoneName}{order.deliveryFee ? ` · ${currency.format(order.deliveryFee)}` : ''}</span> : null}{order.scheduledFor ? <span>Agendado: {formatDateTimeBR(order.scheduledFor)}</span> : null}{order.preparationEstimateMinutes ? <span>Estimativa: até {order.preparationEstimateMinutes} min</span> : null}</div></td>
       <td><div className="order-customer"><strong>{paymentLabel[order.paymentMethod]}</strong>{order.paymentMethod === 'cash' && order.needsChange && order.changeFor ? <span>Troco para {currency.format(order.changeFor)}</span> : null}</div></td>
       <td><strong>{currency.format(order.total)}</strong>{order.deliveryFee ? <small className="order-fee-note">inclui {currency.format(order.deliveryFee)} de entrega</small> : null}</td>
        <td>{order.paymentStatus === 'paid' ? <span className="order-payment-received"><CheckCircle2 size={15}/><span><strong>Recebido</strong>{order.paymentReceivedAt ? <small>{formatDateTimeBR(order.paymentReceivedAt)}</small> : null}</span></span> : order.status === 'cancelled' ? <span className="order-payment-cancelled">Pedido cancelado</span> : <><span className="order-payment-pending"><CircleDollarSign size={15}/><strong>A receber do cliente</strong></span><small className={`order-inventory-note order-inventory-note--${order.inventoryStatus || 'not_tracked'}`}>{order.inventoryStatus === 'awaiting_restock' ? 'Aguardando reposição' : order.inventoryStatus === 'reserved' ? 'Estoque reservado' : order.inventoryStatus === 'committed' ? 'Estoque baixado' : 'A confirmação fica na área Financeiro acima.'}</small></>}</td>
-       <td><div className="order-status-actions-v061"><label className={`order-status-control order-status-control--${order.status}`}><span>{statusLabel[order.status]}</span><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{settings.kdsNotifyCustomer && order.customerPhone && whatsappButton(order, 'status')}</div></td>
+       <td><div className="order-status-actions-v061"><label className={`order-status-control order-status-control--${draftStatus} ${statusDrafts[order.id] ? 'is-draft' : ''}`}><span>{statusDrafts[order.id] ? 'Alteração pendente' : statusLabel[order.status]}</span><select value={draftStatus} disabled={batchSaving || updatingId === order.id} onChange={(event) => setOrderStatusDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{settings.kdsNotifyCustomer && order.customerPhone && whatsappButton(order, 'status')}</div></td>
       <td>{formatDateTimeBR(order.createdAt)}</td>
        <td><button type="button" className="order-inline-action" onClick={() => setDetailsOrderId(order.id)}><Eye size={14}/>Detalhes</button></td>
     </tr>;
@@ -631,11 +696,13 @@ export default function OrdersAdmin() {
   const renderMobileOrder = (order: Order) => {
     const highlighted = order.id === highlightedOrderId;
     const awaitingPayment = order.paymentStatus !== 'paid' && order.status !== 'cancelled';
+    const draftStatus = statusDrafts[order.id] || order.status;
+    const selected = selectedOrderIds.includes(order.id);
     return <article key={`mobile-${order.id}`} className={`orders-mobile-card ${highlighted ? 'order-row-highlighted' : ''}`} ref={(node) => { mobileRowsRef.current[order.id] = node; }}>
-      <div className="orders-mobile-card__top"><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong><span>{formatDateTimeBR(order.createdAt)}</span></div>
+      <div className="orders-mobile-card__top"><label className="order-select-checkbox"><input type="checkbox" checked={selected} onChange={() => toggleOrderSelection(order.id)} aria-label={`Selecionar pedido ${order.orderNumber || order.id}`} /><strong>#{order.orderNumber ? formatOrderNumber(order.orderNumber) : order.id.slice(0, 8)}</strong></label><span>{formatDateTimeBR(order.createdAt)}</span></div>
       <div className="orders-mobile-card__customer"><strong>{order.customerName}</strong><span>{order.customerPhone || 'Sem telefone informado'}</span>{order.customerInstagram ? <small>{order.customerInstagram}</small> : null}</div>
       <div className="orders-mobile-card__facts"><span><small>Recebimento</small><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</strong>{order.scheduledFor ? <em>Agendado: {formatDateTimeBR(order.scheduledFor)}</em> : null}</span><span><small>Pagamento</small><strong>{paymentLabel[order.paymentMethod]}</strong><strong className="orders-mobile-card__total">{currency.format(order.total)}</strong></span></div>
-       <div className="orders-mobile-card__status"><label><small>Status do pedido</small><select value={order.status} disabled={updatingId === order.id} onChange={(event) => void changeStatusWithCustomerDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{awaitingPayment ? <span className="orders-mobile-card__payment-pending"><CircleDollarSign size={15}/>A confirmar no Financeiro</span> : <span className="orders-mobile-card__received"><CheckCircle2 size={15}/>{order.status === 'cancelled' ? 'Pedido cancelado' : 'Pagamento recebido'}</span>}</div>
+       <div className="orders-mobile-card__status"><label><small>{statusDrafts[order.id] ? 'Alteração pendente' : 'Status do pedido'}</small><select className={statusDrafts[order.id] ? 'is-draft' : ''} value={draftStatus} disabled={batchSaving || updatingId === order.id} onChange={(event) => setOrderStatusDraft(order, event.target.value as OrderStatus)} aria-label={`Status do pedido ${order.orderNumber || order.id}`}>{operationalStatuses(order).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{awaitingPayment ? <span className="orders-mobile-card__payment-pending"><CircleDollarSign size={15}/>A confirmar no Financeiro</span> : <span className="orders-mobile-card__received"><CheckCircle2 size={15}/>{order.status === 'cancelled' ? 'Pedido cancelado' : 'Pagamento recebido'}</span>}</div>
        <div className="orders-mobile-card__actions"><button type="button" className="order-inline-action" onClick={() => setDetailsOrderId(order.id)}><Eye size={14}/>Ver detalhes e editar</button></div>
     </article>;
   };
@@ -703,6 +770,10 @@ export default function OrdersAdmin() {
         </details>
       </>}
     </section>
+    {selectedOrderIds.length > 0 && <aside className="orders-batch-status-bar" aria-live="polite">
+      <div><strong>{selectedOrderIds.length} {selectedOrderIds.length === 1 ? 'pedido selecionado' : 'pedidos selecionados'}</strong><span>{pendingStatusChanges.length ? `${pendingStatusChanges.length} alteração${pendingStatusChanges.length === 1 ? '' : 'ões'} de status pendente${pendingStatusChanges.length === 1 ? '' : 's'}.` : 'Escolha o novo status nos pedidos selecionados.'}</span></div>
+      <div className="orders-batch-status-bar__actions"><button type="button" className="secondary-button compact-button" onClick={discardStatusDrafts} disabled={batchSaving}>Descartar</button><button type="button" className="primary-button compact-button" onClick={() => void saveStatusBatch()} disabled={!pendingStatusChanges.length || batchSaving}>{batchSaving ? 'Salvando...' : `Salvar ${pendingStatusChanges.length || ''} status`}</button></div>
+    </aside>}
     {detailsOrder && <OrderDetailsModal order={detailsOrder} settings={settings} onClose={() => setDetailsOrderId(null)} onSave={saveOrderDetails} saving={detailsSaving} />}
     {manualOrderOpen && <div className="modal-overlay" role="presentation">
       <form className="master-modal master-modal--wide manual-order-modal" role="dialog" aria-modal="true" aria-labelledby="manual-order-title" onSubmit={saveManualOrder}>
@@ -743,10 +814,10 @@ export default function OrdersAdmin() {
         </section>
         <label>Observação<textarea rows={3} maxLength={500} value={manualOrder.notes || ''} onChange={(event) => setManualOrder((current) => ({ ...current, notes: event.target.value }))} placeholder="Ex.: venda registrada depois do atendimento presencial."/></label>
         <p><strong>Resumo: {manualItems.reduce((sum, item) => sum + item.quantity, 0)} item(ns) · {currency.format(manualSubtotal)}</strong></p>
-        <section className="manual-pix-charge-section" aria-label="Cobrança por PIX">
-          <label className="manual-pix-charge-toggle"><input type="checkbox" checked={manualPixChargeNow} disabled={manualOrder.paymentMethod !== 'pix' || manualOrder.status === 'cancelled'} onChange={(event) => { const checked = event.target.checked; setManualPixChargeNow(checked); if (checked) setManualOrder((current) => ({ ...current, received: false })); }}/><span><strong>Cobrar agora via PIX</strong><small>Última etapa: gera o QR Code e o PIX Copia e Cola com o valor final. O recebimento continua “A receber” até a conferência.</small></span></label>
-          {manualPixChargeNow && manualOrder.paymentMethod === 'pix' && <div className="manual-pix-live-preview"><div><QrCode size={18}/><span><strong>Cobrança via PIX</strong><small>O QR Code e o PIX Copia e Cola usam o valor atualizado do pedido.</small></span></div>{manualPixPreviewPayload ? <div className="manual-pix-live-preview__content">{manualPixPreviewQrCode ? <img src={manualPixPreviewQrCode} alt={`QR Code PIX no valor de ${currency.format(manualSubtotal)}`} /> : manualPixPreviewQrCodeError ? <span className="manual-pix-live-preview__error">{manualPixPreviewQrCodeError}</span> : <span className="manual-pix-result-loading">Gerando QR Code…</span>}<div><strong>{currency.format(manualSubtotal)}</strong><button type="button" className="text-button" onClick={() => void copyText(manualPixPreviewPayload).then(() => { setManualPixCopied(true); window.setTimeout(() => setManualPixCopied(false), 1800); })}><Copy size={14}/>{manualPixCopied ? 'Copiado' : 'Copiar PIX'}</button></div></div> : <div className="manual-pix-live-preview__error">{manualPixPreview.error}</div>}</div>}
-        </section>
+        {manualOrder.paymentMethod === 'pix' && <section className="manual-pix-charge-section" aria-label="Cobrança por PIX">
+          <label className="manual-pix-charge-toggle"><input type="checkbox" checked={manualPixChargeNow} disabled={manualOrder.status === 'cancelled'} onChange={(event) => { const checked = event.target.checked; setManualPixChargeNow(checked); if (checked) setManualOrder((current) => ({ ...current, received: false })); }}/><span><strong>Cobrar agora via PIX</strong><small>Última etapa: gera o QR Code e o PIX Copia e Cola com o valor final. O recebimento continua “A receber” até a conferência.</small></span></label>
+          {manualPixChargeNow && <div className="manual-pix-live-preview"><div><QrCode size={18}/><span><strong>Cobrança via PIX</strong><small>O QR Code e o PIX Copia e Cola usam o valor atualizado do pedido.</small></span></div>{manualPixPreviewPayload ? <div className="manual-pix-live-preview__content">{manualPixPreviewQrCode ? <img src={manualPixPreviewQrCode} alt={`QR Code PIX no valor de ${currency.format(manualSubtotal)}`} /> : manualPixPreviewQrCodeError ? <span className="manual-pix-live-preview__error">{manualPixPreviewQrCodeError}</span> : <span className="manual-pix-result-loading">Gerando QR Code…</span>}<div><strong>{currency.format(manualSubtotal)}</strong><button type="button" className="text-button" onClick={() => void copyText(manualPixPreviewPayload).then(() => { setManualPixCopied(true); window.setTimeout(() => setManualPixCopied(false), 1800); })}><Copy size={14}/>{manualPixCopied ? 'Copiado' : 'Copiar PIX'}</button></div></div> : <div className="manual-pix-live-preview__error">{manualPixPreview.error}</div>}</div>}
+        </section>}
         <div className="master-modal-actions"><button type="button" className="secondary-button" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}>Cancelar</button><button className="primary-button" type="submit" disabled={manualSaving || !manualItems.length || !manualOrder.customerName.trim()}>{manualSaving ? 'Salvando...' : `Registrar pedido · ${currency.format(manualSubtotal)}`}</button></div>
       </form>
     </div>}
