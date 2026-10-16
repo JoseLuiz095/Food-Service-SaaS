@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, Camera, ChevronDown, FileSearch2, Loader2, Pencil, Plus, ReceiptText, Save, TrendingUp, Upload, WalletCards, X } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Camera, ChevronDown, FileSearch2, Info, Loader2, Pencil, Plus, ReceiptText, Save, TrendingUp, Upload, WalletCards, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -28,6 +28,10 @@ export default function Finance(){
   const enabled=planHasFeature(planUsage.plan,'finance');
   const[categories,setCategories]=useState<FinancialCategory[]>([]);
   const[entries,setEntries]=useState<FinancialEntry[]>([]);
+  const[hasMoreEntries,setHasMoreEntries]=useState(false);
+  const[loadingMoreEntries,setLoadingMoreEntries]=useState(false);
+  const[ledgerQuery,setLedgerQuery]=useState('');
+  const[ledgerStatus,setLedgerStatus]=useState<'all'|FinancialEntryStatus>('all');
   const[form,setForm]=useState(()=>emptyForm(settings.id));
   const[loading,setLoading]=useState(true);
   const[saving,setSaving]=useState(false);
@@ -49,11 +53,23 @@ export default function Finance(){
   const reload=async()=>{
     setLoading(true);
     try{
-      const[c,e]=await Promise.all([financeApi.listCategories(settings.id),financeApi.listEntries(settings.id)]);
-      setCategories(c);setEntries(e);
+      const[c,page]=await Promise.all([financeApi.listCategories(settings.id),financeApi.listEntriesPage(settings.id,{limit:100})]);
+      setCategories(c);setEntries(page.entries);setHasMoreEntries(page.hasMore);
     }catch(err){
       showToast(err instanceof Error?err.message:'Falha ao carregar o financeiro.','error');
     }finally{setLoading(false)}
+  };
+
+  const loadMoreEntries=async()=>{
+    if(loadingMoreEntries||!hasMoreEntries)return;
+    setLoadingMoreEntries(true);
+    try{
+      const page=await financeApi.listEntriesPage(settings.id,{limit:100,offset:entries.length});
+      setEntries((current)=>[...current,...page.entries.filter((entry)=>!current.some((known)=>known.id===entry.id))]);
+      setHasMoreEntries(page.hasMore);
+    }catch(err){
+      showToast(err instanceof Error?err.message:'Falha ao carregar mais lançamentos.','error');
+    }finally{setLoadingMoreEntries(false)}
   };
 
   useEffect(()=>{
@@ -100,6 +116,14 @@ export default function Finance(){
   const selectedMonth=monthly.find((row)=>row.key===selectedMonthKey)||monthly[monthly.length-1];
   const selectedExpense=expenseRanking.find(([name])=>name===selectedExpenseCategory);
   const categoryOptions=categories.filter((category)=>category.direction==='both'||category.direction===form.direction);
+  const filteredEntries=useMemo(()=>{
+    const query=ledgerQuery.trim().toLocaleLowerCase('pt-BR');
+    return entries.filter((entry)=>{
+      if(ledgerStatus!=='all'&&entry.status!==ledgerStatus)return false;
+      if(!query)return true;
+      return [entry.description,entry.counterparty||'',entry.documentNumber||'',entry.notes||''].some((value)=>value.toLocaleLowerCase('pt-BR').includes(query));
+    });
+  },[entries,ledgerQuery,ledgerStatus]);
 
   const startEntry=(direction:FinancialDirection)=>{
     setForm(emptyForm(settings.id,direction));
@@ -291,6 +315,7 @@ export default function Finance(){
       <div className={`result ${summary.result>=0?'positive':'negative'}`}><span>Resultado gerencial</span><strong>{currency.format(summary.result)}</strong><small>Entradas realizadas − saídas realizadas</small></div>
       <div className="pending"><span>Próximos compromissos</span><strong>{currency.format(summary.pendingExpense)}</strong><small>A receber: {currency.format(summary.pendingIncome)}</small></div>
     </section>
+    {hasMoreEntries&&<div className="finance-data-notice" role="status"><Info size={15}/> Indicadores calculados sobre os lançamentos carregados. Carregue mais registros no histórico para ampliar a análise.</div>}
 
     <section className="finance-insights-grid">
       <article className="admin-card finance-evolution-card">
@@ -387,14 +412,19 @@ export default function Finance(){
       </form>
 
       <div className="finance-ledger finance-ledger-v4">
-        <div className="section-heading"><div><span className="eyebrow">MOVIMENTAÇÕES</span><h2>Histórico recente</h2><p>Pedidos com recebimento confirmado entram automaticamente como receita; lançamentos manuais aparecem junto.</p></div><FileSearch2 size={21}/></div>
+        <div className="section-heading finance-ledger-heading"><div><span className="eyebrow">MOVIMENTAÇÕES</span><h2>Histórico recente</h2><p>Pedidos com recebimento confirmado entram automaticamente como receita; lançamentos manuais aparecem junto.</p></div><FileSearch2 size={21}/></div>
+        <div className="finance-ledger-filters" role="search" aria-label="Filtrar lançamentos">
+          <label><span className="sr-only">Buscar lançamento</span><input value={ledgerQuery} onChange={(event)=>setLedgerQuery(event.target.value)} placeholder="Buscar por descrição, fornecedor ou documento" /></label>
+          <label><span className="sr-only">Filtrar situação</span><select value={ledgerStatus} onChange={(event)=>setLedgerStatus(event.target.value as typeof ledgerStatus)}><option value="all">Todas as situações</option><option value="paid">Realizados</option><option value="pending">Pendentes</option><option value="cancelled">Cancelados</option></select></label>
+        </div>
         {loading?<p>Carregando...</p>:entries.length===0?
           <div className="empty-ledger"><ReceiptText/><strong>Nenhum lançamento ainda</strong><span>Confirme o recebimento de um pedido ou registre sua primeira movimentação.</span></div>
-        :<div className="finance-ledger-list">{entries.slice(0,50).map((entry)=><article key={entry.id}>
+        :filteredEntries.length===0?<div className="empty-ledger finance-ledger-empty-filter"><ReceiptText/><strong>Nenhum lançamento encontrado</strong><span>Altere a busca ou o filtro de situação.</span></div>
+        :<><div className="finance-ledger-list">{filteredEntries.map((entry)=><article key={entry.id}>
           <span className={`finance-entry-icon ${entry.direction}`}>{entry.direction==='income'?<ArrowUpRight/>:<ArrowDownRight/>}</span>
           <div><strong>{entry.description}</strong><small>{new Date(`${entry.occurredOn}T12:00:00`).toLocaleDateString('pt-BR')} · {categories.find((category)=>category.id===entry.categoryId)?.name||'Sem categoria'}</small><span className={`finance-origin-badge-r69 ${entry.source==='order'?'is-order':'is-manual'}`}>{entry.source==='order'?'Pedido automático':entry.source==='adjustment'?'Ajuste':'Lançamento manual'}</span>{entry.source==='order'&&entry.orderId?<a className="finance-order-link-r69" href={`/admin/pedidos?highlight=${encodeURIComponent(entry.orderId)}`}>Ver pedido relacionado</a>:null}</div>
           <div className="finance-entry-value"><strong>{entry.direction==='income'?'+':'−'} {currency.format(entry.amount)}</strong><span className={`status-dot ${entry.status}`}>{entry.status==='paid'?'Realizado':entry.status==='pending'?'Pendente':'Cancelado'}</span><button type="button" className="finance-entry-action" onClick={()=>editEntry(entry)}><Pencil size={13}/>Editar</button><details className="finance-entry-details"><summary><ChevronDown size={13}/>Detalhes</summary><div><span>Documento: {documentTypes.find((item)=>item.value===entry.documentType)?.label||'Sem documento'}</span>{entry.documentNumber&&<span>Número: {entry.documentNumber}</span>}{entry.counterparty&&<span>Fornecedor/origem: {entry.counterparty}</span>}{entry.paymentMethod&&<span>Pagamento: {entry.paymentMethod}</span>}{entry.dueOn&&<span>Vencimento: {new Date(`${entry.dueOn}T12:00:00`).toLocaleDateString('pt-BR')}</span>}{entry.notes&&<span>Observação: {entry.notes}</span>}<button type="button" className="secondary-button" onClick={()=>editEntry(entry)}><Pencil size={13}/>Editar lançamento</button></div></details></div>
-        </article>)}</div>}
+        </article>)}</div><div className="finance-ledger-footer"><span>Exibindo {filteredEntries.length} de {entries.length} lançamento{entries.length===1?'':'s'} carregado{entries.length===1?'':'s'}.</span>{hasMoreEntries&&<button type="button" className="secondary-button" onClick={()=>void loadMoreEntries()} disabled={loadingMoreEntries}>{loadingMoreEntries?<Loader2 className="spin" size={15}/>:<Plus size={15}/>} {loadingMoreEntries?'Carregando...':'Carregar mais'}</button>}</div></>}
       </div>
     </section>
   </>;

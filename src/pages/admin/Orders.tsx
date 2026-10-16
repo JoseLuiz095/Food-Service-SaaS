@@ -433,7 +433,7 @@ export default function OrdersAdmin() {
       setLastUpdatedAt(new Date());
       return true;
     } catch (statusError) {
-      window.alert(statusError instanceof Error ? statusError.message : 'Não foi possível atualizar o pedido.');
+      showToast(statusError instanceof Error ? statusError.message : 'Não foi possível atualizar o pedido.', 'error');
       return false;
     } finally {
       setUpdatingId(null);
@@ -466,7 +466,7 @@ export default function OrdersAdmin() {
       }
       setLastUpdatedAt(new Date());
     } catch (paymentError) {
-      window.alert(paymentError instanceof Error ? paymentError.message : 'Não foi possível confirmar o recebimento.');
+      showToast(paymentError instanceof Error ? paymentError.message : 'Não foi possível confirmar o recebimento.', 'error');
     } finally {
       setConfirmingPaymentId(null);
     }

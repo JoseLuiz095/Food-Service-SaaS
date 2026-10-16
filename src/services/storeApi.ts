@@ -119,24 +119,47 @@ const isSchemaProjectionError = (error: unknown) => {
   return /schema cache|column .* does not exist|could not find the .* column/i.test(message);
 };
 
+const missingProjectionColumn = (error: unknown): string | null => {
+  const message = error instanceof Error ? error.message : String(error);
+  const quoted = message.match(/(?:could not find the|column)\s+['"]?([a-z0-9_]+)['"]?\s+column/i);
+  if (quoted?.[1]) return quoted[1];
+  const qualified = message.match(/column\s+[a-z0-9_]+\.([a-z0-9_]+)\s+does not exist/i);
+  return qualified?.[1] || null;
+};
+
 /** Mantém compatibilidade com instalações que ainda estão aplicando migrations.
  * Em um schema atualizado a consulta enxuta é usada; se uma coluna opcional
  * ainda não estiver no cache do PostgREST, volta apenas aquela consulta para *.
  */
 const restFetchProjected = async <T>(table: string, select: string, suffix: string): Promise<T[]> => {
-  try {
-    return await restFetch<T[]>(`${table}?select=${select}${suffix}`);
-  } catch (error) {
-    if (select === '*' || !isSchemaProjectionError(error)) throw error;
-    return restFetch<T[]>(`${table}?select=*${suffix}`);
+  if (select === '*') return restFetch<T[]>(`${table}?select=*${suffix}`);
+  let projection = select;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      return await restFetch<T[]>(`${table}?select=${projection}${suffix}`);
+    } catch (error) {
+      // Instalações que ainda estão atualizando o schema podem não conhecer
+      // uma coluna nova. Removemos apenas a coluna ausente e tentamos de novo;
+      // nunca fazemos fallback público para `select=*`, que poderia vazar
+      // campos administrativos ou caminhos internos do Storage.
+      if (!isSchemaProjectionError(error)) throw error;
+      const missing = missingProjectionColumn(error);
+      const columns = projection.split(',').map((column) => column.trim()).filter(Boolean);
+      if (!missing || !columns.includes(missing) || columns.length <= 1) throw error;
+      projection = columns.filter((column) => column !== missing).join(',');
+    }
   }
+  throw new Error(`Não foi possível carregar a projeção pública de ${table}.`);
 };
 
-const PUBLIC_STORE_SELECT = 'id,slug,name,description,logo_url,logo_storage_path,cover_url,cover_storage_path,whatsapp,instagram,address,city,state,zip_code,delivery_enabled,pickup_enabled,show_whatsapp,pix_enabled,pix_receipt_mode,pix_key_type,pix_key,pix_copy_paste,pix_holder_name,show_pix_before_confirmation,confirmation_payment_enabled,card_payment_enabled,cash_payment_enabled,payment_method_order,minimum_order,opening_hours,active,access_status,average_preparation_min,average_preparation_max,allow_scheduled_orders,kds_enabled,kds_notify_customer,notifications_new_order_enabled,notifications_scheduled_enabled,notifications_scheduled_lead_minutes,notifications_desktop_enabled,notifications_sound_enabled,sales_recovery_enabled,sales_recovery_minutes,sales_recovery_window_hours,crm_enabled,crm_come_back_days,repeat_order_enabled,repeat_order_max_age_days,upsell_enabled,upsell_limit,customer_message_templates,billing_document,billing_phone,visual_theme,storefront_notice,pickup_instructions,hide_public_address';
+// Whitelist pública: a vitrine recebe somente dados necessários para montar o
+// catálogo/checkout. Preferências do painel, cobrança e caminhos internos de
+// Storage nunca devem ser enviados a visitantes anônimos.
+const PUBLIC_STORE_SELECT = 'id,slug,name,description,logo_url,cover_url,whatsapp,instagram,address,city,state,zip_code,delivery_enabled,pickup_enabled,show_whatsapp,pix_enabled,pix_receipt_mode,pix_key_type,pix_key,pix_copy_paste,pix_holder_name,show_pix_before_confirmation,confirmation_payment_enabled,card_payment_enabled,cash_payment_enabled,payment_method_order,minimum_order,opening_hours,active,access_status,average_preparation_min,average_preparation_max,allow_scheduled_orders,visual_theme,storefront_notice,pickup_instructions,hide_public_address';
 const PUBLIC_CATEGORY_SELECT = 'id,store_id,name,slug,description,active,sort_order';
-const PUBLIC_PRODUCT_SELECT = 'id,store_id,category_id,name,slug,description,price,promotional_price,active,featured,made_to_order,production_days,stock_status,internal_code,visual_emoji,availability_status,track_stock,stock_quantity,stock_reserved_quantity,preparation_time_minutes,sort_order';
-const PUBLIC_IMAGE_SELECT = 'id,product_id,url,storage_path,alt_text,sort_order,is_primary';
-const PUBLIC_ADDON_SELECT = 'id,store_id,name,description,price,active,image_url,image_storage_path';
+const PUBLIC_PRODUCT_SELECT = 'id,store_id,category_id,name,slug,description,price,promotional_price,active,featured,made_to_order,production_days,stock_status,visual_emoji,availability_status,track_stock,stock_quantity,stock_reserved_quantity,preparation_time_minutes,sort_order';
+const PUBLIC_IMAGE_SELECT = 'id,product_id,url,alt_text,sort_order,is_primary';
+const PUBLIC_ADDON_SELECT = 'id,store_id,name,description,price,active,image_url';
 const PUBLIC_OPTION_GROUP_SELECT = 'id,store_id,name,description,kind,min_choices,max_choices,active,sort_order';
 const PUBLIC_OPTION_ITEM_SELECT = 'id,group_id,store_id,name,description,price_delta,active,sort_order';
 const PUBLIC_OPTION_LINK_SELECT = 'store_id,product_id,option_group_id,sort_order';
