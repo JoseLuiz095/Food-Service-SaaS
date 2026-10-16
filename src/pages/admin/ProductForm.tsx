@@ -5,7 +5,7 @@ import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { LoadingState } from '../../components/ui/AsyncState';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
-import type { OptionGroup, OptionGroupKind, OptionItem, Product, ProductImage } from '../../types';
+import type { OptionGroup, OptionGroupKind, OptionItem, PartyOrderConfig, Product, ProductImage } from '../../types';
 import { currency, slugify } from '../../utils/format';
 import { createId } from '../../utils/id';
 
@@ -52,24 +52,66 @@ const newOption = (storeId: string, groupId: string, index: number): OptionItem 
   id: createId(), groupId, storeId, name: '', priceDelta: 0, active: true, sortOrder: (index + 1) * 10,
 });
 
+// Compatibilidade para produtos que tenham sido salvos durante o rollout
+// inicial. Produtos novos usam os campos dedicados da migration de festa;
+// grupos técnicos antigos continuam sendo lidos e não aparecem na tela.
+const PARTY_CONFIG_GROUP = '__foodweb_party_order_config__';
+const defaultPartyConfig = (): PartyOrderConfig => ({
+  enabled: false,
+  pricePerGram: 0,
+  packageWeightGrams: 100,
+  minimumPackages: 1,
+  leadTimeDays: 2,
+  artworkInstructions: '',
+});
+const isPartyConfigGroup = (group: OptionGroup) => group.name === PARTY_CONFIG_GROUP;
+const readPartyConfig = (groups: OptionGroup[]): PartyOrderConfig => {
+  const raw = groups.find(isPartyConfigGroup)?.description;
+  if (!raw) return defaultPartyConfig();
+  try {
+    const parsed = JSON.parse(raw) as Partial<PartyOrderConfig>;
+    return {
+      ...defaultPartyConfig(),
+      ...parsed,
+      enabled: Boolean(parsed.enabled),
+      pricePerGram: Math.max(0, Number(parsed.pricePerGram) || 0),
+      packageWeightGrams: Math.max(1, Math.trunc(Number(parsed.packageWeightGrams) || 100)),
+      minimumPackages: Math.max(1, Math.trunc(Number(parsed.minimumPackages) || 1)),
+      leadTimeDays: Math.max(0, Math.trunc(Number(parsed.leadTimeDays) || 0)),
+      artworkInstructions: String(parsed.artworkInstructions || ''),
+    };
+  } catch {
+    return defaultPartyConfig();
+  }
+};
+const productForEditor = (product: Product): Product => ({
+  ...structuredClone(product),
+  optionGroups: product.optionGroups.filter((group) => !isPartyConfigGroup(group)),
+});
+
 export default function ProductForm() {
   const { id } = useParams();
   const { products, categories, settings, saveProduct, uploadProductImages, deleteProductImage, setPrimaryImage, planUsage, loading } = useStore();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const existing = products.find((product) => product.id === id);
-  const [product, setProduct] = useState<Product>(() => existing ? structuredClone(existing) : emptyProduct(settings.id));
+  const [product, setProduct] = useState<Product>(() => existing ? productForEditor(existing) : emptyProduct(settings.id));
+  const [partyConfig, setPartyConfig] = useState<PartyOrderConfig>(() => existing?.partyOrderConfig || (existing ? readPartyConfig(existing.optionGroups) : defaultPartyConfig()));
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (id && existing) {
-      setProduct(structuredClone(existing));
+      setProduct(productForEditor(existing));
+      setPartyConfig(existing.partyOrderConfig || readPartyConfig(existing.optionGroups));
       // Comece recolhido para que o cadastro seja escaneável no celular;
       // o lojista abre apenas o grupo que deseja editar.
-      setOpenGroups(Object.fromEntries(existing.optionGroups.map((group) => [group.id, false])));
-    } else if (!id) setProduct((current) => current.storeId === settings.id ? current : emptyProduct(settings.id));
+      setOpenGroups(Object.fromEntries(existing.optionGroups.filter((group) => !isPartyConfigGroup(group)).map((group) => [group.id, false])));
+    } else if (!id) {
+      setProduct((current) => current.storeId === settings.id ? current : emptyProduct(settings.id));
+      setPartyConfig(defaultPartyConfig());
+    }
   }, [id, existing, settings.id]);
 
   const imageLimit = planUsage.plan.imageLimitPerProduct;
@@ -170,6 +212,7 @@ export default function ProductForm() {
           sortOrder: (groupIndex + 1) * 10,
           items: group.items.filter((item) => item.name.trim()).map((item, itemIndex) => ({ ...item, storeId: settings.id, groupId: group.id, name: item.name.trim(), priceDelta: group.kind === 'removal' ? 0 : item.priceDelta, sortOrder: (itemIndex + 1) * 10 })),
         })),
+        partyOrderConfig: partyConfig.enabled ? partyConfig : undefined,
       };
       await saveProduct(normalized);
       if (files.length) { await uploadProductImages(normalized.id, files, normalized.images); setFiles([]); }
@@ -208,8 +251,19 @@ export default function ProductForm() {
           <label>Preço promocional<input type="number" min="0" step="0.01" value={product.promotionalPrice ?? ''} onChange={(event) => update('promotionalPrice', event.target.value ? Number(event.target.value) : undefined)}/></label>
           <label>Tempo adicional de preparo (min)<input type="number" min="0" step="1" value={product.preparationTimeMinutes} onChange={(event) => update('preparationTimeMinutes', Number(event.target.value))}/></label>
           <label>Status<select value={product.availabilityStatus} onChange={(event) => update('availabilityStatus', event.target.value as Product['availabilityStatus'])}><option value="available">Disponível</option><option value="unavailable">Indisponível temporariamente</option><option value="sold_out">Esgotado</option></select></label>
+          <label>Status inicial do pedido<select value={product.defaultOrderStatus || 'received'} onChange={(event) => update('defaultOrderStatus', event.target.value as Product['defaultOrderStatus'])}><option value="received">Recebido</option><option value="confirmed">Confirmado</option><option value="preparing">Em preparo</option><option value="ready">Pronto</option><option value="out_for_delivery">Saiu para entrega</option></select><small>Usado como sugestão em lançamentos deste produto. Pedidos existentes não são alterados.</small></label>
           <label className="switch-row full"><span><strong>Controlar estoque deste produto</strong><small>Pedidos ficam pré-vendidos e só baixam do estoque quando o recebimento for confirmado.</small></span><input type="checkbox" checked={product.trackStock} onChange={(event) => update('trackStock', event.target.checked)} /></label>
           {product.trackStock && <label>Quantidade disponível<input type="number" min="0" step="1" value={product.stockQuantity ?? 0} onChange={(event) => update('stockQuantity', Math.max(0, Math.trunc(Number(event.target.value) || 0)))}/><small className="muted">Itens sem saldo poderão ser agendados para a partir de amanhã.</small></label>}
+          <div className="party-order-editor full">
+            <label className="switch-row"><span><strong>Encomenda para festas</strong><small>Use este produto para pedidos programados de eventos, com cálculo por gramatura e referência de arte.</small></span><input type="checkbox" checked={partyConfig.enabled} onChange={(event) => setPartyConfig((current) => ({ ...current, enabled: event.target.checked }))} /></label>
+            {partyConfig.enabled && <div className="form-grid party-order-editor__fields">
+              <label>Preço por grama (R$)<input type="number" min="0" step="0.001" value={partyConfig.pricePerGram || ''} onChange={(event) => setPartyConfig((current) => ({ ...current, pricePerGram: Math.max(0, Number(event.target.value) || 0) }))}/><small>Ex.: 0,08 para R$ 8,00 a cada 100 g.</small></label>
+              <label>Peso de cada pacote (g)<input type="number" min="1" step="1" value={partyConfig.packageWeightGrams} onChange={(event) => setPartyConfig((current) => ({ ...current, packageWeightGrams: Math.max(1, Math.trunc(Number(event.target.value) || 1)) }))}/></label>
+              <label>Mínimo de pacotes<input type="number" min="1" step="1" value={partyConfig.minimumPackages} onChange={(event) => setPartyConfig((current) => ({ ...current, minimumPackages: Math.max(1, Math.trunc(Number(event.target.value) || 1)) }))}/></label>
+              <label>Antecedência mínima (dias)<input type="number" min="0" step="1" value={partyConfig.leadTimeDays} onChange={(event) => setPartyConfig((current) => ({ ...current, leadTimeDays: Math.max(0, Math.trunc(Number(event.target.value) || 0)) }))}/></label>
+              <label className="full">Arte ou referência da festa<textarea rows={3} value={partyConfig.artworkInstructions} onChange={(event) => setPartyConfig((current) => ({ ...current, artworkInstructions: event.target.value }))} placeholder="Ex.: informe tema, cores e data. Para detalhes, fale com a loja pelo Instagram."/><small>O cliente verá essa orientação no produto e poderá enviar os detalhes pelo Instagram.</small></label>
+            </div>}
+          </div>
           <label className="full">Descrição<textarea required rows={5} value={product.description} onChange={(event) => update('description', event.target.value)} placeholder="Descreva ingredientes e características principais."/></label>
         </div>
 
@@ -247,7 +301,7 @@ export default function ProductForm() {
       </section>
 
       <aside>
-        <section className="admin-card form-section"><span className="eyebrow">PUBLICAÇÃO</span><h2>Disponibilidade</h2><label className="switch-row"><span><strong>Produto ativo</strong><small>Aparece no cardápio público</small></span><input type="checkbox" checked={product.active} onChange={(event) => update('active', event.target.checked)}/></label><label className="switch-row"><span><strong>Destaque</strong><small>Produto em evidência</small></span><input type="checkbox" checked={product.featured} onChange={(event) => update('featured', event.target.checked)}/></label><div className="product-form-preview"><span>Preço atual</span><strong>{currency.format(product.promotionalPrice ?? product.price)}</strong>{product.visualEmoji && <span className="product-form-emoji-preview-v060" aria-label="Emoji do produto">{product.visualEmoji}</span>}<small>{product.optionGroups.length} grupo(s) de personalização</small></div></section>
+        <section className="admin-card form-section"><span className="eyebrow">PUBLICAÇÃO</span><h2>Disponibilidade</h2><label className="switch-row"><span><strong>Produto ativo</strong><small>Aparece no cardápio público</small></span><input type="checkbox" checked={product.active} onChange={(event) => update('active', event.target.checked)}/></label><label className="switch-row"><span><strong>Destaque</strong><small>Produto em evidência</small></span><input type="checkbox" checked={product.featured} onChange={(event) => update('featured', event.target.checked)}/></label><div className="product-form-preview"><span>Preço atual</span><strong>{partyConfig.enabled && partyConfig.pricePerGram > 0 ? `${currency.format(partyConfig.pricePerGram)}/g` : currency.format(product.promotionalPrice ?? product.price)}</strong>{product.visualEmoji && <span className="product-form-emoji-preview-v060" aria-label="Emoji do produto">{product.visualEmoji}</span>}{partyConfig.enabled && <small>Encomenda para festas · mínimo de {partyConfig.minimumPackages} pacote(s)</small>}<small>{product.optionGroups.length} grupo(s) de personalização</small></div></section>
         <button className="primary-button full-button" disabled={saving} type="submit"><Save size={18}/>{saving ? 'Salvando...' : 'Salvar produto'}</button>
       </aside>
     </form>

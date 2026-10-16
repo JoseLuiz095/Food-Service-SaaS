@@ -1,11 +1,11 @@
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clock3, Minus, Plus, Share2, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clock3, Minus, Package, Plus, Share2, ShoppingBag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ProductMedia, hasProductImage } from '../../components/ProductMedia';
 import { LoadingState } from '../../components/ui/AsyncState';
 import { useCart } from '../../contexts/CartContext';
 import { useStore } from '../../contexts/StoreContext';
-import type { OptionGroup, SelectedOption } from '../../types';
+import type { OptionGroup, PartyOrderConfig, SelectedOption } from '../../types';
 import { currency, roundMoney } from '../../utils/format';
 import { useToast } from '../../contexts/ToastContext';
 import { storefrontPath } from '../../utils/storefrontRoute';
@@ -19,12 +19,45 @@ const groupInstruction = (group: OptionGroup) => {
   return `Opcional · escolha até ${group.maxChoices}`;
 };
 
+const PARTY_CONFIG_GROUP = '__foodweb_party_order_config__';
+const readPartyConfig = (groups: OptionGroup[]): PartyOrderConfig | undefined => {
+  const raw = groups.find((group) => group.name === PARTY_CONFIG_GROUP)?.description;
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as Partial<PartyOrderConfig>;
+    if (!parsed.enabled) return undefined;
+    return {
+      enabled: true,
+      pricePerGram: Math.max(0, Number(parsed.pricePerGram) || 0),
+      packageWeightGrams: Math.max(1, Math.trunc(Number(parsed.packageWeightGrams) || 100)),
+      minimumPackages: Math.max(1, Math.trunc(Number(parsed.minimumPackages) || 1)),
+      leadTimeDays: Math.max(0, Math.trunc(Number(parsed.leadTimeDays) || 0)),
+      artworkInstructions: String(parsed.artworkInstructions || ''),
+    };
+  } catch {
+    return undefined;
+  }
+};
+const instagramHref = (value: string) => {
+  const normalized = value.trim();
+  if (!normalized) return '';
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+  return `https://www.instagram.com/${normalized.replace(/^@+/, '')}/`;
+};
+const instagramLabel = (value: string) => {
+  const normalized = value.trim().replace(/\/$/, '');
+  if (/^https?:\/\//i.test(normalized)) return `@${normalized.split('/').filter(Boolean).pop() || 'Instagram'}`;
+  return normalized.startsWith('@') ? normalized : `@${normalized}`;
+};
+const InstagramGlyph = ({ size = 15 }: { size?: number }) => <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".7" fill="currentColor" stroke="none"/></svg>;
+
 export default function ProductDetail() {
   const { slug } = useParams();
   const { products, categories, settings, loading, storeBasePath } = useStore();
   const { addItem } = useCart();
   const { showToast } = useToast();
   const product = products.find((item) => item.slug === slug && item.active);
+  const partyConfig = product?.partyOrderConfig?.enabled ? product.partyOrderConfig : product ? readPartyConfig(product.optionGroups) : undefined;
   const [quantity, setQuantity] = useState(1);
   const [selections, setSelections] = useState<Record<string, Record<string, number>>>({});
   const [imageIndex, setImageIndex] = useState(0);
@@ -37,7 +70,8 @@ export default function ProductDetail() {
       defaults[group.id] = {};
       if (group.minChoices > 0 && group.maxChoices === 1 && activeItems[0]) defaults[group.id][activeItems[0].id] = 1;
     });
-    setQuantity(1);
+    const config = product.partyOrderConfig?.enabled ? product.partyOrderConfig : readPartyConfig(product.optionGroups);
+    setQuantity(config?.minimumPackages ?? 1);
     setSelections(defaults);
     setImageIndex(0);
   }, [product?.id]);
@@ -66,15 +100,16 @@ export default function ProductDetail() {
 
   const total = useMemo(() => {
     if (!product) return 0;
-    const base = product.promotionalPrice ?? product.price;
+    const base = partyConfig?.pricePerGram ? roundMoney(partyConfig.pricePerGram * partyConfig.packageWeightGrams) : (product.promotionalPrice ?? product.price);
     const optionsTotal = selectedOptions.reduce((sum, option) => sum + option.priceDelta * option.quantity, 0);
     return roundMoney((base + optionsTotal) * quantity);
-  }, [product, selectedOptions, quantity]);
+  }, [product, partyConfig, selectedOptions, quantity]);
 
   if (loading) return <div className="page-center"><LoadingState label="Carregando produto..." /></div>;
   if (!product) return <div className="not-found"><h2>Produto não encontrado</h2><a href={storefrontPath(storeBasePath)}>Voltar ao cardápio</a></div>;
 
   const category = categories.find((item) => item.id === product.categoryId);
+  const storeInstagramHref = instagramHref(settings.instagram);
   const realImage = hasProductImage(product.imageUrl, product.images.length);
   const gallery = Array.from(new Set([
     ...(realImage ? [product.imageUrl] : []),
@@ -149,7 +184,8 @@ export default function ProductDetail() {
 
   const add = () => {
     if (unavailable || !validateSelections()) return;
-    addItem(product, quantity, selectedOptions);
+    const partyUnitPrice = partyConfig?.pricePerGram ? roundMoney(partyConfig.pricePerGram * partyConfig.packageWeightGrams) : undefined;
+    addItem(partyUnitPrice != null ? { ...product, price: partyUnitPrice, promotionalPrice: undefined } : product, quantity, selectedOptions);
     void trackPublicEvent(settings.id, 'add_to_cart', product.id);
     showToast('Produto adicionado ao carrinho.', 'success');
     window.location.assign(storefrontPath(storeBasePath, '/carrinho'));
@@ -177,6 +213,7 @@ export default function ProductDetail() {
         <span className="eyebrow">{category?.name ?? 'PRODUTO'}</span>
         <h1>{product.name}</h1>
         <p className="product-long-description">{product.description}</p>
+        {partyConfig && <div className="made-to-order party-order-note"><Package size={19}/><div><strong>Encomenda para festas</strong><span>Produção sob agendamento, com mínimo de {partyConfig.minimumPackages} pacote(s) de {partyConfig.packageWeightGrams} g{partyConfig.leadTimeDays > 0 ? ` e antecedência de ${partyConfig.leadTimeDays} dia${partyConfig.leadTimeDays === 1 ? '' : 's'}` : ''}.</span>{partyConfig.pricePerGram > 0 && <small>Preço de referência: {currency.format(partyConfig.pricePerGram)} por grama · {currency.format(partyConfig.pricePerGram * partyConfig.packageWeightGrams)} por pacote.</small>}{partyConfig.artworkInstructions && <small>{partyConfig.artworkInstructions}</small>}{storeInstagramHref && <a href={storeInstagramHref} target="_blank" rel="noreferrer"><InstagramGlyph/>Fale com a loja pelo Instagram {instagramLabel(settings.instagram)}</a>}</div></div>}
         {outOfStock && !unavailable && <div className="stock-schedule-note"><Clock3 size={18}/><div><strong>Sem disponibilidade para hoje</strong><span>Você pode adicionar ao pedido e agendar a partir de amanhã.</span></div></div>}
         {product.preparationTimeMinutes > 0 && <div className="made-to-order"><Clock3 size={19}/><div><strong>Tempo adicional de preparo</strong><span>Este item pode acrescentar cerca de {product.preparationTimeMinutes} minutos ao prazo do pedido.</span></div></div>}
 
@@ -211,7 +248,7 @@ export default function ProductDetail() {
         })}
 
         <div className="buy-box">
-          <div className="quantity-control"><button onClick={() => setQuantity((value) => Math.max(1, value - 1))} aria-label="Diminuir quantidade"><Minus size={17}/></button><span>{quantity}</span><button onClick={() => setQuantity((value) => value + 1)} aria-label="Aumentar quantidade"><Plus size={17}/></button></div>
+          <div className="quantity-control"><button onClick={() => setQuantity((value) => Math.max(partyConfig?.minimumPackages ?? 1, value - 1))} aria-label="Diminuir quantidade"><Minus size={17}/></button><span>{quantity}</span><button onClick={() => setQuantity((value) => value + 1)} aria-label="Aumentar quantidade"><Plus size={17}/></button></div>
           <div className="buy-total"><small>Total</small><strong>{currency.format(total)}</strong></div>
           <button className="primary-button" disabled={unavailable} onClick={add}><ShoppingBag size={18}/>{unavailable ? 'Indisponível' : outOfStock ? 'Adicionar para agendar' : 'Adicionar ao carrinho'}</button>
         </div>

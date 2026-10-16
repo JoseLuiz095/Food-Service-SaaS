@@ -69,6 +69,9 @@ type ProductRow = {
   promotional_price: number | string | null; active: boolean; featured: boolean; made_to_order: boolean; production_days: number | null;
   stock_status: Product['stockStatus']; internal_code?: string | null; visual_emoji?: string | null; availability_status?: Product['availabilityStatus'] | null;
   track_stock?: boolean | null; stock_quantity?: number | null; stock_reserved_quantity?: number | null; preparation_time_minutes?: number | null; sort_order?: number | null;
+  party_order_enabled?: boolean | null; party_price_per_gram?: number | string | null; party_package_weight_grams?: number | string | null;
+  party_minimum_packages?: number | null; party_lead_time_days?: number | null; party_artwork_instructions?: string | null; party_artwork_url?: string | null;
+  default_order_status?: Order['status'] | null;
 };
 type ProductImageRow = { id: string; product_id: string; url: string; storage_path: string | null; alt_text: string | null; sort_order: number; is_primary: boolean };
 type ProductVariantRow = { id: string; product_id: string; name: string; price_delta: number | string; active: boolean; sort_order: number };
@@ -157,7 +160,7 @@ const restFetchProjected = async <T>(table: string, select: string, suffix: stri
 // Storage nunca devem ser enviados a visitantes anônimos.
 const PUBLIC_STORE_SELECT = 'id,slug,name,description,logo_url,cover_url,whatsapp,instagram,address,city,state,zip_code,delivery_enabled,pickup_enabled,show_whatsapp,pix_enabled,pix_receipt_mode,pix_key_type,pix_key,pix_copy_paste,pix_holder_name,show_pix_before_confirmation,confirmation_payment_enabled,card_payment_enabled,cash_payment_enabled,payment_method_order,minimum_order,opening_hours,active,access_status,average_preparation_min,average_preparation_max,allow_scheduled_orders,visual_theme,storefront_notice,pickup_instructions,hide_public_address';
 const PUBLIC_CATEGORY_SELECT = 'id,store_id,name,slug,description,active,sort_order';
-const PUBLIC_PRODUCT_SELECT = 'id,store_id,category_id,name,slug,description,price,promotional_price,active,featured,made_to_order,production_days,stock_status,visual_emoji,availability_status,track_stock,stock_quantity,stock_reserved_quantity,preparation_time_minutes,sort_order';
+const PUBLIC_PRODUCT_SELECT = 'id,store_id,category_id,name,slug,description,price,promotional_price,active,featured,made_to_order,production_days,stock_status,visual_emoji,availability_status,track_stock,stock_quantity,stock_reserved_quantity,preparation_time_minutes,sort_order,party_order_enabled,party_price_per_gram,party_package_weight_grams,party_minimum_packages,party_lead_time_days,party_artwork_instructions,party_artwork_url,default_order_status';
 const PUBLIC_IMAGE_SELECT = 'id,product_id,url,alt_text,sort_order,is_primary';
 const PUBLIC_ADDON_SELECT = 'id,store_id,name,description,price,active,image_url';
 const PUBLIC_OPTION_GROUP_SELECT = 'id,store_id,name,description,kind,min_choices,max_choices,active,sort_order';
@@ -284,6 +287,8 @@ const buildProducts = (
       stockLabel:row.stock_status === 'low_stock' ? 'Últimas unidades' : row.stock_status === 'unavailable' ? 'Indisponível' : undefined,
       internalCode:row.internal_code || undefined, availabilityStatus:row.availability_status || (row.stock_status === 'unavailable' ? 'unavailable' : 'available'),
       trackStock:row.track_stock ?? false, stockQuantity:row.stock_quantity ?? undefined, stockReservedQuantity:row.stock_reserved_quantity ?? 0, preparationTimeMinutes:row.preparation_time_minutes ?? 0, sortOrder:row.sort_order ?? 0,
+      partyOrderConfig: row.party_order_enabled ? { enabled:true, pricePerGram:toNumber(row.party_price_per_gram), packageWeightGrams:Math.max(1,toNumber(row.party_package_weight_grams) || 100), minimumPackages:Math.max(1,row.party_minimum_packages || 1), leadTimeDays:Math.max(0,row.party_lead_time_days || 0), artworkInstructions:row.party_artwork_instructions || '' } : undefined,
+      defaultOrderStatus: row.default_order_status || 'received',
       images:orderedProductImages, imageUrl:primary?.url || '/assets/placeholder-food.svg', visualEmoji:row.visual_emoji || undefined, gallery:orderedProductImages.map((image) => image.url), optionGroups:productGroups,
       variations:legacyVariants.filter((variant) => variant.product_id === row.id).map((variant) => ({ id:variant.id, productId:variant.product_id, name:variant.name, priceDelta:toNumber(variant.price_delta), active:variant.active, sortOrder:variant.sort_order })),
       addons:legacyAddons.filter((addon) => legacyProductAddonIds.has(addon.id)),
@@ -538,7 +543,8 @@ export const storeApi = {
 
   async saveProduct(product: Product): Promise<Product> {
     if(isDemoMode){const db=readDemo();const existing=db.products.find((item)=>item.id===product.id);const activeCount=db.products.filter((item)=>item.active&&item.id!==product.id).length;const limit=db.planUsage.plan.productLimit;if(product.active&&limit!=null&&activeCount>=limit)throw new Error(`Seu plano permite até ${limit} produtos ativos.`);db.products=existing?db.products.map((item)=>item.id===product.id?clone(product):item):[clone(product),...db.products];writeDemo(db);return product;}
-    const payload={id:product.id,store_id:product.storeId,category_id:product.categoryId,name:product.name,slug:product.slug||slugify(product.name),description:product.description,price:product.price,promotional_price:product.promotionalPrice??null,active:product.active,featured:product.featured,made_to_order:false,production_days:0,stock_status:product.availabilityStatus==='available'?(product.trackStock&&Number(product.stockQuantity||0)<=0?'low_stock':product.stockStatus==='unavailable'?'available':product.stockStatus):'unavailable',internal_code:product.internalCode||null,visual_emoji:product.visualEmoji?.trim()||null,availability_status:product.availabilityStatus,track_stock:product.trackStock,stock_quantity:product.trackStock?product.stockQuantity??0:null,preparation_time_minutes:product.preparationTimeMinutes,sort_order:product.sortOrder};
+    const partyConfig = product.partyOrderConfig?.enabled ? product.partyOrderConfig : undefined;
+    const payload={id:product.id,store_id:product.storeId,category_id:product.categoryId,name:product.name,slug:product.slug||slugify(product.name),description:product.description,price:product.price,promotional_price:product.promotionalPrice??null,active:product.active,featured:product.featured,made_to_order:Boolean(partyConfig?.enabled || product.madeToOrder),production_days:partyConfig?.leadTimeDays ?? product.productionDays ?? 0,stock_status:product.availabilityStatus==='available'?(product.trackStock&&Number(product.stockQuantity||0)<=0?'low_stock':product.stockStatus==='unavailable'?'available':product.stockStatus):'unavailable',internal_code:product.internalCode||null,visual_emoji:product.visualEmoji?.trim()||null,availability_status:product.availabilityStatus,track_stock:product.trackStock,stock_quantity:product.trackStock?product.stockQuantity??0:null,preparation_time_minutes:product.preparationTimeMinutes,sort_order:product.sortOrder,party_order_enabled:Boolean(partyConfig?.enabled),party_price_per_gram:partyConfig?.pricePerGram ?? null,party_package_weight_grams:partyConfig?.packageWeightGrams ?? null,party_minimum_packages:partyConfig?.minimumPackages ?? 1,party_lead_time_days:partyConfig?.leadTimeDays ?? 0,party_artwork_instructions:partyConfig?.artworkInstructions?.trim() || null,party_artwork_url:null,default_order_status:product.defaultOrderStatus || 'received'};
     await restFetch<ProductRow[]>('food_products?on_conflict=id&select=*',{method:'POST',body:payload,prefer:'resolution=merge-duplicates,return=representation'});
 
     await restFetch<unknown>(`food_product_option_groups?product_id=eq.${encode(product.id)}`,{method:'DELETE'});
@@ -824,6 +830,44 @@ export const storeApi = {
     }
     const rows=await restFetch<OrderRow[]>(`food_orders?id=eq.${encode(orderId)}&select=*`,{method:'PATCH',body:{status},prefer:'return=representation'});
     if(!rows.length)throw new Error('Pedido não encontrado ou sem permissão para atualização.');
+  },
+
+  /**
+   * Atualiza vários pedidos em uma ação do painel. O demo grava uma vez e,
+   * no Supabase, as alterações são disparadas em paralelo para evitar que o
+   * operador precise esperar um reload entre cada pedido. O StoreContext faz
+   * apenas um reload ao final da operação.
+   */
+  async updateOrderStatuses(updates: Array<{ orderId: string; status: Order['status'] }>): Promise<void> {
+    const normalized = updates.filter((item) => item.orderId && item.status);
+    if (!normalized.length) return;
+
+    if (isDemoMode) {
+      const db = readDemo();
+      const ids = new Set(normalized.map((item) => item.orderId));
+      const found = new Set(db.orders.filter((order) => ids.has(order.id)).map((order) => order.id));
+      if (found.size !== ids.size) throw new Error('Um ou mais pedidos não foram encontrados. Atualize a tela e tente novamente.');
+      const nextStatus = new Map(normalized.map((item) => [item.orderId, item.status]));
+      db.orders = db.orders.map((order) => nextStatus.has(order.id) ? { ...order, status: nextStatus.get(order.id)! } : order);
+      writeDemo(db);
+      return;
+    }
+
+    const uniqueStatuses = new Set(normalized.map((item) => item.status));
+    if (uniqueStatuses.size === 1) {
+      const rows = await restFetch<OrderRow[]>(
+        `food_orders?id=in.(${normalized.map((item) => encode(item.orderId)).join(',')})&select=*`,
+        { method: 'PATCH', body: { status: normalized[0].status }, prefer: 'return=representation' },
+      );
+      if (rows.length !== normalized.length) throw new Error('Um ou mais pedidos não puderam ser atualizados. Atualize a tela e tente novamente.');
+      return;
+    }
+
+    const results = await Promise.all(normalized.map((item) => restFetch<OrderRow[]>(
+      `food_orders?id=eq.${encode(item.orderId)}&select=*`,
+      { method: 'PATCH', body: { status: item.status }, prefer: 'return=representation' },
+    )));
+    if (results.some((rows) => !rows.length)) throw new Error('Um ou mais pedidos não puderam ser atualizados. Atualize a tela e tente novamente.');
   },
 
   async markOrderWhatsAppClicked(orderId:string):Promise<void>{

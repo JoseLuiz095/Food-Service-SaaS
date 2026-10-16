@@ -99,6 +99,23 @@ export type ProductImage = {
   isPrimary: boolean;
 };
 
+/**
+ * Dados operacionais de uma encomenda para festa.
+ *
+ * A configuração é opcional para manter compatibilidade com produtos comuns.
+ * Os campos são opcionais para que produtos normais permaneçam inalterados;
+ * a persistência dedicada é habilitada pela migration de configuração de
+ * produtos sob encomenda.
+ */
+export type PartyOrderConfig = {
+  enabled: boolean;
+  pricePerGram: number;
+  packageWeightGrams: number;
+  minimumPackages: number;
+  leadTimeDays: number;
+  artworkInstructions: string;
+};
+
 export type Product = {
   id: string;
   storeId: string;
@@ -130,6 +147,9 @@ export type Product = {
   variations: ProductVariation[];
   /** Compatibilidade temporária com a estrutura FloriWeb anterior. */
   addons: Addon[];
+  partyOrderConfig?: PartyOrderConfig;
+  /** Status operacional usado ao iniciar um pedido deste produto. */
+  defaultOrderStatus?: OrderStatus;
 };
 
 export type OpeningDayConfig = {
