@@ -6,7 +6,7 @@ import { LoadingState } from '../../components/ui/AsyncState';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import type { OptionGroup, OptionGroupKind, OptionItem, PartyOrderConfig, Product, ProductImage } from '../../types';
-import { currency, slugify } from '../../utils/format';
+import { currency, roundMoney, slugify } from '../../utils/format';
 import { createId } from '../../utils/id';
 
 const emptyProduct = (storeId: string): Product => ({
@@ -198,10 +198,17 @@ export default function ProductForm() {
 
     setSaving(true);
     try {
+      const partyPackagePrice = partyConfig.enabled && partyConfig.pricePerGram > 0
+        ? roundMoney(partyConfig.pricePerGram * partyConfig.packageWeightGrams)
+        : undefined;
       const normalized: Product = {
         ...product,
         storeId: settings.id,
         slug: product.slug || slugify(product.name),
+        // Mantém o preço-base do catálogo alinhado ao valor por pacote. A
+        // vitrine exibe o preço por grama, mas o servidor também recalcula o
+        // item usando este preço seguro caso o cliente altere o carrinho.
+        price: partyPackagePrice ?? product.price,
         preparationTimeMinutes: Math.max(0, Math.trunc(product.preparationTimeMinutes || 0)),
         trackStock: product.trackStock,
         stockQuantity: product.trackStock ? Math.max(0, Math.trunc(product.stockQuantity ?? 0)) : undefined,
