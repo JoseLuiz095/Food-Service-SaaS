@@ -3463,6 +3463,12 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 .manual-order-feedback{display:flex;align-items:flex-start;gap:9px;margin:-7px 0 18px;padding:12px 13px;border-radius:12px;font-size:.78rem;line-height:1.45}
 .manual-order-feedback svg{flex:0 0 auto;margin-top:1px}
 .manual-order-feedback--error{border:1px solid #efc4bb;background:#fff5f2;color:#963c2d}
+.manual-order-mode-switch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:16px 0 6px;padding:4px;border:1px solid #eee5dd;border-radius:13px;background:#fbf8f4}
+.manual-order-mode-switch button{display:grid;gap:2px;min-height:48px;border:0;border-radius:10px;padding:8px 10px;background:transparent;color:#776d66;font:inherit;font-size:.78rem;font-weight:850;text-align:left;cursor:pointer}
+.manual-order-mode-switch button small{color:#9a9088;font-size:.64rem;font-weight:500}
+.manual-order-mode-switch button.is-active{background:#fff;color:#7d3f2b;box-shadow:0 4px 12px rgba(93,52,32,.1)}
+.manual-order-mode-switch button.is-active small{color:#a95437}
+.manual-order-mode-hint{margin:-1px 0 15px;color:#80766e;font-size:.7rem;line-height:1.45}
 .manual-order-schedule-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .manual-order-schedule-actions small{flex:1 1 180px}
 .text-button{border:0;background:transparent;color:#a95437;padding:0;font:inherit;font-size:.72rem;font-weight:800;cursor:pointer;text-align:left}
