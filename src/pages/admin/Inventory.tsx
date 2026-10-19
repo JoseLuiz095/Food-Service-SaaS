@@ -32,9 +32,9 @@ function ProductStockCard({ product, onAdjust, busy }: { product: Product; onAdj
 }
 
 export default function InventoryAdmin() {
-  const { settings, products, saveProduct, loading: storeLoading, error: storeError, reloadAdmin } = useStore(); const { showToast } = useToast();
+  const { settings, products, updateProductStock, loading: storeLoading, error: storeError, reloadAdmin } = useStore(); const { showToast } = useToast();
   const [items, setItems] = useState<InventoryItem[]>([]); const [recipes, setRecipes] = useState<ProductRecipe[]>([]); const [recipeItems, setRecipeItems] = useState<ProductRecipeItem[]>([]); const [loading, setLoading] = useState(true); const [query, setQuery] = useState(''); const [filter, setFilter] = useState<InventoryFilter>('all'); const [kindFilter, setKindFilter] = useState<'all' | InventoryItemType>('all'); const [showArchived, setShowArchived] = useState(false); const [busyId, setBusyId] = useState(''); const [showNew, setShowNew] = useState(false); const [purchaseId, setPurchaseId] = useState(''); const [purchaseQuantity, setPurchaseQuantity] = useState(''); const [purchaseCost, setPurchaseCost] = useState(''); const [showBatchPurchase, setShowBatchPurchase] = useState(false); const [batchPurchaseLines, setBatchPurchaseLines] = useState<BatchPurchaseLine[]>([]); const [editingItemId, setEditingItemId] = useState(''); const [editingName, setEditingName] = useState(''); const [editingReorderPoint, setEditingReorderPoint] = useState(''); const [editingAlert, setEditingAlert] = useState(true); const [recipeProductId, setRecipeProductId] = useState(''); const [recipeYield, setRecipeYield] = useState('1'); const [recipeYieldUnit, setRecipeYieldUnit] = useState<InventoryUnit>('un'); const [recipeLines, setRecipeLines] = useState<Array<{ inventoryItemId: string; stage: string; quantity: string; unit: InventoryUnit; wastePercent: string }>>([]);
-  const loadItems = async () => { setLoading(true); try { const [loadedItems, loadedRecipes, loadedRecipeItems] = await Promise.all([inventoryApi.listItems(settings.id, true), inventoryApi.listRecipes(settings.id), inventoryApi.listAllRecipeItems(settings.id)]); setItems(loadedItems); setRecipes(loadedRecipes); setRecipeItems(loadedRecipeItems); } catch (err) { showToast(err instanceof Error ? err.message : 'Não foi possível carregar o estoque.', 'error'); } finally { setLoading(false); } };
+  const loadItems = async () => { setLoading(true); try { const [loadedItems, loadedRecipes] = await Promise.all([inventoryApi.listItems(settings.id, true), inventoryApi.listRecipes(settings.id)]); const loadedRecipeItems = loadedRecipes.length ? await inventoryApi.listAllRecipeItems(settings.id) : []; setItems(loadedItems); setRecipes(loadedRecipes); setRecipeItems(loadedRecipeItems); } catch (err) { showToast(err instanceof Error ? err.message : 'Não foi possível carregar o estoque.', 'error'); } finally { setLoading(false); } };
   useEffect(() => { void loadItems(); }, [settings.id]);
   const activeItems = useMemo(() => items.filter((item) => item.active), [items]);
   const filteredItems = useMemo(() => { const term = query.trim().toLowerCase(); return items.filter((item) => { const matchesActive = showArchived ? !item.active : item.active; const matchesQuery = !term || `${item.name} ${inventoryLabels[item.itemType]}`.toLowerCase().includes(term); const matchesKind = kindFilter === 'all' || item.itemType === kindFilter; const matchesStock = filter === 'all' || (filter === 'zero' ? item.currentQuantity <= 0 : item.currentQuantity > 0 && item.currentQuantity <= item.reorderPoint); return matchesActive && matchesQuery && matchesKind && matchesStock; }); }, [filter, items, kindFilter, query, showArchived]);
@@ -96,10 +96,9 @@ export default function InventoryAdmin() {
     setBusyId(product.id);
     try {
       const availableQuantity = Math.max(0, nextQuantity - reservedQuantity);
-      await saveProduct({
-        ...product,
+      await updateProductStock(product.id, {
         stockQuantity: nextQuantity,
-        stockStatus: availableQuantity <= 0 ? 'low_stock' : availableQuantity <= 3 ? 'low_stock' : 'available',
+        stockStatus: availableQuantity <= 3 ? 'low_stock' : 'available',
         availabilityStatus: availableQuantity > 0 ? 'available' : 'sold_out',
       });
       showToast(`Estoque de ${product.name} atualizado.`, 'success');
