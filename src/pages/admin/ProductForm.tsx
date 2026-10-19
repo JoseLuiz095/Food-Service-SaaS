@@ -316,6 +316,6 @@ export default function ProductForm() {
         <div className="product-form-save-hint">{hasUnsavedChanges ? 'Alterações pendentes. Use o botão flutuante para salvar.' : 'Tudo salvo.'}</div>
       </aside>
     </form>
-    {hasUnsavedChanges && <FloatingSaveBar label="Salvar produto" description="O produto tem alterações pendentes." saving={saving} onSave={() => { const form = document.getElementById('product-form'); if (form instanceof HTMLFormElement) form.requestSubmit(); }} onCancel={() => { setFiles([]); if (existing) { setProduct(productForEditor(existing)); setPartyConfig(existing.partyOrderConfig || readPartyConfig(existing.optionGroups)); } }} />}
+    {hasUnsavedChanges && <FloatingSaveBar label="Salvar produto" description="O produto tem alterações pendentes." saving={saving} onSave={() => { const form = document.getElementById('product-form'); if (form instanceof HTMLFormElement) form.requestSubmit(); }} onCancel={() => { setFiles([]); setProduct(existing ? productForEditor(existing) : emptyProduct(settings.id)); setPartyConfig(existing?.partyOrderConfig || (existing ? readPartyConfig(existing.optionGroups) : defaultPartyConfig())); }} />}
   </>;
 }
