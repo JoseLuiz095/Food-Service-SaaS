@@ -206,7 +206,7 @@ export default function AdminLayout() {
 
           <div className="admin-topbar__actions">
             <AdminNotifications />
-            {!isComplimentaryPlan && <AdminStoreShare />}
+            <AdminStoreShare />
             {!isComplimentaryPlan && billingStatus.visible && (
               <button
                 type="button"
