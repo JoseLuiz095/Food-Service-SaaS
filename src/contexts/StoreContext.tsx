@@ -25,6 +25,7 @@ type StoreContextValue = {
   reloadPublic: () => Promise<void>;
   reloadAdmin: (options?: { silent?: boolean }) => Promise<void>;
   saveProduct: (product: Product) => Promise<void>;
+  updateProductStock: (productId: string, input: { stockQuantity: number; stockStatus: Product['stockStatus']; availabilityStatus: Product['availabilityStatus'] }) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   saveCategory: (category: Category) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
@@ -175,6 +176,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     reloadPublic,
     reloadAdmin,
     saveProduct: async (product) => { await storeApi.saveProduct(product); await reloadAdmin(); notifyStoreChange(); },
+    updateProductStock: async (productId, input) => { await storeApi.updateProductStock(settings.id, productId, input); setProducts((current) => current.map((product) => product.id === productId ? { ...product, ...input } : product)); notifyStoreChange(); },
     deleteProduct: async (id) => { await storeApi.deleteProduct(id); await reloadAdmin(); notifyStoreChange(); },
     saveCategory: async (category) => { await storeApi.saveCategory(category); await reloadAdmin(); notifyStoreChange(); },
     deleteCategory: async (id) => { await storeApi.deleteCategory(id); await reloadAdmin(); notifyStoreChange(); },

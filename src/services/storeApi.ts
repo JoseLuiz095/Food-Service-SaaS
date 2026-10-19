@@ -368,37 +368,53 @@ const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promis
   const stores = await restFetchProjected<StoreRow>('food_stores', admin ? '*' : PUBLIC_STORE_SELECT, `&${storeFilter}&limit=1`);
   if (!stores.length) throw new Error('Loja não encontrada ou sem permissão.');
   const settings = mapStore(stores[0]);
-  const categoryRows = await restFetchProjected<CategoryRow>('food_categories', admin ? '*' : PUBLIC_CATEGORY_SELECT, `&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=sort_order.asc,name.asc`);
-  const productRows = await restFetchProjected<ProductRow>('food_products', admin ? '*' : PUBLIC_PRODUCT_SELECT, `&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=featured.desc,sort_order.asc,name.asc`);
-  const deliveryZoneRows = await restFetchProjected<DeliveryZoneRow>('food_delivery_zones', admin ? '*' : PUBLIC_ZONE_SELECT, `&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=sort_order.asc,name.asc`);
-  const addonRows = await restFetchProjected<AddonRow>('food_addons', admin ? '*' : PUBLIC_ADDON_SELECT, `&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=name.asc`).catch(() => [] as AddonRow[]);
+  // Categorias, produtos, zonas e adicionais são independentes. Em vez de
+  // esperar cada consulta em sequência, carregamos o primeiro bloco em
+  // paralelo para reduzir o tempo de abertura do painel/vitrine.
+  const [categoryRows, productRows, deliveryZoneRows, addonRows] = await Promise.all([
+    restFetchProjected<CategoryRow>('food_categories', admin ? '*' : PUBLIC_CATEGORY_SELECT, `&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=sort_order.asc,name.asc`),
+    restFetchProjected<ProductRow>('food_products', admin ? '*' : PUBLIC_PRODUCT_SELECT, `&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=featured.desc,sort_order.asc,name.asc`),
+    restFetchProjected<DeliveryZoneRow>('food_delivery_zones', admin ? '*' : PUBLIC_ZONE_SELECT, `&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=sort_order.asc,name.asc`),
+    restFetchProjected<AddonRow>('food_addons', admin ? '*' : PUBLIC_ADDON_SELECT, `&store_id=eq.${encode(settings.id)}${admin ? '' : '&active=eq.true'}&order=name.asc`).catch(() => [] as AddonRow[]),
+  ]);
   const productIds = productRows.map((product) => product.id);
 
   let imageRows: ProductImageRow[] = [], optionGroupRows: OptionGroupRow[] = [], optionItemRows: OptionItemRow[] = [], optionLinks: ProductOptionGroupRow[] = [];
   let variantRows: ProductVariantRow[] = [], addonLinks: ProductAddonRow[] = [];
   if (productIds.length) {
-    imageRows = await restFetchProjected<ProductImageRow>('food_product_images', admin ? '*' : PUBLIC_IMAGE_SELECT, `&product_id=${encode(inFilter(productIds))}&order=sort_order.asc`);
-    try {
-      optionLinks = await restFetchProjected<ProductOptionGroupRow>('food_product_option_groups', admin ? '*' : PUBLIC_OPTION_LINK_SELECT, `&product_id=${encode(inFilter(productIds))}&order=sort_order.asc`);
-      const groupIds = [...new Set(optionLinks.map((link) => link.option_group_id))];
-      if (groupIds.length) {
-        optionGroupRows = await restFetchProjected<OptionGroupRow>('food_option_groups', admin ? '*' : PUBLIC_OPTION_GROUP_SELECT, `&id=${encode(inFilter(groupIds))}${admin ? '' : '&active=eq.true'}&order=sort_order.asc`);
-        optionItemRows = await restFetchProjected<OptionItemRow>('food_option_items', admin ? '*' : PUBLIC_OPTION_ITEM_SELECT, `&group_id=${encode(inFilter(groupIds))}${admin ? '' : '&active=eq.true'}&order=sort_order.asc`);
-      }
-    } catch { optionGroupRows = []; optionItemRows = []; optionLinks = []; }
-    try {
-      [variantRows, addonLinks] = await Promise.all([
-        restFetchProjected<ProductVariantRow>('food_product_variants', admin ? '*' : PUBLIC_VARIANT_SELECT, `&product_id=${encode(inFilter(productIds))}${admin ? '' : '&active=eq.true'}&order=sort_order.asc`),
-        restFetchProjected<ProductAddonRow>('food_product_addons', admin ? '*' : PUBLIC_PRODUCT_ADDON_SELECT, `&product_id=${encode(inFilter(productIds))}`),
-      ]);
-    } catch { variantRows = []; addonLinks = []; }
+    // Imagens, vínculos de opções e variantes não dependem uns dos outros.
+    // Buscá-los juntos reduz a latência da primeira abertura do catálogo.
+    const imagePromise = restFetchProjected<ProductImageRow>('food_product_images', admin ? '*' : PUBLIC_IMAGE_SELECT, `&product_id=${encode(inFilter(productIds))}&order=sort_order.asc`);
+    const optionLinksPromise = restFetchProjected<ProductOptionGroupRow>('food_product_option_groups', admin ? '*' : PUBLIC_OPTION_LINK_SELECT, `&product_id=${encode(inFilter(productIds))}&order=sort_order.asc`).catch(() => [] as ProductOptionGroupRow[]);
+    const variantsPromise = Promise.all([
+      restFetchProjected<ProductVariantRow>('food_product_variants', admin ? '*' : PUBLIC_VARIANT_SELECT, `&product_id=${encode(inFilter(productIds))}${admin ? '' : '&active=eq.true'}&order=sort_order.asc`),
+      restFetchProjected<ProductAddonRow>('food_product_addons', admin ? '*' : PUBLIC_PRODUCT_ADDON_SELECT, `&product_id=${encode(inFilter(productIds))}`),
+    ]).catch(() => [[], []] as [ProductVariantRow[], ProductAddonRow[]]);
+    const [loadedImages, loadedOptionLinks, [loadedVariants, loadedAddonLinks]] = await Promise.all([imagePromise, optionLinksPromise, variantsPromise]);
+    imageRows = loadedImages;
+    optionLinks = loadedOptionLinks;
+    variantRows = loadedVariants;
+    addonLinks = loadedAddonLinks;
+    const groupIds = [...new Set(optionLinks.map((link) => link.option_group_id))];
+    if (groupIds.length) {
+      try {
+        [optionGroupRows, optionItemRows] = await Promise.all([
+          restFetchProjected<OptionGroupRow>('food_option_groups', admin ? '*' : PUBLIC_OPTION_GROUP_SELECT, `&id=${encode(inFilter(groupIds))}${admin ? '' : '&active=eq.true'}&order=sort_order.asc`),
+          restFetchProjected<OptionItemRow>('food_option_items', admin ? '*' : PUBLIC_OPTION_ITEM_SELECT, `&group_id=${encode(inFilter(groupIds))}${admin ? '' : '&active=eq.true'}&order=sort_order.asc`),
+        ]);
+      } catch { optionGroupRows = []; optionItemRows = []; optionLinks = []; }
+    }
   }
 
   const categories = categoryRows.map(mapCategory);
   const addons = addonRows.map(mapAddon);
   const deliveryZones = deliveryZoneRows.map(mapDeliveryZone);
   const products = buildProducts(productRows, imageRows, optionGroupRows, optionItemRows, optionLinks, variantRows, addons, addonLinks);
-  const orderRows = admin ? await restFetch<OrderRow[]>(`food_orders?select=*&store_id=eq.${encode(settings.id)}&order=created_at.desc&limit=100`) : [];
+  const activeProductCount = products.filter((product) => product.active).length;
+  const [orderRows, planUsage] = await Promise.all([
+    admin ? restFetch<OrderRow[]>(`food_orders?select=*&store_id=eq.${encode(settings.id)}&order=created_at.desc&limit=100`) : Promise.resolve([] as OrderRow[]),
+    admin ? loadPlanUsage(settings.id, products.length, activeProductCount) : Promise.resolve({ plan:seedPlan, productCount:products.length, activeProductCount, canCreateProduct:true, canActivateProduct:true }),
+  ]);
   let orders = orderRows.map(mapOrder);
   if (admin && orderRows.length) {
     const orderIds = orderRows.map((order) => order.id);
@@ -414,8 +430,6 @@ const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promis
         .map((item) => mapOrderItem(item, optionRows.filter((option) => option.order_item_id === item.id))),
     }));
   }
-  const activeProductCount = products.filter((product) => product.active).length;
-  const planUsage = admin ? await loadPlanUsage(settings.id, products.length, activeProductCount) : { plan:seedPlan, productCount:products.length, activeProductCount, canCreateProduct:true, canActivateProduct:true };
   return { settings, categories, products, addons, deliveryZones, orders, planUsage };
 };
 
@@ -556,6 +570,27 @@ export const storeApi = {
       await restFetch<unknown>('food_product_option_groups',{method:'POST',body:{store_id:product.storeId,product_id:product.id,option_group_id:group.id,sort_order:(groupIndex+1)*10}});
     }
     return product;
+  },
+
+  /** Atualiza somente o saldo operacional do produto.
+   * Evita reenviar opções, imagens e configurações de festa quando o admin
+   * usa os botões rápidos de estoque.
+   */
+  async updateProductStock(storeId: string, productId: string, input: { stockQuantity: number; stockStatus: Product['stockStatus']; availabilityStatus: Product['availabilityStatus'] }): Promise<void> {
+    const stockQuantity = Math.max(0, Math.trunc(Number(input.stockQuantity)));
+    if (!productId || !Number.isFinite(stockQuantity)) throw new Error('Informe um estoque válido.');
+    if (isDemoMode) {
+      const db = readDemo();
+      db.products = db.products.map((product) => product.id === productId ? { ...product, stockQuantity, stockStatus: input.stockStatus, availabilityStatus: input.availabilityStatus } : product);
+      writeDemo(db);
+      return;
+    }
+    const rows = await restFetch<Array<{ id: string }>>(`food_products?id=eq.${encode(productId)}&store_id=eq.${encode(storeId)}&select=id`, {
+      method: 'PATCH',
+      body: { stock_quantity: stockQuantity, stock_status: input.stockStatus, availability_status: input.availabilityStatus },
+      prefer: 'return=representation',
+    });
+    if (!rows[0]) throw new Error('O produto não foi encontrado ou o estoque não pôde ser atualizado.');
   },
 
   async deleteProduct(id:string){
