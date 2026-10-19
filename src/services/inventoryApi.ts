@@ -41,6 +41,11 @@ export const inventoryUnitLabels: Record<InventoryUnit, string> = {
   pack: 'pacote',
 };
 
+const inventoryUnitFamily = (unit: InventoryUnit) => unit === 'g' || unit === 'kg' ? 'mass' : unit === 'ml' || unit === 'l' ? 'volume' : unit;
+const inventoryToBase = (quantity: number, unit: InventoryUnit) => unit === 'g' || unit === 'ml' ? quantity / 1000 : quantity;
+const inventoryFromBase = (quantity: number, unit: InventoryUnit) => unit === 'g' || unit === 'ml' ? quantity * 1000 : quantity;
+const convertInventoryQuantity = (quantity: number, from: InventoryUnit, to: InventoryUnit) => inventoryUnitFamily(from) === inventoryUnitFamily(to) ? inventoryFromBase(inventoryToBase(quantity, from), to) : null;
+
 type InventoryItemRow = {
   id: string;
   store_id: string;
@@ -342,6 +347,16 @@ export const inventoryApi = {
     if (input.items.some((item) => !item.inventoryItemId || !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.wastePercent ?? 0) || (item.wastePercent ?? 0) < 0 || (item.wastePercent ?? 0) > 100)) {
       throw new Error('Revise os insumos, quantidades e perdas da ficha técnica.');
     }
+    // Normaliza a ficha para a unidade do saldo. Assim, uma receita em
+    // gramas para um item comprado em quilos debita o valor correto.
+    const inventoryItems = await this.listItems(input.storeId, true);
+    const normalizedItems = input.items.map((item) => {
+      const inventoryItem = inventoryItems.find((entry) => entry.id === item.inventoryItemId);
+      if (!inventoryItem) throw new Error('Um dos insumos selecionados não foi encontrado.');
+      const quantity = convertInventoryQuantity(item.quantity, item.unit, inventoryItem.unit);
+      if (quantity == null) throw new Error(`A unidade ${inventoryUnitLabels[item.unit]} não pode ser convertida para ${inventoryUnitLabels[inventoryItem.unit]} em “${inventoryItem.name}”.`);
+      return { ...item, quantity, unit: inventoryItem.unit };
+    });
     const existing = (await restFetch<RecipeRow[]>(`food_product_recipes?select=${RECIPE_SELECT}&store_id=eq.${encodeURIComponent(input.storeId)}&product_id=eq.${encodeURIComponent(input.productId)}`))[0];
     let recipe: RecipeRow;
     if (existing) {
@@ -363,13 +378,13 @@ export const inventoryApi = {
       recipe = created[0];
     }
     const rows = await restFetch<RecipeItemRow[]>(`food_product_recipe_items?select=${RECIPE_ITEM_SELECT}`, {
-      method: 'POST', prefer: 'return=representation', body: input.items.map((item, index) => ({
+      method: 'POST', prefer: 'return=representation', body: normalizedItems.map((item, index) => ({
         store_id: input.storeId, recipe_id: recipe.id, inventory_item_id: item.inventoryItemId,
         stage: item.stage?.trim() || 'Geral', quantity: item.quantity, unit: item.unit,
         waste_percent: item.wastePercent || 0, sort_order: item.sortOrder ?? index,
       })),
     });
-    if (rows.length !== input.items.length) throw new Error('A ficha técnica foi salva, mas alguns insumos não puderam ser vinculados.');
+    if (rows.length !== normalizedItems.length) throw new Error('A ficha técnica foi salva, mas alguns insumos não puderam ser vinculados.');
     return mapRecipe(recipe);
   },
 
