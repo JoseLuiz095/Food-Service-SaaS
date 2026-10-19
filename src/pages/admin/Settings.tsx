@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Banknote, ChevronDown, Clock3, CreditCard, ImagePlus, Info, QrCode, RotateCcw, Save } from 'lucide-react';
+import { ArrowDown, ArrowUp, Banknote, ChevronDown, Clock3, CreditCard, ImagePlus, Info, QrCode, RotateCcw } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
@@ -8,6 +8,7 @@ import type { PaymentMethod, StoreSettings, StoreVisualTheme } from '../../types
 import { buildPixCopyPasteWithAmount, validatePixCopyPasteBase } from '../../utils/pix';
 import { formatOpeningSchedule, openingDayName } from '../../utils/storeHours';
 import { PasswordChangeCard } from '../../components/admin/PasswordChangeCard';
+import { FloatingSaveBar } from '../../components/admin/FloatingSaveBar';
 import { planHasFeature } from '../../utils/plan';
 import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ensureCustomerMessageVariables, normalizeCustomerMessageTemplates } from '../../utils/customerSales';
 import { DEFAULT_STORE_VISUAL_THEME, getStorefrontThemeStyle, isStoreVisualColor, STORE_VISUAL_THEME_PRESETS } from '../../utils/storeVisualTheme';
@@ -36,6 +37,8 @@ export default function SettingsAdmin() {
   const canCustomBanner = planHasFeature(planUsage.plan, 'custom_banner');
   const canUseDoceLua = isDoceLuaStore(form);
   const messageTemplates = normalizeCustomerMessageTemplates(form.messageTemplates);
+  const pristineSettings = useMemo(() => cloneSettingsForForm(settings), [settings]);
+  const hasUnsavedChanges = Boolean(logoFile || coverFile) || JSON.stringify(form) !== JSON.stringify(pristineSettings);
   const pushStatus = pwaPushStatus();
   const toggleSection = (id: string) => setCollapsedSections((current) => ({ ...current, [id]: !current[id] }));
   const sectionToggle = (id: string, label: string) => <button type="button" className="settings-section-toggle" onClick={() => toggleSection(id)} aria-expanded={!collapsedSections[id]}><span>{label}</span><ChevronDown size={17} /></button>;
@@ -200,7 +203,7 @@ export default function SettingsAdmin() {
         )}
       </div>
 
-      <form className="admin-form-layout" onSubmit={submit}>
+      <form id="settings-form" className="admin-form-layout" onSubmit={submit}>
         <section className={`admin-card form-section settings-collapsible ${collapsedSections.identity ? 'is-collapsed' : ''}`}>
           {sectionToggle('identity', 'Dados do estabelecimento')}
           <div className="admin-card__header"><div><span className="eyebrow">IDENTIDADE</span><h2>Dados do estabelecimento</h2></div></div>
@@ -428,9 +431,10 @@ export default function SettingsAdmin() {
             </div>
           </section>
 
-          <button className="primary-button full-button" disabled={saving} type="submit"><Save size={18} />{saving ? 'Salvando...' : 'Salvar configurações'}</button>
+          <div className="settings-save-hint">{hasUnsavedChanges ? 'Alterações pendentes. O salvamento fica disponível no canto inferior.' : 'Tudo salvo.'}</div>
         </aside>
       </form>
+      {hasUnsavedChanges && <FloatingSaveBar label="Salvar configurações" description="As configurações da loja foram alteradas." saving={saving} onSave={() => { const formElement = document.getElementById('settings-form'); if (formElement instanceof HTMLFormElement) formElement.requestSubmit(); }} onCancel={() => { setLogoFile(null); setCoverFile(null); setForm(cloneSettingsForForm(settings)); }} />}
       <PasswordChangeCard />
     </>
   );

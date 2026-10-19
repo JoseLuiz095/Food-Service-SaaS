@@ -1,4 +1,5 @@
-import { ChevronDown, Clock3, Info, MapPin, MessageCircle, ShieldCheck, ShoppingBag, Store, Truck, X } from 'lucide-react';
+import { ChevronDown, Clock3, Copy, Info, MapPin, MessageCircle, QrCode, Share2, ShieldCheck, ShoppingBag, Store, Truck, X } from 'lucide-react';
+import QRCode from 'qrcode';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useStore } from '../contexts/StoreContext';
@@ -22,10 +23,15 @@ export function StoreHeader(){
   const scheduleOverview=useMemo(()=>getOpeningScheduleOverview(settings.openingSchedule),[settings.openingSchedule]);
   const todaySchedule = scheduleOverview.today?.summary || 'Consulte os horários';
   const [hoursOpen,setHoursOpen]=useState(false);
+  const [shareOpen,setShareOpen]=useState(false);
+  const [shareQr,setShareQr]=useState('');
+  const [shareCopied,setShareCopied]=useState(false);
   const [preferredFulfillment,setPreferredFulfillment]=useState<'delivery'|'pickup'|null>(null);
   const hoursRef=useRef<HTMLDivElement|null>(null);
   useEffect(()=>{document.title=`${settings.name} · FoodWeb`;},[settings.name]);
   useEffect(()=>{setPreferredFulfillment(loadFulfillmentPreference(settings.id));},[settings.id]);
+  const shareUrl=typeof window !== 'undefined' ? `${window.location.origin}${storefrontPath(storeBasePath)}` : storefrontPath(storeBasePath);
+  useEffect(()=>{if(!shareOpen)return; setShareCopied(false); void QRCode.toDataURL(shareUrl,{errorCorrectionLevel:'M',margin:2,width:320}).then(setShareQr).catch(()=>setShareQr(''));},[shareOpen,shareUrl]);
   useEffect(()=>{
     const onPointerDown=(event:PointerEvent)=>{
       if(!hoursOpen)return;
@@ -62,10 +68,12 @@ export function StoreHeader(){
         {settings.pickupEnabled&&<a className={`food-fulfillment-pill ${preferredFulfillment==='pickup'?'active':''}`} href="#cardapio" onClick={()=>{saveFulfillmentPreference(settings.id,'pickup');setPreferredFulfillment('pickup');}}><ShoppingBag size={16}/><span><strong>Retirada</strong><small>Local combinado com a loja</small></span></a>}
         {instagramUrl&&<a className="food-social-link food-social-link--instagram" href={instagramUrl} target="_blank" rel="noopener noreferrer" aria-label={`Abrir Instagram ${instagramHandle}`}><InstagramGlyph/><span><strong>Instagram</strong><small>@{instagramHandle}</small></span></a>}
         {settings.showWhatsApp !== false && whatsapp&&<a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer"><MessageCircle size={17}/>Falar com a loja</a>}
+        <button type="button" className="food-share-store-button" onClick={()=>setShareOpen(true)}><Share2 size={17}/><span><strong>Compartilhar loja</strong><small>QR Code e link</small></span></button>
       </div>
     </section>
     {settings.storefrontNotice?.trim() && <section className="container food-store-operation-notices" aria-label="Informações importantes da loja">
       {settings.storefrontNotice?.trim() && <div><Info size={18}/><span><strong>Antes de pedir</strong>{settings.storefrontNotice.trim()}</span></div>}
     </section>}
+    {shareOpen&&<div className="store-share-overlay" role="presentation" onMouseDown={(event)=>{if(event.target===event.currentTarget)setShareOpen(false);}}><section className="store-share-card" role="dialog" aria-modal="true" aria-labelledby="store-share-title"><button type="button" className="icon-button store-share-card__close" onClick={()=>setShareOpen(false)} aria-label="Fechar compartilhamento"><X size={19}/></button><div className="store-share-card__icon"><QrCode size={22}/></div><span className="eyebrow">COMPARTILHE</span><h2 id="store-share-title">Leve a {settings.name} com você</h2><p>Escaneie o QR Code ou copie o link para enviar o cardápio.</p>{shareQr?<img className="store-share-card__qr" src={shareQr} alt={`QR Code da loja ${settings.name}`}/>:<div className="store-share-card__qr-placeholder">Gerando QR Code…</div>}<div className="store-share-card__link"><span>{shareUrl}</span><button type="button" className="secondary-button compact-button" onClick={()=>{void navigator.clipboard?.writeText(shareUrl);setShareCopied(true);}}><Copy size={15}/>{shareCopied?'Copiado':'Copiar link'}</button></div>{typeof navigator !== 'undefined' && 'share' in navigator&&<button type="button" className="primary-button store-share-card__native" onClick={()=>{void navigator.share?.({title:settings.name,text:`Confira o cardápio da ${settings.name}`,url:shareUrl});}}><Share2 size={16}/>Compartilhar pelo telefone</button>}</section></div>}
   </header>;
 }

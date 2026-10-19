@@ -1,4 +1,4 @@
-import { AlertCircle, CalendarDays, CheckCircle2, ChefHat, ChevronLeft, ChevronRight, CircleDollarSign, Copy, Eye, MessageCircle, Plus, QrCode, RefreshCw, RotateCcw, Search, ShoppingBag, Slash, Users, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CalendarDays, CheckCircle2, ChefHat, ChevronLeft, ChevronRight, CircleDollarSign, Copy, Eye, MessageCircle, Plus, QrCode, RefreshCw, RotateCcw, Search, ShoppingBag, Slash, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
@@ -130,6 +130,7 @@ export default function OrdersAdmin() {
   const [dismissedRecoveryIds, setDismissedRecoveryIds] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
   const [notifyOrderId, setNotifyOrderId] = useState<string | null>(null);
@@ -572,6 +573,7 @@ export default function OrdersAdmin() {
     document.addEventListener('visibilitychange', onVisibility);
     return () => { window.clearInterval(interval); window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onVisibility); };
   }, [refreshOrders]);
+  useEffect(() => { const interval = window.setInterval(() => setNowTick(Date.now()), 60_000); return () => window.clearInterval(interval); }, []);
 
   const scheduledCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -620,6 +622,11 @@ export default function OrdersAdmin() {
   const pendingOrders = useMemo(() => activeOrders.filter((order) => order.paymentStatus !== 'paid'), [activeOrders]);
   const processingOrders = useMemo(() => activeOrders.filter((order) => order.paymentStatus === 'paid'), [activeOrders]);
   const historyOrders = useMemo(() => filtered.filter((order) => isHistoryOrder(order)), [filtered]);
+  const overdueOrders = useMemo(() => orders.filter((order) => {
+    if (isHistoryOrder(order) || !order.scheduledFor) return false;
+    const scheduledAt = new Date(order.scheduledFor).getTime();
+    return Number.isFinite(scheduledAt) && scheduledAt < nowTick;
+  }).sort((a, b) => new Date(a.scheduledFor || 0).getTime() - new Date(b.scheduledFor || 0).getTime()), [nowTick, orders]);
 
   useEffect(() => {
     // Se o operador escolheu um status terminal, abrir o histórico torna o
@@ -771,6 +778,7 @@ export default function OrdersAdmin() {
       {scheduledDateFilter && <div className="orders-calendar-filter-chip"><span><CalendarDays size={15}/>Filtrando: <strong>{scheduledFilterLabel}</strong></span><button type="button" onClick={clearScheduledFilter} aria-label="Limpar filtro de pedidos agendados" title="Limpar filtro"><Slash size={15}/></button></div>}
     </section>
 
+    {overdueOrders.length > 0 && <section className="orders-overdue-banner" role="alert" aria-live="assertive"><div className="orders-overdue-banner__title"><AlertTriangle size={19}/><strong>{overdueOrders.length} pedido{overdueOrders.length === 1 ? '' : 's'} atrasado{overdueOrders.length === 1 ? '' : 's'}</strong><span>Priorize a produção ou entre em contato com o cliente.</span></div><div className="orders-overdue-banner__list">{overdueOrders.slice(0, 4).map((order) => <button type="button" key={order.id} onClick={() => setDetailsOrderId(order.id)}><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>Agendado para {formatDateTimeBR(order.scheduledFor!)}</span></button>)}{overdueOrders.length > 4 && <small>+ {overdueOrders.length - 4} pedido(s)</small>}</div></section>}
     <section className="admin-card no-padding orders-workspace">
       <div className="table-toolbar orders-toolbar orders-toolbar--filters">
         <div className="admin-search"><Search size={18}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar pedido, cliente ou telefone..."/></div>
