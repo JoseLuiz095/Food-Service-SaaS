@@ -207,7 +207,7 @@ export default function AdminLayout() {
           <div className="admin-topbar__actions">
             <AdminNotifications />
             {!isComplimentaryPlan && <AdminStoreShare />}
-            {billingStatus.visible && (
+            {!isComplimentaryPlan && billingStatus.visible && (
               <button
                 type="button"
                 className={`admin-billing-status-v047 admin-billing-status-rc66 ${billingStatus.overdue ? 'is-overdue' : billingStatus.dueSoon ? 'is-warning' : 'is-current'}`}
