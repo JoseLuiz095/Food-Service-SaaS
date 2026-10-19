@@ -27,6 +27,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PlatformHelpButton } from '../components/PlatformHelpButton';
 import { AdminNotifications } from '../components/admin/AdminNotifications';
+import { AdminStoreShare } from '../components/admin/AdminStoreShare';
 import { ImageWithFallback } from '../components/ui/ImageWithFallback';
 import { useAuth } from '../contexts/AuthContext';
 import { useStore } from '../contexts/StoreContext';
@@ -142,6 +143,8 @@ export default function AdminLayout() {
     dueDay: billingOverview?.subscription?.dueDay,
     warningDays: BILLING_WARNING_DAYS,
   });
+  const isComplimentaryPlan = billingOverview?.subscription?.billingState === 'complimentary'
+    || (billingOverview?.subscription?.billingMode === 'complimentary' && billingOverview?.subscription?.billingState !== 'trial');
 
   return (
     <div className={`admin-shell food-admin-parity-v054 ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
@@ -199,6 +202,7 @@ export default function AdminLayout() {
 
           <div className="admin-topbar__actions">
             <AdminNotifications />
+            {!isComplimentaryPlan && <AdminStoreShare />}
             {billingStatus.visible && (
               <button
                 type="button"
