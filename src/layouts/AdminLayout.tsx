@@ -143,8 +143,12 @@ export default function AdminLayout() {
     dueDay: billingOverview?.subscription?.dueDay,
     warningDays: BILLING_WARNING_DAYS,
   });
-  const isComplimentaryPlan = billingOverview?.subscription?.billingState === 'complimentary'
-    || (billingOverview?.subscription?.billingMode === 'complimentary' && billingOverview?.subscription?.billingState !== 'trial');
+  const subscription = billingOverview?.subscription;
+  const planIdentity = `${billingOverview?.currentPlan?.name || ''} ${planUsage.plan.name || ''}`;
+  const isComplimentaryPlan = subscription?.billingState === 'complimentary'
+    || (subscription?.billingMode === 'complimentary' && subscription.billingState !== 'trial')
+    || (subscription?.status === 'active' && subscription.billingAmount === 0 && planUsage.subscriptionStatus !== 'trial')
+    || /vital[ií]cio|cortesia|isenta|sem cobrança/i.test(planIdentity);
 
   return (
     <div className={`admin-shell food-admin-parity-v054 ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
