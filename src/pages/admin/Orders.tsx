@@ -106,8 +106,9 @@ const productNeedsFutureScheduling = (product: { availabilityStatus: string; sto
 type SortMode = (typeof sortOptions)[number]['value'];
 type CustomerSummary = { key: string; name: string; phone: string; orders: number; total: number; lastAt: string };
 type ManualPixView = { orderNumber: number; total: number; payload: string; error?: string };
+type ManualOrderMode = 'quick' | 'scheduled';
 const newManualOrder = (): Omit<ManualOrderInput, 'items'> => ({
-  customerName: '', customerPhone: '', fulfillment: 'pickup', source: 'counter', paymentMethod: 'pix', status: 'received', received: false, notes: '',
+  customerName: 'Venda anônima', customerPhone: '', fulfillment: 'pickup', source: 'counter', paymentMethod: 'pix', status: 'received', received: false, notes: '',
 });
 
 export default function OrdersAdmin() {
@@ -133,6 +134,7 @@ export default function OrdersAdmin() {
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
   const [notifyOrderId, setNotifyOrderId] = useState<string | null>(null);
   const [manualOrderOpen, setManualOrderOpen] = useState(false);
+  const [manualOrderMode, setManualOrderMode] = useState<ManualOrderMode>('quick');
   const [manualOrder, setManualOrder] = useState<Omit<ManualOrderInput, 'items'>>(newManualOrder);
   const [manualItems, setManualItems] = useState<ManualOrderItemInput[]>([]);
   const [manualProductId, setManualProductId] = useState('');
@@ -250,12 +252,25 @@ export default function OrdersAdmin() {
 
   const openManualOrder = () => {
     setManualOrder(newManualOrder());
+    setManualOrderMode('quick');
     setManualItems([]);
     setManualProductId(manualProducts[0]?.id || '');
     setManualQuantityDraft(1);
-    setManualPixChargeNow(false);
+    setManualPixChargeNow(true);
     setManualFormError('');
     setManualOrderOpen(true);
+  };
+
+  const changeManualOrderMode = (mode: ManualOrderMode) => {
+    setManualOrderMode(mode);
+    setManualFormError('');
+    if (mode === 'quick') {
+      setManualOrder((current) => ({ ...current, customerName: 'Venda anônima', customerPhone: '', fulfillment: 'pickup', scheduledFor: undefined, source: 'counter', status: 'received', received: false, notes: '' }));
+      setManualPixChargeNow(manualOrder.paymentMethod === 'pix');
+      return;
+    }
+    setManualOrder((current) => ({ ...current, customerName: current.customerName === 'Venda anônima' ? '' : current.customerName }));
+    setManualPixChargeNow(false);
   };
 
   const addManualProduct = () => {
@@ -274,10 +289,13 @@ export default function OrdersAdmin() {
     // O operador ainda pode ajustar o horário, mas não precisa descobrir a
     // regra de estoque depois de preencher todo o lançamento.
     if (needsFutureSchedule) {
+      setManualOrderMode('scheduled');
       setManualOrder((current) => current.scheduledFor ? current : {
         ...current,
+        customerName: current.customerName === 'Venda anônima' ? '' : current.customerName,
         scheduledFor: localDateTimeInputValue(current.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart()),
       });
+      setManualPixChargeNow(false);
     }
     setManualProductId('');
     setManualQuantityDraft(1);
@@ -306,7 +324,8 @@ export default function OrdersAdmin() {
 
   const saveManualOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!manualOrder.customerName.trim() || !manualItems.length) return;
+    const customerName = manualOrderMode === 'quick' ? 'Venda anônima' : manualOrder.customerName.trim();
+    if (!customerName || !manualItems.length) return;
     if (manualOrder.status === 'cancelled' && manualOrder.received) return;
     if (manualOrder.fulfillment === 'delivery' && !settings.deliveryEnabled) {
       reportManualError('O delivery está desativado nas configurações da loja. Selecione retirada ou ative o delivery.');
@@ -355,7 +374,7 @@ export default function OrdersAdmin() {
     setManualFormError('');
     setManualSaving(true);
     try {
-      const result = await trackInteraction('manual_order_create', () => createManualOrder({ ...manualOrder, items: manualItems }), { storeId: settings.id });
+      const result = await trackInteraction('manual_order_create', () => createManualOrder({ ...manualOrder, customerName, items: manualItems }), { storeId: settings.id });
       setLastUpdatedAt(new Date());
       setManualOrderOpen(false);
       if (manualOrder.paymentMethod === 'pix' && manualPixChargeNow) {
@@ -780,14 +799,21 @@ export default function OrdersAdmin() {
         <button type="button" className="modal-close" aria-label="Fechar lançamento de pedido avulso" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}><X/></button>
         <span className="eyebrow">LANÇAMENTO OPERACIONAL</span>
         <h2 id="manual-order-title">Pedido avulso</h2>
-        <p>Registre uma venda feita fora do site. O sistema valida estoque, opções e agendamento antes de salvar.</p>
+         <p>Registre uma venda feita fora do site. Escolha o fluxo mais rápido para o atendimento.</p>
+         <div className="manual-order-mode-switch" role="tablist" aria-label="Tipo de lançamento">
+           <button type="button" role="tab" aria-selected={manualOrderMode === 'quick'} className={manualOrderMode === 'quick' ? 'is-active' : ''} onClick={() => changeManualOrderMode('quick')}>Venda rápida <small>anônima</small></button>
+           <button type="button" role="tab" aria-selected={manualOrderMode === 'scheduled'} className={manualOrderMode === 'scheduled' ? 'is-active' : ''} onClick={() => changeManualOrderMode('scheduled')}>Agendar pedido <small>cliente e data</small></button>
+         </div>
+         <p className="manual-order-mode-hint">{manualOrderMode === 'quick' ? 'Preencha somente pagamento e produto. O PIX é preparado automaticamente quando selecionado.' : 'Use este fluxo para identificar o cliente, delivery/retirada e pedidos sob encomenda.'}</p>
         {manualFormError && <div className="manual-order-feedback manual-order-feedback--error" role="alert"><AlertCircle size={17}/><span>{manualFormError}</span></div>}
         <div className="form-grid">
-          <label>Cliente<input required value={manualOrder.customerName} onChange={(event) => setManualOrder((current) => ({ ...current, customerName: event.target.value }))} placeholder="Nome do cliente"/></label>
-          <label>Como será recebido?<select value={manualOrder.fulfillment || 'pickup'} onChange={(event) => { const fulfillment = event.target.value as ManualOrderInput['fulfillment']; setManualOrder((current) => ({ ...current, fulfillment })); setManualFormError(''); }}><option value="pickup">Retirada</option><option value="delivery" disabled={!settings.deliveryEnabled}>Delivery{settings.deliveryEnabled ? '' : ' (desativado)'}</option></select><small>Delivery respeita o início configurado; retirada não.</small></label>
-          <label>Pagamento<select value={manualOrder.paymentMethod} onChange={(event) => { const paymentMethod = event.target.value as PaymentMethod; setManualOrder((current) => ({ ...current, paymentMethod })); if (paymentMethod !== 'pix') setManualPixChargeNow(false); }}>{Object.entries(paymentLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label>Agendar pedido <span className="optional-label">opcional</span><input type="datetime-local" min={localDateTimeInputValue(manualOrder.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart())} value={manualOrder.scheduledFor || ''} onChange={(event) => { setManualFormError(''); setManualOrder((current) => ({ ...current, scheduledFor: event.target.value || undefined })); }}/><span className="manual-order-schedule-actions"><button type="button" className="text-button" onClick={scheduleManualRestock}>Amanhã{manualOrder.fulfillment === 'delivery' ? ` às ${settings.deliveryStartTime || '18:00'}` : ''}</button><small>Para encomendas sem estoque, disponível somente a partir de amanhã{manualOrder.fulfillment === 'delivery' && settings.deliveryStartTime ? ` e delivery após ${settings.deliveryStartTime}` : ''}.</small></span></label>
-          <details className="manual-order-more-options"><summary>Mais opções <small>telefone, origem e recebimento</small></summary><div className="form-grid manual-order-more-options__grid"><label>Telefone <span className="optional-label">opcional</span><input value={manualOrder.customerPhone || ''} onChange={(event) => setManualOrder((current) => ({ ...current, customerPhone: event.target.value }))} placeholder="(27) 99999-9999"/></label><label>Origem<select value={manualOrder.source} onChange={(event) => setManualOrder((current) => ({ ...current, source: event.target.value as ManualOrderSource }))}>{manualSourceOptions.map((source) => <option key={source.value} value={source.value}>{source.label}</option>)}</select></label><label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label><label>Recebimento<select value={manualOrder.received ? 'paid' : 'pending'} disabled={manualOrder.status === 'cancelled'} onChange={(event) => setManualOrder((current) => ({ ...current, received: event.target.value === 'paid' }))}><option value="pending">A receber do cliente</option><option value="paid">Recebido</option></select><small>Use “A receber” para confirmar depois no painel.</small></label></div></details>
+           {manualOrderMode === 'scheduled' && <>
+             <label>Cliente<input required value={manualOrder.customerName} onChange={(event) => setManualOrder((current) => ({ ...current, customerName: event.target.value }))} placeholder="Nome do cliente"/></label>
+             <label>Como será recebido?<select value={manualOrder.fulfillment || 'pickup'} onChange={(event) => { const fulfillment = event.target.value as ManualOrderInput['fulfillment']; setManualOrder((current) => ({ ...current, fulfillment })); setManualFormError(''); }}><option value="pickup">Retirada</option><option value="delivery" disabled={!settings.deliveryEnabled}>Delivery{settings.deliveryEnabled ? '' : ' (desativado)'}</option></select><small>Delivery respeita o início configurado; retirada não.</small></label>
+             <label>Agendar pedido <span className="optional-label">opcional</span><input type="datetime-local" min={localDateTimeInputValue(manualOrder.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart())} value={manualOrder.scheduledFor || ''} onChange={(event) => { setManualFormError(''); setManualOrder((current) => ({ ...current, scheduledFor: event.target.value || undefined })); }}/><span className="manual-order-schedule-actions"><button type="button" className="text-button" onClick={scheduleManualRestock}>Amanhã{manualOrder.fulfillment === 'delivery' ? ` às ${settings.deliveryStartTime || '18:00'}` : ''}</button><small>Para encomendas sem estoque, disponível somente a partir de amanhã{manualOrder.fulfillment === 'delivery' && settings.deliveryStartTime ? ` e delivery após ${settings.deliveryStartTime}` : ''}.</small></span></label>
+             <details className="manual-order-more-options"><summary>Mais opções <small>telefone, origem e recebimento</small></summary><div className="form-grid manual-order-more-options__grid"><label>Telefone <span className="optional-label">opcional</span><input value={manualOrder.customerPhone || ''} onChange={(event) => setManualOrder((current) => ({ ...current, customerPhone: event.target.value }))} placeholder="(27) 99999-9999"/></label><label>Origem<select value={manualOrder.source} onChange={(event) => setManualOrder((current) => ({ ...current, source: event.target.value as ManualOrderSource }))}>{manualSourceOptions.map((source) => <option key={source.value} value={source.value}>{source.label}</option>)}</select></label><label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label><label>Recebimento<select value={manualOrder.received ? 'paid' : 'pending'} disabled={manualOrder.status === 'cancelled'} onChange={(event) => setManualOrder((current) => ({ ...current, received: event.target.value === 'paid' }))}><option value="pending">A receber do cliente</option><option value="paid">Recebido</option></select><small>Use “A receber” para confirmar depois no painel.</small></label></div></details>
+           </>}
+           <label>Pagamento<select value={manualOrder.paymentMethod} onChange={(event) => { const paymentMethod = event.target.value as PaymentMethod; setManualOrder((current) => ({ ...current, paymentMethod })); if (paymentMethod !== 'pix') setManualPixChargeNow(false); else if (manualOrderMode === 'quick') setManualPixChargeNow(true); }}>{Object.entries(paymentLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         </div>
 
         <section>
@@ -812,13 +838,13 @@ export default function OrdersAdmin() {
             </fieldset>;
           })}
         </section>
-        <label>Observação<textarea rows={3} maxLength={500} value={manualOrder.notes || ''} onChange={(event) => setManualOrder((current) => ({ ...current, notes: event.target.value }))} placeholder="Ex.: venda registrada depois do atendimento presencial."/></label>
+         {manualOrderMode === 'scheduled' && <label>Observação<textarea rows={3} maxLength={500} value={manualOrder.notes || ''} onChange={(event) => setManualOrder((current) => ({ ...current, notes: event.target.value }))} placeholder="Ex.: venda registrada depois do atendimento presencial."/></label>}
         <p><strong>Resumo: {manualItems.reduce((sum, item) => sum + item.quantity, 0)} item(ns) · {currency.format(manualSubtotal)}</strong></p>
         {manualOrder.paymentMethod === 'pix' && <section className="manual-pix-charge-section" aria-label="Cobrança por PIX">
-          <label className="manual-pix-charge-toggle"><input type="checkbox" checked={manualPixChargeNow} disabled={manualOrder.status === 'cancelled'} onChange={(event) => { const checked = event.target.checked; setManualPixChargeNow(checked); if (checked) setManualOrder((current) => ({ ...current, received: false })); }}/><span><strong>Cobrar agora via PIX</strong><small>Última etapa: gera o QR Code e o PIX Copia e Cola com o valor final. O recebimento continua “A receber” até a conferência.</small></span></label>
+           {manualOrderMode === 'scheduled' && <label className="manual-pix-charge-toggle"><input type="checkbox" checked={manualPixChargeNow} disabled={manualOrder.status === 'cancelled'} onChange={(event) => { const checked = event.target.checked; setManualPixChargeNow(checked); if (checked) setManualOrder((current) => ({ ...current, received: false })); }}/><span><strong>Cobrar agora via PIX</strong><small>Gera o QR Code e o PIX Copia e Cola com o valor final. O recebimento continua “A receber” até a conferência.</small></span></label>}
           {manualPixChargeNow && <div className="manual-pix-live-preview"><div><QrCode size={18}/><span><strong>Cobrança via PIX</strong><small>O QR Code e o PIX Copia e Cola usam o valor atualizado do pedido.</small></span></div>{manualPixPreviewPayload ? <div className="manual-pix-live-preview__content">{manualPixPreviewQrCode ? <img src={manualPixPreviewQrCode} alt={`QR Code PIX no valor de ${currency.format(manualSubtotal)}`} /> : manualPixPreviewQrCodeError ? <span className="manual-pix-live-preview__error">{manualPixPreviewQrCodeError}</span> : <span className="manual-pix-result-loading">Gerando QR Code…</span>}<div><strong>{currency.format(manualSubtotal)}</strong><button type="button" className="text-button" onClick={() => void copyText(manualPixPreviewPayload).then(() => { setManualPixCopied(true); window.setTimeout(() => setManualPixCopied(false), 1800); })}><Copy size={14}/>{manualPixCopied ? 'Copiado' : 'Copiar PIX'}</button></div></div> : <div className="manual-pix-live-preview__error">{manualPixPreview.error}</div>}</div>}
         </section>}
-        <div className="master-modal-actions"><button type="button" className="secondary-button" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}>Cancelar</button><button className="primary-button" type="submit" disabled={manualSaving || !manualItems.length || !manualOrder.customerName.trim()}>{manualSaving ? 'Salvando...' : `Registrar pedido · ${currency.format(manualSubtotal)}`}</button></div>
+         <div className="master-modal-actions"><button type="button" className="secondary-button" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}>Cancelar</button><button className="primary-button" type="submit" disabled={manualSaving || !manualItems.length || (manualOrderMode === 'scheduled' && !manualOrder.customerName.trim())}>{manualSaving ? 'Salvando...' : `Registrar ${manualOrderMode === 'quick' ? 'venda' : 'pedido'} · ${currency.format(manualSubtotal)}`}</button></div>
       </form>
     </div>}
     {manualPixView && <div className="modal-overlay" role="presentation">
