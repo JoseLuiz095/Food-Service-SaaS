@@ -91,7 +91,7 @@ check('Checkout aguarda o envio do push',edge.includes('await notifyStoreAdmins(
 check('Push entrega somente assinaturas ativas',pushFunction.includes(".eq('active', true)"));
 check('Push repetido não vibra novamente',serviceWorker.includes('renotify: false'));
 check('Pedido avulso exibe erro de estoque como toast',ordersAdmin.includes('reportManualError')&&ordersAdmin.includes('showToast'));
-check('Pedido avulso inicia no modo rápido anônimo',ordersAdmin.includes("type ManualOrderMode = 'quick' | 'scheduled'")&&ordersAdmin.includes("setManualOrderMode('quick')")&&ordersAdmin.includes("customerName: 'Venda anônima'")&&ordersAdmin.includes('Preencha somente pagamento e produto'));
+check('Pedido avulso inicia no modo rápido anônimo',ordersAdmin.includes("type ManualOrderMode = 'quick' | 'scheduled'")&&ordersAdmin.includes("setManualOrderMode('quick')")&&ordersAdmin.includes("customerName: 'Venda anônima'")&&ordersAdmin.includes("status: 'delivered'")&&ordersAdmin.includes('Preencha somente pagamento e produto'));
 check('Pedido avulso separa agendamento e converte item sem estoque',ordersAdmin.includes('changeManualOrderMode')&&ordersAdmin.includes("setManualOrderMode('scheduled')")&&ordersAdmin.includes('customerName: current.customerName === \'Venda anônima\' ? \'\''));
 check('Toast fica acima do modal',styles.includes('.toast-stack{z-index:4000}'));
 check('Pedido futuro pago não baixa estoque sem reposição',inventoryPatch.includes("payment_status = 'paid' and not v_awaiting")&&inventoryGuard.includes("payment_status = 'paid' and not v_awaiting"));

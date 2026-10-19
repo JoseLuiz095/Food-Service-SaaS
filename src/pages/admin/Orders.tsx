@@ -27,6 +27,7 @@ const statusOptions: Array<{ value: OrderStatus; label: string }> = [
   { value: 'delivered', label: 'Entregue' },
   { value: 'cancelled', label: 'Cancelado' },
 ];
+const quickManualStatusOptions = statusOptions.filter((status) => status.value !== 'cancelled');
 
 const kdsStatuses: OrderStatus[] = ['received', 'confirmed', 'preparing', 'ready', 'out_for_delivery'];
 const statusLabel = Object.fromEntries(statusOptions.map((item) => [item.value, item.label])) as Record<OrderStatus, string>;
@@ -108,7 +109,7 @@ type CustomerSummary = { key: string; name: string; phone: string; orders: numbe
 type ManualPixView = { orderNumber: number; total: number; payload: string; error?: string };
 type ManualOrderMode = 'quick' | 'scheduled';
 const newManualOrder = (): Omit<ManualOrderInput, 'items'> => ({
-  customerName: 'Venda anônima', customerPhone: '', fulfillment: 'pickup', source: 'counter', paymentMethod: 'pix', status: 'received', received: false, notes: '',
+  customerName: 'Venda anônima', customerPhone: '', fulfillment: 'pickup', source: 'counter', paymentMethod: 'pix', status: 'delivered', received: false, notes: '',
 });
 
 export default function OrdersAdmin() {
@@ -266,11 +267,11 @@ export default function OrdersAdmin() {
     setManualOrderMode(mode);
     setManualFormError('');
     if (mode === 'quick') {
-      setManualOrder((current) => ({ ...current, customerName: 'Venda anônima', customerPhone: '', fulfillment: 'pickup', scheduledFor: undefined, source: 'counter', status: 'received', received: false, notes: '' }));
+      setManualOrder((current) => ({ ...current, customerName: 'Venda anônima', customerPhone: '', fulfillment: 'pickup', scheduledFor: undefined, source: 'counter', status: 'delivered', received: false, notes: '' }));
       setManualPixChargeNow(manualOrder.paymentMethod === 'pix');
       return;
     }
-    setManualOrder((current) => ({ ...current, customerName: current.customerName === 'Venda anônima' ? '' : current.customerName }));
+    setManualOrder((current) => ({ ...current, customerName: current.customerName === 'Venda anônima' ? '' : current.customerName, status: 'received', received: false }));
     setManualPixChargeNow(false);
   };
 
@@ -294,6 +295,8 @@ export default function OrdersAdmin() {
       setManualOrder((current) => current.scheduledFor ? current : {
         ...current,
         customerName: current.customerName === 'Venda anônima' ? '' : current.customerName,
+        status: 'received',
+        received: false,
         scheduledFor: localDateTimeInputValue(current.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart()),
       });
       setManualPixChargeNow(false);
@@ -822,6 +825,7 @@ export default function OrdersAdmin() {
              <details className="manual-order-more-options"><summary>Mais opções <small>telefone, origem e recebimento</small></summary><div className="form-grid manual-order-more-options__grid"><label>Telefone <span className="optional-label">opcional</span><input value={manualOrder.customerPhone || ''} onChange={(event) => setManualOrder((current) => ({ ...current, customerPhone: event.target.value }))} placeholder="(27) 99999-9999"/></label><label>Origem<select value={manualOrder.source} onChange={(event) => setManualOrder((current) => ({ ...current, source: event.target.value as ManualOrderSource }))}>{manualSourceOptions.map((source) => <option key={source.value} value={source.value}>{source.label}</option>)}</select></label><label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label><label>Recebimento<select value={manualOrder.received ? 'paid' : 'pending'} disabled={manualOrder.status === 'cancelled'} onChange={(event) => setManualOrder((current) => ({ ...current, received: event.target.value === 'paid' }))}><option value="pending">A receber do cliente</option><option value="paid">Recebido</option></select><small>Use “A receber” para confirmar depois no painel.</small></label></div></details>
            </>}
            <label>Pagamento<select value={manualOrder.paymentMethod} onChange={(event) => { const paymentMethod = event.target.value as PaymentMethod; setManualOrder((current) => ({ ...current, paymentMethod })); if (paymentMethod !== 'pix') setManualPixChargeNow(false); else if (manualOrderMode === 'quick') setManualPixChargeNow(true); }}>{Object.entries(paymentLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+           {manualOrderMode === 'quick' && <label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{quickManualStatusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select><small>A venda rápida já começa como “Entregue”. O recebimento do PIX continua separado até a conferência.</small></label>}
         </div>
 
         <section>
