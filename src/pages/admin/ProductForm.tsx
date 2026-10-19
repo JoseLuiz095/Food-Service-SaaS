@@ -1,8 +1,9 @@
-import { ArrowLeft, ChevronDown, ImagePlus, Plus, Save, Star, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ImagePlus, Plus, Star, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { LoadingState } from '../../components/ui/AsyncState';
+import { FloatingSaveBar } from '../../components/admin/FloatingSaveBar';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import type { OptionGroup, OptionGroupKind, OptionItem, PartyOrderConfig, Product, ProductImage } from '../../types';
@@ -117,6 +118,9 @@ export default function ProductForm() {
   const imageLimit = planUsage.plan.imageLimitPerProduct;
   const totalImages = product.images.length + files.length;
   const activeCategories = useMemo(() => categories.filter((category) => category.active || category.id === product.categoryId), [categories, product.categoryId]);
+  const pristineProduct = useMemo(() => existing ? productForEditor(existing) : null, [existing]);
+  const hasProductChanges = existing ? JSON.stringify(product) !== JSON.stringify(pristineProduct) : Boolean(product.name.trim() || product.description.trim() || product.categoryId || product.price || product.optionGroups.length || product.images.length || partyConfig.enabled);
+  const hasUnsavedChanges = files.length > 0 || hasProductChanges || JSON.stringify(partyConfig) !== JSON.stringify(existing?.partyOrderConfig || (existing ? readPartyConfig(existing.optionGroups) : defaultPartyConfig()));
   const update = <K extends keyof Product>(key: K, value: Product[K]) => setProduct((current) => ({ ...current, [key]: value }));
 
   const updateGroup = (groupId: string, patch: Partial<OptionGroup>) => update('optionGroups', product.optionGroups.map((group) => group.id === groupId ? { ...group, ...patch } : group));
@@ -246,7 +250,7 @@ export default function ProductForm() {
 
   return <>
     <div className="admin-page-title"><div><Link to="/admin/produtos" className="back-link"><ArrowLeft size={16}/>Produtos</Link><h1>{existing ? 'Editar produto' : 'Novo produto'}</h1><p>Cadastre o item e monte as regras de tamanho, escolhas, adicionais e remoções.</p></div></div>
-    <form className="admin-form-layout" onSubmit={submit}>
+    <form id="product-form" className="admin-form-layout" onSubmit={submit}>
       <section className="admin-card form-section">
         <div className="admin-card__header"><div><span className="eyebrow">INFORMAÇÕES</span><h2>Dados principais</h2></div></div>
         <div className="form-grid">
@@ -309,8 +313,9 @@ export default function ProductForm() {
 
       <aside>
         <section className="admin-card form-section"><span className="eyebrow">PUBLICAÇÃO</span><h2>Disponibilidade</h2><label className="switch-row"><span><strong>Produto ativo</strong><small>Aparece no cardápio público</small></span><input type="checkbox" checked={product.active} onChange={(event) => update('active', event.target.checked)}/></label><label className="switch-row"><span><strong>Destaque</strong><small>Produto em evidência</small></span><input type="checkbox" checked={product.featured} onChange={(event) => update('featured', event.target.checked)}/></label><div className="product-form-preview"><span>Preço atual</span><strong>{partyConfig.enabled && partyConfig.pricePerGram > 0 ? `${currency.format(partyConfig.pricePerGram)}/g` : currency.format(product.promotionalPrice ?? product.price)}</strong>{product.visualEmoji && <span className="product-form-emoji-preview-v060" aria-label="Emoji do produto">{product.visualEmoji}</span>}{partyConfig.enabled && <small>Encomenda para festas · mínimo de {partyConfig.minimumPackages} pacote(s)</small>}<small>{product.optionGroups.length} grupo(s) de personalização</small></div></section>
-        <button className="primary-button full-button" disabled={saving} type="submit"><Save size={18}/>{saving ? 'Salvando...' : 'Salvar produto'}</button>
+        <div className="product-form-save-hint">{hasUnsavedChanges ? 'Alterações pendentes. Use o botão flutuante para salvar.' : 'Tudo salvo.'}</div>
       </aside>
     </form>
+    {hasUnsavedChanges && <FloatingSaveBar label="Salvar produto" description="O produto tem alterações pendentes." saving={saving} onSave={() => { const form = document.getElementById('product-form'); if (form instanceof HTMLFormElement) form.requestSubmit(); }} onCancel={() => { setFiles([]); if (existing) { setProduct(productForEditor(existing)); setPartyConfig(existing.partyOrderConfig || readPartyConfig(existing.optionGroups)); } }} />}
   </>;
 }

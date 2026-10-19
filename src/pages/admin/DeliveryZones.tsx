@@ -1,6 +1,7 @@
-import { MapPinned, Plus, Save, Search, Trash2, Truck } from 'lucide-react';
+import { MapPinned, Plus, Search, Trash2, Truck } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { FloatingSaveBar } from '../../components/admin/FloatingSaveBar';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import type { DeliveryZone } from '../../types';
@@ -45,6 +46,7 @@ export default function DeliveryZonesAdmin() {
     const avg = active.length ? active.reduce((sum, zone) => sum + zone.fee, 0) / active.length : 0;
     return { total: drafts.length, active: active.length, avg };
   }, [drafts]);
+  const hasUnsavedChanges = JSON.stringify(drafts) !== JSON.stringify(deliveryZones.map((zone) => ({ ...zone, aliases: [...zone.aliases] })));
 
   const patchDraft = (id: string, patch: Partial<DeliveryZone>) => {
     setDrafts((current) => current.map((zone) => zone.id === id ? { ...zone, ...patch } : zone));
@@ -99,8 +101,9 @@ export default function DeliveryZonesAdmin() {
           <h1>Áreas e taxas de entrega</h1>
           <p>Defina os bairros e cidades atendidos. Somente áreas ativas aparecem no checkout.</p>
         </div>
-        <button className="primary-button" type="button" disabled={saving} onClick={() => void saveAll()}><Save size={17} />{saving ? 'Salvando...' : 'Salvar alterações'}</button>
+        <span className="delivery-save-hint">{hasUnsavedChanges ? 'Alterações pendentes' : 'Tudo salvo'}</span>
       </div>
+      {hasUnsavedChanges && <FloatingSaveBar label="Salvar áreas" description="As taxas ou status de entrega foram alterados." saving={saving} onSave={() => void saveAll()} onCancel={() => setDrafts(deliveryZones.map((zone) => ({ ...zone, aliases: [...zone.aliases] })))} />}
 
       <div className="delivery-stat-grid">
         <article><Truck size={20} /><div><span>Áreas cadastradas</span><strong>{stats.total}</strong></div></article>
