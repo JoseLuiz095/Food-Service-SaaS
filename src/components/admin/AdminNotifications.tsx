@@ -1,5 +1,6 @@
 import { Bell, CheckCircle2, CircleAlert, Info, Loader2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useStore } from '../../contexts/StoreContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDateTimeBR } from '../../utils/format';
@@ -240,6 +241,7 @@ export function AdminNotifications() {
       <div className="admin-notification-diagnostic__status"><span><Bell size={15}/> Push em segundo plano</span><strong>{pushStatus === 'available' ? 'Configurado' : pushStatus === 'not_configured' ? 'Ainda não configurado' : pushStatus === 'blocked' ? 'Bloqueado' : 'Indisponível'}</strong></div>
       {lastSignalAt && <small className="admin-notification-diagnostic__last">Último sinal recebido nesta sessão: {formatDateTimeBR(lastSignalAt)}</small>}
       <button type="button" className="secondary-button admin-notification-diagnostic__test" onClick={() => void sendTestNotification()} disabled={testing}>{testing ? <Loader2 className="spin" size={15}/> : <Bell size={15}/>} {testing ? 'Enviando teste...' : 'Enviar notificação de teste'}</button>
+      <div className="admin-notification-diagnostic__links"><Link to="/admin/pedidos" onClick={() => setDiagnosticOpen(false)}>Ver pedidos →</Link><Link to="/admin/estoque" onClick={() => setDiagnosticOpen(false)}>Ver estoque →</Link></div>
       <p>Pedidos novos, pagamentos confirmados e agendamentos próximos são verificados ao abrir o painel e enquanto esta aba estiver ativa.</p>
     </section>}
   </div>;
