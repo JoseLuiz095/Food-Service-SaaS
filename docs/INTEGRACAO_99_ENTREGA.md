@@ -1,6 +1,6 @@
 # Preparação da integração de cotação da 99
 
-O projeto possui o adaptador `food-delivery-quote-99`. Ele permanece inativo até que as credenciais e o endpoint oficial sejam fornecidos: sem as variáveis do provedor, a função retorna `503 NINETY_NINE_NOT_CONFIGURED` e a loja continua usando a taxa da zona.
+O projeto possui o adaptador `food-delivery-quote-99`. Ele permanece inativo até que a ativação seja feita explicitamente: mesmo com chave e endpoint configurados, a função retorna `503 NINETY_NINE_DISABLED` enquanto `NINETY_NINE_ENABLED` não for exatamente `true`. A loja continua usando a taxa da zona e a confirmação manual da entrega.
 
 ## Variáveis da Edge Function
 
@@ -9,6 +9,7 @@ Configure somente no ambiente do Supabase, nunca em `VITE_*` ou no frontend:
 - `NINETY_NINE_API_KEY`: chave fornecida pela 99;
 - `NINETY_NINE_ESTIMATE_URL`: endpoint oficial de estimativa. Pode conter `{employeeId}`;
 - `NINETY_NINE_EMPLOYEE_ID`: identificador exigido pelo contrato, quando aplicável.
+- `NINETY_NINE_ENABLED`: use `true` somente depois de validar contrato, endpoint e limites de uso. A ausência desta variável mantém o fallback manual.
 
 O endpoint recebe `POST` com `store_id`, `origin { lat, lng }`, `destination { lat, lng }` e `category`. A função chama a 99 com `x-api-key`, timeout de 4,5 segundos e responde apenas com o valor normalizado:
 
