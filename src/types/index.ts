@@ -396,6 +396,8 @@ export type CartItem = {
   unitPrice: number;
   quantity: number;
   options: SelectedOption[];
+  /** Gramatura escolhida pelo cliente em produtos de encomenda para festa. */
+  partyPackageWeightGrams?: number;
 };
 
 export type CheckoutData = {
@@ -511,6 +513,7 @@ export type OrderItem = {
   variantPriceDelta: number;
   itemTotal: number;
   options: OrderItemOption[];
+  partyPackageWeightGrams?: number;
 };
 
 export type Order = {

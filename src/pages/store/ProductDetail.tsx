@@ -59,6 +59,7 @@ export default function ProductDetail() {
   const product = products.find((item) => item.slug === slug && item.active);
   const partyConfig = product?.partyOrderConfig?.enabled ? product.partyOrderConfig : product ? readPartyConfig(product.optionGroups) : undefined;
   const [quantity, setQuantity] = useState(1);
+  const [partyPackageWeightGrams, setPartyPackageWeightGrams] = useState(100);
   const [selections, setSelections] = useState<Record<string, Record<string, number>>>({});
   const [imageIndex, setImageIndex] = useState(0);
 
@@ -72,6 +73,7 @@ export default function ProductDetail() {
     });
     const config = product.partyOrderConfig?.enabled ? product.partyOrderConfig : readPartyConfig(product.optionGroups);
     setQuantity(config?.minimumPackages ?? 1);
+    setPartyPackageWeightGrams(config?.packageWeightGrams ?? 100);
     setSelections(defaults);
     setImageIndex(0);
   }, [product?.id]);
@@ -100,10 +102,11 @@ export default function ProductDetail() {
 
   const total = useMemo(() => {
     if (!product) return 0;
-    const base = partyConfig?.pricePerGram ? roundMoney(partyConfig.pricePerGram * partyConfig.packageWeightGrams) : (product.promotionalPrice ?? product.price);
+    const selectedPartyWeight = partyConfig ? Math.max(1, Math.trunc(Number(partyPackageWeightGrams) || partyConfig.packageWeightGrams)) : undefined;
+    const base = partyConfig?.pricePerGram ? roundMoney(partyConfig.pricePerGram * (selectedPartyWeight || partyConfig.packageWeightGrams)) : (product.promotionalPrice ?? product.price);
     const optionsTotal = selectedOptions.reduce((sum, option) => sum + option.priceDelta * option.quantity, 0);
     return roundMoney((base + optionsTotal) * quantity);
-  }, [product, partyConfig, selectedOptions, quantity]);
+  }, [product, partyConfig, partyPackageWeightGrams, selectedOptions, quantity]);
 
   if (loading) return <div className="page-center"><LoadingState label="Carregando produto..." /></div>;
   if (!product) return <div className="not-found"><h2>Produto não encontrado</h2><Link to={storefrontPath(storeBasePath)}>Voltar ao cardápio</Link></div>;
@@ -184,8 +187,9 @@ export default function ProductDetail() {
 
   const add = () => {
     if (unavailable || !validateSelections()) return;
-    const partyUnitPrice = partyConfig?.pricePerGram ? roundMoney(partyConfig.pricePerGram * partyConfig.packageWeightGrams) : undefined;
-    addItem(partyUnitPrice != null ? { ...product, price: partyUnitPrice, promotionalPrice: undefined } : product, quantity, selectedOptions);
+    const selectedPartyWeight = partyConfig ? Math.max(1, Math.trunc(Number(partyPackageWeightGrams) || partyConfig.packageWeightGrams)) : undefined;
+    if (partyConfig && (!selectedPartyWeight || selectedPartyWeight < 1)) { showToast('Informe a gramatura por pacote.', 'error'); return; }
+    addItem(product, quantity, selectedOptions, partyConfig ? { partyPackageWeightGrams: selectedPartyWeight } : undefined);
     void trackPublicEvent(settings.id, 'add_to_cart', product.id);
     showToast('Produto adicionado ao carrinho.', 'success');
     window.location.assign(storefrontPath(storeBasePath, '/carrinho'));
@@ -214,6 +218,7 @@ export default function ProductDetail() {
         <h1>{product.name}</h1>
         <p className="product-long-description">{product.description}</p>
         {partyConfig && <div className="made-to-order party-order-note"><Package size={19}/><div><strong>Encomenda para festas</strong><span>Produção sob agendamento, com mínimo de {partyConfig.minimumPackages} pacote(s) de {partyConfig.packageWeightGrams} g{partyConfig.leadTimeDays > 0 ? ` e antecedência de ${partyConfig.leadTimeDays} dia${partyConfig.leadTimeDays === 1 ? '' : 's'}` : ''}.</span>{partyConfig.pricePerGram > 0 && <small>Preço de referência: {currency.format(partyConfig.pricePerGram)} por grama · {currency.format(partyConfig.pricePerGram * partyConfig.packageWeightGrams)} por pacote.</small>}{partyConfig.artworkInstructions && <small>{partyConfig.artworkInstructions}</small>}{storeInstagramHref && <a href={storeInstagramHref} target="_blank" rel="noreferrer"><InstagramGlyph/>Fale com a loja pelo Instagram {instagramLabel(settings.instagram)}</a>}</div></div>}
+         {partyConfig && <label className="party-order-weight-field">Gramas por pacote <span>(opcional · padrão {partyConfig.packageWeightGrams} g)</span><input type="number" min="1" max="10000" step="1" value={partyPackageWeightGrams} onChange={(event) => setPartyPackageWeightGrams(Math.max(1, Math.min(10000, Number(event.target.value) || partyConfig.packageWeightGrams)))} /><small>Se você não alterar, usamos o padrão cadastrado pela loja. A quantidade abaixo representa o número de pacotes.</small></label>}
         {outOfStock && !unavailable && <div className="stock-schedule-note"><Clock3 size={18}/><div><strong>Sem disponibilidade para hoje</strong><span>Você pode adicionar ao pedido e agendar a partir de amanhã.</span></div></div>}
         {product.preparationTimeMinutes > 0 && <div className="made-to-order"><Clock3 size={19}/><div><strong>Tempo adicional de preparo</strong><span>Este item pode acrescentar cerca de {product.preparationTimeMinutes} minutos ao prazo do pedido.</span></div></div>}
 
@@ -248,7 +253,7 @@ export default function ProductDetail() {
         })}
 
         <div className="buy-box">
-          <div className="quantity-control"><button onClick={() => setQuantity((value) => Math.max(partyConfig?.minimumPackages ?? 1, value - 1))} aria-label="Diminuir quantidade"><Minus size={17}/></button><span>{quantity}</span><button onClick={() => setQuantity((value) => value + 1)} aria-label="Aumentar quantidade"><Plus size={17}/></button></div>
+          <div className="quantity-control"><small>{partyConfig ? 'Pacotes' : 'Quantidade'}</small><button onClick={() => setQuantity((value) => Math.max(partyConfig?.minimumPackages ?? 1, value - 1))} aria-label="Diminuir quantidade"><Minus size={17}/></button><span>{quantity}</span><button onClick={() => setQuantity((value) => value + 1)} aria-label="Aumentar quantidade"><Plus size={17}/></button></div>
           <div className="buy-total"><small>Total</small><strong>{currency.format(total)}</strong></div>
           <button className="primary-button" disabled={unavailable} onClick={add}><ShoppingBag size={18}/>{unavailable ? 'Indisponível' : outOfStock ? 'Adicionar para agendar' : 'Adicionar ao carrinho'}</button>
         </div>

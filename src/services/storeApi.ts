@@ -99,7 +99,7 @@ type OrderRow = {
 
 type OrderItemRow = {
   id: string; order_id: string; product_id?: string | null; product_name: string; quantity: number; unit_price: number | string;
-  variant_name?: string | null; variant_price_delta?: number | string | null; item_total: number | string; addons?: unknown;
+  variant_name?: string | null; variant_price_delta?: number | string | null; item_total: number | string; addons?: unknown; party_package_weight_grams?: number | string | null;
 };
 type OrderItemOptionRow = {
   id: string; order_item_id: string; group_name: string; option_name: string; option_kind: string;
@@ -120,7 +120,7 @@ const ADMIN_ORDER_SELECT = [
   'preparation_estimate_minutes', 'inventory_status', 'source', 'customer_instagram', 'acquisition_source',
   'whatsapp_clicked_at', 'created_at',
 ].join(',');
-const ADMIN_ORDER_ITEM_SELECT = 'id,order_id,product_id,product_name,quantity,unit_price,variant_name,variant_price_delta,item_total,addons,created_at';
+const ADMIN_ORDER_ITEM_SELECT = 'id,order_id,product_id,product_name,quantity,unit_price,variant_name,variant_price_delta,item_total,addons,party_package_weight_grams,created_at';
 const ADMIN_ORDER_OPTION_SELECT = 'id,order_item_id,group_name,option_name,option_kind,price_delta,quantity,created_at';
 const toNumber = (value: number | string | null | undefined) => value == null ? 0 : Number(value);
 const encode = (value: string) => encodeURIComponent(value);
@@ -261,6 +261,7 @@ const mapOrderItem = (row: OrderItemRow, optionRows: OrderItemOptionRow[]): Orde
   variantName: row.variant_name || undefined,
   variantPriceDelta: toNumber(row.variant_price_delta),
   itemTotal: toNumber(row.item_total),
+  partyPackageWeightGrams: row.party_package_weight_grams == null ? undefined : toNumber(row.party_package_weight_grams),
   options: optionRows.map((option) => ({
     id: option.id,
     orderItemId: option.order_item_id,
@@ -698,7 +699,7 @@ export const storeApi = {
       // com instalações antigas caso as colunas ainda não existam.
       customer_instagram: form.customerInstagram?.trim() || null,
       acquisition_source: form.acquisitionSource || null,
-      items:items.map((item)=>({product_id:item.productId,quantity:item.quantity,options:item.options.map((option)=>({group_id:option.groupId,item_id:option.itemId,quantity:option.quantity}))})),
+       items:items.map((item)=>({product_id:item.productId,quantity:item.quantity,party_package_weight_grams:item.partyPackageWeightGrams ?? null,options:item.options.map((option)=>({group_id:option.groupId,item_id:option.itemId,quantity:option.quantity}))})),
     };
     if(isDemoMode){
       const db=readDemo();if(subtotal<store.minimumOrder)throw new Error(`Pedido mínimo de R$ ${store.minimumOrder.toFixed(2).replace('.',',')}.`);if(!form.reviewConfirmed)throw new Error('Confirme que revisou os dados do pedido.');
