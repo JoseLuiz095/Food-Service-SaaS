@@ -1,5 +1,6 @@
 import { Bell, CheckCircle2, CircleAlert, Info, Loader2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useStore } from '../../contexts/StoreContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -226,9 +227,8 @@ export function AdminNotifications() {
 
   const permissionLabel = permission === 'granted' ? 'Permitida' : permission === 'denied' ? 'Bloqueada' : permission === 'default' ? 'Aguardando escolha' : 'Indisponível';
   const statusIcon = permission === 'granted' ? <CheckCircle2 size={15}/> : permission === 'denied' ? <CircleAlert size={15}/> : <Info size={15}/>;
-  return <div className="admin-notification-center">
-    <button type="button" className={`admin-notification-badge${unread ? ' has-unread' : ''}`} onClick={() => { setUnread(0); setDiagnosticOpen((value) => !value); refreshNotificationStatus(); }} title="Abrir diagnóstico de notificações" aria-expanded={diagnosticOpen} aria-controls="admin-notification-diagnostic" aria-label={unread ? `${unread} alerta${unread === 1 ? '' : 's'} nova${unread === 1 ? '' : 's'}; abrir diagnóstico` : 'Abrir diagnóstico de notificações'}><Bell size={16}/>{unread ? <span>{unread > 9 ? '9+' : unread}</span> : null}</button>
-    {diagnosticOpen && <section className="admin-notification-diagnostic" id="admin-notification-diagnostic" role="dialog" aria-label="Diagnóstico de notificações">
+  const diagnostic = diagnosticOpen && typeof document !== 'undefined' ? createPortal(
+    <section className="admin-notification-diagnostic" id="admin-notification-diagnostic" role="dialog" aria-label="Diagnóstico de notificações">
       <div className="admin-notification-diagnostic__heading"><div><span className="eyebrow">CENTRAL DE AVISOS</span><strong>Notificações do painel</strong></div><button type="button" className="icon-button" onClick={() => setDiagnosticOpen(false)} aria-label="Fechar diagnóstico"><X size={16}/></button></div>
       <div className="admin-notification-diagnostic__status"><span>{statusIcon} Permissão do navegador</span><strong className={permission === 'granted' ? 'is-ok' : permission === 'denied' ? 'is-error' : ''}>{permissionLabel}</strong></div>
       <div className="admin-notification-diagnostic__status"><span><Bell size={15}/> Push em segundo plano</span><strong>{pushStatus === 'available' ? 'Configurado' : pushStatus === 'not_configured' ? 'Ainda não configurado' : pushStatus === 'blocked' ? 'Bloqueado' : 'Indisponível'}</strong></div>
@@ -236,6 +236,12 @@ export function AdminNotifications() {
       <button type="button" className="secondary-button admin-notification-diagnostic__test" onClick={() => void sendTestNotification()} disabled={testing}>{testing ? <Loader2 className="spin" size={15}/> : <Bell size={15}/>} {testing ? 'Enviando teste...' : permission === 'default' ? 'Ativar e testar notificações' : 'Enviar notificação de teste'}</button>
       <div className="admin-notification-diagnostic__links"><Link to="/admin/pedidos" onClick={() => setDiagnosticOpen(false)}>Ver pedidos →</Link><Link to="/admin/estoque" onClick={() => setDiagnosticOpen(false)}>Ver estoque →</Link></div>
       <p>Pedidos novos, pagamentos confirmados e agendamentos próximos são verificados ao abrir o painel e enquanto esta aba estiver ativa.</p>
-    </section>}
+    </section>,
+    document.body,
+  ) : null;
+
+  return <div className="admin-notification-center">
+    <button type="button" className={`admin-notification-badge${unread ? ' has-unread' : ''}`} onClick={() => { setUnread(0); setDiagnosticOpen((value) => !value); refreshNotificationStatus(); }} title="Abrir diagnóstico de notificações" aria-expanded={diagnosticOpen} aria-controls="admin-notification-diagnostic" aria-label={unread ? `${unread} alerta${unread === 1 ? '' : 's'} nova${unread === 1 ? '' : 's'}; abrir diagnóstico` : 'Abrir diagnóstico de notificações'}><Bell size={16}/>{unread ? <span>{unread > 9 ? '9+' : unread}</span> : null}</button>
+    {diagnostic}
   </div>;
 }
