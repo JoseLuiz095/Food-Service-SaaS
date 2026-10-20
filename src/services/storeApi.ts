@@ -424,6 +424,9 @@ const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promis
   const stores = await restFetchProjected<StoreRow>('food_stores', admin ? '*' : PUBLIC_STORE_SELECT, `&${storeFilter}&limit=1`);
   if (!stores.length) throw new Error('Loja não encontrada ou sem permissão.');
   const settings = mapStore(stores[0]);
+  // Plano não depende do catálogo. Começamos a consulta enquanto o restante
+  // do painel carrega, reduzindo uma etapa de rede na abertura do admin.
+  const planUsagePromise = admin ? loadPlanUsage(settings.id, 0, 0) : null;
   // Categorias, produtos, zonas e adicionais são independentes. Em vez de
   // esperar cada consulta em sequência, carregamos o primeiro bloco em
   // paralelo para reduzir o tempo de abertura do painel/vitrine.
@@ -467,10 +470,17 @@ const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promis
   const deliveryZones = deliveryZoneRows.map(mapDeliveryZone);
   const products = buildProducts(productRows, imageRows, optionGroupRows, optionItemRows, optionLinks, variantRows, addons, addonLinks);
   const activeProductCount = products.filter((product) => product.active).length;
-  const [orders, planUsage] = await Promise.all([
+  const [orders, loadedPlanUsage] = await Promise.all([
     admin ? loadAdminOrders(settings.id) : Promise.resolve([] as Order[]),
-    admin ? loadPlanUsage(settings.id, products.length, activeProductCount) : Promise.resolve({ plan:seedPlan, productCount:products.length, activeProductCount, canCreateProduct:true, canActivateProduct:true }),
+    planUsagePromise || Promise.resolve({ plan:seedPlan, productCount:0, activeProductCount:0, canCreateProduct:true, canActivateProduct:true }),
   ]);
+  const planUsage: PlanUsage = {
+    ...loadedPlanUsage,
+    productCount: products.length,
+    activeProductCount,
+    canCreateProduct: true,
+    canActivateProduct: loadedPlanUsage.plan.productLimit == null || activeProductCount < loadedPlanUsage.plan.productLimit,
+  };
   return { settings, categories, products, addons, deliveryZones, orders, planUsage };
 };
 
