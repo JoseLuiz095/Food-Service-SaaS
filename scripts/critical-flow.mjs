@@ -55,6 +55,7 @@ const inventoryGuard=read('supabase/migrations/202610082000_foodweb_future_inven
 const manualOndemand=read('supabase/migrations/202610091200_foodweb_manual_ondemand_inventory.sql');
 const recipeConsumption=read('supabase/migrations/202610131200_foodweb_inventory_recipe_consumption.sql');
 const recipeGuard=read('supabase/migrations/202610131500_foodweb_inventory_recipe_guard_fix.sql');
+const pickupWindowMigration=read('supabase/migrations/202610201700_foodweb_pickup_window.sql');
 const inventoryArchiving=read('supabase/migrations/202610141800_foodweb_inventory_archiving.sql');
 const inventoryArchiveGuard=read('supabase/migrations/202610141900_foodweb_inventory_archive_guard.sql');
 const orderItemEditMigration=read('supabase/migrations/202610201300_foodweb_pending_order_item_edit.sql');
@@ -107,6 +108,7 @@ check('Atualização periódica de pedidos usa leitura enxuta',storeApi.includes
 check('Notificações usam leitura enxuta sem recarregar o catálogo',notificationsAdmin.includes('reloadOrders({ silent: true })')&&!notificationsAdmin.includes('reloadAdmin({ silent: true })'));
 check('Cotação 99 fica protegida no backend',delivery99.includes("Deno.env.get('NINETY_NINE_API_KEY')")&&delivery99.includes("Deno.env.get('NINETY_NINE_ENABLED')")&&delivery99.includes('NINETY_NINE_DISABLED')&&delivery99.includes("x-api-key")&&delivery99.includes('PROVIDER_TIMEOUT'));
 check('Modo 99 não bloqueia o pedido e permanece manual',settingsPage.includes('ninety_nine')&&settingsPage.includes('confirmar manualmente')&&storeApi.includes('delivery_mode')&&storeApi.includes('nunca dispara a 99 automaticamente'));
+check('Retirada possui janela própria e local só aparece no checkout',checkout.includes('pickupStartTime')&&checkout.includes('currentOutsidePickupWindow')&&storeHeader.includes('Disponível {pickupWindowLabel}')&&pickupWindowMigration.includes('pickup_start_time'));
 check('Pedido avulso inicia no modo rápido anônimo',ordersAdmin.includes("type ManualOrderMode = 'quick' | 'scheduled'")&&ordersAdmin.includes("setManualOrderMode('quick')")&&ordersAdmin.includes("customerName: 'Venda anônima'")&&ordersAdmin.includes("status: 'delivered'")&&ordersAdmin.includes('Preencha somente pagamento e produto'));
 check('Pedido avulso separa agendamento e converte item sem estoque',ordersAdmin.includes('changeManualOrderMode')&&ordersAdmin.includes("setManualOrderMode('scheduled')")&&ordersAdmin.includes('customerName: current.customerName === \'Venda anônima\' ? \'\''));
 check('Toast fica acima do modal',styles.includes('.toast-stack{z-index:4000}'));
