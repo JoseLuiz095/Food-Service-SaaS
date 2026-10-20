@@ -44,6 +44,7 @@ const home=read('src/pages/store/Home.tsx');
 const storeHeader=read('src/components/StoreHeader.tsx');
 const adminLayout=read('src/layouts/AdminLayout.tsx');
 const storeContext=read('src/contexts/StoreContext.tsx');
+const storeHours=read('src/utils/storeHours.ts');
 const adminNotifications=read('src/components/admin/AdminNotifications.tsx');
 const adminStoreShare=read('src/components/admin/AdminStoreShare.tsx');
 const storefrontRoute=read('src/utils/storefrontRoute.ts');
@@ -109,6 +110,7 @@ check('Notificações usam leitura enxuta sem recarregar o catálogo',notificati
 check('Cotação 99 fica protegida no backend',delivery99.includes("Deno.env.get('NINETY_NINE_API_KEY')")&&delivery99.includes("Deno.env.get('NINETY_NINE_ENABLED')")&&delivery99.includes('NINETY_NINE_DISABLED')&&delivery99.includes("x-api-key")&&delivery99.includes('PROVIDER_TIMEOUT'));
 check('Modo 99 não bloqueia o pedido e permanece manual',settingsPage.includes('ninety_nine')&&settingsPage.includes('confirmar manualmente')&&storeApi.includes('delivery_mode')&&storeApi.includes('nunca dispara a 99 automaticamente'));
 check('Retirada possui janela própria e local só aparece no checkout',checkout.includes('pickupStartTime')&&checkout.includes('currentOutsidePickupWindow')&&storeHeader.includes('Disponível {pickupWindowLabel}')&&pickupWindowMigration.includes('pickup_start_time'));
+check('Status público considera a janela de retirada',storeHours.includes('StoreServiceWindow')&&storeHours.includes('serviceWindow?: StoreServiceWindow')&&storeHeader.includes('getStoreOpenStatus(settings.openingSchedule, new Date(), { start: settings.pickupStartTime'));
 check('Pedido avulso inicia no modo rápido anônimo',ordersAdmin.includes("type ManualOrderMode = 'quick' | 'scheduled'")&&ordersAdmin.includes("setManualOrderMode('quick')")&&ordersAdmin.includes("customerName: 'Venda anônima'")&&ordersAdmin.includes("status: 'delivered'")&&ordersAdmin.includes('Preencha somente pagamento e produto'));
 check('Pedido avulso separa agendamento e converte item sem estoque',ordersAdmin.includes('changeManualOrderMode')&&ordersAdmin.includes("setManualOrderMode('scheduled')")&&ordersAdmin.includes('customerName: current.customerName === \'Venda anônima\' ? \'\''));
 check('Toast fica acima do modal',styles.includes('.toast-stack{z-index:4000}'));

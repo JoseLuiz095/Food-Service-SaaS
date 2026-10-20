@@ -157,7 +157,7 @@ export default function Checkout() {
   const changeAmount = form.paymentMethod === 'cash' && form.needsChange && form.changeFor ? roundMoney(form.changeFor - total) : 0;
   const isDoceLuaPilot = settings.slug === 'doce-lua' || normalizeText(settings.name) === 'docelua';
   const whatsappAvailable = settings.showWhatsApp !== false && Boolean(settings.whatsapp?.trim());
-  const openStatus = getStoreOpenStatus(settings.openingSchedule);
+  const openStatus = getStoreOpenStatus(settings.openingSchedule, new Date(), { start: settings.pickupStartTime || '07:00', end: settings.pickupEndTime || '22:00' });
   const additionalPrep = items.reduce((max, item) => Math.max(max, products.find((product) => product.id === item.productId)?.preparationTimeMinutes || 0), 0);
   const stockUnavailableItems = items.filter((item) => {
     const product = products.find((candidate) => candidate.id === item.productId);

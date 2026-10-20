@@ -24,8 +24,8 @@ export function StoreHeader(){
   const whatsapp=sanitizeWhatsAppNumber(settings.whatsapp);
   const instagramHandle=normalizeInstagramHandle(settings.instagram);
   const instagramUrl=instagramHandle ? `https://www.instagram.com/${encodeURIComponent(instagramHandle)}/` : '';
-  const status=useMemo(()=>getStoreOpenStatus(settings.openingSchedule),[settings.openingSchedule]);
-  const scheduleOverview=useMemo(()=>getOpeningScheduleOverview(settings.openingSchedule),[settings.openingSchedule]);
+  const status=useMemo(()=>getStoreOpenStatus(settings.openingSchedule, new Date(), { start: settings.pickupStartTime || '07:00', end: settings.pickupEndTime || '22:00' }),[settings.openingSchedule,settings.pickupStartTime,settings.pickupEndTime]);
+  const scheduleOverview=useMemo(()=>getOpeningScheduleOverview(settings.openingSchedule, new Date(), { start: settings.pickupStartTime || '07:00', end: settings.pickupEndTime || '22:00' }),[settings.openingSchedule,settings.pickupStartTime,settings.pickupEndTime]);
   const todaySchedule = scheduleOverview.today?.summary || 'Consulte os horários';
   const [hoursOpen,setHoursOpen]=useState(false);
   const [shareOpen,setShareOpen]=useState(false);
