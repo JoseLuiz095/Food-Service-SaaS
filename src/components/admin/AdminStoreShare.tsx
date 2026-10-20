@@ -1,6 +1,7 @@
 import { Copy, QrCode, Share2, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import { publicStorefrontUrl } from '../../utils/storefrontRoute';
@@ -58,11 +59,8 @@ export function AdminStoreShare() {
     }
   };
 
-  return <>
-    <button type="button" className="admin-share-store-button" onClick={() => setOpen(true)} title="Compartilhar loja" aria-label="Compartilhar loja com QR Code e link">
-      <Share2 size={16} /><span><strong>Compartilhar</strong><small>QR Code e link</small></span>
-    </button>
-    {open && <div className="admin-store-share-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
+  const dialog = open && typeof document !== 'undefined' ? createPortal(
+    <div className="admin-store-share-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
       <section className="admin-store-share-card" role="dialog" aria-modal="true" aria-labelledby="admin-store-share-title">
         <button ref={closeButtonRef} type="button" className="icon-button admin-store-share-card__close" onClick={() => setOpen(false)} aria-label="Fechar compartilhamento"><X size={18} /></button>
         <div className="admin-store-share-card__icon"><QrCode size={21} /></div>
@@ -73,6 +71,14 @@ export function AdminStoreShare() {
         <div className="admin-store-share-card__link"><span title={shareUrl}>{shareUrl}</span><button type="button" className="secondary-button compact-button" onClick={() => void copyLink()}><Copy size={15} />Copiar link</button></div>
         {typeof navigator !== 'undefined' && 'share' in navigator && <button type="button" className="primary-button admin-store-share-card__native" disabled={!qrCode || sharing} onClick={() => void shareWithDevice()}><Share2 size={16} />{sharing ? 'Preparando compartilhamento...' : 'Compartilhar pelo telefone'}</button>}
       </section>
-    </div>}
+    </div>,
+    document.body,
+  ) : null;
+
+  return <>
+    <button type="button" className="admin-share-store-button" onClick={() => setOpen(true)} title="Compartilhar loja" aria-label="Compartilhar loja com QR Code e link">
+      <Share2 size={16} /><span><strong>Compartilhar</strong><small>QR Code e link</small></span>
+    </button>
+    {dialog}
   </>;
 }
