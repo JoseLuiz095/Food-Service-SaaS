@@ -1,0 +1,25 @@
+-- Estoque, pedidos administrativos e aprovação de cadastros exigem sessão.
+revoke all on function public.food_list_low_stock_inventory(uuid) from public, anon;
+grant execute on function public.food_list_low_stock_inventory(uuid) to authenticated;
+revoke all on function public.food_record_inventory_purchase(uuid, jsonb, text, date, text, text, text, text, text) from public, anon;
+grant execute on function public.food_record_inventory_purchase(uuid, jsonb, text, date, text, text, text, text, text) to authenticated;
+revoke all on function public.food_adjust_inventory(uuid, uuid, numeric, text, text, numeric, text, text) from public, anon;
+grant execute on function public.food_adjust_inventory(uuid, uuid, numeric, text, text, numeric, text, text) to authenticated;
+revoke all on function public.food_create_admin_order_v1(jsonb) from public, anon;
+grant execute on function public.food_create_admin_order_v1(jsonb) to authenticated;
+revoke all on function public.food_confirm_order_payment_v1(uuid) from public, anon;
+grant execute on function public.food_confirm_order_payment_v1(uuid) to authenticated;
+revoke all on function public.food_complete_self_service_signup_v1(text, text, text, text, text) from public, anon;
+grant execute on function public.food_complete_self_service_signup_v1(text, text, text, text, text) to authenticated;
+revoke all on function public.food_complete_self_service_signup_v2(text, text, text, text, text, text, text) from public, anon;
+grant execute on function public.food_complete_self_service_signup_v2(text, text, text, text, text, text, text) to authenticated;
+revoke all on function public.food_platform_list_self_service_signups_v1() from public, anon;
+grant execute on function public.food_platform_list_self_service_signups_v1() to authenticated;
+revoke all on function public.food_platform_list_self_service_signups_v2() from public, anon;
+grant execute on function public.food_platform_list_self_service_signups_v2() to authenticated;
+revoke all on function public.food_platform_approve_self_service_signup_v1(uuid) from public, anon;
+grant execute on function public.food_platform_approve_self_service_signup_v1(uuid) to authenticated;
+revoke all on function public.food_platform_approve_self_service_signup_v2(uuid) from public, anon;
+grant execute on function public.food_platform_approve_self_service_signup_v2(uuid) to authenticated;
+revoke all on function public.food_platform_reject_self_service_signup_v1(uuid, text) from public, anon;
+grant execute on function public.food_platform_reject_self_service_signup_v1(uuid, text) to authenticated;

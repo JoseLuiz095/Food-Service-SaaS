@@ -31,7 +31,7 @@ const playAlertSound = () => {
 };
 
 export function AdminNotifications() {
-  const { settings, orders, loading, reloadAdmin } = useStore();
+  const { settings, orders, loading, reloadOrders } = useStore();
   const { user, membership } = useAuth();
   const initialized = useRef(false);
   const initializedStoreId = useRef('');
@@ -181,13 +181,13 @@ export function AdminNotifications() {
     const refresh = () => {
       if (document.visibilityState === 'hidden' || inFlight) return;
       inFlight = true;
-      void reloadAdmin({ silent: true }).catch(() => undefined).finally(() => { inFlight = false; });
+      void reloadOrders({ silent: true }).catch(() => undefined).finally(() => { inFlight = false; });
     };
     const onVisibilityChange = () => { if (document.visibilityState === 'visible') refresh(); };
     document.addEventListener('visibilitychange', onVisibilityChange);
     const interval = window.setInterval(refresh, 60_000);
     return () => { document.removeEventListener('visibilitychange', onVisibilityChange); window.clearInterval(interval); };
-  }, [loading, reloadAdmin, settings.id]);
+  }, [loading, reloadOrders, settings.id]);
 
   useEffect(() => {
     // O painel administrativo também verifica insumos em segundo plano. O
