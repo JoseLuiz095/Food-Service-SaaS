@@ -829,6 +829,19 @@ export const storeApi = {
       const db = readDemo();
       const index = db.orders.findIndex((order) => order.id === orderId && order.storeId === storeId);
       if (index < 0) throw new Error('Pedido não encontrado.');
+      if (input.items) {
+        if (db.orders[index].paymentStatus === 'paid') throw new Error('Itens de um pedido já recebido não podem ser alterados.');
+        const quantities = new Map(input.items.map((item) => [item.itemId, Math.max(0, Math.min(99, Math.floor(item.quantity)))]));
+        const currentItems = db.orders[index].items || [];
+        const nextItems = currentItems.filter((item) => quantities.has(item.id) && (quantities.get(item.id) || 0) > 0).map((item) => {
+          const quantity = quantities.get(item.id) ?? item.quantity;
+          const unitPrice = item.quantity > 0 ? item.itemTotal / item.quantity : item.unitPrice + item.variantPriceDelta;
+          return { ...item, quantity, itemTotal: roundMoney(unitPrice * quantity) };
+        });
+        if (!nextItems.length) throw new Error('Mantenha pelo menos um produto no pedido.');
+        const subtotal = roundMoney(nextItems.reduce((sum, item) => sum + item.itemTotal, 0));
+        db.orders[index] = { ...db.orders[index], items: nextItems, subtotal, total: roundMoney(subtotal + (db.orders[index].deliveryFee || 0)) };
+      }
       db.orders[index] = {
         ...db.orders[index],
         customerName,
@@ -838,6 +851,13 @@ export const storeApi = {
       };
       writeDemo(db);
       return;
+    }
+
+    if (input.items) {
+      await restFetch<{ subtotal: number; total: number }>('rpc/food_update_order_items_v1', {
+        method: 'POST',
+        body: { p_order_id: orderId, p_items: input.items.map((item) => ({ item_id: item.itemId, quantity: item.quantity })) },
+      });
     }
 
     const rows = await restFetch<OrderRow[]>(

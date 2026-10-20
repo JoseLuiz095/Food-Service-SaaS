@@ -1,4 +1,4 @@
-import { ArrowLeft, Banknote, Bell, Check, CheckCircle2, Copy, CreditCard, MessageCircle, QrCode, Store } from 'lucide-react';
+import { ArrowLeft, Banknote, Bell, Check, CheckCircle2, Copy, CreditCard, MessageCircle, QrCode, Share2, Store } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
@@ -7,6 +7,7 @@ import { useToast } from '../../contexts/ToastContext';
 import type { OrderConfirmation } from '../../types';
 import { copyText } from '../../utils/clipboard';
 import { currency } from '../../utils/format';
+import { sharePixQrImage } from '../../utils/pixShare';
 import { formatOrderNumber, readOrderConfirmation } from '../../utils/orderConfirmation';
 import { buildPostOrderWhatsAppMessage, getWhatsAppUrl } from '../../utils/whatsapp';
 import { storefrontPath } from '../../utils/storefrontRoute';
@@ -19,6 +20,7 @@ export default function OrderSuccess() {
   const { markOrderWhatsAppClicked, settings, storeBasePath } = useStore();
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [sharingPix, setSharingPix] = useState(false);
   const [pixQrCode, setPixQrCode] = useState('');
   const [whatsappMarkState, setWhatsappMarkState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
   const [customerNotificationState, setCustomerNotificationState] = useState<CustomerOrderNotificationStatus>('unsupported');
@@ -82,6 +84,31 @@ export default function OrderSuccess() {
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
       showToast('Não foi possível copiar o PIX.', 'error');
+    }
+  };
+
+  const handleSharePix = async () => {
+    if (!pixQrCode || sharingPix) return;
+    setSharingPix(true);
+    const text = `PIX do pedido #${formatOrderNumber(confirmation.orderNumber)}\nValor: ${currency.format(confirmation.total)}\n\nPIX Copia e Cola:\n${pixValue}`;
+    try {
+      const result = await sharePixQrImage({
+        dataUrl: pixQrCode,
+        title: `PIX do pedido #${formatOrderNumber(confirmation.orderNumber)}`,
+        text,
+        fileName: `pix-pedido-${formatOrderNumber(confirmation.orderNumber)}.png`,
+      });
+      if (result === 'image') showToast('QR Code e instruções prontos para compartilhar.', 'success');
+      else if (result === 'text') showToast('Compartilhamento de texto aberto; este aparelho não aceita imagem.', 'success');
+      else {
+        await copyText(text);
+        showToast('PIX Copia e Cola copiado.', 'success');
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      showToast('Não foi possível compartilhar o QR Code.', 'error');
+    } finally {
+      setSharingPix(false);
     }
   };
 
@@ -169,7 +196,7 @@ export default function OrderSuccess() {
                 {copied ? <Check size={21} /> : <Copy size={21} />}
               </button>
             </div>
-          {hasPixPayload && <div className="pix-qr-code"><span className="pix-key-label">QR Code PIX · valor preenchido</span>{pixQrCode ? <img src={pixQrCode} alt={`QR Code PIX no valor de ${currency.format(confirmation.total)}`} /> : <small>Gerando QR Code…</small>}<small>Escaneie com o aplicativo do seu banco.</small></div>}
+          {hasPixPayload && <div className="pix-qr-code"><span className="pix-key-label">QR Code PIX · valor preenchido</span>{pixQrCode ? <img src={pixQrCode} alt={`QR Code PIX no valor de ${currency.format(confirmation.total)}`} /> : <small>Gerando QR Code…</small>}<small>Escaneie com o aplicativo do seu banco.</small>{pixQrCode && <button type="button" className="secondary-button pix-share-button" disabled={sharingPix} onClick={() => void handleSharePix()}><Share2 size={16}/>{sharingPix ? 'Preparando...' : 'Compartilhar QR Code + texto'}</button>}</div>}
             {confirmation.pixReceiver && <small>Recebedor: {confirmation.pixReceiver}</small>}
           </div>
         )}

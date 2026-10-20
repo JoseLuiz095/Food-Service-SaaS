@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, CalendarDays, CheckCircle2, ChefHat, ChevronLeft, ChevronRight, CircleDollarSign, Copy, Eye, MessageCircle, Plus, QrCode, RefreshCw, RotateCcw, Search, ShoppingBag, Slash, Users, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Ban, CalendarDays, CheckCircle2, ChefHat, ChevronLeft, ChevronRight, CircleDollarSign, Copy, Eye, MessageCircle, Plus, QrCode, RefreshCw, RotateCcw, Search, Share2, ShoppingBag, Slash, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
@@ -13,6 +13,7 @@ import type { ManualOrderInput, ManualOrderItemInput, ManualOrderSource, Order, 
 import { formatOrderNumber } from '../../utils/orderConfirmation';
 import { copyText } from '../../utils/clipboard';
 import { buildPixPayloadWithAmount } from '../../utils/pix';
+import { sharePixQrImage } from '../../utils/pixShare';
 import { buildComeBackMessage, buildOrderStatusMessage, buildSalesRecoveryMessage, normalizeWhatsappPhone, openCustomerWhatsapp } from '../../utils/customerSales';
 
 const statusOptions: Array<{ value: OrderStatus; label: string }> = [
@@ -149,6 +150,7 @@ export default function OrdersAdmin() {
   const [paymentPixQrCode, setPaymentPixQrCode] = useState('');
   const [paymentPixQrCodeError, setPaymentPixQrCodeError] = useState('');
   const [paymentPixCopied, setPaymentPixCopied] = useState(false);
+  const [sharingPix, setSharingPix] = useState(false);
   const [detailsOrderId, setDetailsOrderId] = useState<string | null>(null);
   const [detailsSaving, setDetailsSaving] = useState(false);
   const [manualPixPreviewQrCode, setManualPixPreviewQrCode] = useState('');
@@ -428,6 +430,36 @@ export default function OrdersAdmin() {
     setPaymentPixCopied(false);
   };
 
+  const sharePix = async (view: ManualPixView, qrCode: string) => {
+    if (!qrCode || sharingPix) return;
+    setSharingPix(true);
+    const text = `Pagamento PIX do pedido #${formatOrderNumber(view.orderNumber)}\nValor: ${currency.format(view.total)}\n\nPIX Copia e Cola:\n${view.payload}`;
+    try {
+      const result = await sharePixQrImage({
+        dataUrl: qrCode,
+        title: `PIX do pedido #${formatOrderNumber(view.orderNumber)}`,
+        text,
+        fileName: `pix-pedido-${formatOrderNumber(view.orderNumber)}.png`,
+      });
+      if (result === 'image') showToast('QR Code e instruções prontos para compartilhar.', 'success');
+      else if (result === 'text') showToast('Compartilhamento de texto aberto; este aparelho não aceita imagem.', 'success');
+      else {
+        await copyText(text);
+        showToast('PIX Copia e Cola copiado. O navegador não oferece compartilhamento.', 'success');
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      try {
+        await copyText(text);
+        showToast('Compartilhamento cancelado; PIX Copia e Cola copiado.', 'success');
+      } catch {
+        showToast('Não foi possível compartilhar o QR Code.', 'error');
+      }
+    } finally {
+      setSharingPix(false);
+    }
+  };
+
   const saveOrderDetails = async (input: Parameters<typeof updateOrderDetails>[1]) => {
     if (!detailsOrderId) return;
     setDetailsSaving(true);
@@ -441,6 +473,21 @@ export default function OrdersAdmin() {
     } finally {
       setDetailsSaving(false);
     }
+  };
+
+  const cancelOrderFromDetails = async (orderId: string) => {
+    const cancelled = await changeStatus(orderId, 'cancelled');
+    if (cancelled) {
+      setLastUpdatedAt(new Date());
+      showToast('Pedido cancelado e estoque reservado liberado.', 'success');
+    }
+    return cancelled;
+  };
+
+  const cancelOrderFromPaymentCard = async (orderId: string) => {
+    const order = orders.find((current) => current.id === orderId);
+    if (!order || !window.confirm(`Cancelar o pedido #${formatOrderNumber(order.orderNumber)}? O estoque reservado será liberado.`)) return;
+    await cancelOrderFromDetails(orderId);
   };
 
   const refreshOrders = useCallback(async () => {
@@ -767,7 +814,7 @@ export default function OrdersAdmin() {
       <div className="orders-payment-inbox__heading"><div><span className="eyebrow">FINANCEIRO</span><h2 id="orders-payment-inbox-title">A receber do cliente</h2><p>Confirme somente depois de conferir o pagamento. A confirmação baixa o estoque reservado e lança a entrada no Financeiro.</p></div><strong>{awaitingPaymentOrders.length}</strong></div>
       {awaitingPaymentOrders.length ? <div className="orders-payment-inbox__list">{awaitingPaymentOrders.map((order) => {
         const nextStatus = paymentStatusDrafts[order.id] || order.status;
-        return <article key={order.id}><div><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{order.scheduledFor ? `Agendado: ${formatDateTimeBR(order.scheduledFor)}` : 'Pedido aguardando conferência do recebimento'}</small></div><div className="orders-payment-inbox__actions"><label className="orders-payment-status-select"><span>Status após recebimento</span><select value={nextStatus} onChange={(event) => setPaymentStatusDrafts((current) => ({ ...current, [order.id]: event.target.value as OrderStatus }))} aria-label={`Status após recebimento do pedido ${order.orderNumber}`}>{operationalStatuses(order).filter((option) => option.value !== 'cancelled').map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><button type="button" className="secondary-button compact-button" onClick={() => setDetailsOrderId(order.id)}><Eye size={15}/>Detalhes / editar</button>{order.paymentMethod === 'pix' && <button type="button" className="secondary-button compact-button" onClick={() => openPaymentPix(order)}><QrCode size={15}/>Mostrar QR Code</button>}<button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total, nextStatus)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento e status'}</button></div></article>;
+        return <article key={order.id}><div><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{order.scheduledFor ? `Agendado: ${formatDateTimeBR(order.scheduledFor)}` : 'Pedido aguardando conferência do recebimento'}</small></div><div className="orders-payment-inbox__actions"><label className="orders-payment-status-select"><span>Status após recebimento</span><select value={nextStatus} onChange={(event) => setPaymentStatusDrafts((current) => ({ ...current, [order.id]: event.target.value as OrderStatus }))} aria-label={`Status após recebimento do pedido ${order.orderNumber}`}>{operationalStatuses(order).filter((option) => option.value !== 'cancelled').map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><button type="button" className="secondary-button compact-button" onClick={() => setDetailsOrderId(order.id)}><Eye size={15}/>Detalhes / editar</button>{order.paymentMethod === 'pix' && <button type="button" className="secondary-button compact-button" onClick={() => openPaymentPix(order)}><QrCode size={15}/>Mostrar QR Code</button>}<button type="button" className="orders-payment-cancel-button" onClick={() => void cancelOrderFromPaymentCard(order.id)}><Ban size={15}/>Cancelar</button><button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total, nextStatus)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento e status'}</button></div></article>;
       })}</div> : <div className="orders-payment-inbox__empty"><CheckCircle2 size={18}/>Nenhum pedido pendente de recebimento.</div>}
     </section>
 
@@ -804,7 +851,7 @@ export default function OrdersAdmin() {
       <div><strong>{selectedOrderIds.length} {selectedOrderIds.length === 1 ? 'pedido selecionado' : 'pedidos selecionados'}</strong><span>{pendingStatusChanges.length ? `${pendingStatusChanges.length} alteração${pendingStatusChanges.length === 1 ? '' : 'ões'} de status pendente${pendingStatusChanges.length === 1 ? '' : 's'}.` : 'Escolha o novo status nos pedidos selecionados.'}</span></div>
       <div className="orders-batch-status-bar__actions"><button type="button" className="secondary-button compact-button" onClick={discardStatusDrafts} disabled={batchSaving}>Descartar</button><button type="button" className="primary-button compact-button" onClick={() => void saveStatusBatch()} disabled={!pendingStatusChanges.length || batchSaving}>{batchSaving ? 'Salvando...' : `Salvar ${pendingStatusChanges.length || ''} status`}</button></div>
     </aside>}
-    {detailsOrder && <OrderDetailsModal order={detailsOrder} settings={settings} onClose={() => setDetailsOrderId(null)} onSave={saveOrderDetails} saving={detailsSaving} />}
+    {detailsOrder && <OrderDetailsModal order={detailsOrder} settings={settings} onClose={() => setDetailsOrderId(null)} onSave={saveOrderDetails} onCancelOrder={cancelOrderFromDetails} saving={detailsSaving} />}
     {manualOrderOpen && <div className="modal-overlay" role="presentation">
       <form className="master-modal master-modal--wide manual-order-modal" role="dialog" aria-modal="true" aria-labelledby="manual-order-title" onSubmit={saveManualOrder}>
         <button type="button" className="modal-close" aria-label="Fechar lançamento de pedido avulso" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}><X/></button>
@@ -868,6 +915,7 @@ export default function OrdersAdmin() {
         {manualPixView.payload ? <>
           {manualPixQrCode ? <img className="manual-pix-result-qr" src={manualPixQrCode} alt={`QR Code PIX no valor de ${currency.format(manualPixView.total)}`} /> : manualPixQrCodeError ? <div className="manual-pix-live-preview__error">{manualPixQrCodeError}</div> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
           <label className="manual-pix-result-code">PIX Copia e Cola · {currency.format(manualPixView.total)}<div><textarea readOnly rows={4} value={manualPixView.payload}/><button type="button" className="secondary-button" onClick={() => void copyText(manualPixView.payload).then(() => { setManualPixCopied(true); window.setTimeout(() => setManualPixCopied(false), 1800); })}><Copy size={16}/>{manualPixCopied ? 'Copiado' : 'Copiar'}</button></div></label>
+          {manualPixQrCode && <button type="button" className="secondary-button pix-share-button" disabled={sharingPix} onClick={() => void sharePix(manualPixView, manualPixQrCode)}><Share2 size={16}/>{sharingPix ? 'Preparando...' : 'Compartilhar QR Code + texto'}</button>}
         </> : <div className="form-error">{manualPixView.error || 'Configure uma chave PIX ou um PIX Copia e Cola válido nas configurações da loja para gerar a cobrança com valor.'}</div>}
         <div className="master-modal-actions"><button type="button" className="primary-button" onClick={() => setManualPixView(null)}>Concluir</button></div>
       </section>
@@ -881,6 +929,7 @@ export default function OrdersAdmin() {
         {paymentPixView.payload ? <>
           {paymentPixQrCode ? <img className="manual-pix-result-qr" src={paymentPixQrCode} alt={`QR Code PIX no valor de ${currency.format(paymentPixView.total)}`} /> : paymentPixQrCodeError ? <div className="manual-pix-live-preview__error">{paymentPixQrCodeError}</div> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
           <label className="manual-pix-result-code">PIX Copia e Cola · {currency.format(paymentPixView.total)}<div><textarea readOnly rows={4} value={paymentPixView.payload}/><button type="button" className="secondary-button" onClick={() => void copyText(paymentPixView.payload).then(() => { setPaymentPixCopied(true); window.setTimeout(() => setPaymentPixCopied(false), 1800); })}><Copy size={16}/>{paymentPixCopied ? 'Copiado' : 'Copiar'}</button></div></label>
+          {paymentPixQrCode && <button type="button" className="secondary-button pix-share-button" disabled={sharingPix} onClick={() => void sharePix(paymentPixView, paymentPixQrCode)}><Share2 size={16}/>{sharingPix ? 'Preparando...' : 'Compartilhar QR Code + texto'}</button>}
         </> : <div className="form-error">{paymentPixView.error || 'Configure uma chave PIX ou um PIX Copia e Cola válido nas configurações da loja para gerar a cobrança com valor.'}</div>}
         <div className="master-modal-actions"><button type="button" className="primary-button" onClick={() => setPaymentPixView(null)}>Concluir</button></div>
       </section>
