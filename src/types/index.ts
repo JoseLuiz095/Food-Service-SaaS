@@ -227,6 +227,8 @@ export type StoreSettings = {
   cardPaymentEnabled: boolean;
   cashPaymentEnabled: boolean;
   paymentMethodOrder: PaymentMethod[];
+  /** Como a loja opera a entrega. A 99 permanece manual enquanto não houver credenciais válidas. */
+  deliveryMode?: 'own' | 'ninety_nine' | 'none';
   deliveryEnabled: boolean;
   pickupEnabled: boolean;
   /** Horário a partir do qual pedidos para entrega podem ser registrados. Retirada não é afetada. */

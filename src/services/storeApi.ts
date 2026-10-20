@@ -207,6 +207,11 @@ const normalizePaymentOrder = (value: unknown): PaymentMethod[] => {
   return [...filtered, ...allowed.filter((method) => !filtered.includes(method))];
 };
 
+const normalizeDeliveryMode = (value: unknown, deliveryEnabled: boolean): StoreSettings['deliveryMode'] => {
+  if (value === 'own' || value === 'ninety_nine' || value === 'none') return value;
+  return deliveryEnabled ? 'own' : 'none';
+};
+
 const mapStore = (row: StoreRow): StoreSettings => ({
   id: row.id, slug: row.slug, name: row.name, tagline: row.description || 'Pedidos rápidos e do seu jeito.', description: row.description || undefined,
   city: row.city || '', state: row.state || '', zipCode: row.zip_code || '', whatsapp: row.whatsapp || '', showWhatsApp: row.show_whatsapp ?? Boolean(row.whatsapp), instagram: row.instagram || '', address: row.address || '',
@@ -215,7 +220,7 @@ const mapStore = (row: StoreRow): StoreSettings => ({
   visualTheme: normalizeStoreVisualTheme(row.visual_theme), storefrontNotice: row.storefront_notice || '', pickupInstructions: row.pickup_instructions || '', hidePublicAddress: row.hide_public_address ?? false,
   pixEnabled: row.pix_enabled, pixReceiptMode: row.pix_receipt_mode || 'key', pixKeyType: row.pix_key_type || '', pixKey: row.pix_key || '', pixCopyPaste: row.pix_copy_paste || '', pixReceiver: row.pix_holder_name || '',
   showPixBeforeConfirmation: row.show_pix_before_confirmation, confirmationPaymentEnabled: row.confirmation_payment_enabled ?? false, cardPaymentEnabled: row.card_payment_enabled ?? false, cashPaymentEnabled: row.cash_payment_enabled ?? false,
-  paymentMethodOrder: normalizePaymentOrder(row.payment_method_order), deliveryEnabled: row.delivery_enabled, pickupEnabled: row.pickup_enabled, minimumOrder: toNumber(row.minimum_order),
+  paymentMethodOrder: normalizePaymentOrder(row.payment_method_order), deliveryMode: normalizeDeliveryMode(row.opening_hours && typeof row.opening_hours === 'object' ? (row.opening_hours as { delivery_mode?: unknown }).delivery_mode : undefined, row.delivery_enabled), deliveryEnabled: row.delivery_enabled, pickupEnabled: row.pickup_enabled, minimumOrder: toNumber(row.minimum_order),
   averagePreparationMin: Math.max(0, row.average_preparation_min ?? 30), averagePreparationMax: Math.max(0, row.average_preparation_max ?? 45), allowScheduledOrders: row.allow_scheduled_orders ?? false, kdsEnabled: row.kds_enabled ?? false, kdsNotifyCustomer: row.kds_notify_customer ?? true, notificationsNewOrderEnabled: row.notifications_new_order_enabled ?? true, notificationsScheduledEnabled: row.notifications_scheduled_enabled ?? true, notificationsScheduledLeadMinutes: Math.min(1440, Math.max(5, row.notifications_scheduled_lead_minutes ?? 30)), notificationsDesktopEnabled: row.notifications_desktop_enabled ?? true, notificationsSoundEnabled: row.notifications_sound_enabled ?? true, salesRecoveryEnabled: row.sales_recovery_enabled ?? true, salesRecoveryMinutes: Math.max(5, row.sales_recovery_minutes ?? 10), salesRecoveryWindowHours: Math.min(168, Math.max(1, row.sales_recovery_window_hours ?? 48)), crmEnabled: row.crm_enabled ?? true, crmComeBackDays: Math.min(365, Math.max(1, row.crm_come_back_days ?? 21)), repeatOrderEnabled: row.repeat_order_enabled ?? true, repeatOrderMaxAgeDays: Math.min(365, Math.max(1, row.repeat_order_max_age_days ?? 90)), upsellEnabled: row.upsell_enabled ?? true, upsellLimit: Math.min(6, Math.max(1, row.upsell_limit ?? 3)), messageTemplates: normalizeCustomerMessageTemplates(row.customer_message_templates),
   openingSchedule: normalizeOpeningSchedule(row.opening_hours),
   deliveryStartTime: (() => { const value = row.opening_hours && typeof row.opening_hours === 'object' ? (row.opening_hours as { delivery_start_time?: unknown }).delivery_start_time : ''; return typeof value === 'string' && /^\d{2}:\d{2}$/.test(value) ? value : ''; })(),
@@ -533,7 +538,10 @@ export const storeApi = {
       confirmation_payment_enabled:settings.confirmationPaymentEnabled, card_payment_enabled:settings.cardPaymentEnabled, cash_payment_enabled:settings.cashPaymentEnabled,
       payment_method_order:settings.paymentMethodOrder, minimum_order:settings.minimumOrder, average_preparation_min:settings.averagePreparationMin,
       average_preparation_max:settings.averagePreparationMax, allow_scheduled_orders:settings.allowScheduledOrders, kds_enabled:settings.kdsEnabled, kds_notify_customer:settings.kdsNotifyCustomer, notifications_new_order_enabled:settings.notificationsNewOrderEnabled, notifications_scheduled_enabled:settings.notificationsScheduledEnabled, notifications_scheduled_lead_minutes:settings.notificationsScheduledLeadMinutes, notifications_desktop_enabled:settings.notificationsDesktopEnabled, notifications_sound_enabled:settings.notificationsSoundEnabled, sales_recovery_enabled:settings.salesRecoveryEnabled, sales_recovery_minutes:settings.salesRecoveryMinutes, sales_recovery_window_hours:settings.salesRecoveryWindowHours??48, crm_enabled:settings.crmEnabled, crm_come_back_days:settings.crmComeBackDays??21, repeat_order_enabled:settings.repeatOrderEnabled, repeat_order_max_age_days:settings.repeatOrderMaxAgeDays??90, upsell_enabled:settings.upsellEnabled, upsell_limit:settings.upsellLimit, customer_message_templates:settings.messageTemplates??{},
-      opening_hours:{ display:formatOpeningSchedule(settings.openingSchedule), timezone:settings.openingSchedule.timezone, days:settings.openingSchedule.days, delivery_start_time: settings.deliveryStartTime || null }, billing_document:settings.billingDocument||null, billing_phone:settings.billingPhone||null,
+      // Mantemos o modo no JSON de horários para não exigir uma migration/coluna
+      // antes de o contrato da integração 99 estar definido. O checkout continua
+      // independente desse campo e nunca dispara a 99 automaticamente.
+      opening_hours:{ display:formatOpeningSchedule(settings.openingSchedule), timezone:settings.openingSchedule.timezone, days:settings.openingSchedule.days, delivery_start_time: settings.deliveryStartTime || null, delivery_mode: settings.deliveryMode || (settings.deliveryEnabled ? 'own' : 'none') }, billing_document:settings.billingDocument||null, billing_phone:settings.billingPhone||null,
     };
     let rows: StoreRow[];
     // PostgREST pode manter o schema cache antigo após uma implantação parcial.

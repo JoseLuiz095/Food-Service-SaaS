@@ -23,6 +23,7 @@ const config=read('supabase/config.toml');
 const localReader=read('src/utils/localFinancialDocumentReader.ts');
 const financePage=read('src/pages/admin/Finance.tsx');
 const dashboardPage=read('src/pages/admin/Dashboard.tsx');
+const settingsPage=read('src/pages/admin/Settings.tsx');
 const planPage=read('src/pages/admin/Plan.tsx');
 const masterPlans=read('src/pages/master/Plans.tsx');
 const v043=read('supabase/migrations/202609021600_foodweb_v043_storefront_sales_whatsapp.sql');
@@ -100,6 +101,7 @@ check('Pedido avulso exibe erro de estoque como toast',ordersAdmin.includes('rep
 check('Atualização periódica de pedidos usa leitura enxuta',storeApi.includes('const loadAdminOrders')&&storeApi.includes('ADMIN_ORDER_SELECT')&&storeApi.includes('loadAdminOrders(storeId')&&ordersAdmin.includes('reloadOrders'));
 check('Notificações usam leitura enxuta sem recarregar o catálogo',notificationsAdmin.includes('reloadOrders({ silent: true })')&&!notificationsAdmin.includes('reloadAdmin({ silent: true })'));
 check('Cotação 99 fica protegida no backend',delivery99.includes("Deno.env.get('NINETY_NINE_API_KEY')")&&delivery99.includes("x-api-key")&&delivery99.includes('PROVIDER_TIMEOUT'));
+check('Modo 99 não bloqueia o pedido e permanece manual',settingsPage.includes('ninety_nine')&&settingsPage.includes('confirmar manualmente')&&storeApi.includes('delivery_mode')&&storeApi.includes('nunca dispara a 99 automaticamente'));
 check('Pedido avulso inicia no modo rápido anônimo',ordersAdmin.includes("type ManualOrderMode = 'quick' | 'scheduled'")&&ordersAdmin.includes("setManualOrderMode('quick')")&&ordersAdmin.includes("customerName: 'Venda anônima'")&&ordersAdmin.includes("status: 'delivered'")&&ordersAdmin.includes('Preencha somente pagamento e produto'));
 check('Pedido avulso separa agendamento e converte item sem estoque',ordersAdmin.includes('changeManualOrderMode')&&ordersAdmin.includes("setManualOrderMode('scheduled')")&&ordersAdmin.includes('customerName: current.customerName === \'Venda anônima\' ? \'\''));
 check('Toast fica acima do modal',styles.includes('.toast-stack{z-index:4000}'));
