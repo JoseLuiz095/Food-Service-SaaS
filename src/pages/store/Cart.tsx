@@ -1,5 +1,6 @@
 import { AlertCircle, ArrowLeft, ArrowRight, Plus, RotateCcw, ShoppingBag, Trash2 } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { ProductMedia } from '../../components/ProductMedia';
 import { LoadingState } from '../../components/ui/AsyncState';
 import { QuantityControl } from '../../components/QuantityControl';
@@ -48,13 +49,13 @@ export default function Cart() {
   if (loading) return <div className="page-center"><LoadingState label="Carregando carrinho..." /></div>;
 
   if (!items.length) return <div className="simple-page">
-    <header className="simple-topbar container cart-navigation-layer"><a className="cart-nav-button" href={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</a></header>
-    <div className="cart-empty"><ShoppingBag size={48}/><h1>Seu carrinho está vazio</h1><p>Escolha seus produtos no cardápio e volte aqui para finalizar.</p><div className="cart-empty-actions"><a className="primary-button" href={storefrontPath(storeBasePath)}>Ver cardápio</a>{settings.repeatOrderEnabled && recentOrder && <button type="button" className="secondary-button" onClick={restoreRecentOrder}><RotateCcw size={17}/>Pedir novamente</button>}</div>{settings.repeatOrderEnabled && recentOrder && <small className="recent-order-note">Último pedido salvo neste dispositivo em {new Date(recentOrder.createdAt).toLocaleDateString('pt-BR')}.</small>}</div>
+    <header className="simple-topbar container cart-navigation-layer"><Link className="cart-nav-button" to={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</Link></header>
+    <div className="cart-empty"><ShoppingBag size={48}/><h1>Seu carrinho está vazio</h1><p>Escolha seus produtos no cardápio e volte aqui para finalizar.</p><div className="cart-empty-actions"><Link className="primary-button" to={storefrontPath(storeBasePath)}>Ver cardápio</Link>{settings.repeatOrderEnabled && recentOrder && <button type="button" className="secondary-button" onClick={restoreRecentOrder}><RotateCcw size={17}/>Pedir novamente</button>}</div>{settings.repeatOrderEnabled && recentOrder && <small className="recent-order-note">Último pedido salvo neste dispositivo em {new Date(recentOrder.createdAt).toLocaleDateString('pt-BR')}.</small>}</div>
   </div>;
 
   const minimumMissing = Math.max(0, settings.minimumOrder - subtotal);
   return <div className="simple-page">
-    <header className="simple-topbar container cart-navigation-layer"><a className="cart-nav-button" href={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Continuar comprando</a><span>Seu carrinho</span></header>
+    <header className="simple-topbar container cart-navigation-layer"><Link className="cart-nav-button" to={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Continuar comprando</Link><span>Seu carrinho</span></header>
     <div className="container cart-layout">
       <section>
         <div className="page-title"><span className="eyebrow">SEU PEDIDO</span><h1>Revise os itens</h1><p>Confira tamanhos, escolhas, adicionais e remoções antes de avançar.</p></div>
@@ -75,7 +76,7 @@ export default function Cart() {
         {suggestions.length > 0 && <section className="cart-upsell-v061"><div className="cart-upsell-v061__heading"><span className="eyebrow">COMPLETE O PEDIDO</span><h2>Que tal levar também?</h2><p>Sugestões disponíveis no cardápio para aumentar seu pedido sem complicar a escolha.</p></div><div className="cart-upsell-v061__grid">{suggestions.map((product) => {
           const canQuickAdd = product.optionGroups.every((group) => !group.active || group.minChoices === 0);
           const price = product.promotionalPrice ?? product.price;
-          return <article key={product.id}><ProductMedia src={product.imageUrl} emoji={product.visualEmoji} alt={product.name}/><div><strong>{product.name}</strong><span>{currency.format(price)}</span></div>{canQuickAdd ? <button type="button" onClick={() => addItem(product, 1, [])}><Plus size={16}/>Adicionar</button> : <a href={storefrontPath(storeBasePath, `/produto/${product.slug}`)}>Personalizar <ArrowRight size={15}/></a>}</article>;
+          return <article key={product.id}><ProductMedia src={product.imageUrl} emoji={product.visualEmoji} alt={product.name}/><div><strong>{product.name}</strong><span>{currency.format(price)}</span></div>{canQuickAdd ? <button type="button" onClick={() => addItem(product, 1, [])}><Plus size={16}/>Adicionar</button> : <Link to={storefrontPath(storeBasePath, `/produto/${product.slug}`)}>Personalizar <ArrowRight size={15}/></Link>}</article>;
         })}</div></section>}
       </section>
       <aside className="order-summary cart-navigation-layer">
@@ -83,7 +84,7 @@ export default function Cart() {
         <div className="summary-total"><span>Subtotal</span><strong>{currency.format(subtotal)}</strong></div>
         {settings.minimumOrder > 0 && <div className={`minimum-order ${minimumMissing > 0 ? 'warning' : ''}`}><span>Pedido mínimo: {currency.format(settings.minimumOrder)}</span>{minimumMissing > 0 && <strong>Faltam {currency.format(minimumMissing)}</strong>}</div>}
         <p>Taxa de entrega será calculada conforme o bairro selecionado.</p>
-        {minimumMissing > 0 ? <button type="button" className="primary-button cart-continue-button" disabled><AlertCircle size={18}/>Complete o pedido</button> : <a className="primary-button cart-continue-button" href={storefrontPath(storeBasePath, '/finalizar')}>Continuar <ArrowRight size={18}/></a>}
+        {minimumMissing > 0 ? <button type="button" className="primary-button cart-continue-button" disabled><AlertCircle size={18}/>Complete o pedido</button> : <Link className="primary-button cart-continue-button" to={storefrontPath(storeBasePath, '/finalizar')}>Continuar <ArrowRight size={18}/></Link>}
       </aside>
     </div>
   </div>;

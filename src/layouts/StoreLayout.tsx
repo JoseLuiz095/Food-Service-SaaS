@@ -1,6 +1,6 @@
 import { ArrowRight, Clock3, Store, ShoppingBag } from 'lucide-react';
 import { useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
 import { useStore } from '../contexts/StoreContext';
 import { currency } from '../utils/format';
@@ -37,5 +37,5 @@ export default function StoreLayout(){
   const hideDock=path.includes('/carrinho')||path.includes('/finalizar')||path.includes('/pedido/');
   const showDock=totalItems>0&&!hideDock;
 
-  return <main className={`store-layout food-storefront-theme ${showDock?'has-mobile-cart-dock':''}`} style={storefrontThemeStyle}><div key={location.pathname} className="store-route-view"><Outlet/></div><StorePlatformFooter/>{showDock&&<a className="mobile-cart-dock" href={storefrontPath(storeBasePath,'/carrinho')} aria-label={`Abrir carrinho com ${totalItems} item(ns)`}><span className="mobile-cart-dock__icon"><ShoppingBag size={19}/><b>{totalItems}</b></span><span className="mobile-cart-dock__copy"><small>Seu carrinho</small><strong>{currency.format(subtotal)}</strong></span><span className="mobile-cart-dock__action">Ver carrinho <ArrowRight size={17}/></span></a>}</main>;
+  return <main className={`store-layout food-storefront-theme ${showDock?'has-mobile-cart-dock':''}`} style={storefrontThemeStyle}><div key={location.pathname} className="store-route-view"><Outlet/></div><StorePlatformFooter/>{showDock&&<Link className="mobile-cart-dock" to={storefrontPath(storeBasePath,'/carrinho')} aria-label={`Abrir carrinho com ${totalItems} item(ns)`}><span className="mobile-cart-dock__icon"><ShoppingBag size={19}/><b>{totalItems}</b></span><span className="mobile-cart-dock__copy"><small>Seu carrinho</small><strong>{currency.format(subtotal)}</strong></span><span className="mobile-cart-dock__action">Ver carrinho <ArrowRight size={17}/></span></Link>}</main>;
 }

@@ -1,6 +1,7 @@
 import { ChevronDown, Clock3, Copy, Info, MapPin, MessageCircle, QrCode, Share2, ShieldCheck, ShoppingBag, Store, Truck, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { useCart } from '../contexts/CartContext';
 import { useStore } from '../contexts/StoreContext';
@@ -85,7 +86,7 @@ export function StoreHeader(){
     }
   };
   return <header className="food-storefront-header food-storefront-header-v43">
-    <div className="food-platform-bar"><div className="container"><a className="foodweb-wordmark" href={storefrontPath(storeBasePath)} aria-label="FoodWeb"><span>F</span><strong>FoodWeb</strong></a><div className="food-platform-trust"><ShieldCheck size={15}/><span>Pedido direto com o estabelecimento</span></div><a className="food-platform-cart" href={storefrontPath(storeBasePath,'/carrinho')}><ShoppingBag size={18}/><span>Sacola</span>{totalItems>0&&<b>{totalItems}</b>}</a></div></div>
+    <div className="food-platform-bar"><div className="container"><Link className="foodweb-wordmark" to={storefrontPath(storeBasePath)} aria-label="FoodWeb"><span>F</span><strong>FoodWeb</strong></Link><div className="food-platform-trust"><ShieldCheck size={15}/><span>Pedido direto com o estabelecimento</span></div><Link className="food-platform-cart" to={storefrontPath(storeBasePath,'/carrinho')}><ShoppingBag size={18}/><span>Sacola</span>{totalItems>0&&<b>{totalItems}</b>}</Link></div></div>
     <div className="food-store-hero-v43" style={{backgroundImage:`linear-gradient(90deg,rgba(18,10,8,.62),rgba(18,10,8,.18) 48%,rgba(18,10,8,.18)),url(${settings.heroUrl})`}}><div className="container"><span>Pedido online</span><strong>{settings.tagline||'Seu pedido, do seu jeito.'}</strong></div></div>
     <section className="container food-store-profile-v43">
       <ImageWithFallback loading="eager" className="food-store-profile-logo" src={settings.logoUrl} alt={`Logo ${settings.name}`}/>
