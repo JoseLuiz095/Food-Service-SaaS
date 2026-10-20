@@ -34,6 +34,7 @@ import { useStore } from '../contexts/StoreContext';
 import { billingApi, type StoreBillingOverview } from '../services/billingApi';
 import { getBillingVisualStatus } from '../utils/billingStatus';
 import { planHasFeature } from '../utils/plan';
+import { publicStorefrontPath } from '../utils/storefrontRoute';
 
 const navSections = [
   {
@@ -137,6 +138,7 @@ export default function AdminLayout() {
   }, [settings.id, location.pathname]);
 
   const storeOnline = settings.active && settings.accessStatus !== 'suspended';
+  const storefrontHref = publicStorefrontPath(settings.slug);
   const billingStatus = getBillingVisualStatus({
     billingState: billingOverview?.subscription?.billingState,
     nextDueDate: billingOverview?.subscription?.nextDueDate,
@@ -188,7 +190,7 @@ export default function AdminLayout() {
 
         <div className="admin-sidebar__bottom">
           {installPrompt && <button onClick={() => void installAdminApp()}><Smartphone size={18} /><span className="admin-sidebar-text">Instalar app no celular</span></button>}
-          <a href={`/${settings.slug}`} target="_blank" rel="noreferrer"><ExternalLink size={18} /><span className="admin-sidebar-text">Ver loja pública</span></a>
+          <a href={storefrontHref} target="_blank" rel="noreferrer"><ExternalLink size={18} /><span className="admin-sidebar-text">Ver loja pública</span></a>
           {platformAdmin && <a href="/admin-master"><LayoutDashboard size={18} /><span className="admin-sidebar-text">Admin Master</span></a>}
           <button onClick={() => void logout()}><LogOut size={18} /><span className="admin-sidebar-text">Sair</span></button>
         </div>
@@ -206,7 +208,6 @@ export default function AdminLayout() {
 
           <div className="admin-topbar__actions">
             <AdminNotifications />
-            <AdminStoreShare />
             {!isComplimentaryPlan && billingStatus.visible && (
               <button
                 type="button"
@@ -219,7 +220,10 @@ export default function AdminLayout() {
                 <span><strong>{billingStatus.label}</strong><small>{billingStatus.caption}</small></span>
               </button>
             )}
-            <a className="admin-topbar__store-link" href={`/${settings.slug}`} target="_blank" rel="noreferrer"><ExternalLink size={15} />Abrir vitrine</a>
+            <div className="admin-topbar__store-actions">
+              <AdminStoreShare />
+              <a className="admin-topbar__store-link" href={storefrontHref} target="_blank" rel="noreferrer"><ExternalLink size={15} />Abrir vitrine</a>
+            </div>
             <div className="admin-user"><span>{(user?.email || 'AD').slice(0, 2).toUpperCase()}</span><div><strong>{membership?.storeName || 'Administrador'}</strong><small>{user?.email}</small></div></div>
           </div>
         </header>

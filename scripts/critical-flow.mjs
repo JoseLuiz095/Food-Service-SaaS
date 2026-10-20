@@ -40,6 +40,8 @@ const auth=read('src/contexts/AuthContext.tsx');
 const home=read('src/pages/store/Home.tsx');
 const adminLayout=read('src/layouts/AdminLayout.tsx');
 const adminNotifications=read('src/components/admin/AdminNotifications.tsx');
+const adminStoreShare=read('src/components/admin/AdminStoreShare.tsx');
+const storefrontRoute=read('src/utils/storefrontRoute.ts');
 const pushFunction=read('supabase/functions/food-send-push/index.ts');
 const serviceWorker=read('public/sw.js');
 const ordersAdmin=read('src/pages/admin/Orders.tsx');
@@ -85,7 +87,9 @@ check('Status operacional não depende do WhatsApp',orders.includes('Em prepara�
 check('Notificações aguardam o snapshot inicial',adminNotifications.includes('if (!settings.id || loading) return;'));
 check('Pedidos cancelados não geram alerta de novo pedido',adminNotifications.includes("if (order.status === 'cancelled') return;"));
 check('Assinatura push é sincronizada no painel',adminNotifications.includes('subscribeToPwaPush(membership.storeId, user.id)'));
-check('Painel verifica e solicita permissão de notificações na abertura',adminNotifications.includes('requestPwaNotificationPermission()')&&adminNotifications.includes('permissionAttemptedFor'));
+check('Painel não pede permissão de notificações sem ação do lojista',adminNotifications.includes("Notification.permission !== 'granted'")&&adminNotifications.includes('subscriptionSyncedFor')&&!adminNotifications.includes('permissionAttemptedFor'));
+check('Compartilhamento sempre usa a vitrine da loja ativa',storefrontRoute.includes('publicStorefrontPath')&&adminStoreShare.includes('publicStorefrontUrl(settings.slug)')&&adminLayout.includes('admin-topbar__store-actions'));
+check('Vitrine usa somente um carrinho fixo no celular',!home.includes('food-cart-dock')&&styles.includes('mobile-cart-dock'));
 check('Pagamento confirmado gera alerta sem repetir snapshot',adminNotifications.includes('newlyPaidOrders')&&adminNotifications.includes("paymentStatus === 'paid'")&&adminNotifications.includes("knownPaymentStatus.current.get(order.id) === 'pending'"));
 check('Checkout aguarda o envio do push',edge.includes('await notifyStoreAdmins(url, service, {'));
 check('Push entrega somente assinaturas ativas',pushFunction.includes(".eq('active', true)"));
@@ -161,7 +165,7 @@ check('Landing mantém a prévia original do cardápio',landing.includes('/asset
 check('Interações ficam restritas a Analytics e Financeiro',analyticsPage.includes('aria-pressed')&&financePage.includes('finance-chart-selection')&&!ordersAdmin.includes('analytics-chart'));
 check('Financeiro permite registrar despesa operacional rápida',financePage.includes('finance-quick-expense')&&financePage.includes('submitQuickExpense')&&financePage.includes('financial_quick_expense_create')&&financePage.includes('Forma de pagamento'));
 check('Painel mostra resumo operacional do dia',dashboardPage.includes('dashboard-today-card')&&dashboardPage.includes('Pedidos novos')&&dashboardPage.includes('Pagamentos pendentes')&&dashboardPage.includes('Agendados hoje')&&dashboardPage.includes('/admin/estoque'));
-check('Estoque permite entrada de compras em lote com validação',inventoryPage.includes('Entrada em lote')&&inventoryPage.includes('saveBatchPurchase')&&inventoryPage.includes('line.quantity <= 0')&&inventoryPage.includes('unitCost: line.totalCost / line.quantity'));
+check('Estoque permite entrada rápida em lote com custo médio preservado',inventoryPage.includes('Compras e abastecimentos')&&inventoryPage.includes('saveBatchPurchase')&&inventoryPage.includes('usesProvidedCost')&&inventoryPage.includes('unitCost: line.totalCost / line.quantity'));
 
 for(const[name,condition]of checks)console.log(`${condition?'OK  ':'FAIL'} ${name}`);
 if(failures.length){
