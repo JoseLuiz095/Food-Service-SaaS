@@ -4,6 +4,7 @@ import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { useStore } from '../../contexts/StoreContext';
 import { getStoreReadiness } from '../../utils/storeReadiness';
+import { publicStorefrontPath } from '../../utils/storefrontRoute';
 
 export default function Dashboard(){
   const {products,categories,deliveryZones,orders,settings,planUsage,loading,error,reloadAdmin}=useStore();
@@ -35,7 +36,7 @@ export default function Dashboard(){
   const {steps:readiness,readyCount,total,percent:readinessPercent,launchReady}=readinessState;
 
   return <>
-    <div className="admin-page-title"><div><span className="eyebrow">VISÃO GERAL</span><h1>Painel do estabelecimento</h1><p>Acompanhe a operação e deixe o cardápio pronto para receber pedidos.</p></div><a className="secondary-button" href={`/${settings.slug}`} target="_blank" rel="noreferrer"><Eye size={17}/>Abrir loja <ArrowUpRight size={16}/></a></div>
+    <div className="admin-page-title"><div><span className="eyebrow">VISÃO GERAL</span><h1>Painel do estabelecimento</h1><p>Acompanhe a operação e deixe o cardápio pronto para receber pedidos.</p></div><a className="secondary-button" href={publicStorefrontPath(settings.slug)} target="_blank" rel="noreferrer"><Eye size={17}/>Abrir loja <ArrowUpRight size={16}/></a></div>
     <div className="stat-grid">{cards.map(({label,value,icon:Icon})=><article className="stat-card" key={label}><div className="stat-icon"><Icon size={20}/></div><span>{label}</span><strong>{value}</strong></article>)}</div>
 
     <section className="admin-card dashboard-today-card" aria-labelledby="dashboard-today-title">

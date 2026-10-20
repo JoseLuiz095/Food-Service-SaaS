@@ -31,14 +31,14 @@ const playAlertSound = () => {
 };
 
 export function AdminNotifications() {
-  const { settings, orders, loading, reloadAdminOrders } = useStore();
+  const { settings, orders, loading, reloadOrders } = useStore();
   const { user, membership } = useAuth();
   const initialized = useRef(false);
   const initializedStoreId = useRef('');
   const knownOrderIds = useRef(new Set<string>());
   const knownPaymentStatus = useRef(new Map<string, Order['paymentStatus']>());
   const pushSynced = useRef(false);
-  const permissionAttemptedFor = useRef('');
+  const subscriptionSyncedFor = useRef('');
   const [unread, setUnread] = useState(0);
   const [diagnosticOpen, setDiagnosticOpen] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission | null>(null);
@@ -58,6 +58,11 @@ export function AdminNotifications() {
       setPermission(nextPermission);
       setPushStatus(pwaPushStatus());
       if (nextPermission !== 'granted') return;
+      if (membership?.storeId && user?.id && pwaPushStatus() === 'available') {
+        await subscribeToPwaPush(membership.storeId, user.id);
+        pushSynced.current = true;
+        subscriptionSyncedFor.current = `${settings.id}:${membership.storeId}:${user.id}`;
+      }
       await showPwaNotification('Teste de notificações', 'O FoodWeb conseguiu enviar um aviso para este dispositivo.', { tag: `notification-test:${settings.id}` });
       setLastSignalAt(new Date().toISOString());
     } catch {
@@ -140,33 +145,21 @@ export function AdminNotifications() {
   }, [loading, orders, settings]);
 
   useEffect(() => {
-    // Verifica a permissão na abertura do painel. Quando ela ainda está em
-    // estado default, o navegador recebe uma única solicitação por abertura;
-    // quando já foi concedida, a assinatura é sincronizada automaticamente.
-    // O ajuste respeita o botão de notificações da loja e não mostra toasts
-    // durante a inicialização do painel.
+    // Nunca abra o pedido de permissão automaticamente. Em celulares e no
+    // navegador interno, isso costuma falhar antes de existir interação e
+    // deixa a primeira abertura do painel com uma mensagem confusa. Depois
+    // de o lojista optar por ativar no botão abaixo, a assinatura continua
+    // sendo sincronizada normalmente nas próximas aberturas.
     if (!settings.id || loading || !membership?.storeId || !user?.id || !settings.notificationsDesktopEnabled) return;
     const syncKey = `${settings.id}:${membership.storeId}:${user.id}`;
-    if (permissionAttemptedFor.current === syncKey) return;
-    permissionAttemptedFor.current = syncKey;
+    if (subscriptionSyncedFor.current === syncKey) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    subscriptionSyncedFor.current = syncKey;
     pushSynced.current = false;
     let cancelled = false;
 
-    const ensurePermissionAndSubscription = async () => {
-      if (typeof Notification === 'undefined') return;
-      let permission: NotificationPermission | null = null;
-      try {
-        permission = await requestPwaNotificationPermission();
-      } catch {
-        // Alguns navegadores bloqueiam requestPermission sem gesto do usuário.
-        // A configuração manual em Configurações continua disponível.
-        return;
-      }
-      if (cancelled || permission !== 'granted') return;
-
-      // Mesmo sem VAPID configurado, pedir a permissão é útil para alertas
-      // locais enquanto o painel estiver aberto. A assinatura em segundo
-      // plano só é criada quando o servidor e o navegador estiverem aptos.
+    const syncGrantedSubscription = async () => {
+      if (cancelled) return;
       const status = pwaPushStatus();
       if (status === 'not_configured' || status === 'unsupported' || status === 'blocked') return;
       if (pushSynced.current) return;
@@ -178,7 +171,7 @@ export function AdminNotifications() {
       });
     };
 
-    void ensurePermissionAndSubscription();
+    void syncGrantedSubscription();
     return () => { cancelled = true; };
   }, [loading, membership?.storeId, settings.id, settings.notificationsDesktopEnabled, user?.id]);
 
@@ -188,13 +181,13 @@ export function AdminNotifications() {
     const refresh = () => {
       if (document.visibilityState === 'hidden' || inFlight) return;
       inFlight = true;
-      void reloadAdminOrders().catch(() => undefined).finally(() => { inFlight = false; });
+      void reloadOrders({ silent: true }).catch(() => undefined).finally(() => { inFlight = false; });
     };
     const onVisibilityChange = () => { if (document.visibilityState === 'visible') refresh(); };
     document.addEventListener('visibilitychange', onVisibilityChange);
     const interval = window.setInterval(refresh, 60_000);
     return () => { document.removeEventListener('visibilitychange', onVisibilityChange); window.clearInterval(interval); };
-  }, [loading, reloadAdminOrders, settings.id]);
+  }, [loading, reloadOrders, settings.id]);
 
   useEffect(() => {
     // O painel administrativo também verifica insumos em segundo plano. O
@@ -240,7 +233,7 @@ export function AdminNotifications() {
       <div className="admin-notification-diagnostic__status"><span>{statusIcon} Permissão do navegador</span><strong className={permission === 'granted' ? 'is-ok' : permission === 'denied' ? 'is-error' : ''}>{permissionLabel}</strong></div>
       <div className="admin-notification-diagnostic__status"><span><Bell size={15}/> Push em segundo plano</span><strong>{pushStatus === 'available' ? 'Configurado' : pushStatus === 'not_configured' ? 'Ainda não configurado' : pushStatus === 'blocked' ? 'Bloqueado' : 'Indisponível'}</strong></div>
       {lastSignalAt && <small className="admin-notification-diagnostic__last">Último sinal recebido nesta sessão: {formatDateTimeBR(lastSignalAt)}</small>}
-      <button type="button" className="secondary-button admin-notification-diagnostic__test" onClick={() => void sendTestNotification()} disabled={testing}>{testing ? <Loader2 className="spin" size={15}/> : <Bell size={15}/>} {testing ? 'Enviando teste...' : 'Enviar notificação de teste'}</button>
+      <button type="button" className="secondary-button admin-notification-diagnostic__test" onClick={() => void sendTestNotification()} disabled={testing}>{testing ? <Loader2 className="spin" size={15}/> : <Bell size={15}/>} {testing ? 'Enviando teste...' : permission === 'default' ? 'Ativar e testar notificações' : 'Enviar notificação de teste'}</button>
       <div className="admin-notification-diagnostic__links"><Link to="/admin/pedidos" onClick={() => setDiagnosticOpen(false)}>Ver pedidos →</Link><Link to="/admin/estoque" onClick={() => setDiagnosticOpen(false)}>Ver estoque →</Link></div>
       <p>Pedidos novos, pagamentos confirmados e agendamentos próximos são verificados ao abrir o painel e enquanto esta aba estiver ativa.</p>
     </section>}

@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useStore } from '../contexts/StoreContext';
-import { storefrontPath } from '../utils/storefrontRoute';
+import { publicStorefrontUrl, storefrontPath } from '../utils/storefrontRoute';
 import { normalizeInstagramHandle, sanitizeWhatsAppNumber } from '../utils/format';
 import { getOpeningScheduleOverview, getStoreOpenStatus } from '../utils/storeHours';
 import { loadFulfillmentPreference, saveFulfillmentPreference } from '../utils/fulfillmentPreference';
@@ -30,7 +30,7 @@ export function StoreHeader(){
   const hoursRef=useRef<HTMLDivElement|null>(null);
   useEffect(()=>{document.title=`${settings.name} · FoodWeb`;},[settings.name]);
   useEffect(()=>{setPreferredFulfillment(loadFulfillmentPreference(settings.id));},[settings.id]);
-  const shareUrl=typeof window !== 'undefined' ? `${window.location.origin}${storefrontPath(storeBasePath)}` : storefrontPath(storeBasePath);
+  const shareUrl=publicStorefrontUrl(settings.slug);
   useEffect(()=>{if(!shareOpen)return; setShareCopied(false); void QRCode.toDataURL(shareUrl,{errorCorrectionLevel:'M',margin:2,width:320}).then(setShareQr).catch(()=>setShareQr(''));},[shareOpen,shareUrl]);
   useEffect(()=>{
     const onPointerDown=(event:PointerEvent)=>{

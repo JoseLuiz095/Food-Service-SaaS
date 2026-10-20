@@ -3,17 +3,15 @@ import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
-import { storefrontPath } from '../../utils/storefrontRoute';
+import { publicStorefrontUrl } from '../../utils/storefrontRoute';
 
 export function AdminStoreShare() {
-  const { settings, storeBasePath } = useStore();
+  const { settings } = useStore();
   const { showToast } = useToast();
   const [open, setOpen] = useState(false);
   const [qrCode, setQrCode] = useState('');
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const shareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}${storefrontPath(storeBasePath)}`
-    : storefrontPath(storeBasePath);
+  const shareUrl = publicStorefrontUrl(settings.slug);
 
   useEffect(() => {
     if (!open) return;

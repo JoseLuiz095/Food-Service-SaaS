@@ -50,6 +50,12 @@ const favicon=read('public/favicon.svg');
 const home=read('src/pages/store/Home.tsx');
 const header=read('src/components/StoreHeader.tsx');
 const billingStatus=read('src/utils/billingStatus.ts');
+const adminNotifications=read('src/components/admin/AdminNotifications.tsx');
+const securitySearchPathMigration=read('supabase/migrations/202610192346_foodweb_security_search_path.sql');
+const publicAclMigration=read('supabase/migrations/202610192347_foodweb_acl_public_internal.sql');
+const financeAclMigration=read('supabase/migrations/202610192348_foodweb_acl_finance_platform.sql');
+const operationsAclMigration=read('supabase/migrations/202610192349_foodweb_acl_operations_signup.sql');
+const rlsInitplanMigration=read('supabase/migrations/202610192350_foodweb_rls_auth_uid_initplan.sql');
 
 ok('Pacote FoodWeb v0.6.5',pkg.name==='foodservice-saas'&&pkg.version==='0.6.5');
 const selfSignup = read('src/pages/store/SelfSignup.tsx');
@@ -76,6 +82,9 @@ ok('Troco implementado',checkout.includes('needsChange')&&checkout.includes('cha
 ok('Agendamento validado server-side',checkout.includes('allowScheduledOrders')&&migration.includes('food_store_is_accepting_orders')&&migration.includes('scheduled_for'));
 ok('Horário atravessando meia-noite',storeHours.includes('previous')||storeHours.includes('prev'));
 ok('Fluxo operacional de pedido',['received','confirmed','preparing','ready','out_for_delivery','delivered','picked_up','cancelled'].every((status)=>orders.includes(status)));
+ok('Atualização de pedidos é seletiva',storeApi.includes('const loadAdminOrders')&&storeApi.includes('async loadAdminOrders')&&storeContext.includes('reloadOrders')&&orders.includes('await reloadOrders({ silent: true })')&&adminNotifications.includes('reloadOrders({ silent: true })'));
+ok('Segurança de funções Food versionada',securitySearchPathMigration.includes('set search_path = public, pg_temp')&&publicAclMigration.includes('food_create_public_order')&&financeAclMigration.includes('food_get_store_analytics_v1')&&operationsAclMigration.includes('food_record_inventory_purchase'));
+ok('Políticas Food avaliam auth.uid uma vez por consulta',rlsInitplanMigration.includes('(select auth.uid())')&&rlsInitplanMigration.includes('food_inventory_purchases_admin_all')&&rlsInitplanMigration.includes('food_push_subscriptions_update_admin'));
 
 ok('Namespace de tabelas Food separado',['food_stores','food_products','food_orders','food_store_users','food_plans'].every((name)=>migration.includes(`public.${name}`)));
 ok('Frontend não consulta stores do FloriWeb',!storeApi.includes('`stores?')&&!platformApi.includes("'stores?")&&!auth.includes('`store_users?'));

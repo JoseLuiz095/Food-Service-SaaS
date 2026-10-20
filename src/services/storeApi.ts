@@ -106,9 +106,9 @@ type OrderItemOptionRow = {
   price_delta: number | string | null; quantity: number | null;
 };
 
-// Projeções enxutas para o painel. Mantemos os campos opcionais para que
-// restFetchProjected consiga retirar apenas os que ainda não existem em uma
-// instalação durante a aplicação das migrations.
+// Projeções enxutas para o painel. Em instalações que ainda estão aplicando
+// migrations, restFetchProjected remove apenas a coluna ausente e tenta de
+// novo sem quebrar o carregamento.
 const ADMIN_ORDER_SELECT = [
   'id', 'order_number', 'store_id', 'customer_name', 'customer_phone', 'customer_email',
   'delivery_type', 'desired_date', 'desired_period', 'recipient_name', 'recipient_phone',
@@ -313,44 +313,6 @@ const buildProducts = (
   });
 };
 
-/**
- * Atualiza somente os pedidos do painel. A tela de pedidos faz uma leitura
- * periódica; repetir o snapshot completo (catálogo, imagens, opções, zonas e
- * assinatura) a cada ciclo desperdiça consultas e aumenta a latência conforme
- * a loja cresce.
- */
-const loadAdminOrdersFromSupabase = async (storeId: string): Promise<Order[]> => {
-  const orderRows = await restFetchProjected<OrderRow>('food_orders', ADMIN_ORDER_SELECT, `&store_id=eq.${encode(storeId)}&order=created_at.desc&limit=100`);
-  let orders = orderRows.map(mapOrder);
-  if (!orderRows.length) return orders;
-
-  const orderIds = orderRows.map((order) => order.id);
-  const itemRows = await restFetchProjected<OrderItemRow>('food_order_items', ADMIN_ORDER_ITEM_SELECT, `&order_id=${encode(inFilter(orderIds))}&order=created_at.asc`).catch(() => [] as OrderItemRow[]);
-  const itemIds = itemRows.map((item) => item.id);
-  const optionRows = itemIds.length
-    ? await restFetchProjected<OrderItemOptionRow>('food_order_item_options', ADMIN_ORDER_OPTION_SELECT, `&order_item_id=${encode(inFilter(itemIds))}&order=created_at.asc`).catch(() => [] as OrderItemOptionRow[])
-    : [];
-
-  const optionsByItem = new Map<string, OrderItemOptionRow[]>();
-  optionRows.forEach((option) => {
-    const current = optionsByItem.get(option.order_item_id) || [];
-    current.push(option);
-    optionsByItem.set(option.order_item_id, current);
-  });
-  const itemsByOrder = new Map<string, OrderItemRow[]>();
-  itemRows.forEach((item) => {
-    const current = itemsByOrder.get(item.order_id) || [];
-    current.push(item);
-    itemsByOrder.set(item.order_id, current);
-  });
-  orders = orders.map((order) => ({
-    ...order,
-    items: (itemsByOrder.get(order.id) || [])
-      .map((item) => mapOrderItem(item, optionsByItem.get(item.id) || [])),
-  }));
-  return orders;
-};
-
 const createDemoDb = (): DemoDatabase => {
   const activeProductCount = seedProducts.filter((product) => product.active).length;
   return { settings:clone(seedSettings), categories:clone(seedCategories), products:clone(seedProducts), addons:clone(seedAddons), deliveryZones:clone(seedDeliveryZones), orders:clone(seedOrders), planUsage:{ plan:clone(seedPlan), productCount:seedProducts.length, activeProductCount, canCreateProduct:true, canActivateProduct:seedPlan.productLimit == null || activeProductCount < seedPlan.productLimit } };
@@ -417,6 +379,40 @@ const loadPublicSnapshotFromRpc = async (slug: string, hostname: string): Promis
   return { settings, categories, products, addons, deliveryZones, orders:[], planUsage:{ plan:seedPlan, productCount:products.length, activeProductCount, canCreateProduct:true, canActivateProduct:true } };
 };
 
+// Pedidos mudam com muito mais frequência que catálogo, configurações e plano.
+// Esta consulta é reutilizada pelo carregamento completo e pela atualização
+// silenciosa da tela de pedidos, evitando baixar novamente todas as imagens e
+// estruturas do cardápio a cada ciclo de acompanhamento da operação.
+const loadAdminOrders = async (storeId: string): Promise<Order[]> => {
+  const orderRows = await restFetchProjected<OrderRow>('food_orders', ADMIN_ORDER_SELECT, `&store_id=eq.${encode(storeId)}&order=created_at.desc&limit=100`);
+  if (!orderRows.length) return [];
+
+  const orderIds = orderRows.map((order) => order.id);
+  const itemRows = await restFetchProjected<OrderItemRow>('food_order_items', ADMIN_ORDER_ITEM_SELECT, `&order_id=${encode(inFilter(orderIds))}&order=created_at.asc`).catch(() => [] as OrderItemRow[]);
+  const itemIds = itemRows.map((item) => item.id);
+  const optionRows = itemIds.length
+    ? await restFetchProjected<OrderItemOptionRow>('food_order_item_options', ADMIN_ORDER_OPTION_SELECT, `&order_item_id=${encode(inFilter(itemIds))}&order=created_at.asc`).catch(() => [] as OrderItemOptionRow[])
+    : [];
+
+  const itemsByOrder = new Map<string, OrderItemRow[]>();
+  itemRows.forEach((item) => {
+    const rows = itemsByOrder.get(item.order_id) || [];
+    rows.push(item);
+    itemsByOrder.set(item.order_id, rows);
+  });
+  const optionsByItem = new Map<string, OrderItemOptionRow[]>();
+  optionRows.forEach((option) => {
+    const rows = optionsByItem.get(option.order_item_id) || [];
+    rows.push(option);
+    optionsByItem.set(option.order_item_id, rows);
+  });
+
+  return orderRows.map((order) => ({
+    ...mapOrder(order),
+    items: (itemsByOrder.get(order.id) || []).map((item) => mapOrderItem(item, optionsByItem.get(item.id) || [])),
+  }));
+};
+
 const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promise<StoreSnapshot> => {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(slugOrId);
   const storeFilter = isUuid ? `id=eq.${encode(slugOrId)}` : `slug=eq.${encode(slugOrId)}`;
@@ -467,7 +463,7 @@ const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promis
   const products = buildProducts(productRows, imageRows, optionGroupRows, optionItemRows, optionLinks, variantRows, addons, addonLinks);
   const activeProductCount = products.filter((product) => product.active).length;
   const [orders, planUsage] = await Promise.all([
-    admin ? loadAdminOrdersFromSupabase(settings.id) : Promise.resolve([] as Order[]),
+    admin ? loadAdminOrders(settings.id) : Promise.resolve([] as Order[]),
     admin ? loadPlanUsage(settings.id, products.length, activeProductCount) : Promise.resolve({ plan:seedPlan, productCount:products.length, activeProductCount, canCreateProduct:true, canActivateProduct:true }),
   ]);
   return { settings, categories, products, addons, deliveryZones, orders, planUsage };
@@ -521,7 +517,7 @@ export const storeApi = {
   },
 
   async loadAdmin(storeId: string) { return isDemoMode ? readDemo() : loadSnapshotFromSupabase(storeId, true); },
-  async loadAdminOrders(storeId: string): Promise<Order[]> { return isDemoMode ? readDemo().orders : loadAdminOrdersFromSupabase(storeId); },
+  async loadAdminOrders(storeId: string) { return isDemoMode ? readDemo().orders : loadAdminOrders(storeId); },
   invalidatePublicCache() { publicSnapshotCache.clear(); },
   async resetDemo() { const db = createDemoDb(); writeDemo(db); return db; },
 

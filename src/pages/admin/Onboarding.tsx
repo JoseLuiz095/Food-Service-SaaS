@@ -20,14 +20,15 @@ import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import { copyText } from '../../utils/clipboard';
 import { getStoreReadiness } from '../../utils/storeReadiness';
+import { publicStorefrontPath, publicStorefrontUrl } from '../../utils/storefrontRoute';
 
 export default function Onboarding() {
   const { settings, categories, products, deliveryZones, orders, loading, error, reloadAdmin } = useStore();
   const { showToast } = useToast();
   const [storeQrCode, setStoreQrCode] = useState('');
   const [storeQrCodeError, setStoreQrCodeError] = useState('');
-  const publicPath = `/${settings.slug}`;
-  const publicUrl = typeof window !== 'undefined' ? new URL(publicPath, window.location.origin).toString() : publicPath;
+  const publicPath = publicStorefrontPath(settings.slug);
+  const publicUrl = publicStorefrontUrl(settings.slug);
 
   useEffect(() => {
     let cancelled = false;
