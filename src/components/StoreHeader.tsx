@@ -1,9 +1,12 @@
 import { ChevronDown, Clock3, Copy, Info, MapPin, MessageCircle, QrCode, Share2, ShieldCheck, ShoppingBag, Store, Truck, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useCart } from '../contexts/CartContext';
 import { useStore } from '../contexts/StoreContext';
+import { useToast } from '../contexts/ToastContext';
 import { publicStorefrontUrl, storefrontPath } from '../utils/storefrontRoute';
+import { sharePixQrImage } from '../utils/pixShare';
 import { normalizeInstagramHandle, sanitizeWhatsAppNumber } from '../utils/format';
 import { getOpeningScheduleOverview, getStoreOpenStatus } from '../utils/storeHours';
 import { loadFulfillmentPreference, saveFulfillmentPreference } from '../utils/fulfillmentPreference';
@@ -16,6 +19,7 @@ function InstagramGlyph({ size = 17 }: { size?: number }) {
 export function StoreHeader(){
   const {settings,storeBasePath}=useStore();
   const {totalItems}=useCart();
+  const {showToast}=useToast();
   const whatsapp=sanitizeWhatsAppNumber(settings.whatsapp);
   const instagramHandle=normalizeInstagramHandle(settings.instagram);
   const instagramUrl=instagramHandle ? `https://www.instagram.com/${encodeURIComponent(instagramHandle)}/` : '';
@@ -28,10 +32,18 @@ export function StoreHeader(){
   const [shareCopied,setShareCopied]=useState(false);
   const [preferredFulfillment,setPreferredFulfillment]=useState<'delivery'|'pickup'|null>(null);
   const hoursRef=useRef<HTMLDivElement|null>(null);
+  const shareCloseRef=useRef<HTMLButtonElement|null>(null);
   useEffect(()=>{document.title=`${settings.name} · FoodWeb`;},[settings.name]);
   useEffect(()=>{setPreferredFulfillment(loadFulfillmentPreference(settings.id));},[settings.id]);
   const shareUrl=publicStorefrontUrl(settings.slug);
   useEffect(()=>{if(!shareOpen)return; setShareCopied(false); void QRCode.toDataURL(shareUrl,{errorCorrectionLevel:'M',margin:2,width:320}).then(setShareQr).catch(()=>setShareQr(''));},[shareOpen,shareUrl]);
+  useEffect(()=>{
+    if(!shareOpen)return;
+    shareCloseRef.current?.focus();
+    const onKeyDown=(event:KeyboardEvent)=>{if(event.key==='Escape')setShareOpen(false);};
+    document.addEventListener('keydown',onKeyDown);
+    return()=>document.removeEventListener('keydown',onKeyDown);
+  },[shareOpen]);
   useEffect(()=>{
     const onPointerDown=(event:PointerEvent)=>{
       if(!hoursOpen)return;
@@ -46,6 +58,32 @@ export function StoreHeader(){
   const fulfillment=settings.deliveryEnabled&&settings.pickupEnabled?'Delivery e retirada':settings.deliveryEnabled?'Delivery':'Retirada';
   const locationLabel=settings.hidePublicAddress ? 'Atendimento por encomenda' : ([settings.city,settings.state].filter(Boolean).join(' · ') || 'Atendimento online');
   const profileDescription=settings.description?.trim() && settings.description.trim() !== settings.tagline.trim() ? settings.description.trim() : '';
+  const copyShareUrl=async()=>{
+    try{
+      if(!navigator.clipboard?.writeText)throw new Error('clipboard-unavailable');
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopied(true);
+      showToast('Link da loja copiado.','success');
+    }catch{
+      showToast('O navegador bloqueou a cópia. Copie o link manualmente.','error');
+    }
+  };
+  const shareStoreWithDevice=async()=>{
+    if(!shareQr)return;
+    try{
+      const result=await sharePixQrImage({
+        dataUrl:shareQr,
+        title:`Cardápio da ${settings.name}`,
+        text:`Confira o cardápio da ${settings.name}:\n${shareUrl}`,
+        fileName:`qr-code-${settings.slug||'loja'}.png`,
+      });
+      if(result==='image')showToast('QR Code e link prontos para compartilhar.','success');
+      else if(result==='text')showToast('Compartilhamento de texto aberto; este aparelho não aceita imagem.','success');
+      else showToast('O navegador não oferece compartilhamento neste aparelho.','error');
+    }catch(error){
+      if(!(error instanceof DOMException&&error.name==='AbortError'))showToast('Não foi possível compartilhar o QR Code.','error');
+    }
+  };
   return <header className="food-storefront-header food-storefront-header-v43">
     <div className="food-platform-bar"><div className="container"><a className="foodweb-wordmark" href={storefrontPath(storeBasePath)} aria-label="FoodWeb"><span>F</span><strong>FoodWeb</strong></a><div className="food-platform-trust"><ShieldCheck size={15}/><span>Pedido direto com o estabelecimento</span></div><a className="food-platform-cart" href={storefrontPath(storeBasePath,'/carrinho')}><ShoppingBag size={18}/><span>Sacola</span>{totalItems>0&&<b>{totalItems}</b>}</a></div></div>
     <div className="food-store-hero-v43" style={{backgroundImage:`linear-gradient(90deg,rgba(18,10,8,.62),rgba(18,10,8,.18) 48%,rgba(18,10,8,.18)),url(${settings.heroUrl})`}}><div className="container"><span>Pedido online</span><strong>{settings.tagline||'Seu pedido, do seu jeito.'}</strong></div></div>
@@ -74,6 +112,6 @@ export function StoreHeader(){
     {settings.storefrontNotice?.trim() && <section className="container food-store-operation-notices" aria-label="Informações importantes da loja">
       {settings.storefrontNotice?.trim() && <div><Info size={18}/><span><strong>Antes de pedir</strong>{settings.storefrontNotice.trim()}</span></div>}
     </section>}
-    {shareOpen&&<div className="store-share-overlay" role="presentation" onMouseDown={(event)=>{if(event.target===event.currentTarget)setShareOpen(false);}}><section className="store-share-card" role="dialog" aria-modal="true" aria-labelledby="store-share-title"><button type="button" className="icon-button store-share-card__close" onClick={()=>setShareOpen(false)} aria-label="Fechar compartilhamento"><X size={19}/></button><div className="store-share-card__icon"><QrCode size={22}/></div><span className="eyebrow">COMPARTILHE</span><h2 id="store-share-title">Leve a {settings.name} com você</h2><p>Escaneie o QR Code ou copie o link para enviar o cardápio.</p>{shareQr?<img className="store-share-card__qr" src={shareQr} alt={`QR Code da loja ${settings.name}`}/>:<div className="store-share-card__qr-placeholder">Gerando QR Code…</div>}<div className="store-share-card__link"><span>{shareUrl}</span><button type="button" className="secondary-button compact-button" onClick={()=>{void navigator.clipboard?.writeText(shareUrl);setShareCopied(true);}}><Copy size={15}/>{shareCopied?'Copiado':'Copiar link'}</button></div>{typeof navigator !== 'undefined' && 'share' in navigator&&<button type="button" className="primary-button store-share-card__native" onClick={()=>{void navigator.share?.({title:settings.name,text:`Confira o cardápio da ${settings.name}`,url:shareUrl});}}><Share2 size={16}/>Compartilhar pelo telefone</button>}</section></div>}
+    {shareOpen&&typeof document!=='undefined'&&createPortal(<div className="store-share-overlay" role="presentation" onMouseDown={(event)=>{if(event.target===event.currentTarget)setShareOpen(false);}}><section className="store-share-card" role="dialog" aria-modal="true" aria-labelledby="store-share-title"><button ref={shareCloseRef} type="button" className="icon-button store-share-card__close" onClick={()=>setShareOpen(false)} aria-label="Fechar compartilhamento"><X size={19}/></button><div className="store-share-card__icon"><QrCode size={22}/></div><span className="eyebrow">COMPARTILHE</span><h2 id="store-share-title">Leve a {settings.name} com você</h2><p>Escaneie o QR Code ou copie o link para enviar o cardápio.</p>{shareQr?<img className="store-share-card__qr" src={shareQr} alt={`QR Code da loja ${settings.name}`}/>:<div className="store-share-card__qr-placeholder">Gerando QR Code…</div>}<div className="store-share-card__link"><span title={shareUrl}>{shareUrl}</span><button type="button" className="secondary-button compact-button" onClick={()=>void copyShareUrl()}><Copy size={15}/>{shareCopied?'Copiado':'Copiar link'}</button></div>{typeof navigator !== 'undefined' && 'share' in navigator&&<button type="button" className="primary-button store-share-card__native" disabled={!shareQr} onClick={()=>void shareStoreWithDevice()}><Share2 size={16}/>Compartilhar pelo telefone</button>}</section></div>,document.body)}
   </header>;
 }

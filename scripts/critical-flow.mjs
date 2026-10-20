@@ -41,6 +41,7 @@ const adminLogin=read('src/pages/admin/Login.tsx');
 const masterLogin=read('src/pages/master/Login.tsx');
 const auth=read('src/contexts/AuthContext.tsx');
 const home=read('src/pages/store/Home.tsx');
+const storeHeader=read('src/components/StoreHeader.tsx');
 const adminLayout=read('src/layouts/AdminLayout.tsx');
 const adminNotifications=read('src/components/admin/AdminNotifications.tsx');
 const adminStoreShare=read('src/components/admin/AdminStoreShare.tsx');
@@ -95,8 +96,9 @@ check('Painel não pede permissão de notificações sem ação do lojista',admi
 check('Compartilhamento sempre usa a vitrine da loja ativa',storefrontRoute.includes('publicStorefrontPath')&&adminStoreShare.includes('publicStorefrontUrl(settings.slug)')&&adminLayout.includes('admin-topbar__store-actions'));
 check('Vitrine usa somente um carrinho fixo no celular',!home.includes('food-cart-dock')&&styles.includes('mobile-cart-dock'));
 check('Pagamento confirmado gera alerta sem repetir snapshot',adminNotifications.includes('newlyPaidOrders')&&adminNotifications.includes("paymentStatus === 'paid'")&&adminNotifications.includes("knownPaymentStatus.current.get(order.id) === 'pending'"));
-check('Checkout aguarda o envio do push',edge.includes('await notifyStoreAdmins(url, service, {'));
+check('Checkout responde antes do push e preserva a notificação',edge.includes('runInBackground(notifyStoreAdmins(url, service, {'));
 check('Push entrega somente assinaturas ativas',pushFunction.includes(".eq('active', true)"));
+check('Push usa lotes paralelos e remove inscrições inválidas',pushFunction.includes('PUSH_CONCURRENCY = 8')&&pushFunction.includes('Promise.all(activeSubscriptions.slice')&&pushFunction.includes('statusCode === 404 || statusCode === 410'));
 check('Push repetido não vibra novamente',serviceWorker.includes('renotify: false'));
 check('Pedido avulso exibe erro de estoque como toast',ordersAdmin.includes('reportManualError')&&ordersAdmin.includes('showToast'));
 check('Atualização periódica de pedidos usa leitura enxuta',storeApi.includes('const loadAdminOrders')&&storeApi.includes('ADMIN_ORDER_SELECT')&&storeApi.includes('loadAdminOrders(storeId')&&ordersAdmin.includes('reloadOrders'));
@@ -118,6 +120,8 @@ check('A receber permite editar e exibir QR Code PIX',ordersAdmin.includes('Orde
 check('A receber permite editar produtos e cancelar com liberação',ordersAdmin.includes('onCancelOrder={cancelOrderFromDetails}')&&ordersAdmin.includes("changeStatus(orderId, 'cancelled')")&&orderItemEditMigration.includes('food_update_order_items_v1')&&orderItemEditMigration.includes('food_release_order_inventory'));
 check('PIX gerado permite compartilhar QR Code com texto',ordersAdmin.includes('Compartilhar QR Code + texto')&&ordersAdmin.includes('sharePixQrImage')&&read('src/utils/pixShare.ts').includes('navigator.share'));
 check('Compartilhamento da loja envia QR Code e link',read('src/components/admin/AdminStoreShare.tsx').includes('sharePixQrImage')&&read('src/components/admin/AdminStoreShare.tsx').includes('qrCode')&&read('src/components/admin/AdminStoreShare.tsx').includes('Compartilhar pelo telefone'));
+check('Vitrine compartilha QR Code, informa cópia e fecha pelo teclado',storeHeader.includes('sharePixQrImage')&&storeHeader.includes('copyShareUrl')&&storeHeader.includes("event.key==='Escape'")&&storeHeader.includes('createPortal'));
+check('Plano não é recarregado ao trocar de tela do painel',adminLayout.includes('billingApi.getOverview(settings.id)')&&adminLayout.includes('}, [settings.id]);'));
 check('Cards globais do painel centralizam sem corte no mobile',adminStoreShare.includes('createPortal')&&adminNotifications.includes('createPortal')&&styles.includes('.admin-store-share-overlay{z-index:1400')&&styles.includes('max-height:calc(100dvh - 24px)')&&styles.includes('.admin-notification-diagnostic{position:fixed;left:50%'));
 check('Modais do sistema respeitam a área segura do celular',styles.includes('.modal-overlay{position:fixed;inset:0')&&styles.includes('overscroll-behavior:contain')&&styles.includes('.master-modal{width:min(760px,100%);max-height:calc(100dvh - 32px)'));
 check('Central de notificações e cancelamento ficam claros no mobile',ordersAdmin.includes('Cancelar pedido')&&read('src/styles.css').includes('.orders-payment-cancel-button'));
