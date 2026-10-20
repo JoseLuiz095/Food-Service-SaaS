@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, Ban, CalendarDays, CheckCircle2, ChefHat, ChevronLeft, ChevronRight, CircleDollarSign, Copy, Eye, MessageCircle, Plus, QrCode, RefreshCw, RotateCcw, Search, Share2, ShoppingBag, Slash, Users, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Ban, CalendarDays, CheckCircle2, ChefHat, ChevronLeft, ChevronRight, CircleDollarSign, Copy, Download, Eye, MessageCircle, Plus, QrCode, RefreshCw, RotateCcw, Search, Share2, ShoppingBag, Slash, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
@@ -15,6 +15,7 @@ import { copyText } from '../../utils/clipboard';
 import { buildPixPayloadWithAmount } from '../../utils/pix';
 import { sharePixQrImage } from '../../utils/pixShare';
 import { buildComeBackMessage, buildOrderStatusMessage, buildSalesRecoveryMessage, normalizeWhatsappPhone, openCustomerWhatsapp } from '../../utils/customerSales';
+import { downloadCsv } from '../../utils/exportCsv';
 
 const statusOptions: Array<{ value: OrderStatus; label: string }> = [
   { value: 'received', label: 'Recebido' },
@@ -109,6 +110,7 @@ type SortMode = (typeof sortOptions)[number]['value'];
 type CustomerSummary = { key: string; name: string; phone: string; orders: number; total: number; lastAt: string };
 type ManualPixView = { orderNumber: number; total: number; payload: string; error?: string };
 type ManualOrderMode = 'quick' | 'scheduled';
+type SavedOrderFilter = { id: string; name: string; query: string; status: 'all' | OrderStatus; payment: 'all' | 'pending' | 'paid'; sort: SortMode; scheduledDate: string | null };
 const newManualOrder = (): Omit<ManualOrderInput, 'items'> => ({
   customerName: 'Venda anônima', customerPhone: '', fulfillment: 'pickup', source: 'counter', paymentMethod: 'pix', status: 'delivered', received: false, notes: '',
 });
@@ -158,11 +160,15 @@ export default function OrdersAdmin() {
   const [manualPixChargeNow, setManualPixChargeNow] = useState(false);
   const [manualPixCopied, setManualPixCopied] = useState(false);
   const [manualFormError, setManualFormError] = useState('');
+  const [savedFilters, setSavedFilters] = useState<SavedOrderFilter[]>([]);
+  const [saveFilterName, setSaveFilterName] = useState('');
+  const [showSaveFilter, setShowSaveFilter] = useState(false);
   const refreshingRef = useRef(false);
   const rowsRef = useRef<Record<string, HTMLElement | null>>({});
   const mobileRowsRef = useRef<Record<string, HTMLElement | null>>({});
   const highlightedOrderId = searchParams.get('highlight') || '';
   const recoveryStorageKey = `foodweb:orders-recovery-dismissed:${settings.id}`;
+  const savedFiltersStorageKey = `foodweb:orders-filters:${settings.id}`;
   const reportManualError = (message: string) => {
     setManualFormError(message);
     showToast(`Pedido avulso não salvo: ${message}`, 'error');
@@ -616,6 +622,15 @@ export default function OrdersAdmin() {
     }
   }, [recoveryStorageKey]);
   useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(savedFiltersStorageKey);
+      const parsed = stored ? JSON.parse(stored) : [];
+      setSavedFilters(Array.isArray(parsed) ? parsed.filter((item): item is SavedOrderFilter => Boolean(item && typeof item.id === 'string' && typeof item.name === 'string')).slice(0, 8) : []);
+    } catch {
+      setSavedFilters([]);
+    }
+  }, [savedFiltersStorageKey]);
+  useEffect(() => {
     const interval = window.setInterval(() => { if (document.visibilityState === 'visible') void refreshOrders(); }, 15000);
     const onFocus = () => void refreshOrders();
     const onVisibility = () => { if (document.visibilityState === 'visible') void refreshOrders(); };
@@ -698,6 +713,60 @@ export default function OrdersAdmin() {
 
   const moveCalendarMonth = (offset: number) => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
   const clearScheduledFilter = () => setScheduledDateFilter(null);
+
+  const saveCurrentFilter = () => {
+    const name = saveFilterName.trim();
+    if (!name) {
+      showToast('Dê um nome para salvar este filtro.', 'error');
+      return;
+    }
+    const filter: SavedOrderFilter = { id: `${Date.now()}`, name, query, status: statusFilter, payment: paymentFilter, sort: sortBy, scheduledDate: scheduledDateFilter };
+    setSavedFilters((current) => {
+      const next = [filter, ...current.filter((item) => item.name.toLocaleLowerCase('pt-BR') !== name.toLocaleLowerCase('pt-BR'))].slice(0, 8);
+      try { window.localStorage.setItem(savedFiltersStorageKey, JSON.stringify(next)); } catch { /* filtros continuam disponíveis nesta sessão */ }
+      return next;
+    });
+    setSaveFilterName('');
+    setShowSaveFilter(false);
+    showToast('Filtro salvo neste aparelho.', 'success');
+  };
+
+  const applySavedFilter = (filter: SavedOrderFilter) => {
+    setQuery(filter.query || '');
+    setStatusFilter(filter.status || 'all');
+    setPaymentFilter(filter.payment || 'all');
+    setSortBy(filter.sort || 'newest');
+    setScheduledDateFilter(filter.scheduledDate || null);
+  };
+
+  const removeSavedFilter = (id: string) => {
+    setSavedFilters((current) => {
+      const next = current.filter((item) => item.id !== id);
+      try { window.localStorage.setItem(savedFiltersStorageKey, JSON.stringify(next)); } catch { /* armazenamento local pode estar bloqueado */ }
+      return next;
+    });
+  };
+
+  const exportFilteredOrders = () => {
+    if (!filtered.length) {
+      showToast('Não há pedidos neste filtro para exportar.', 'error');
+      return;
+    }
+    downloadCsv(`pedidos-${dateKey(new Date())}`, ['Pedido', 'Criado em', 'Cliente', 'Telefone', 'Origem', 'Entrega', 'Agendamento', 'Pagamento', 'Status', 'Total', 'Produtos'], filtered.map((order) => [
+      `#${formatOrderNumber(order.orderNumber)}`,
+      formatDateTimeBR(order.createdAt),
+      order.customerName,
+      order.customerPhone || '',
+      order.source ? orderSourceLabel[order.source] : 'Site',
+      order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada',
+      order.scheduledFor ? formatDateTimeBR(order.scheduledFor) : '',
+      paymentLabel[order.paymentMethod],
+      statusLabel[order.status],
+      currency.format(order.total),
+      order.items?.map((item) => `${item.quantity}x ${item.productName}`).join(' | ') || '',
+    ]));
+    showToast(`${filtered.length} pedido${filtered.length === 1 ? '' : 's'} exportado${filtered.length === 1 ? '' : 's'}.`, 'success');
+  };
 
   const recoveryOrders = useMemo(() => {
     const now = Date.now();
@@ -833,6 +902,12 @@ export default function OrdersAdmin() {
       <div className="table-toolbar orders-toolbar orders-toolbar--filters">
         <div className="admin-search"><Search size={18}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar pedido, cliente ou telefone..."/></div>
         <div className="toolbar-selects"><label><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'all' | OrderStatus)}><option value="all">Todos</option>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label><span>Recebimento</span><select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as 'all' | 'pending' | 'paid')}><option value="all">Todos</option><option value="pending">A receber do cliente</option><option value="paid">Recebido</option></select></label><label><span>Ordenar por</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortMode)}>{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>
+        <div className="orders-filter-actions" aria-label="Ações dos filtros">
+          <button type="button" className="secondary-button compact-button" onClick={() => setShowSaveFilter((current) => !current)}>{showSaveFilter ? <X size={14}/> : <Plus size={14}/>}Salvar filtro</button>
+          <button type="button" className="secondary-button compact-button" onClick={exportFilteredOrders}><Download size={14}/>Exportar CSV</button>
+        </div>
+        {showSaveFilter && <form className="orders-save-filter" onSubmit={(event) => { event.preventDefault(); saveCurrentFilter(); }}><input value={saveFilterName} onChange={(event) => setSaveFilterName(event.target.value)} placeholder="Ex.: Pendentes de hoje" aria-label="Nome do filtro" autoFocus/><button type="submit" className="primary-button compact-button">Salvar</button></form>}
+        {savedFilters.length > 0 && <div className="orders-saved-filters" aria-label="Filtros salvos">{savedFilters.map((filter) => <span key={filter.id}><button type="button" onClick={() => applySavedFilter(filter)}>{filter.name}</button><button type="button" className="orders-saved-filters__remove" onClick={() => removeSavedFilter(filter.id)} aria-label={`Remover filtro ${filter.name}`}><X size={12}/></button></span>)}</div>}
         <div className="orders-toolbar__sync" aria-live="polite"><span>{pendingOrders.length} no Financeiro · {processingOrders.length} em processamento · {historyOrders.length} no histórico</span>{scheduledDateFilter && <button type="button" className="orders-active-filter" onClick={clearScheduledFilter}><CalendarDays size={14}/>Agendados: {scheduledFilterLabel}<Slash size={14}/></button>}<small>{lastUpdatedAt ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualização automática ativa'}</small><button type="button" className="secondary-button compact-button" onClick={() => void refreshOrders()} disabled={refreshing} aria-busy={refreshing}><RefreshCw size={15} className={refreshing ? 'spin' : ''}/>{refreshing ? 'Atualizando...' : 'Atualizar'}</button></div>
       </div>
       {highlightedOrderId && <div className="highlight-order-banner">O pedido relacionado vindo do Financeiro foi destacado abaixo.</div>}

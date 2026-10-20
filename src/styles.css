@@ -1482,6 +1482,61 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   font: inherit;
 }
 
+.orders-filter-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.orders-save-filter {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 220px;
+}
+
+.orders-save-filter input {
+  min-width: 0;
+  width: 180px;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 10px;
+  font: inherit;
+}
+
+.orders-saved-filters {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.orders-saved-filters > span {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #ead6cc;
+  border-radius: 999px;
+  background: #fffaf7;
+}
+
+.orders-saved-filters button {
+  border: 0;
+  background: transparent;
+  color: #6f3524;
+  cursor: pointer;
+  min-height: 30px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: .72rem;
+  font-weight: 750;
+}
+
+.orders-saved-filters button:hover { background: #f8eee9; }
+.orders-saved-filters .orders-saved-filters__remove { padding: 0 8px; border-left: 1px solid #ead6cc; color: #8a7770; }
+
 .orders-toolbar__sync {
   justify-items: end;
   text-align: right;

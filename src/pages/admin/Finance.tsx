@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, Camera, ChevronDown, FileSearch2, Info, Loader2, Pencil, Plus, ReceiptText, Save, TrendingUp, Upload, WalletCards, X } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Camera, ChevronDown, Download, FileSearch2, Info, Loader2, Pencil, Plus, ReceiptText, Save, TrendingUp, Upload, WalletCards, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -8,6 +8,7 @@ import type { FinancialCategory, FinancialDirection, FinancialDocumentType, Fina
 import { currency } from '../../utils/format';
 import { planHasFeature } from '../../utils/plan';
 import { normalizeCounterpartyKey, readLocalFinancialDocument, type LocalFinancialReadProgress, type LocalFinancialReadResult } from '../../utils/localFinancialDocumentReader';
+import { downloadCsv } from '../../utils/exportCsv';
 
 const today=()=>new Date().toISOString().slice(0,10);
 const documentTypes:{value:FinancialDocumentType;label:string}[]=[
@@ -124,6 +125,16 @@ export default function Finance(){
       return [entry.description,entry.counterparty||'',entry.documentNumber||'',entry.notes||''].some((value)=>value.toLocaleLowerCase('pt-BR').includes(query));
     });
   },[entries,ledgerQuery,ledgerStatus]);
+
+  const exportFinancialEntries=()=>{
+    if(!filteredEntries.length){showToast('Não há lançamentos neste filtro para exportar.','error');return;}
+    downloadCsv(`financeiro-${today()}`,['Data','Vencimento','Tipo','Descrição','Categoria','Contraparte','Pagamento','Status','Valor','Documento','Observações'],filteredEntries.map((entry)=>[
+      entry.occurredOn,entry.dueOn||'',entry.direction==='income'?'Entrada':'Saída',entry.description,
+      categories.find((category)=>category.id===entry.categoryId)?.name||'Sem categoria',entry.counterparty||'',entry.paymentMethod||'',
+      entry.status==='paid'?'Pago':entry.status==='pending'?'Pendente':'Cancelado',currency.format(entry.amount),entry.documentNumber||'',entry.notes||'',
+    ]));
+    showToast(`${filteredEntries.length} lançamento${filteredEntries.length===1?'':'s'} exportado${filteredEntries.length===1?'':'s'}.`,'success');
+  };
 
   const startEntry=(direction:FinancialDirection)=>{
     setForm(emptyForm(settings.id,direction));
@@ -303,7 +314,8 @@ export default function Finance(){
   return <>
     <div className="admin-page-title finance-heading finance-heading-v4">
       <div><span className="eyebrow">GESTÃO DO NEGÓCIO</span><h1>Financeiro</h1><p>Veja rapidamente quanto entrou, quanto saiu e o que está consumindo sua margem.</p></div>
-      <div className="finance-title-actions">
+       <div className="finance-title-actions">
+         <button className="secondary-button" onClick={exportFinancialEntries}><Download size={17}/>Exportar CSV</button>
         <button className="secondary-button" onClick={()=>startEntry('expense')}><ArrowDownRight size={17}/>Registrar saída</button>
         <button className="primary-button" onClick={()=>startEntry('income')}><Plus size={17}/>Registrar entrada</button>
       </div>
