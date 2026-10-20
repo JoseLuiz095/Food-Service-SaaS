@@ -195,7 +195,7 @@ export default function Checkout() {
   const currentOutsidePickupWindow = form.fulfillment === 'pickup' && !isWithinWindow(nowTimeParts, pickupStartMinutes, pickupEndMinutes);
   const scheduledOutsidePickupWindow = form.fulfillment === 'pickup' && Boolean(form.scheduledFor) && !isWithinWindow(scheduledTimeMinutes, pickupStartMinutes, pickupEndMinutes);
   const outsideHours = form.fulfillment === 'pickup' ? currentOutsidePickupWindow : !openStatus.open;
-  const flexibleTimingAvailable = settings.allowScheduledOrders && (outsideHours || currentBeforeDeliveryStart);
+  const flexibleTimingAvailable = settings.allowScheduledOrders && form.fulfillment === 'delivery' && (outsideHours || currentBeforeDeliveryStart);
   const flexibleTimingRequired = flexibleTimingAvailable && !form.scheduledFor && !stockSchedulingRequired && !partySchedulingRequired;
   const timingConfirmationLabel = form.fulfillment === 'delivery'
     ? settings.deliveryStartTime
@@ -209,6 +209,11 @@ export default function Checkout() {
   const estimatedMax = settings.averagePreparationMax + additionalPrep;
   const scheduleMinimum = (() => {
     const base = stockSchedulingRequired || (form.fulfillment === 'pickup' && nowTimeParts >= (pickupEndMinutes ?? 22 * 60)) ? new Date(tomorrowStart) : new Date(Date.now() + 30 * 60 * 1000);
+    if (form.fulfillment === 'pickup' && pickupStartMinutes != null && nowTimeParts < pickupStartMinutes) {
+      const pickupStart = new Date();
+      pickupStart.setHours(Math.floor(pickupStartMinutes / 60), pickupStartMinutes % 60, 0, 0);
+      if (pickupStart > base) base.setTime(pickupStart.getTime());
+    }
     if (partySchedulingRequired && partyLeadTimeDays > 0) {
       const partyMinimum = new Date();
       partyMinimum.setHours(0, 0, 0, 0);
@@ -220,7 +225,7 @@ export default function Checkout() {
     deliveryStart.setHours(Math.floor(deliveryStartMinutes / 60), deliveryStartMinutes % 60, 0, 0);
     return deliveryStart > base ? deliveryStart : base;
   })();
-  const scheduleRequired = stockSchedulingRequired || partySchedulingRequired;
+  const scheduleRequired = stockSchedulingRequired || partySchedulingRequired || (form.fulfillment === 'pickup' && outsideHours);
   const showScheduleField = scheduleRequired || (settings.allowScheduledOrders && (outsideHours || currentBeforeDeliveryStart || Boolean(form.scheduledFor)));
   const scheduleNoticeVisible = scheduleRequired || outsideHours || currentBeforeDeliveryStart || Boolean(form.scheduledFor);
   const submitDisabled = saving || ((outsideHours || currentBeforeDeliveryStart) && !settings.allowScheduledOrders) || (scheduleRequired && !form.scheduledFor);
@@ -300,6 +305,7 @@ export default function Checkout() {
     if (form.scheduledFor && new Date(form.scheduledFor).getTime() <= Date.now()) return 'O agendamento precisa estar no futuro.';
     if (stockSchedulingRequired && (!form.scheduledFor || new Date(form.scheduledFor).getTime() < tomorrowStart.getTime())) return 'Há item sem disponibilidade hoje. Escolha um horário a partir de amanhã para agendar o pedido.';
     if (partySchedulingRequired && (!form.scheduledFor || new Date(form.scheduledFor).getTime() < scheduleMinimum.getTime())) return partyLeadTimeDays > 0 ? `Esta encomenda para festa precisa ser agendada com pelo menos ${partyLeadTimeDays} dia${partyLeadTimeDays === 1 ? '' : 's'} de antecedência.` : 'Escolha um horário futuro para esta encomenda para festa.';
+    if (scheduleRequired && !form.scheduledFor) return form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}. Escolha um horário para agendar.` : 'Escolha um horário para agendar este pedido.';
     if (scheduledDeliveryBeforeStart) return `As entregas começam às ${settings.deliveryStartTime}. Escolha um horário de entrega a partir desse horário.`;
     if (scheduledOutsidePickupWindow) return `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}. Escolha um horário dentro dessa janela.`;
     if ((outsideHours || currentBeforeDeliveryStart) && !settings.allowScheduledOrders) return currentBeforeDeliveryStart ? `As entregas começam às ${settings.deliveryStartTime}. Se não quiser aguardar, selecione retirada.` : form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${settings.name} está fechada agora. ${openStatus.detail}.`;
