@@ -50,6 +50,13 @@ export default function SettingsAdmin() {
   useEffect(() => () => { if (coverFile) URL.revokeObjectURL(coverPreview); }, [coverFile, coverPreview]);
 
   const update = <K extends keyof StoreSettings>(key: K, value: StoreSettings[K]) => setForm((current) => ({ ...current, [key]: value }));
+  const updateDeliveryMode = (mode: NonNullable<StoreSettings['deliveryMode']>) => setForm((current) => ({
+    ...current,
+    deliveryMode: mode,
+    deliveryEnabled: mode !== 'none',
+    // Sem entrega, a operação precisa continuar com uma forma de recebimento.
+    pickupEnabled: mode === 'none' ? true : current.pickupEnabled,
+  }));
   const updateVisualTheme = <K extends keyof StoreVisualTheme>(key: K, value: StoreVisualTheme[K]) => setForm((current) => ({
     ...current,
     visualTheme: { ...current.visualTheme, [key]: value, preset: key === 'preset' ? value as StoreVisualTheme['preset'] : 'custom' },
@@ -294,7 +301,8 @@ export default function SettingsAdmin() {
             {sectionToggle('service', 'Pedido e recebimento')}
             <span className="eyebrow">ATENDIMENTO</span>
             <h2>Pedido e recebimento</h2>
-            <label className="switch-row"><span><strong>Entrega</strong><small>Permitir pedido para entrega</small></span><input type="checkbox" checked={form.deliveryEnabled} onChange={(e) => update('deliveryEnabled', e.target.checked)} /></label>
+            <label><span>Gestão da entrega</span><select value={form.deliveryMode || (form.deliveryEnabled ? 'own' : 'none')} onChange={(e) => updateDeliveryMode(e.target.value as NonNullable<StoreSettings['deliveryMode']>)}><option value="own">Entrega própria</option><option value="ninety_nine">99 Entrega · confirmar manualmente</option><option value="none">Somente retirada</option></select><small>{form.deliveryMode === 'ninety_nine' ? 'A API da 99 ainda não é acionada automaticamente. Confirme o pedido primeiro e solicite a entrega manualmente; quando as credenciais forem configuradas, a cotação poderá ser adicionada sem alterar o checkout.' : form.deliveryMode === 'none' ? 'O cliente verá somente a opção de retirada.' : 'A loja administra o envio e pode combinar o entregador após a confirmação.'}</small></label>
+            <label className="switch-row"><span><strong>Entrega</strong><small>Permitir pedido para entrega</small></span><input type="checkbox" checked={form.deliveryEnabled} onChange={(e) => { const enabled = e.target.checked; update('deliveryEnabled', enabled); update('deliveryMode', enabled ? (form.deliveryMode === 'none' ? 'own' : (form.deliveryMode || 'own')) : 'none'); }} /></label>
             <label className="switch-row"><span><strong>Retirada</strong><small>Permitir retirada na loja</small></span><input type="checkbox" checked={form.pickupEnabled} onChange={(e) => update('pickupEnabled', e.target.checked)} /></label>
             {form.deliveryEnabled && <label><span>Início das entregas <small className="muted">opcional</small></span><input type="time" value={form.deliveryStartTime || ''} onChange={(e) => update('deliveryStartTime', e.target.value || undefined)} /><small>Antes deste horário, o delivery fica bloqueado. A retirada continua disponível.</small></label>}
             <div className="form-grid preparation-config"><label>Preparo mínimo (min)<input type="number" min="0" max="600" value={form.averagePreparationMin} onChange={(e)=>update('averagePreparationMin',Math.max(0,Number(e.target.value)))} /></label><label>Preparo máximo (min)<input type="number" min="0" max="600" value={form.averagePreparationMax} onChange={(e)=>update('averagePreparationMax',Math.max(0,Number(e.target.value)))} /></label></div>

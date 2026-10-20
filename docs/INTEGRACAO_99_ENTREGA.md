@@ -24,6 +24,16 @@ O endpoint recebe `POST` com `store_id`, `origin { lat, lng }`, `destination { l
 
 Erros são tratados sem expor a resposta ou a chave do provedor. A tela deve manter a taxa interna quando houver `502`, `503` ou `504`, e recalcular a cotação antes de criar a entrega.
 
+## Modos de operação da loja
+
+O painel separa a decisão operacional da integração técnica:
+
+- **Entrega própria**: a loja assume o envio e combina o entregador depois da confirmação.
+- **99 Entrega**: a loja sinaliza a preferência pela 99, mas o pedido continua sendo confirmado normalmente. Até as credenciais e o contrato de cotação estarem validados, a solicitação é manual após a confirmação; uma falha da API nunca bloqueia o checkout.
+- **Somente retirada**: desativa a entrega e mantém a retirada como único meio de recebimento.
+
+O modo é salvo no JSON já existente de horários (`opening_hours.delivery_mode`), evitando uma migration prematura. Quando a API estiver pronta, o modo 99 poderá habilitar apenas a cotação (com cache curto) e, em uma etapa posterior, o despacho manual com chave de idempotência. Não haverá criação automática de corrida no momento da compra.
+
 ## Próximo passo
 
 Depois de receber o contrato da 99, confirme os nomes dos campos de valor retornados e, se necessário, ajuste somente `extractAmount` em `supabase/functions/food-delivery-quote-99/index.ts`. A criação automática do pedido deve ser uma segunda etapa, com idempotência, status e cancelamento próprios.
