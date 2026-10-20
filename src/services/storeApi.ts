@@ -362,6 +362,40 @@ const loadPublicSnapshotFromRpc = async (slug: string, hostname: string): Promis
   return { settings, categories, products, addons, deliveryZones, orders:[], planUsage:{ plan:seedPlan, productCount:products.length, activeProductCount, canCreateProduct:true, canActivateProduct:true } };
 };
 
+// Pedidos mudam com muito mais frequência que catálogo, configurações e plano.
+// Esta consulta é reutilizada pelo carregamento completo e pela atualização
+// silenciosa da tela de pedidos, evitando baixar novamente todas as imagens e
+// estruturas do cardápio a cada ciclo de acompanhamento da operação.
+const loadAdminOrders = async (storeId: string): Promise<Order[]> => {
+  const orderRows = await restFetch<OrderRow[]>(`food_orders?select=*&store_id=eq.${encode(storeId)}&order=created_at.desc&limit=100`);
+  if (!orderRows.length) return [];
+
+  const orderIds = orderRows.map((order) => order.id);
+  const itemRows = await restFetch<OrderItemRow[]>(`food_order_items?select=*&order_id=${encode(inFilter(orderIds))}&order=created_at.asc`).catch(() => [] as OrderItemRow[]);
+  const itemIds = itemRows.map((item) => item.id);
+  const optionRows = itemIds.length
+    ? await restFetch<OrderItemOptionRow[]>(`food_order_item_options?select=*&order_item_id=${encode(inFilter(itemIds))}&order=created_at.asc`).catch(() => [] as OrderItemOptionRow[])
+    : [];
+
+  const itemsByOrder = new Map<string, OrderItemRow[]>();
+  itemRows.forEach((item) => {
+    const rows = itemsByOrder.get(item.order_id) || [];
+    rows.push(item);
+    itemsByOrder.set(item.order_id, rows);
+  });
+  const optionsByItem = new Map<string, OrderItemOptionRow[]>();
+  optionRows.forEach((option) => {
+    const rows = optionsByItem.get(option.order_item_id) || [];
+    rows.push(option);
+    optionsByItem.set(option.order_item_id, rows);
+  });
+
+  return orderRows.map((order) => ({
+    ...mapOrder(order),
+    items: (itemsByOrder.get(order.id) || []).map((item) => mapOrderItem(item, optionsByItem.get(item.id) || [])),
+  }));
+};
+
 const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promise<StoreSnapshot> => {
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(slugOrId);
   const storeFilter = isUuid ? `id=eq.${encode(slugOrId)}` : `slug=eq.${encode(slugOrId)}`;
@@ -411,25 +445,10 @@ const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promis
   const deliveryZones = deliveryZoneRows.map(mapDeliveryZone);
   const products = buildProducts(productRows, imageRows, optionGroupRows, optionItemRows, optionLinks, variantRows, addons, addonLinks);
   const activeProductCount = products.filter((product) => product.active).length;
-  const [orderRows, planUsage] = await Promise.all([
-    admin ? restFetch<OrderRow[]>(`food_orders?select=*&store_id=eq.${encode(settings.id)}&order=created_at.desc&limit=100`) : Promise.resolve([] as OrderRow[]),
+  const [orders, planUsage] = await Promise.all([
+    admin ? loadAdminOrders(settings.id) : Promise.resolve([] as Order[]),
     admin ? loadPlanUsage(settings.id, products.length, activeProductCount) : Promise.resolve({ plan:seedPlan, productCount:products.length, activeProductCount, canCreateProduct:true, canActivateProduct:true }),
   ]);
-  let orders = orderRows.map(mapOrder);
-  if (admin && orderRows.length) {
-    const orderIds = orderRows.map((order) => order.id);
-    const itemRows = await restFetch<OrderItemRow[]>(`food_order_items?select=*&order_id=${encode(inFilter(orderIds))}&order=created_at.asc`).catch(() => [] as OrderItemRow[]);
-    const itemIds = itemRows.map((item) => item.id);
-    const optionRows = itemIds.length
-      ? await restFetch<OrderItemOptionRow[]>(`food_order_item_options?select=*&order_item_id=${encode(inFilter(itemIds))}&order=created_at.asc`).catch(() => [] as OrderItemOptionRow[])
-      : [];
-    orders = orders.map((order) => ({
-      ...order,
-      items: itemRows
-        .filter((item) => item.order_id === order.id)
-        .map((item) => mapOrderItem(item, optionRows.filter((option) => option.order_item_id === item.id))),
-    }));
-  }
   return { settings, categories, products, addons, deliveryZones, orders, planUsage };
 };
 
@@ -481,6 +500,7 @@ export const storeApi = {
   },
 
   async loadAdmin(storeId: string) { return isDemoMode ? readDemo() : loadSnapshotFromSupabase(storeId, true); },
+  async loadAdminOrders(storeId: string) { return isDemoMode ? readDemo().orders : loadAdminOrders(storeId); },
   invalidatePublicCache() { publicSnapshotCache.clear(); },
   async resetDemo() { const db = createDemoDb(); writeDemo(db); return db; },
 

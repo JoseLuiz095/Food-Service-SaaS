@@ -113,7 +113,7 @@ const newManualOrder = (): Omit<ManualOrderInput, 'items'> => ({
 });
 
 export default function OrdersAdmin() {
-  const { orders, products, loading, error, reloadAdmin, updateOrderStatus, updateOrderStatuses, updateOrderDetails, confirmOrderPayment, createManualOrder, settings } = useStore();
+  const { orders, products, loading, error, reloadAdmin, reloadOrders, updateOrderStatus, updateOrderStatuses, updateOrderDetails, confirmOrderPayment, createManualOrder, settings } = useStore();
   const { showToast } = useToast();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState('');
@@ -448,7 +448,7 @@ export default function OrdersAdmin() {
     refreshingRef.current = true;
     setRefreshing(true);
     try {
-      await reloadAdmin({ silent: true });
+      await reloadOrders({ silent: true });
       setLastUpdatedAt(new Date());
     } catch (refreshError) {
       console.error('Não foi possível atualizar os pedidos em segundo plano:', refreshError);
@@ -456,7 +456,7 @@ export default function OrdersAdmin() {
       refreshingRef.current = false;
       setRefreshing(false);
     }
-  }, [reloadAdmin]);
+  }, [reloadOrders]);
 
   const changeStatus = async (orderId: string, status: OrderStatus) => {
     setUpdatingId(orderId);

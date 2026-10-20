@@ -11,7 +11,7 @@
     "test:ui": "playwright test --project=chromium --ui",
     "test:smoke": "playwright test tests/smoke --project=chromium",
     "test:e2e": "playwright test tests/e2e --project=chromium",
-    "test:responsive": "playwright test tests/responsive/public-responsive.spec.ts --project=chromium",
+    "test:responsive": "playwright test tests/responsive/public-responsive.spec.ts tests/responsive/admin-responsive.spec.ts --project=chromium",
     "test:visual": "playwright test tests/visual/public-visual.spec.ts --project=chromium",
     "test:a11y": "playwright test tests/a11y --project=chromium",
     "test:cross-browser": "playwright test tests/smoke tests/e2e --project=chromium --project=firefox --project=webkit",
