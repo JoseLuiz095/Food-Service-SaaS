@@ -55,6 +55,7 @@ const recipeConsumption=read('supabase/migrations/202610131200_foodweb_inventory
 const recipeGuard=read('supabase/migrations/202610131500_foodweb_inventory_recipe_guard_fix.sql');
 const inventoryArchiving=read('supabase/migrations/202610141800_foodweb_inventory_archiving.sql');
 const inventoryArchiveGuard=read('supabase/migrations/202610141900_foodweb_inventory_archive_guard.sql');
+const orderItemEditMigration=read('supabase/migrations/202610201300_foodweb_pending_order_item_edit.sql');
 const styles=read('src/styles.css');
 const demoSeed=read('supabase/seed/seed_demo.sql');
 
@@ -114,6 +115,8 @@ check('Pedidos admin têm cards compactos no mobile',ordersAdmin.includes('order
 check('Confirmação financeira aparece em um único local', (ordersAdmin.match(/Confirmar recebimento/g)||[]).length===1&&ordersAdmin.includes('A confirmação fica na área Financeiro acima.'));
 check('Financeiro é o único local de recebimento pendente',!ordersAdmin.includes('orders-collection-section--active')&&ordersAdmin.includes('orders-payment-inbox')&&ordersAdmin.includes('Pedidos pendentes no Financeiro'));
 check('A receber permite editar e exibir QR Code PIX',ordersAdmin.includes('OrderDetailsModal')&&ordersAdmin.includes('setDetailsOrderId(order.id)')&&ordersAdmin.includes('Mostrar QR Code')&&ordersAdmin.includes('openPaymentPix(order)')&&ordersAdmin.includes('paymentPixView'));
+check('A receber permite editar produtos e cancelar com liberação',ordersAdmin.includes('onCancelOrder={cancelOrderFromDetails}')&&ordersAdmin.includes("changeStatus(orderId, 'cancelled')")&&orderItemEditMigration.includes('food_update_order_items_v1')&&orderItemEditMigration.includes('food_release_order_inventory'));
+check('PIX gerado permite compartilhar QR Code com texto',ordersAdmin.includes('Compartilhar QR Code + texto')&&ordersAdmin.includes('sharePixQrImage')&&read('src/utils/pixShare.ts').includes('navigator.share'));
 check('Calendário exclui pedidos encerrados',ordersAdmin.includes('!order.scheduledFor || isHistoryOrder(order)')&&ordersAdmin.includes('!isHistoryOrder(order) && order.scheduledFor'));
 check('Ficha técnica separa etapas e permite repetir insumo',inventoryPage.includes('stage: string')&&inventoryPage.includes('inventory-recipe-stage')&&inventoryApi.includes('stage: item.stage')&&recipeStagesMigration.includes('drop constraint if exists food_product_recipe_items_recipe_id_inventory_item_id_key'));
 check('Pedidos ativos ficam separados do histórico',ordersAdmin.includes('orders-collection-section--processing')&&ordersAdmin.includes('orders-history-panel')&&ordersAdmin.includes("historyStatuses = new Set<OrderStatus>"));

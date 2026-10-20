@@ -564,6 +564,8 @@ export type OrderDetailsUpdate = {
   customerPhone?: string;
   scheduledFor?: string;
   notes?: string;
+  /** Ajustes de quantidade dos itens enquanto o pagamento ainda está pendente. */
+  items?: Array<{ itemId: string; quantity: number }>;
 };
 export type SaveProductInput = Omit<Product, 'imageUrl' | 'gallery' | 'images'> & {
   images?: ProductImage[];

@@ -1,4 +1,4 @@
-import { CreditCard, MapPin, Pencil, Save, Store, Truck, X } from 'lucide-react';
+import { CreditCard, MapPin, Pencil, Save, Store, Truck, X, Minus, Plus, Trash2, Ban } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { Order, OrderDetailsUpdate, StoreSettings } from '../../types';
 import { currency, formatDateTimeBR } from '../../utils/format';
@@ -9,6 +9,7 @@ type OrderDetailsModalProps = {
   settings: StoreSettings;
   onClose: () => void;
   onSave: (input: OrderDetailsUpdate) => Promise<void>;
+  onCancelOrder?: (orderId: string) => Promise<boolean>;
   saving: boolean;
 };
 
@@ -20,8 +21,10 @@ const toLocalDateTimeInput = (value?: string) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
-export function OrderDetailsModal({ order, settings, onClose, onSave, saving }: OrderDetailsModalProps) {
+export function OrderDetailsModal({ order, settings, onClose, onSave, onCancelOrder, saving }: OrderDetailsModalProps) {
   const [editing, setEditing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [draftItems, setDraftItems] = useState(() => order.items || []);
   const [draft, setDraft] = useState<OrderDetailsUpdate>({
     customerName: order.customerName,
     customerPhone: order.customerPhone || '',
@@ -32,6 +35,7 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, saving }: 
   // encerramento: o histórico também pode receber correções operacionais
   // (telefone, observação ou agendamento) sem reabrir o pedido.
   const canEdit = true;
+  const canEditItems = order.paymentStatus !== 'paid' && order.status !== 'cancelled' && Boolean(order.items?.length);
   const address = [
     order.deliveryStreet && `${order.deliveryStreet}${order.deliveryNumber ? `, ${order.deliveryNumber}` : ''}`,
     order.deliveryComplement,
@@ -42,6 +46,7 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, saving }: 
 
   useEffect(() => {
     setEditing(false);
+    setDraftItems(order.items || []);
     setDraft({
       customerName: order.customerName,
       customerPhone: order.customerPhone || '',
@@ -57,6 +62,7 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, saving }: 
         customerPhone: draft.customerPhone?.trim() || undefined,
         scheduledFor: draft.scheduledFor || undefined,
         notes: draft.notes?.trim() || undefined,
+        items: canEditItems ? draftItems.map((item) => ({ itemId: item.id, quantity: item.quantity })) : undefined,
       });
       setEditing(false);
     } catch {
@@ -64,9 +70,22 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, saving }: 
     }
   };
 
+  const changeItemQuantity = (itemId: string, quantity: number) => setDraftItems((current) => current.map((item) => item.id === itemId ? { ...item, quantity: Math.max(1, Math.min(99, quantity)) } : item));
+  const removeItem = (itemId: string) => setDraftItems((current) => current.filter((item) => item.id !== itemId));
+  const cancelOrder = async () => {
+    if (!onCancelOrder || cancelling) return;
+    if (!window.confirm(`Cancelar o pedido #${formatOrderNumber(order.orderNumber)}? O estoque reservado será liberado e esta ação ficará registrada no histórico.`)) return;
+    setCancelling(true);
+    try {
+      if (await onCancelOrder(order.id)) onClose();
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   return <div className="modal-overlay order-details-modal-overlay" role="presentation">
     <section className="master-modal master-modal--wide order-details-modal" role="dialog" aria-modal="true" aria-labelledby="order-details-title">
-      <button type="button" className="modal-close" aria-label="Fechar detalhes do pedido" onClick={onClose} disabled={saving}><X /></button>
+      <button type="button" className="modal-close" aria-label="Fechar detalhes do pedido" onClick={onClose} disabled={saving || cancelling}><X /></button>
       <div className="order-details-modal__header">
         <div>
           <span className="eyebrow">CONFERÊNCIA DO PEDIDO</span>
@@ -93,7 +112,8 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, saving }: 
 
       {editing ? <section className="order-details-modal__section">
         <div className="order-details-modal__section-title"><Pencil size={17} /><h3>Editar dados operacionais</h3></div>
-        <p className="order-details-modal__hint">Produtos, estoque, taxa de entrega e valor permanecem protegidos. Edite dados de contato, agendamento e observações mesmo após o encerramento para manter o histórico correto.</p>
+        <p className="order-details-modal__hint">Edite contato, agendamento e observações. Enquanto o pagamento estiver pendente, também é possível corrigir quantidades ou remover produtos; o sistema recalcula o total e a reserva de estoque.</p>
+        {canEditItems && <div className="order-details-modal__edit-items"><strong className="order-details-modal__edit-label">Produtos do pedido</strong>{draftItems.map((item) => <article className="order-details-modal__edit-item" key={item.id}><div><strong>{item.productName}</strong>{item.variantName && <small>{item.variantName}</small>}{item.options.length > 0 && <small>{item.options.map((option) => `${option.quantity > 1 ? `${option.quantity}x ` : ''}${option.optionName}`).join(' · ')}</small>}</div><div className="order-details-modal__edit-item-actions"><div className="order-details-modal__quantity"><button type="button" onClick={() => changeItemQuantity(item.id, item.quantity - 1)} disabled={item.quantity <= 1} aria-label={`Diminuir ${item.productName}`}><Minus size={14}/></button><strong>{item.quantity}</strong><button type="button" onClick={() => changeItemQuantity(item.id, item.quantity + 1)} disabled={item.quantity >= 99} aria-label={`Aumentar ${item.productName}`}><Plus size={14}/></button></div><button type="button" className="order-details-modal__remove-item" onClick={() => removeItem(item.id)} disabled={draftItems.length <= 1} aria-label={`Remover ${item.productName}`}><Trash2 size={14}/></button></div></article>)}{draftItems.length === 0 && <p className="order-details-modal__empty">Mantenha pelo menos um produto no pedido.</p>}<small className="order-details-modal__hint">O preço é recalculado pelo servidor. Produtos com personalização obrigatória devem ser ajustados no pedido original.</small></div>}
         <div className="order-details-modal__edit-grid">
           <label>Cliente<input required value={draft.customerName} onChange={(event) => setDraft((current) => ({ ...current, customerName: event.target.value }))} /></label>
           <label>Telefone<input value={draft.customerPhone || ''} onChange={(event) => setDraft((current) => ({ ...current, customerPhone: event.target.value }))} /></label>
@@ -106,7 +126,7 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, saving }: 
       </section>}
 
       <div className="master-modal-actions order-details-modal__actions">
-        {editing ? <><button type="button" className="secondary-button" onClick={() => setEditing(false)} disabled={saving}>Cancelar</button><button type="button" className="primary-button" onClick={() => void submit()} disabled={saving || !draft.customerName.trim()}><Save size={16} />{saving ? 'Salvando...' : 'Salvar alterações'}</button></> : <><button type="button" className="secondary-button" onClick={onClose}>Fechar</button>{canEdit && <button type="button" className="primary-button" onClick={() => setEditing(true)}><Pencil size={16} />Editar dados</button>}</>}
+        {editing ? <><button type="button" className="secondary-button" onClick={() => setEditing(false)} disabled={saving}>Cancelar</button><button type="button" className="primary-button" onClick={() => void submit()} disabled={saving || !draft.customerName.trim() || (canEditItems && draftItems.length === 0)}><Save size={16} />{saving ? 'Salvando...' : 'Salvar alterações'}</button></> : <><button type="button" className="secondary-button" onClick={onClose}>Fechar</button>{order.paymentStatus !== 'paid' && order.status !== 'cancelled' && onCancelOrder && <button type="button" className="order-details-modal__cancel-button" onClick={() => void cancelOrder()} disabled={cancelling}><Ban size={16}/>{cancelling ? 'Cancelando...' : 'Cancelar pedido'}</button>}{canEdit && <button type="button" className="primary-button" onClick={() => setEditing(true)}><Pencil size={16} />Editar pedido</button>}</>}
       </div>
     </section>
   </div>;
