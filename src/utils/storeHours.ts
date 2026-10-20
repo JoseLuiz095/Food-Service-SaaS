@@ -130,18 +130,23 @@ export type StoreOpenStatus = {
   lunchBreak?: boolean;
 };
 
-export function getStoreOpenStatus(schedule: OpeningSchedule, now = new Date()): StoreOpenStatus {
+export type StoreServiceWindow = { start?: string; end?: string };
+
+export function getStoreOpenStatus(schedule: OpeningSchedule, now = new Date(), serviceWindow?: StoreServiceWindow): StoreOpenStatus {
   const normalized = normalizeOpeningSchedule(schedule);
   let current;
   try { current = zonedParts(now, normalized.timezone); }
   catch { current = { day: now.getDay(), minute: now.getHours() * 60 + now.getMinutes() }; }
 
   const today = normalized.days.find((item) => item.day === current.day);
+  const windowStart = serviceWindow?.start && /^\d{2}:\d{2}$/.test(serviceWindow.start) ? serviceWindow.start : '';
+  const windowEnd = serviceWindow?.end && /^\d{2}:\d{2}$/.test(serviceWindow.end) ? serviceWindow.end : '';
+  const todayWindow = today && windowStart && windowEnd ? { ...today, open: windowStart, close: windowEnd, breakStart: '', breakEnd: '' } : today;
   const todaySummary = today ? serviceWindows(today) : 'Fechado';
 
-  if (today?.enabled) {
-    const start = minutes(today.open);
-    const end = minutes(today.close);
+  if (todayWindow?.enabled) {
+    const start = minutes(todayWindow.open);
+    const end = minutes(todayWindow.close);
 
     if (start === end) {
       return { open: true, label: 'Aberto', detail: 'Aberto 24 horas', todaySummary };
@@ -151,8 +156,8 @@ export function getStoreOpenStatus(schedule: OpeningSchedule, now = new Date()):
     // parcela iniciada no dia atual. A continuação após 00:00 é do dia anterior.
     const currentCandidate = current.minute;
     const currentShiftStatus = end > start
-      ? statusDuringShift(today, currentCandidate)
-      : current.minute >= start ? statusDuringShift(today, currentCandidate) : null;
+      ? statusDuringShift(todayWindow, currentCandidate)
+      : current.minute >= start ? statusDuringShift(todayWindow, currentCandidate) : null;
     if (currentShiftStatus) return { ...currentShiftStatus, todaySummary };
   }
 
@@ -161,20 +166,21 @@ export function getStoreOpenStatus(schedule: OpeningSchedule, now = new Date()):
   // configurada após a meia-noite dentro dessa jornada anterior.
   const previousDayNumber = (current.day + 6) % 7;
   const previousDay = normalized.days.find((item) => item.day === previousDayNumber);
-  if (previousDay?.enabled) {
-    const previousStart = minutes(previousDay.open);
-    const previousEnd = minutes(previousDay.close);
+  const previousWindow = previousDay && windowStart && windowEnd ? { ...previousDay, open: windowStart, close: windowEnd, breakStart: '', breakEnd: '' } : previousDay;
+  if (previousWindow?.enabled) {
+    const previousStart = minutes(previousWindow.open);
+    const previousEnd = minutes(previousWindow.close);
     if (previousEnd < previousStart) {
       const previousCandidate = current.minute + 1440;
-      const previousStatus = statusDuringShift(previousDay, previousCandidate);
+      const previousStatus = statusDuringShift(previousWindow, previousCandidate);
       if (previousStatus) return { ...previousStatus, todaySummary };
     }
   }
 
-  if (today?.enabled) {
-    const start = minutes(today.open);
+  if (todayWindow?.enabled) {
+    const start = minutes(todayWindow.open);
     if (current.minute < start) {
-      return { open: false, label: 'Fechado', detail: `Abre hoje às ${today.open}`, todaySummary };
+      return { open: false, label: 'Fechado', detail: `Abre hoje às ${todayWindow.open}`, todaySummary };
     }
   }
 
@@ -201,17 +207,19 @@ export function formatOpeningSchedule(schedule: OpeningSchedule): string {
   return enabled.map((day) => `${SHORT[day.day]} ${serviceWindows(day)}`).join(' · ');
 }
 
-export const getOpeningScheduleOverview = (schedule: OpeningSchedule, now = new Date()) => {
+export const getOpeningScheduleOverview = (schedule: OpeningSchedule, now = new Date(), serviceWindow?: StoreServiceWindow) => {
   const normalized = normalizeOpeningSchedule(schedule);
   let currentDay = now.getDay();
   try { currentDay = zonedParts(now, normalized.timezone).day; } catch { /* fallback local */ }
+  const windowStart = serviceWindow?.start && /^\d{2}:\d{2}$/.test(serviceWindow.start) ? serviceWindow.start : '';
+  const windowEnd = serviceWindow?.end && /^\d{2}:\d{2}$/.test(serviceWindow.end) ? serviceWindow.end : '';
   const days = normalized.days
     .map((day) => ({
       ...day,
       isToday: day.day === currentDay,
       shortLabel: SHORT[day.day],
       fullLabel: DAY_NAMES[day.day],
-      summary: serviceWindows(day),
+      summary: serviceWindows(windowStart && windowEnd ? { ...day, open: windowStart, close: windowEnd, breakStart: '', breakEnd: '' } : day),
     }))
     .sort((a,b) => ((a.day || 7) - (b.day || 7)));
   return { today: days.find((day) => day.isToday) || days[0], days };

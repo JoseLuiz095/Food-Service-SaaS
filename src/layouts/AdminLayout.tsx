@@ -103,6 +103,16 @@ export default function AdminLayout() {
   useEffect(() => {
     try { window.localStorage.setItem('foodweb_admin_sidebar_collapsed', sidebarCollapsed ? '1' : '0'); } catch { /* storage indisponível */ }
   }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open]);
+
   const installAdminApp = async () => {
     if (!installPrompt) return;
     await installPrompt.prompt();
@@ -135,7 +145,7 @@ export default function AdminLayout() {
       window.clearInterval(interval);
       window.removeEventListener('focus', onFocus);
     };
-  }, [settings.id, location.pathname]);
+  }, [settings.id]);
 
   const storeOnline = settings.active && settings.accessStatus !== 'suspended';
   const storefrontHref = publicStorefrontPath(settings.slug);

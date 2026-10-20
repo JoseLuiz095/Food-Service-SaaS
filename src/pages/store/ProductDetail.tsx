@@ -1,6 +1,6 @@
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clock3, Minus, Package, Plus, Share2, ShoppingBag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { ProductMedia, hasProductImage } from '../../components/ProductMedia';
 import { LoadingState } from '../../components/ui/AsyncState';
 import { useCart } from '../../contexts/CartContext';
@@ -106,7 +106,7 @@ export default function ProductDetail() {
   }, [product, partyConfig, selectedOptions, quantity]);
 
   if (loading) return <div className="page-center"><LoadingState label="Carregando produto..." /></div>;
-  if (!product) return <div className="not-found"><h2>Produto não encontrado</h2><a href={storefrontPath(storeBasePath)}>Voltar ao cardápio</a></div>;
+  if (!product) return <div className="not-found"><h2>Produto não encontrado</h2><Link to={storefrontPath(storeBasePath)}>Voltar ao cardápio</Link></div>;
 
   const category = categories.find((item) => item.id === product.categoryId);
   const storeInstagramHref = instagramHref(settings.instagram);
@@ -192,7 +192,7 @@ export default function ProductDetail() {
   };
 
   return <div className="simple-page">
-    <header className="simple-topbar container"><a href={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</a><button onClick={() => void share()}><Share2 size={18}/>Compartilhar</button></header>
+    <header className="simple-topbar container"><Link to={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</Link><button onClick={() => void share()}><Share2 size={18}/>Compartilhar</button></header>
     <div className="container product-detail-layout">
       <section className="product-gallery">
         <div className="product-main-image">

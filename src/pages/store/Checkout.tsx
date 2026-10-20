@@ -1,6 +1,6 @@
 import { AlertCircle, ArrowLeft, Banknote, CheckCircle2, CreditCard, LocateFixed, LockKeyhole, LoaderCircle, MapPin, QrCode, ShieldCheck, ShoppingBag, Store, Truck, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { TurnstileWidget } from '../../components/ui/TurnstileWidget';
 import { cartItemUnitTotal, useCart } from '../../contexts/CartContext';
 import { useStore } from '../../contexts/StoreContext';
@@ -157,7 +157,7 @@ export default function Checkout() {
   const changeAmount = form.paymentMethod === 'cash' && form.needsChange && form.changeFor ? roundMoney(form.changeFor - total) : 0;
   const isDoceLuaPilot = settings.slug === 'doce-lua' || normalizeText(settings.name) === 'docelua';
   const whatsappAvailable = settings.showWhatsApp !== false && Boolean(settings.whatsapp?.trim());
-  const openStatus = getStoreOpenStatus(settings.openingSchedule);
+  const openStatus = getStoreOpenStatus(settings.openingSchedule, new Date(), { start: settings.pickupStartTime || '07:00', end: settings.pickupEndTime || '22:00' });
   const additionalPrep = items.reduce((max, item) => Math.max(max, products.find((product) => product.id === item.productId)?.preparationTimeMinutes || 0), 0);
   const stockUnavailableItems = items.filter((item) => {
     const product = products.find((candidate) => candidate.id === item.productId);
@@ -170,7 +170,18 @@ export default function Checkout() {
   }).filter((entry): entry is { item: typeof items[number]; config: PartyOrderConfig } => Boolean(entry.config));
   const partySchedulingRequired = partyOrderItems.length > 0;
   const partyLeadTimeDays = partyOrderItems.reduce((max, entry) => Math.max(max, entry.config.leadTimeDays), 0);
-  const deliveryStartMinutes = settings.deliveryStartTime ? Number(settings.deliveryStartTime.slice(0, 2)) * 60 + Number(settings.deliveryStartTime.slice(3, 5)) : null;
+  const parseTimeMinutes = (value: string | undefined, fallback: number | null = null) => {
+    if (!value || !/^\d{2}:\d{2}$/.test(value)) return fallback;
+    const minutes = Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5));
+    return minutes >= 0 && minutes < 1440 ? minutes : fallback;
+  };
+  const deliveryStartMinutes = parseTimeMinutes(settings.deliveryStartTime);
+  const pickupStartMinutes = parseTimeMinutes(settings.pickupStartTime, 7 * 60);
+  const pickupEndMinutes = parseTimeMinutes(settings.pickupEndTime, 22 * 60);
+  const isWithinWindow = (minutes: number | null, start: number | null, end: number | null) => {
+    if (minutes == null || start == null || end == null) return true;
+    return end > start ? minutes >= start && minutes < end : minutes >= start || minutes < end;
+  };
   const nowTimeParts = (() => {
     try {
       const parts = new Intl.DateTimeFormat('en-US', { timeZone: settings.openingSchedule.timezone, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
@@ -181,21 +192,28 @@ export default function Checkout() {
   const scheduledTimeMinutes = form.scheduledFor ? (() => { const date = new Date(form.scheduledFor); return Number.isNaN(date.getTime()) ? null : date.getHours() * 60 + date.getMinutes(); })() : null;
   const currentBeforeDeliveryStart = form.fulfillment === 'delivery' && deliveryStartMinutes != null && nowTimeParts < deliveryStartMinutes;
   const scheduledDeliveryBeforeStart = form.fulfillment === 'delivery' && Boolean(form.scheduledFor) && deliveryStartMinutes != null && (scheduledTimeMinutes == null || scheduledTimeMinutes < deliveryStartMinutes);
-  const outsideHours = !openStatus.open;
-  const flexibleTimingAvailable = settings.allowScheduledOrders && (outsideHours || currentBeforeDeliveryStart);
+  const currentOutsidePickupWindow = form.fulfillment === 'pickup' && !isWithinWindow(nowTimeParts, pickupStartMinutes, pickupEndMinutes);
+  const scheduledOutsidePickupWindow = form.fulfillment === 'pickup' && Boolean(form.scheduledFor) && !isWithinWindow(scheduledTimeMinutes, pickupStartMinutes, pickupEndMinutes);
+  const outsideHours = form.fulfillment === 'pickup' ? currentOutsidePickupWindow : !openStatus.open;
+  const flexibleTimingAvailable = settings.allowScheduledOrders && form.fulfillment === 'delivery' && (outsideHours || currentBeforeDeliveryStart);
   const flexibleTimingRequired = flexibleTimingAvailable && !form.scheduledFor && !stockSchedulingRequired && !partySchedulingRequired;
   const timingConfirmationLabel = form.fulfillment === 'delivery'
     ? settings.deliveryStartTime
       ? `Sem agendar, a entrega será feita quando possível a partir das ${settings.deliveryStartTime}.`
       : 'Sem agendar, a entrega será feita quando a loja puder atender.'
-    : `Sem agendar, a retirada ficará disponível conforme a próxima janela de retirada da loja. ${settings.hidePublicAddress ? (settings.pickupInstructions || '') : ''}`;
+    : `Sem agendar, a retirada ficará disponível das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}. ${settings.hidePublicAddress ? (settings.pickupInstructions || '') : ''}`;
   const tomorrowStart = new Date();
   tomorrowStart.setHours(0, 0, 0, 0);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
   const estimatedMin = settings.averagePreparationMin + additionalPrep;
   const estimatedMax = settings.averagePreparationMax + additionalPrep;
   const scheduleMinimum = (() => {
-    const base = stockSchedulingRequired ? new Date(tomorrowStart) : new Date(Date.now() + 30 * 60 * 1000);
+    const base = stockSchedulingRequired || (form.fulfillment === 'pickup' && nowTimeParts >= (pickupEndMinutes ?? 22 * 60)) ? new Date(tomorrowStart) : new Date(Date.now() + 30 * 60 * 1000);
+    if (form.fulfillment === 'pickup' && pickupStartMinutes != null && nowTimeParts < pickupStartMinutes) {
+      const pickupStart = new Date();
+      pickupStart.setHours(Math.floor(pickupStartMinutes / 60), pickupStartMinutes % 60, 0, 0);
+      if (pickupStart > base) base.setTime(pickupStart.getTime());
+    }
     if (partySchedulingRequired && partyLeadTimeDays > 0) {
       const partyMinimum = new Date();
       partyMinimum.setHours(0, 0, 0, 0);
@@ -207,10 +225,10 @@ export default function Checkout() {
     deliveryStart.setHours(Math.floor(deliveryStartMinutes / 60), deliveryStartMinutes % 60, 0, 0);
     return deliveryStart > base ? deliveryStart : base;
   })();
-  const scheduleRequired = stockSchedulingRequired || partySchedulingRequired;
+  const scheduleRequired = stockSchedulingRequired || partySchedulingRequired || (form.fulfillment === 'pickup' && outsideHours);
   const showScheduleField = scheduleRequired || (settings.allowScheduledOrders && (outsideHours || currentBeforeDeliveryStart || Boolean(form.scheduledFor)));
   const scheduleNoticeVisible = scheduleRequired || outsideHours || currentBeforeDeliveryStart || Boolean(form.scheduledFor);
-  const submitDisabled = saving || ((!openStatus.open || currentBeforeDeliveryStart) && !settings.allowScheduledOrders) || (scheduleRequired && !form.scheduledFor);
+  const submitDisabled = saving || ((outsideHours || currentBeforeDeliveryStart) && !settings.allowScheduledOrders) || (scheduleRequired && !form.scheduledFor);
 
   const selectFulfillment = (fulfillment: CheckoutData['fulfillment']) => {
     setSubmitError('');
@@ -283,12 +301,14 @@ export default function Checkout() {
     const phoneDigits = form.customerPhone.replace(/\D/g, '');
     if (phoneDigits.length < 10 || phoneDigits.length > 15) return 'Informe um telefone válido.';
     if (form.customerEmail && !/^\S+@\S+\.\S+$/.test(form.customerEmail.trim())) return 'Confira o e-mail informado ou deixe esse campo em branco.';
-    if (!openStatus.open && !settings.allowScheduledOrders) return `${settings.name} está fechada agora. ${openStatus.detail}.`;
+    if (outsideHours && !settings.allowScheduledOrders) return form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${settings.name} está fechada agora. ${openStatus.detail}.`;
     if (form.scheduledFor && new Date(form.scheduledFor).getTime() <= Date.now()) return 'O agendamento precisa estar no futuro.';
     if (stockSchedulingRequired && (!form.scheduledFor || new Date(form.scheduledFor).getTime() < tomorrowStart.getTime())) return 'Há item sem disponibilidade hoje. Escolha um horário a partir de amanhã para agendar o pedido.';
     if (partySchedulingRequired && (!form.scheduledFor || new Date(form.scheduledFor).getTime() < scheduleMinimum.getTime())) return partyLeadTimeDays > 0 ? `Esta encomenda para festa precisa ser agendada com pelo menos ${partyLeadTimeDays} dia${partyLeadTimeDays === 1 ? '' : 's'} de antecedência.` : 'Escolha um horário futuro para esta encomenda para festa.';
+    if (scheduleRequired && !form.scheduledFor) return form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}. Escolha um horário para agendar.` : 'Escolha um horário para agendar este pedido.';
     if (scheduledDeliveryBeforeStart) return `As entregas começam às ${settings.deliveryStartTime}. Escolha um horário de entrega a partir desse horário.`;
-    if ((!openStatus.open || currentBeforeDeliveryStart) && !settings.allowScheduledOrders) return currentBeforeDeliveryStart ? `As entregas começam às ${settings.deliveryStartTime}. Se preferir, selecione retirada.` : `${settings.name} está fechada agora. ${openStatus.detail}.`;
+    if (scheduledOutsidePickupWindow) return `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}. Escolha um horário dentro dessa janela.`;
+    if ((outsideHours || currentBeforeDeliveryStart) && !settings.allowScheduledOrders) return currentBeforeDeliveryStart ? `As entregas começam às ${settings.deliveryStartTime}. Se não quiser aguardar, selecione retirada.` : form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${settings.name} está fechada agora. ${openStatus.detail}.`;
     if (flexibleTimingRequired && !form.flexibleTimingConfirmed) return `Confirme que aceita o atendimento conforme a próxima janela disponível. ${timingConfirmationLabel}`;
     if (form.fulfillment === 'delivery') {
       if (!settings.deliveryEnabled) return 'Delivery está desativado nesta loja.';
@@ -391,17 +411,17 @@ export default function Checkout() {
   };
 
   if (loading) return <div className="page-center"><LoaderCircle className="spin"/>Carregando checkout...</div>;
-  if (!items.length) return <div className="simple-page"><header className="simple-topbar container"><a href={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</a></header><div className="cart-empty"><ShoppingBag size={48}/><h1>Seu carrinho está vazio</h1><a className="primary-button" href={storefrontPath(storeBasePath)}>Ver cardápio</a></div></div>;
+  if (!items.length) return <div className="simple-page"><header className="simple-topbar container"><Link to={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</Link></header><div className="cart-empty"><ShoppingBag size={48}/><h1>Seu carrinho está vazio</h1><Link className="primary-button" to={storefrontPath(storeBasePath)}>Ver cardápio</Link></div></div>;
 
   return <div className="simple-page checkout-page checkout-page-v44">
-    <header className="simple-topbar checkout-topbar-v44 container"><a href={storefrontPath(storeBasePath, '/carrinho')}><ArrowLeft size={19}/>Voltar ao carrinho</a><strong>FoodWeb</strong><span>{settings.name}</span></header>
+    <header className="simple-topbar checkout-topbar-v44 container"><Link to={storefrontPath(storeBasePath, '/carrinho')}><ArrowLeft size={19}/>Voltar ao carrinho</Link><strong>FoodWeb</strong><span>{settings.name}</span></header>
     <div className="checkout-trustbar-v44 container"><span><ShieldCheck size={17}/><b>Pedido protegido</b><small>Turnstile e validação no servidor</small></span><span><LockKeyhole size={17}/><b>Dados usados só no pedido</b><small>Sem exposição do suporte interno</small></span><span><CheckCircle2 size={17}/><b>{whatsappAvailable ? 'Pedido salvo primeiro' : 'WhatsApp opcional'}</b><small>{whatsappAvailable ? 'Essencial para agilizar confirmação e suporte' : 'Essencial para agilizar confirmação e suporte'}</small></span></div>
     <form className="container checkout-layout checkout-layout--premium" onSubmit={submit} noValidate>
       <section className="checkout-main">
         <div className="page-title"><span className="eyebrow">CHECKOUT</span><h1>Finalize seu pedido</h1><p>{whatsappAvailable ? 'O pedido será salvo antes de qualquer abertura do WhatsApp.' : 'O pedido será salvo e acompanhado pela loja diretamente no painel. O WhatsApp não é obrigatório, mas é essencial para agilizar confirmações e tirar dúvidas.'}</p><small className="checkout-draft-status">Se você recarregar a página, seus dados preenchidos serão restaurados automaticamente neste dispositivo.</small></div>
         {submitError && <div className="checkout-inline-error" role="alert"><AlertCircle size={19}/><div><strong>Não foi possível finalizar ainda</strong><span>{submitError}</span></div></div>}
 
-        {scheduleNoticeVisible && <div className="checkout-alert" role="status"><AlertCircle size={19}/><div><strong>{partySchedulingRequired ? 'Agendamento da encomenda de festa' : stockSchedulingRequired ? 'Agendamento necessário para este pedido' : flexibleTimingAvailable ? 'Pedido sem horário fixo' : currentBeforeDeliveryStart ? 'Entregas começam mais tarde' : 'Loja fechada agora'}</strong><span>{partySchedulingRequired ? `Este produto é preparado sob encomenda. ${partyLeadTimeDays > 0 ? `Escolha a data com pelo menos ${partyLeadTimeDays} dia${partyLeadTimeDays === 1 ? '' : 's'} de antecedência` : 'Escolha um horário futuro'} e confirme os detalhes da arte pelo Instagram.` : stockSchedulingRequired ? 'Um ou mais itens estão sem saldo suficiente hoje. Escolha um horário a partir de amanhã.' : flexibleTimingAvailable ? timingConfirmationLabel : currentBeforeDeliveryStart ? `A janela de entrega começa às ${settings.deliveryStartTime}. Se não quiser aguardar, selecione retirada.` : `${openStatus.detail}. ${settings.allowScheduledOrders ? 'Você pode continuar sem agendar, confirmando a próxima janela, ou escolher um horário.' : 'Novos pedidos ficam bloqueados fora do horário.'}`}</span>{showScheduleField && <label className="scheduled-order-field">Agendar para <span className="scheduled-order-field__optional">{scheduleRequired ? 'obrigatório para este pedido' : 'opcional'}</span><input type="datetime-local" value={form.scheduledFor} min={localDateTimeInputValue(scheduleMinimum)} onChange={(event)=>{ const value=event.target.value; setForm((current)=>({...current,scheduledFor:value,scheduledForExplicit:Boolean(value),flexibleTimingConfirmed:false})); setSubmitError(''); }}/><small>{partySchedulingRequired ? `Disponível a partir de ${localDateTimeInputValue(scheduleMinimum).replace('T', ', ')}` : stockSchedulingRequired ? `Disponível a partir de amanhã${form.fulfillment === 'delivery' && settings.deliveryStartTime ? ` e para delivery após ${settings.deliveryStartTime}` : '.'}` : form.fulfillment === 'delivery' && settings.deliveryStartTime ? `Escolha ${settings.deliveryStartTime} ou mais tarde para delivery.` : 'Horário local do estabelecimento. A disponibilidade será validada novamente no servidor.'}</small></label>}{flexibleTimingRequired && <label className="schedule-flexible-confirmation"><input type="checkbox" checked={Boolean(form.flexibleTimingConfirmed)} onChange={(event)=>update('flexibleTimingConfirmed',event.target.checked)}/><span><strong>Confirmo que posso aguardar</strong><small>{timingConfirmationLabel}</small></span></label>}</div></div>}
+        {scheduleNoticeVisible && <div className="checkout-alert" role="status"><AlertCircle size={19}/><div><strong>{partySchedulingRequired ? 'Agendamento da encomenda de festa' : stockSchedulingRequired ? 'Agendamento necessário para este pedido' : flexibleTimingAvailable ? 'Pedido sem horário fixo' : currentBeforeDeliveryStart ? 'Entregas começam mais tarde' : form.fulfillment === 'pickup' ? 'Retirada fora da janela' : 'Loja fechada agora'}</strong><span>{partySchedulingRequired ? `Este produto é preparado sob encomenda. ${partyLeadTimeDays > 0 ? `Escolha a data com pelo menos ${partyLeadTimeDays} dia${partyLeadTimeDays === 1 ? '' : 's'} de antecedência` : 'Escolha um horário futuro'} e confirme os detalhes da arte pelo Instagram.` : stockSchedulingRequired ? 'Um ou mais itens estão sem saldo suficiente hoje. Escolha um horário a partir de amanhã.' : flexibleTimingAvailable ? timingConfirmationLabel : currentBeforeDeliveryStart ? `A janela de entrega começa às ${settings.deliveryStartTime}. Se não quiser aguardar, selecione retirada.` : form.fulfillment === 'pickup' ? `A retirada funciona das ${settings.pickupStartTime || '07:00'} às ${settings.pickupEndTime || '22:00'}.` : `${openStatus.detail}. ${settings.allowScheduledOrders ? 'Você pode continuar sem agendar, confirmando a próxima janela, ou escolher um horário.' : 'Novos pedidos ficam bloqueados fora do horário.'}`}</span>{showScheduleField && <label className="scheduled-order-field">Agendar para <span className="scheduled-order-field__optional">{scheduleRequired ? 'obrigatório para este pedido' : 'opcional'}</span><input type="datetime-local" value={form.scheduledFor} min={localDateTimeInputValue(scheduleMinimum)} onChange={(event)=>{ const value=event.target.value; setForm((current)=>({...current,scheduledFor:value,scheduledForExplicit:Boolean(value),flexibleTimingConfirmed:false})); setSubmitError(''); }}/><small>{partySchedulingRequired ? `Disponível a partir de ${localDateTimeInputValue(scheduleMinimum).replace('T', ', ')}` : stockSchedulingRequired ? `Disponível a partir de amanhã${form.fulfillment === 'delivery' && settings.deliveryStartTime ? ` e para delivery após ${settings.deliveryStartTime}` : '.'}` : form.fulfillment === 'delivery' && settings.deliveryStartTime ? `Escolha ${settings.deliveryStartTime} ou mais tarde para delivery.` : `Escolha um horário entre ${settings.pickupStartTime || '07:00'} e ${settings.pickupEndTime || '22:00'}.`}</small></label>}{flexibleTimingRequired && <label className="schedule-flexible-confirmation"><input type="checkbox" checked={Boolean(form.flexibleTimingConfirmed)} onChange={(event)=>update('flexibleTimingConfirmed',event.target.checked)}/><span><strong>Confirmo que posso aguardar</strong><small>{timingConfirmationLabel}</small></span></label>}</div></div>}
 
         <section className="checkout-card"><div className="checkout-card__title"><UserRound size={20}/><div><strong>Seus dados</strong><span>Somente o essencial para registrar o pedido.</span></div></div><div className="form-grid checkout-essential-fields"><label>Nome<input required value={form.customerName} onChange={(event) => update('customerName', event.target.value)} placeholder="Seu nome"/></label><label>WhatsApp / telefone<input required value={form.customerPhone} onChange={(event) => update('customerPhone', event.target.value)} placeholder="(27) 99999-9999"/></label></div><details className="checkout-extra-fields"><summary>Mais informações <small>opcionais</small></summary><div className="form-grid"><label className="full">E-mail<input type="email" value={form.customerEmail} onChange={(event) => update('customerEmail', event.target.value)} placeholder="voce@email.com"/></label><label>Como conheceu a loja?<select value={form.acquisitionSource || ''} onChange={(event) => update('acquisitionSource', (event.target.value || undefined) as CheckoutData['acquisitionSource'])}><option value="">Selecione</option><option value="instagram">Instagram</option><option value="whatsapp">WhatsApp</option><option value="google">Google</option><option value="indicacao">Indicação</option><option value="outro">Outro</option></select></label><label>@ do Instagram<input value={form.customerInstagram || ''} onChange={(event) => update('customerInstagram', event.target.value)} placeholder="@seuusuario"/></label></div></details><label className="switch-row full checkout-remember-row"><span><strong>Salvar meus dados neste navegador</strong><small>Nome, contato e endereço ficam salvos por até 180 dias. Nenhum dado de pagamento é salvo.</small></span><input type="checkbox" checked={rememberCustomer} onChange={(event) => setRememberCustomer(event.target.checked)}/></label></section>
 

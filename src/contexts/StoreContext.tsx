@@ -23,7 +23,7 @@ type StoreContextValue = {
   storeBasePath: string;
   publicStoreSlug: string | null;
   reloadPublic: () => Promise<void>;
-  reloadAdmin: (options?: { silent?: boolean }) => Promise<void>;
+  reloadAdmin: (options?: { silent?: boolean; force?: boolean }) => Promise<void>;
   reloadOrders: (options?: { silent?: boolean }) => Promise<void>;
   saveProduct: (product: Product) => Promise<void>;
   updateProductStock: (productId: string, input: { stockQuantity: number; stockStatus: Product['stockStatus']; availabilityStatus: Product['availabilityStatus'] }) => Promise<void>;
@@ -60,6 +60,7 @@ const shouldRetryAdminLoad = (error: unknown) => {
   return /Loja não encontrada ou sem permissão|Sessão expirada|Failed to fetch|NetworkError|fetch failed/i.test(message);
 };
 const SYNC_KEY = 'foodservice_store_sync_v1';
+const ADMIN_SNAPSHOT_CACHE_MS = 30_000;
 const notifyStoreChange = () => {
   // Evita que a própria sessão continue exibindo uma vitrine pública antiga
   // depois de salvar produtos, configurações ou imagens no painel.
@@ -87,6 +88,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadVersionRef = useRef(0);
   const ordersLoadVersionRef = useRef(0);
   const ordersRequestRef = useRef<Promise<void> | null>(null);
+  const adminSnapshotRef = useRef<{ storeId: string; userId: string; loadedAt: number } | null>(null);
 
   const applySnapshot = useCallback((snapshot: Awaited<ReturnType<typeof storeApi.loadPublic>>) => {
     setSettings(snapshot.settings); setCategories(snapshot.categories); setProducts(snapshot.products); setAddons(snapshot.addons); setDeliveryZones(snapshot.deliveryZones); setOrders(snapshot.orders); setPlanUsage(snapshot.planUsage);
@@ -113,8 +115,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     finally { if (requestVersion === loadVersionRef.current) setLoading(false); }
   }, [applySnapshot, publicStoreSlug]);
 
-  const reloadAdmin = useCallback(async (options?: { silent?: boolean }) => {
+  const reloadAdmin = useCallback(async (options?: { silent?: boolean; force?: boolean }) => {
     if (!membership) return;
+    const force = Boolean(options?.force);
+    const cached = adminSnapshotRef.current;
+    if (!force && cached?.storeId === membership.storeId && cached.userId === user?.id && Date.now() - cached.loadedAt < ADMIN_SNAPSHOT_CACHE_MS) {
+      if (!options?.silent) setLoading(false);
+      return;
+    }
     const requestVersion = ++loadVersionRef.current;
     ++ordersLoadVersionRef.current;
     const silent = Boolean(options?.silent);
@@ -126,6 +134,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const snapshot = await storeApi.loadAdmin(membership.storeId);
           if (requestVersion !== loadVersionRef.current) return;
           applySnapshot(snapshot);
+          adminSnapshotRef.current = { storeId: membership.storeId, userId: user?.id ?? '', loadedAt: Date.now() };
           return;
         } catch (error) {
           lastError = error;
@@ -141,7 +150,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       else throw e;
     }
     finally { if (!silent && requestVersion === loadVersionRef.current) setLoading(false); }
-  }, [membership, applySnapshot]);
+  }, [membership, user, applySnapshot]);
 
   const reloadOrders = useCallback(async (options?: { silent?: boolean }) => {
     if (!membership) return;
@@ -185,7 +194,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const marketingRoot = typeof window !== 'undefined' && isFoodWebMarketingRoot(location.pathname, window.location.hostname);
       if (isMasterRoute || marketingRoot || authLoading) return;
       if (isStoreAdminRoute) {
-        if (user && membership) void reloadAdmin();
+        if (user && membership) void reloadAdmin({ force: true });
         return;
       }
       void reloadPublic();
@@ -202,19 +211,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     reloadPublic,
     reloadAdmin,
     reloadOrders,
-    saveProduct: async (product) => { await storeApi.saveProduct(product); await reloadAdmin(); notifyStoreChange(); },
+    saveProduct: async (product) => { await storeApi.saveProduct(product); await reloadAdmin({ force: true }); notifyStoreChange(); },
     updateProductStock: async (productId, input) => { await storeApi.updateProductStock(settings.id, productId, input); setProducts((current) => current.map((product) => product.id === productId ? { ...product, ...input } : product)); notifyStoreChange(); },
-    deleteProduct: async (id) => { await storeApi.deleteProduct(id); await reloadAdmin(); notifyStoreChange(); },
-    saveCategory: async (category) => { await storeApi.saveCategory(category); await reloadAdmin(); notifyStoreChange(); },
-    deleteCategory: async (id) => { await storeApi.deleteCategory(id); await reloadAdmin(); notifyStoreChange(); },
-    saveAddon: async (addon) => { await storeApi.saveAddon(addon); await reloadAdmin(); notifyStoreChange(); },
-    deleteAddon: async (id) => { await storeApi.deleteAddon(id); await reloadAdmin(); notifyStoreChange(); },
-    saveDeliveryZones: async (zones) => { await storeApi.saveDeliveryZones(zones); await reloadAdmin(); notifyStoreChange(); },
-    deleteDeliveryZone: async (id) => { await storeApi.deleteDeliveryZone(id); await reloadAdmin(); notifyStoreChange(); },
+    deleteProduct: async (id) => { await storeApi.deleteProduct(id); await reloadAdmin({ force: true }); notifyStoreChange(); },
+    saveCategory: async (category) => { await storeApi.saveCategory(category); await reloadAdmin({ force: true }); notifyStoreChange(); },
+    deleteCategory: async (id) => { await storeApi.deleteCategory(id); await reloadAdmin({ force: true }); notifyStoreChange(); },
+    saveAddon: async (addon) => { await storeApi.saveAddon(addon); await reloadAdmin({ force: true }); notifyStoreChange(); },
+    deleteAddon: async (id) => { await storeApi.deleteAddon(id); await reloadAdmin({ force: true }); notifyStoreChange(); },
+    saveDeliveryZones: async (zones) => { await storeApi.saveDeliveryZones(zones); await reloadAdmin({ force: true }); notifyStoreChange(); },
+    deleteDeliveryZone: async (id) => { await storeApi.deleteDeliveryZone(id); await reloadAdmin({ force: true }); notifyStoreChange(); },
     saveSettings: async (next) => { const saved=await storeApi.saveSettings(next); setSettings(saved); notifyStoreChange(); },
-    uploadProductImages: async (productId, files, current) => { const images=await storeApi.uploadProductImages(settings.id, productId, files, current); await reloadAdmin(); notifyStoreChange(); return images; },
-    deleteProductImage: async (image) => { await storeApi.deleteProductImage(image); await reloadAdmin(); notifyStoreChange(); },
-    setPrimaryImage: async (productId, imageId) => { await storeApi.setPrimaryImage(productId,imageId); await reloadAdmin(); notifyStoreChange(); },
+    uploadProductImages: async (productId, files, current) => { const images=await storeApi.uploadProductImages(settings.id, productId, files, current); await reloadAdmin({ force: true }); notifyStoreChange(); return images; },
+    deleteProductImage: async (image) => { await storeApi.deleteProductImage(image); await reloadAdmin({ force: true }); notifyStoreChange(); },
+    setPrimaryImage: async (productId, imageId) => { await storeApi.setPrimaryImage(productId,imageId); await reloadAdmin({ force: true }); notifyStoreChange(); },
     uploadStoreAsset: async (file, kind) => storeApi.uploadStoreAsset(settings.id,file,kind),
     uploadAddonImage: async (addonId, file) => storeApi.uploadAddonImage(settings.id,addonId,file),
     resetDemo: async () => { applySnapshot(await storeApi.resetDemo()); },

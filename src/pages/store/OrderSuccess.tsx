@@ -1,6 +1,6 @@
 import { ArrowLeft, Banknote, Bell, Check, CheckCircle2, Copy, CreditCard, MessageCircle, QrCode, Share2, Store } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -58,7 +58,7 @@ export default function OrderSuccess() {
           <div className="success-icon"><CheckCircle2 size={50} /></div>
           <h1>Pedido não disponível nesta sessão</h1>
           <p>Por segurança, os dados de confirmação ficam somente nesta sessão do navegador.</p>
-          <a className="primary-button" href={storefrontPath(storeBasePath)}><ArrowLeft size={18} />Voltar para o cardápio</a>
+          <Link className="primary-button" to={storefrontPath(storeBasePath)}><ArrowLeft size={18} />Voltar para o cardápio</Link>
         </section>
       </main>
     );
@@ -258,7 +258,7 @@ export default function OrderSuccess() {
         {isCard && <p className="order-success-hint">A loja fará a cobrança por cartão na entrega ou retirada. Nunca envie número completo do cartão, CVV ou senha pelo WhatsApp.</p>}
         {isCash && <p className="order-success-hint">{confirmation.changeAmount != null ? `Troco previsto: ${currency.format(confirmation.changeAmount)}.` : 'Pagamento em dinheiro sem troco solicitado.'}</p>}
 
-        <a className="order-success-back" href={storefrontPath(storeBasePath)}><ArrowLeft size={19} />Voltar para o cardápio</a>
+        <Link className="order-success-back" to={storefrontPath(storeBasePath)}><ArrowLeft size={19} />Voltar para o cardápio</Link>
       </section>
     </main>
   );

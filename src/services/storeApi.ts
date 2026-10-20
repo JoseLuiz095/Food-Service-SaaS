@@ -224,6 +224,8 @@ const mapStore = (row: StoreRow): StoreSettings => ({
   averagePreparationMin: Math.max(0, row.average_preparation_min ?? 30), averagePreparationMax: Math.max(0, row.average_preparation_max ?? 45), allowScheduledOrders: row.allow_scheduled_orders ?? false, kdsEnabled: row.kds_enabled ?? false, kdsNotifyCustomer: row.kds_notify_customer ?? true, notificationsNewOrderEnabled: row.notifications_new_order_enabled ?? true, notificationsScheduledEnabled: row.notifications_scheduled_enabled ?? true, notificationsScheduledLeadMinutes: Math.min(1440, Math.max(5, row.notifications_scheduled_lead_minutes ?? 30)), notificationsDesktopEnabled: row.notifications_desktop_enabled ?? true, notificationsSoundEnabled: row.notifications_sound_enabled ?? true, salesRecoveryEnabled: row.sales_recovery_enabled ?? true, salesRecoveryMinutes: Math.max(5, row.sales_recovery_minutes ?? 10), salesRecoveryWindowHours: Math.min(168, Math.max(1, row.sales_recovery_window_hours ?? 48)), crmEnabled: row.crm_enabled ?? true, crmComeBackDays: Math.min(365, Math.max(1, row.crm_come_back_days ?? 21)), repeatOrderEnabled: row.repeat_order_enabled ?? true, repeatOrderMaxAgeDays: Math.min(365, Math.max(1, row.repeat_order_max_age_days ?? 90)), upsellEnabled: row.upsell_enabled ?? true, upsellLimit: Math.min(6, Math.max(1, row.upsell_limit ?? 3)), messageTemplates: normalizeCustomerMessageTemplates(row.customer_message_templates),
   openingSchedule: normalizeOpeningSchedule(row.opening_hours),
   deliveryStartTime: (() => { const value = row.opening_hours && typeof row.opening_hours === 'object' ? (row.opening_hours as { delivery_start_time?: unknown }).delivery_start_time : ''; return typeof value === 'string' && /^\d{2}:\d{2}$/.test(value) ? value : ''; })(),
+  pickupStartTime: (() => { const value = row.opening_hours && typeof row.opening_hours === 'object' ? (row.opening_hours as { pickup_start_time?: unknown }).pickup_start_time : ''; return typeof value === 'string' && /^\d{2}:\d{2}$/.test(value) ? value : '07:00'; })(),
+  pickupEndTime: (() => { const value = row.opening_hours && typeof row.opening_hours === 'object' ? (row.opening_hours as { pickup_end_time?: unknown }).pickup_end_time : ''; return typeof value === 'string' && /^\d{2}:\d{2}$/.test(value) ? value : '22:00'; })(),
   openingHours: (() => { const schedule = normalizeOpeningSchedule(row.opening_hours); const legacy = typeof row.opening_hours === 'string' ? row.opening_hours : ((row.opening_hours as { display?: string } | null)?.display || ''); return schedule.days.some((day) => day.enabled) ? formatOpeningSchedule(schedule) : legacy; })(),
   active: row.active, accessStatus: row.access_status || 'online', billingDocument:row.billing_document||'', billingPhone:row.billing_phone||'',
 });
@@ -424,6 +426,9 @@ const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promis
   const stores = await restFetchProjected<StoreRow>('food_stores', admin ? '*' : PUBLIC_STORE_SELECT, `&${storeFilter}&limit=1`);
   if (!stores.length) throw new Error('Loja não encontrada ou sem permissão.');
   const settings = mapStore(stores[0]);
+  // Plano não depende do catálogo. Começamos a consulta enquanto o restante
+  // do painel carrega, reduzindo uma etapa de rede na abertura do admin.
+  const planUsagePromise = admin ? loadPlanUsage(settings.id, 0, 0) : null;
   // Categorias, produtos, zonas e adicionais são independentes. Em vez de
   // esperar cada consulta em sequência, carregamos o primeiro bloco em
   // paralelo para reduzir o tempo de abertura do painel/vitrine.
@@ -467,10 +472,17 @@ const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promis
   const deliveryZones = deliveryZoneRows.map(mapDeliveryZone);
   const products = buildProducts(productRows, imageRows, optionGroupRows, optionItemRows, optionLinks, variantRows, addons, addonLinks);
   const activeProductCount = products.filter((product) => product.active).length;
-  const [orders, planUsage] = await Promise.all([
+  const [orders, loadedPlanUsage] = await Promise.all([
     admin ? loadAdminOrders(settings.id) : Promise.resolve([] as Order[]),
-    admin ? loadPlanUsage(settings.id, products.length, activeProductCount) : Promise.resolve({ plan:seedPlan, productCount:products.length, activeProductCount, canCreateProduct:true, canActivateProduct:true }),
+    planUsagePromise || Promise.resolve({ plan:seedPlan, productCount:0, activeProductCount:0, canCreateProduct:true, canActivateProduct:true }),
   ]);
+  const planUsage: PlanUsage = {
+    ...loadedPlanUsage,
+    productCount: products.length,
+    activeProductCount,
+    canCreateProduct: true,
+    canActivateProduct: loadedPlanUsage.plan.productLimit == null || activeProductCount < loadedPlanUsage.plan.productLimit,
+  };
   return { settings, categories, products, addons, deliveryZones, orders, planUsage };
 };
 
@@ -541,7 +553,7 @@ export const storeApi = {
       // Mantemos o modo no JSON de horários para não exigir uma migration/coluna
       // antes de o contrato da integração 99 estar definido. O checkout continua
       // independente desse campo e nunca dispara a 99 automaticamente.
-      opening_hours:{ display:formatOpeningSchedule(settings.openingSchedule), timezone:settings.openingSchedule.timezone, days:settings.openingSchedule.days, delivery_start_time: settings.deliveryStartTime || null, delivery_mode: settings.deliveryMode || (settings.deliveryEnabled ? 'own' : 'none') }, billing_document:settings.billingDocument||null, billing_phone:settings.billingPhone||null,
+      opening_hours:{ display:formatOpeningSchedule(settings.openingSchedule), timezone:settings.openingSchedule.timezone, days:settings.openingSchedule.days, delivery_start_time: settings.deliveryStartTime || null, pickup_start_time: settings.pickupStartTime || '07:00', pickup_end_time: settings.pickupEndTime || '22:00', delivery_mode: settings.deliveryMode || (settings.deliveryEnabled ? 'own' : 'none') }, billing_document:settings.billingDocument||null, billing_phone:settings.billingPhone||null,
     };
     let rows: StoreRow[];
     // PostgREST pode manter o schema cache antigo após uma implantação parcial.
@@ -647,8 +659,24 @@ export const storeApi = {
   async uploadProductImages(storeId:string,productId:string,files:File[],current:ProductImage[]):Promise<ProductImage[]>{
     const maxSize=5*1024*1024;const allowed=new Set(['image/jpeg','image/png','image/webp']);for(const file of files){if(!allowed.has(file.type))throw new Error(`Formato não permitido: ${file.name}`);if(file.size>maxSize)throw new Error(`${file.name} excede 5 MB.`);}
     const preparedFiles=await Promise.all(files.map((file)=>optimizeImageForUpload(file,'product')));
-    if(isDemoMode){const readFile=(file:File)=>new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);});const next=[...current];for(const [index,file] of preparedFiles.entries()){const url=await readFile(file);next.push({id:createId(),productId,url,altText:files[index].name,sortOrder:next.length,isPrimary:next.length===0});}const db=readDemo();db.products=db.products.map((product)=>product.id===productId?{...product,images:next,imageUrl:(next.find((image)=>image.isPrimary)||next[0])?.url||product.imageUrl,gallery:next.map((image)=>image.url)}:product);writeDemo(db);return next;}
-    const added:ProductImage[]=[];for(const [index,file] of preparedFiles.entries()){const ext=(file.name.split('.').pop()||'webp').toLowerCase().replace(/[^a-z0-9]/g,'');const path=`stores/${storeId}/products/${productId}/${createId()}.${ext}`;const uploaded=await storageUpload('food-product-images',path,file);const row={id:createId(),product_id:productId,url:uploaded.url,storage_path:uploaded.path,alt_text:files[index].name,sort_order:current.length+index,is_primary:current.length===0&&index===0};const result=await restFetch<ProductImageRow[]>('food_product_images?select=*',{method:'POST',body:row,prefer:'return=representation'});const saved=result[0];added.push({id:saved.id,productId:saved.product_id,url:saved.url,storagePath:saved.storage_path||undefined,altText:saved.alt_text||undefined,sortOrder:saved.sort_order,isPrimary:saved.is_primary});}return[...current,...added];
+    if(isDemoMode){
+      const readFile=(file:File)=>new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);});
+      const urls=await Promise.all(preparedFiles.map(readFile));
+      const next=[...current,...urls.map((url,index)=>({id:createId(),productId,url,altText:files[index].name,sortOrder:current.length+index,isPrimary:current.length===0&&index===0}))];
+      const db=readDemo();db.products=db.products.map((product)=>product.id===productId?{...product,images:next,imageUrl:(next.find((image)=>image.isPrimary)||next[0])?.url||product.imageUrl,gallery:next.map((image)=>image.url)}:product);writeDemo(db);return next;
+    }
+    // Cada imagem é independente: enviar em paralelo reduz o tempo percebido
+    // ao cadastrar uma galeria, enquanto o Promise.all preserva a ordem escolhida.
+    const added=await Promise.all(preparedFiles.map(async (file,index)=>{
+      const ext=(file.name.split('.').pop()||'webp').toLowerCase().replace(/[^a-z0-9]/g,'');
+      const path=`stores/${storeId}/products/${productId}/${createId()}.${ext}`;
+      const uploaded=await storageUpload('food-product-images',path,file);
+      const row={id:createId(),product_id:productId,url:uploaded.url,storage_path:uploaded.path,alt_text:files[index].name,sort_order:current.length+index,is_primary:current.length===0&&index===0};
+      const result=await restFetch<ProductImageRow[]>('food_product_images?select=*',{method:'POST',body:row,prefer:'return=representation'});
+      const saved=result[0];
+      return{id:saved.id,productId:saved.product_id,url:saved.url,storagePath:saved.storage_path||undefined,altText:saved.alt_text||undefined,sortOrder:saved.sort_order,isPrimary:saved.is_primary};
+    }));
+    return[...current,...added];
   },
   async deleteProductImage(image:ProductImage){if(isDemoMode){const db=readDemo();db.products=db.products.map((product)=>{if(product.id!==image.productId)return product;let next=product.images.filter((item)=>item.id!==image.id);if(image.isPrimary&&next.length&&!next.some((item)=>item.isPrimary))next=next.map((item,index)=>({...item,isPrimary:index===0}));const primary=next.find((item)=>item.isPrimary)||next[0];return{...product,images:next,gallery:next.map((item)=>item.url),imageUrl:primary?.url||'/assets/placeholder-food.svg'};});writeDemo(db);return;}await restFetch<unknown>(`food_product_images?id=eq.${encode(image.id)}`,{method:'DELETE'});if(image.isPrimary){const remaining=await restFetch<ProductImageRow[]>(`food_product_images?select=*&product_id=eq.${encode(image.productId)}&order=sort_order.asc&limit=1`);if(remaining[0])await restFetch<unknown>(`food_product_images?id=eq.${encode(remaining[0].id)}`,{method:'PATCH',body:{is_primary:true}});}if(image.storagePath)await storageDelete('food-product-images',[image.storagePath]);},
   async setPrimaryImage(productId:string,imageId:string){if(isDemoMode){const db=readDemo();db.products=db.products.map((product)=>product.id===productId?{...product,images:product.images.map((image)=>({...image,isPrimary:image.id===imageId})),imageUrl:product.images.find((image)=>image.id===imageId)?.url||product.imageUrl}:product);writeDemo(db);return;}await restFetch<unknown>(`food_product_images?product_id=eq.${encode(productId)}`,{method:'PATCH',body:{is_primary:false}});await restFetch<unknown>(`food_product_images?id=eq.${encode(imageId)}`,{method:'PATCH',body:{is_primary:true}});},

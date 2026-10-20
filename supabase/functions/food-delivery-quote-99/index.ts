@@ -19,6 +19,11 @@ const json = (body: unknown, status = 200, extra: Record<string, string> = {}) =
   headers: { ...corsHeaders, ...extra },
 });
 
+// A chave e o endpoint, sozinhos, nunca ativam o provedor. Isso evita que uma
+// credencial adicionada para testes libere consultas publicas acidentalmente.
+// A loja continua no fluxo manual ate a ativacao explicita do ambiente.
+const ninetyNineEnabled = () => Deno.env.get('NINETY_NINE_ENABLED')?.trim().toLowerCase() === 'true';
+
 const asCoordinate = (value: unknown, min: number, max: number) => {
   const number = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(number) && number >= min && number <= max ? number : null;
@@ -52,6 +57,14 @@ const extractAmount = (payload: unknown): number | null => {
 const quote = async (request: Request) => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
   if (request.method !== 'POST') return json({ error: 'Método não permitido.' }, 405);
+
+  if (!ninetyNineEnabled()) {
+    return json({
+      error: 'Cotação 99 desativada. Continue com a confirmação manual da entrega.',
+      code: 'NINETY_NINE_DISABLED',
+      fallback: 'manual',
+    }, 503);
+  }
 
   const endpointTemplate = Deno.env.get('NINETY_NINE_ESTIMATE_URL')?.trim() || '';
   const apiKey = Deno.env.get('NINETY_NINE_API_KEY')?.trim() || '';

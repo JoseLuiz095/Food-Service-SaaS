@@ -9,6 +9,7 @@ type PushSubscriptionRow = {
 };
 
 const webpush = (webPushModule as { default?: typeof webPushModule }).default || webPushModule;
+const PUSH_CONCURRENCY = 8;
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'Método não permitido.' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
@@ -60,21 +61,32 @@ Deno.serve(async (req) => {
       tag: body.tag || `foodweb:${body.store_id}`,
       url: body.url || '/admin/pedidos',
     });
-    let sent = 0;
-    let removed = 0;
-    for (const subscription of (subscriptions || []) as PushSubscriptionRow[]) {
+    const deliver = async (subscription: PushSubscriptionRow) => {
       try {
         await webpush.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, payload);
-        sent += 1;
+        return { sent: 1, removed: 0 };
       } catch (sendError) {
         const statusCode = Number((sendError as { statusCode?: number }).statusCode || 0);
         if (statusCode === 404 || statusCode === 410) {
           await admin.from('food_push_subscriptions').update({ active: false, updated_at: new Date().toISOString() }).eq('id', subscription.id);
-          removed += 1;
+          return { sent: 0, removed: 1 };
         } else console.warn('Falha ao enviar push:', sendError);
+        return { sent: 0, removed: 0 };
+      }
+    };
+    let sent = 0;
+    let removed = 0;
+    const activeSubscriptions = (subscriptions || []) as PushSubscriptionRow[];
+    // Lotes pequenos aceleram o envio para vários administradores sem abrir
+    // conexões ilimitadas nem atrasar todo o grupo por um único dispositivo.
+    for (let start = 0; start < activeSubscriptions.length; start += PUSH_CONCURRENCY) {
+      const results = await Promise.all(activeSubscriptions.slice(start, start + PUSH_CONCURRENCY).map(deliver));
+      for (const result of results) {
+        sent += result.sent;
+        removed += result.removed;
       }
     }
-    return new Response(JSON.stringify({ ok: true, sent, removed, total: subscriptions?.length || 0 }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ ok: true, sent, removed, total: activeSubscriptions.length }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   } catch (error) {
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Falha ao enviar notificações push.' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
   }

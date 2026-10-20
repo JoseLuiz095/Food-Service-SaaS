@@ -233,6 +233,9 @@ export type StoreSettings = {
   pickupEnabled: boolean;
   /** Horário a partir do qual pedidos para entrega podem ser registrados. Retirada não é afetada. */
   deliveryStartTime?: string;
+  /** Janela própria para retirada, independente do início do delivery. */
+  pickupStartTime?: string;
+  pickupEndTime?: string;
   minimumOrder: number;
   averagePreparationMin: number;
   averagePreparationMax: number;

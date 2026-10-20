@@ -80,6 +80,16 @@ const notifyStoreAdmins = async (url: string, service: string, payload: Record<s
   }
 };
 
+const runInBackground = (task: Promise<unknown>) => {
+  // No Supabase hospedado, waitUntil mantém a função viva sem atrasar a
+  // resposta do checkout. O fallback preserva o funcionamento em ambientes
+  // locais que não expõem EdgeRuntime.
+  const safeTask = task.catch((error) => console.warn('Tarefa de checkout em segundo plano falhou:', error));
+  const runtime = (globalThis as typeof globalThis & { EdgeRuntime?: { waitUntil: (promise: Promise<unknown>) => void } }).EdgeRuntime;
+  if (runtime?.waitUntil) runtime.waitUntil(safeTask);
+  else void safeTask;
+};
+
 const validateTurnstile = async (token: string, remoteIp: string, origin: string) => {
   const secret = Deno.env.get('TURNSTILE_SECRET_KEY') || '';
   const required = String(Deno.env.get('TURNSTILE_REQUIRED') || '').toLowerCase() === 'true';
@@ -259,17 +269,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // O pedido continua válido mesmo que o push ainda não esteja configurado.
-    // A Edge Function usa apenas assinaturas ativas dos administradores da loja.
-    // Aguarda o envio antes de encerrar a função. O helper trata as falhas
-    // internamente, então um push indisponível nunca invalida o pedido.
-    await notifyStoreAdmins(url, service, {
+    // O pedido já foi salvo. A entrega de push ocorre fora da resposta para
+    // que dispositivos lentos não aumentem o tempo percebido pelo cliente.
+    runInBackground(notifyStoreAdmins(url, service, {
       store_id: storeId,
       title: 'Novo pedido na loja',
       message: `Pedido #${created.order_number} · ${String(payloadRecord.customer_name || 'Cliente')} · R$ ${Number(created.order_total).toFixed(2).replace('.', ',')}`,
       tag: `new-order:${created.order_id}`,
       url: '/admin/pedidos',
-    });
+    }));
 
     return new Response(JSON.stringify({
       orderId: created.order_id,
