@@ -20,7 +20,7 @@ type CartContextValue = {
   items: CartItem[];
   totalItems: number;
   subtotal: number;
-  addItem: (product: Product, quantity: number, options?: SelectedOption[]) => void;
+  addItem: (product: Product, quantity: number, options?: SelectedOption[], metadata?: { partyPackageWeightGrams?: number }) => void;
   updateQuantity: (id: string, quantity: number) => void;
   removeItem: (id: string) => void;
   clear: () => void;
@@ -36,9 +36,10 @@ export const cartItemOptionsTotal = (item: CartItem) => roundMoney(
 export const cartItemUnitTotal = (item: CartItem) => roundMoney(item.unitPrice + cartItemOptionsTotal(item));
 export const calculateCartSubtotal = (items: CartItem[]) => roundMoney(items.reduce((sum, item) => sum + cartItemUnitTotal(item) * item.quantity, 0));
 
-const normalizedOptionKey = (options: SelectedOption[]) => options
+const normalizedOptionKey = (options: SelectedOption[], partyPackageWeightGrams?: number) => options
   .map((option) => `${option.groupId}:${option.itemId}:${option.quantity}`)
   .sort()
+  .concat(partyPackageWeightGrams ? [`party-weight:${partyPackageWeightGrams}`] : [])
   .join('|');
 
 export function CartProvider({ children }: { children: ReactNode }) {
@@ -67,9 +68,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     items,
     totalItems: items.reduce((sum, item) => sum + item.quantity, 0),
     subtotal: calculateCartSubtotal(items),
-    addItem: (product, quantity, options = []) => {
-      const base = product.promotionalPrice ?? product.price;
-      const id = `${product.id}|${normalizedOptionKey(options) || 'base'}`;
+    addItem: (product, quantity, options = [], metadata = {}) => {
+      const partyConfig = product.partyOrderConfig?.enabled ? product.partyOrderConfig : undefined;
+      const partyWeight = partyConfig ? Math.max(1, Math.trunc(Number(metadata.partyPackageWeightGrams || partyConfig.packageWeightGrams))) : undefined;
+      const base = partyConfig?.pricePerGram ? partyConfig.pricePerGram * (partyWeight || partyConfig.packageWeightGrams) : (product.promotionalPrice ?? product.price);
+      const id = `${product.id}|${normalizedOptionKey(options, partyWeight) || 'base'}`;
       const normalizedOptions = options
         .map((option) => ({ ...option, quantity: Math.max(1, option.quantity || 1) }))
         .sort((a, b) => a.groupName.localeCompare(b.groupName) || a.itemName.localeCompare(b.itemName));
@@ -85,6 +88,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           unitPrice: roundMoney(base),
           quantity,
           options: normalizedOptions,
+           partyPackageWeightGrams: partyWeight,
         }];
       });
     },
@@ -110,13 +114,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
           quantity: Math.max(1, selected.quantity || 1),
         });
       }
-      const unitPrice = roundMoney(product.promotionalPrice ?? product.price);
+       const partyConfig = product.partyOrderConfig?.enabled ? product.partyOrderConfig : undefined;
+       const partyWeight = partyConfig ? Math.max(1, Math.trunc(Number(item.partyPackageWeightGrams || partyConfig.packageWeightGrams))) : undefined;
+       const unitPrice = roundMoney(partyConfig?.pricePerGram ? partyConfig.pricePerGram * (partyWeight || partyConfig.packageWeightGrams) : (product.promotionalPrice ?? product.price));
         const unchanged = item.productName === product.name
           && item.imageUrl === product.imageUrl
           && item.visualEmoji === product.visualEmoji
           && item.unitPrice === unitPrice
+           && item.partyPackageWeightGrams === partyWeight
           && JSON.stringify(item.options) === JSON.stringify(nextOptions);
-        return [unchanged ? item : { ...item, productName: product.name, imageUrl: product.imageUrl, visualEmoji: product.visualEmoji, unitPrice, options: nextOptions }];
+       return [unchanged ? item : { ...item, productName: product.name, imageUrl: product.imageUrl, visualEmoji: product.visualEmoji, unitPrice, options: nextOptions, partyPackageWeightGrams: partyWeight }];
       });
       return next.length === current.length && next.every((item, index) => item === current[index]) ? current : next;
     }),

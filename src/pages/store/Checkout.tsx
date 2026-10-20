@@ -442,7 +442,7 @@ export default function Checkout() {
 
       <aside className="order-summary checkout-summary">
         <span className="eyebrow">RESUMO</span>
-        <div className="checkout-items-mini">{items.map((item) => <div key={item.id}><span>{item.quantity}x {item.productName}{item.options.length > 0 && <small>{item.options.map((option) => option.itemName).join(' · ')}</small>}</span><strong>{currency.format(cartItemUnitTotal(item) * item.quantity)}</strong></div>)}</div>
+         <div className="checkout-items-mini">{items.map((item) => { const product = products.find((candidate) => candidate.id === item.productId); const config = product?.partyOrderConfig?.enabled ? product.partyOrderConfig : readPartyConfig(product?.optionGroups || []); return <div key={item.id}><span>{item.quantity}x {item.productName}{config && <small>{item.partyPackageWeightGrams || config.packageWeightGrams} g por pacote · encomenda para festa</small>}{item.options.length > 0 && <small>{item.options.map((option) => option.itemName).join(' · ')}</small>}</span><strong>{currency.format(cartItemUnitTotal(item) * item.quantity)}</strong></div>; })}</div>
         <div className="summary-line"><span>Subtotal</span><strong>{currency.format(subtotal)}</strong></div>
         {form.fulfillment === 'delivery' && <div className="summary-line"><span>Entrega</span><strong>{deliveryFee === 0 ? 'Grátis' : currency.format(deliveryFee)}</strong></div>}
         <div className="summary-total"><span>Total</span><strong>{currency.format(total)}</strong></div>

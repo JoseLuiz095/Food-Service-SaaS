@@ -1,4 +1,4 @@
-import { ChevronDown, Clock3, Copy, Info, MapPin, MessageCircle, QrCode, Share2, ShieldCheck, ShoppingBag, Store, Truck, X } from 'lucide-react';
+import { ChevronDown, Clock3, Copy, Download, Info, MapPin, MessageCircle, QrCode, Share2, ShieldCheck, ShoppingBag, Store, Truck, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { useCart } from '../contexts/CartContext';
 import { useStore } from '../contexts/StoreContext';
 import { useToast } from '../contexts/ToastContext';
 import { publicStorefrontUrl, storefrontPath } from '../utils/storefrontRoute';
-import { sharePixQrImage } from '../utils/pixShare';
+import { downloadQrImage, sharePixQrImage } from '../utils/pixShare';
 import { normalizeInstagramHandle, sanitizeWhatsAppNumber } from '../utils/format';
 import { getOpeningScheduleOverview, getStoreOpenStatus } from '../utils/storeHours';
 import { loadFulfillmentPreference, saveFulfillmentPreference } from '../utils/fulfillmentPreference';
@@ -81,9 +81,13 @@ export function StoreHeader(){
       });
       if(result==='image')showToast('QR Code e link prontos para compartilhar.','success');
       else if(result==='text')showToast('Compartilhamento de texto aberto; este aparelho não aceita imagem.','success');
-      else showToast('O navegador não oferece compartilhamento neste aparelho.','error');
+       else if(downloadQrImage(shareQr,`qr-code-${settings.slug||'loja'}.png`))showToast('QR Code baixado. Anexe a imagem no aplicativo de sua preferência.','success');
+       else showToast('Copie o link para compartilhar a loja.','info');
     }catch(error){
-      if(!(error instanceof DOMException&&error.name==='AbortError'))showToast('Não foi possível compartilhar o QR Code.','error');
+       if(!(error instanceof DOMException&&error.name==='AbortError')){
+         if(downloadQrImage(shareQr,`qr-code-${settings.slug||'loja'}.png`))showToast('O compartilhamento direto falhou, então o QR Code foi baixado.','info');
+         else showToast('Não foi possível compartilhar o QR Code. Copie o link e tente novamente.','error');
+       }
     }
   };
   return <header className="food-storefront-header food-storefront-header-v43">
@@ -114,6 +118,6 @@ export function StoreHeader(){
     {settings.storefrontNotice?.trim() && <section className="container food-store-operation-notices" aria-label="Informações importantes da loja">
       {settings.storefrontNotice?.trim() && <div><Info size={18}/><span><strong>Antes de pedir</strong>{settings.storefrontNotice.trim()}</span></div>}
     </section>}
-    {shareOpen&&typeof document!=='undefined'&&createPortal(<div className="store-share-overlay" role="presentation" onMouseDown={(event)=>{if(event.target===event.currentTarget)setShareOpen(false);}}><section className="store-share-card" role="dialog" aria-modal="true" aria-labelledby="store-share-title"><button ref={shareCloseRef} type="button" className="icon-button store-share-card__close" onClick={()=>setShareOpen(false)} aria-label="Fechar compartilhamento"><X size={19}/></button><div className="store-share-card__icon"><QrCode size={22}/></div><span className="eyebrow">COMPARTILHE</span><h2 id="store-share-title">Leve a {settings.name} com você</h2><p>Escaneie o QR Code ou copie o link para enviar o cardápio.</p>{shareQr?<img className="store-share-card__qr" src={shareQr} alt={`QR Code da loja ${settings.name}`}/>:<div className="store-share-card__qr-placeholder">Gerando QR Code…</div>}<div className="store-share-card__link"><span title={shareUrl}>{shareUrl}</span><button type="button" className="secondary-button compact-button" onClick={()=>void copyShareUrl()}><Copy size={15}/>{shareCopied?'Copiado':'Copiar link'}</button></div>{typeof navigator !== 'undefined' && 'share' in navigator&&<button type="button" className="primary-button store-share-card__native" disabled={!shareQr} onClick={()=>void shareStoreWithDevice()}><Share2 size={16}/>Compartilhar pelo telefone</button>}</section></div>,document.body)}
+    {shareOpen&&typeof document!=='undefined'&&createPortal(<div className="store-share-overlay" role="presentation" onMouseDown={(event)=>{if(event.target===event.currentTarget)setShareOpen(false);}}><section className="store-share-card" role="dialog" aria-modal="true" aria-labelledby="store-share-title"><button ref={shareCloseRef} type="button" className="icon-button store-share-card__close" onClick={()=>setShareOpen(false)} aria-label="Fechar compartilhamento"><X size={19}/></button><div className="store-share-card__icon"><QrCode size={22}/></div><span className="eyebrow">COMPARTILHE</span><h2 id="store-share-title">Leve a {settings.name} com você</h2><p>Escaneie o QR Code ou copie o link para enviar o cardápio.</p>{shareQr?<img className="store-share-card__qr" src={shareQr} alt={`QR Code da loja ${settings.name}`}/>:<div className="store-share-card__qr-placeholder">Gerando QR Code…</div>}<div className="store-share-card__link"><span title={shareUrl}>{shareUrl}</span><button type="button" className="secondary-button compact-button" onClick={()=>void copyShareUrl()}><Copy size={15}/>{shareCopied?'Copiado':'Copiar link'}</button></div><div className="store-share-card__actions">{typeof navigator !== 'undefined' && 'share' in navigator&&<button type="button" className="primary-button store-share-card__native" disabled={!shareQr} onClick={()=>void shareStoreWithDevice()}><Share2 size={16}/>Compartilhar pelo telefone</button>}{shareQr&&<button type="button" className="secondary-button store-share-card__download" onClick={()=>{if(downloadQrImage(shareQr,`qr-code-${settings.slug||'loja'}.png`))showToast('QR Code baixado.','success');else showToast('Não foi possível baixar o QR Code.','error')}}><Download size={16}/>Baixar QR Code</button>}</div></section></div>,document.body)}
   </header>;
 }

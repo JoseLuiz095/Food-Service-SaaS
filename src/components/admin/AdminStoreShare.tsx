@@ -1,11 +1,11 @@
-import { Copy, QrCode, Share2, X } from 'lucide-react';
+import { Copy, Download, QrCode, Share2, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import { publicStorefrontUrl } from '../../utils/storefrontRoute';
-import { sharePixQrImage } from '../../utils/pixShare';
+import { downloadQrImage, sharePixQrImage } from '../../utils/pixShare';
 
 export function AdminStoreShare() {
   const { settings } = useStore();
@@ -51,9 +51,13 @@ export function AdminStoreShare() {
       });
       if (result === 'image') showToast('QR Code e link prontos para compartilhar.', 'success');
       else if (result === 'text') showToast('Compartilhamento de texto aberto; este aparelho não aceita imagem.', 'success');
-      else showToast('O navegador não oferece compartilhamento neste aparelho.', 'error');
+      else if (downloadQrImage(qrCode, `qr-code-${settings.slug || 'loja'}.png`)) showToast('QR Code baixado. Anexe a imagem no aplicativo de sua preferência.', 'success');
+      else showToast('Copie o link para compartilhar a loja.', 'info');
     } catch (error) {
-      if (!(error instanceof DOMException && error.name === 'AbortError')) showToast('Não foi possível compartilhar o QR Code.', 'error');
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        if (downloadQrImage(qrCode, `qr-code-${settings.slug || 'loja'}.png`)) showToast('O compartilhamento direto falhou, então o QR Code foi baixado para você enviar manualmente.', 'info');
+        else showToast('Não foi possível compartilhar o QR Code. Copie o link e tente novamente.', 'error');
+      }
     } finally {
       setSharing(false);
     }
@@ -69,7 +73,10 @@ export function AdminStoreShare() {
         <p>Envie o link ou mostre o QR Code para o cliente abrir o cardápio.</p>
         {qrCode ? <img className="admin-store-share-card__qr" src={qrCode} alt={`QR Code da loja ${settings.name}`} /> : <div className="admin-store-share-card__qr-placeholder">Gerando QR Code…</div>}
         <div className="admin-store-share-card__link"><span title={shareUrl}>{shareUrl}</span><button type="button" className="secondary-button compact-button" onClick={() => void copyLink()}><Copy size={15} />Copiar link</button></div>
-        {typeof navigator !== 'undefined' && 'share' in navigator && <button type="button" className="primary-button admin-store-share-card__native" disabled={!qrCode || sharing} onClick={() => void shareWithDevice()}><Share2 size={16} />{sharing ? 'Preparando compartilhamento...' : 'Compartilhar pelo telefone'}</button>}
+        <div className="admin-store-share-card__actions">
+          {typeof navigator !== 'undefined' && 'share' in navigator && <button type="button" className="primary-button admin-store-share-card__native" disabled={!qrCode || sharing} onClick={() => void shareWithDevice()}><Share2 size={16} />{sharing ? 'Preparando compartilhamento...' : 'Compartilhar pelo telefone'}</button>}
+          {qrCode && <button type="button" className="secondary-button admin-store-share-card__download" onClick={() => { if (downloadQrImage(qrCode, `qr-code-${settings.slug || 'loja'}.png`)) showToast('QR Code baixado.', 'success'); else showToast('Não foi possível baixar o QR Code.', 'error'); }}><Download size={16} />Baixar QR Code</button>}
+        </div>
       </section>
     </div>,
     document.body,
