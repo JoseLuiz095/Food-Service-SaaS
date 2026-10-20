@@ -1,7 +1,7 @@
 import { Bell, CheckCircle2, CircleAlert, Info, Loader2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useStore } from '../../contexts/StoreContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDateTimeBR } from '../../utils/format';
@@ -34,6 +34,8 @@ const playAlertSound = () => {
 export function AdminNotifications() {
   const { settings, orders, loading, reloadOrders } = useStore();
   const { user, membership } = useAuth();
+  const location = useLocation();
+  const isOrdersScreen = location.pathname === '/admin/pedidos';
   const initialized = useRef(false);
   const initializedStoreId = useRef('');
   const knownOrderIds = useRef(new Set<string>());
@@ -177,6 +179,10 @@ export function AdminNotifications() {
   }, [loading, membership?.storeId, settings.id, settings.notificationsDesktopEnabled, user?.id]);
 
   useEffect(() => {
+    // A tela de pedidos já atualiza a lista a cada 15 segundos. Mantemos
+    // este ciclo para as demais telas do painel, mas o desligamos naquela
+    // rota para não duplicar a mesma consulta ao Supabase.
+    if (isOrdersScreen) return;
     if (!settings.id || loading) return;
     let inFlight = false;
     const refresh = () => {
@@ -188,7 +194,7 @@ export function AdminNotifications() {
     document.addEventListener('visibilitychange', onVisibilityChange);
     const interval = window.setInterval(refresh, 60_000);
     return () => { document.removeEventListener('visibilitychange', onVisibilityChange); window.clearInterval(interval); };
-  }, [loading, reloadOrders, settings.id]);
+  }, [isOrdersScreen, loading, reloadOrders, settings.id]);
 
   useEffect(() => {
     // O painel administrativo também verifica insumos em segundo plano. O
