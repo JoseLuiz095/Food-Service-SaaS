@@ -1,13 +1,11 @@
-import { ChevronRight, Search, ShoppingBag, Sparkles, Truck } from 'lucide-react';
+import { ChevronRight, Search, Sparkles, Truck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { ProductCard } from '../../components/ProductCard';
 import { StoreHeader } from '../../components/StoreHeader';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { useCart } from '../../contexts/CartContext';
 import { useStore } from '../../contexts/StoreContext';
 import { trackPublicEvent } from '../../services/analyticsApi';
 import { currency } from '../../utils/format';
-import { storefrontPath } from '../../utils/storefrontRoute';
 import { isFoodWebMarketingRoot } from '../../lib/config';
 import Landing from './Landing';
 
@@ -17,8 +15,7 @@ export default function Home(){
 }
 
 function StorefrontHome(){
-  const {products,categories,settings,loading,error,reloadPublic,storeBasePath}=useStore();
-  const {totalItems,subtotal}=useCart();
+  const {products,categories,settings,loading,error,reloadPublic}=useStore();
   const [selectedCategory,setSelectedCategory]=useState('all');
   const [query,setQuery]=useState('');
 
@@ -51,6 +48,5 @@ function StorefrontHome(){
 
       {selectedCategory==='all'&&!normalizedQuery?grouped.map(({category,items})=><section className="food-category-section" key={category.id}><div className="food-section-title"><div><h2>{category.name}</h2>{category.description&&<p>{category.description}</p>}</div><button type="button" onClick={()=>setSelectedCategory(category.id)}>Ver categoria <ChevronRight size={16}/></button></div><div className="product-grid food-product-grid">{items.map(product=><ProductCard key={product.id} product={product} category={category}/>)}</div></section>):<section className="food-category-section"><div className="food-section-title"><div><h2>{selectedCategory==='all'?'Resultados':categories.find(c=>c.id===selectedCategory)?.name||'Cardápio'}</h2><p>{visible.length} {visible.length===1?'item encontrado':'itens encontrados'}</p></div></div>{visible.length?<div className="product-grid food-product-grid">{visible.map(product=><ProductCard key={product.id} product={product} category={categories.find(category=>category.id===product.categoryId)}/>)}</div>:<div className="empty-state"><Search size={28}/><h3>Nenhum item encontrado</h3><p>Tente outra categoria ou termo de pesquisa.</p></div>}</section>}
     </main>
-    {totalItems>0&&<a className="food-cart-dock" href={storefrontPath(storeBasePath,'/carrinho')}><span><ShoppingBag size={20}/><b>{totalItems} {totalItems===1?'item':'itens'}</b></span><strong>{currency.format(subtotal)} · Ver sacola</strong></a>}
   </>;
 }

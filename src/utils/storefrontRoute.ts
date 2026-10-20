@@ -25,3 +25,20 @@ export const storefrontPath = (basePath: string, suffix = ''): string => {
   const normalized = suffix.startsWith('/') ? suffix : `/${suffix}`;
   return `${base}${normalized}` || '/';
 };
+
+/**
+ * Caminho canônico da vitrine da loja ativa.
+ *
+ * Não derive este valor da URL atual: no painel administrativo a rota começa
+ * em /admin e, portanto, não carrega o slug público da loja.
+ */
+export const publicStorefrontPath = (storeSlug?: string | null): string => {
+  const slug = storeSlug?.trim();
+  return slug ? `/${encodeURIComponent(slug)}` : '/';
+};
+
+/** URL completa usada em QR Codes, cópia e compartilhamento nativo. */
+export const publicStorefrontUrl = (storeSlug?: string | null): string => {
+  const path = publicStorefrontPath(storeSlug);
+  return typeof window === 'undefined' ? path : new URL(path, window.location.origin).toString();
+};
