@@ -105,6 +105,23 @@ type OrderItemOptionRow = {
   id: string; order_item_id: string; group_name: string; option_name: string; option_kind: string;
   price_delta: number | string | null; quantity: number | null;
 };
+
+// Projeções enxutas para o painel. Em instalações que ainda estão aplicando
+// migrations, restFetchProjected remove apenas a coluna ausente e tenta de
+// novo sem quebrar o carregamento.
+const ADMIN_ORDER_SELECT = [
+  'id', 'order_number', 'store_id', 'customer_name', 'customer_phone', 'customer_email',
+  'delivery_type', 'desired_date', 'desired_period', 'recipient_name', 'recipient_phone',
+  'delivery_address', 'delivery_zip_code', 'delivery_street', 'delivery_number', 'delivery_complement',
+  'delivery_neighborhood', 'delivery_zone_id', 'delivery_zone_name', 'delivery_fee', 'delivery_city',
+  'delivery_state', 'reference_point', 'card_message', 'card_signature', 'anonymous_sender', 'notes',
+  'payment_method', 'subtotal', 'total', 'status', 'payment_status', 'payment_received_at',
+  'payment_confirmed_by', 'needs_change', 'change_for', 'change_amount', 'scheduled_for',
+  'preparation_estimate_minutes', 'inventory_status', 'source', 'customer_instagram', 'acquisition_source',
+  'whatsapp_clicked_at', 'created_at',
+].join(',');
+const ADMIN_ORDER_ITEM_SELECT = 'id,order_id,product_id,product_name,quantity,unit_price,variant_name,variant_price_delta,item_total,addons,created_at';
+const ADMIN_ORDER_OPTION_SELECT = 'id,order_item_id,group_name,option_name,option_kind,price_delta,quantity,created_at';
 const toNumber = (value: number | string | null | undefined) => value == null ? 0 : Number(value);
 const encode = (value: string) => encodeURIComponent(value);
 const inFilter = (ids: string[]) => `in.(${ids.join(',')})`;
@@ -367,14 +384,14 @@ const loadPublicSnapshotFromRpc = async (slug: string, hostname: string): Promis
 // silenciosa da tela de pedidos, evitando baixar novamente todas as imagens e
 // estruturas do cardápio a cada ciclo de acompanhamento da operação.
 const loadAdminOrders = async (storeId: string): Promise<Order[]> => {
-  const orderRows = await restFetch<OrderRow[]>(`food_orders?select=*&store_id=eq.${encode(storeId)}&order=created_at.desc&limit=100`);
+  const orderRows = await restFetchProjected<OrderRow>('food_orders', ADMIN_ORDER_SELECT, `&store_id=eq.${encode(storeId)}&order=created_at.desc&limit=100`);
   if (!orderRows.length) return [];
 
   const orderIds = orderRows.map((order) => order.id);
-  const itemRows = await restFetch<OrderItemRow[]>(`food_order_items?select=*&order_id=${encode(inFilter(orderIds))}&order=created_at.asc`).catch(() => [] as OrderItemRow[]);
+  const itemRows = await restFetchProjected<OrderItemRow>('food_order_items', ADMIN_ORDER_ITEM_SELECT, `&order_id=${encode(inFilter(orderIds))}&order=created_at.asc`).catch(() => [] as OrderItemRow[]);
   const itemIds = itemRows.map((item) => item.id);
   const optionRows = itemIds.length
-    ? await restFetch<OrderItemOptionRow[]>(`food_order_item_options?select=*&order_item_id=${encode(inFilter(itemIds))}&order=created_at.asc`).catch(() => [] as OrderItemOptionRow[])
+    ? await restFetchProjected<OrderItemOptionRow>('food_order_item_options', ADMIN_ORDER_OPTION_SELECT, `&order_item_id=${encode(inFilter(itemIds))}&order=created_at.asc`).catch(() => [] as OrderItemOptionRow[])
     : [];
 
   const itemsByOrder = new Map<string, OrderItemRow[]>();

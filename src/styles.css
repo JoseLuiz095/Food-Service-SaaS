@@ -3912,3 +3912,13 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
 .admin-topbar__actions{overflow:visible}.admin-share-store-button{position:relative;z-index:2;flex:0 0 auto}.admin-notification-diagnostic__links{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;padding-top:9px;border-top:1px solid #f1eae5}.admin-notification-diagnostic__links a{color:#8d492f;font-size:.68rem;font-weight:800;text-decoration:none}.admin-notification-diagnostic__links a:hover{text-decoration:underline}
 @media(prefers-reduced-motion:reduce){.admin-share-store-button{transition:none}.admin-share-store-button:hover,.admin-share-store-button:focus-visible{transform:none}}
 @media(max-width:760px){.admin-topbar__actions{flex:1 1 auto;flex-wrap:wrap;justify-content:flex-end;align-content:center;row-gap:6px;column-gap:6px;max-width:calc(100vw - 80px)}.admin-topbar__actions>*{flex:0 0 auto}}
+
+/* Cabeçalho compacto: mantém avisos, compartilhar e perfil na mesma linha,
+   sem sobreposição em telas estreitas. */
+@media(max-width:760px){
+  .admin-topbar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}
+  .admin-topbar__actions{width:auto!important;max-width:none!important;min-width:max-content;flex:0 0 auto!important;flex-wrap:nowrap!important;justify-content:flex-end;gap:6px}
+  .admin-topbar__actions>.admin-share-store-button{display:inline-flex!important;width:40px;height:40px;min-height:40px;padding:0;justify-content:center;border-radius:50%}
+  .admin-topbar__actions>.admin-share-store-button span{display:none}
+  .admin-topbar__actions>.admin-notification-center,.admin-topbar__actions>.admin-user{flex:0 0 auto}
+}

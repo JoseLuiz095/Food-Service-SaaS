@@ -13,6 +13,8 @@ const storeApi=read('src/services/storeApi.ts');
 const platformApi=read('src/services/platformApi.ts');
 const success=read('src/pages/store/OrderSuccess.tsx');
 const orders=read('src/pages/admin/Orders.tsx');
+const notificationsAdmin=read('src/components/admin/AdminNotifications.tsx');
+const delivery99=read('supabase/functions/food-delivery-quote-99/index.ts');
 const edge=read('supabase/functions/food-public-checkout/index.ts');
 const migration=read('supabase/migrations/202608280400_foodservice_shared_database.sql');
 const commercial=read('supabase/migrations/202608310900_foodservice_commercial_finance_v030.sql');
@@ -95,6 +97,9 @@ check('Checkout aguarda o envio do push',edge.includes('await notifyStoreAdmins(
 check('Push entrega somente assinaturas ativas',pushFunction.includes(".eq('active', true)"));
 check('Push repetido não vibra novamente',serviceWorker.includes('renotify: false'));
 check('Pedido avulso exibe erro de estoque como toast',ordersAdmin.includes('reportManualError')&&ordersAdmin.includes('showToast'));
+check('Atualização periódica de pedidos usa leitura enxuta',storeApi.includes('const loadAdminOrders')&&storeApi.includes('ADMIN_ORDER_SELECT')&&storeApi.includes('loadAdminOrders(storeId')&&ordersAdmin.includes('reloadOrders'));
+check('Notificações usam leitura enxuta sem recarregar o catálogo',notificationsAdmin.includes('reloadOrders({ silent: true })')&&!notificationsAdmin.includes('reloadAdmin({ silent: true })'));
+check('Cotação 99 fica protegida no backend',delivery99.includes("Deno.env.get('NINETY_NINE_API_KEY')")&&delivery99.includes("x-api-key")&&delivery99.includes('PROVIDER_TIMEOUT'));
 check('Pedido avulso inicia no modo rápido anônimo',ordersAdmin.includes("type ManualOrderMode = 'quick' | 'scheduled'")&&ordersAdmin.includes("setManualOrderMode('quick')")&&ordersAdmin.includes("customerName: 'Venda anônima'")&&ordersAdmin.includes("status: 'delivered'")&&ordersAdmin.includes('Preencha somente pagamento e produto'));
 check('Pedido avulso separa agendamento e converte item sem estoque',ordersAdmin.includes('changeManualOrderMode')&&ordersAdmin.includes("setManualOrderMode('scheduled')")&&ordersAdmin.includes('customerName: current.customerName === \'Venda anônima\' ? \'\''));
 check('Toast fica acima do modal',styles.includes('.toast-stack{z-index:4000}'));

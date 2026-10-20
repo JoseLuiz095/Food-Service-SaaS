@@ -86,6 +86,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [unavailableStoreName, setUnavailableStoreName] = useState('');
   const loadVersionRef = useRef(0);
   const ordersLoadVersionRef = useRef(0);
+  const ordersRequestRef = useRef<Promise<void> | null>(null);
 
   const applySnapshot = useCallback((snapshot: Awaited<ReturnType<typeof storeApi.loadPublic>>) => {
     setSettings(snapshot.settings); setCategories(snapshot.categories); setProducts(snapshot.products); setAddons(snapshot.addons); setDeliveryZones(snapshot.deliveryZones); setOrders(snapshot.orders); setPlanUsage(snapshot.planUsage);
@@ -144,16 +145,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const reloadOrders = useCallback(async (options?: { silent?: boolean }) => {
     if (!membership) return;
+    if (ordersRequestRef.current) return ordersRequestRef.current;
     const requestVersion = ++ordersLoadVersionRef.current;
-    try {
-      const nextOrders = await storeApi.loadAdminOrders(membership.storeId);
-      if (requestVersion !== ordersLoadVersionRef.current) return;
-      setOrders(nextOrders);
-    } catch (e) {
-      if (requestVersion !== ordersLoadVersionRef.current) return;
-      if (options?.silent) throw e;
-      setError(e instanceof Error ? e.message : 'Não foi possível atualizar os pedidos.');
-    }
+    const request = (async () => {
+      try {
+        const nextOrders = await storeApi.loadAdminOrders(membership.storeId);
+        if (requestVersion !== ordersLoadVersionRef.current) return;
+        setOrders(nextOrders);
+      } catch (e) {
+        if (requestVersion !== ordersLoadVersionRef.current) return;
+        if (options?.silent) throw e;
+        setError(e instanceof Error ? e.message : 'Não foi possível atualizar os pedidos.');
+      }
+    })().finally(() => {
+      if (ordersRequestRef.current === request) ordersRequestRef.current = null;
+    });
+    ordersRequestRef.current = request;
+    return request;
   }, [membership]);
 
   useEffect(() => {

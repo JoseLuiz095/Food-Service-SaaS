@@ -1,5 +1,7 @@
 const CACHE_NAME = 'foodweb-shell-v4';
-const RUNTIME_CACHE = 'foodweb-runtime-v1';
+// Incrementado para invalidar bundles antigos que podiam esconder ajustes do
+// cabeçalho e do painel após uma publicação do PWA.
+const RUNTIME_CACHE = 'foodweb-runtime-v2';
 const FOODWEB_ICON = '/assets/marketing/app-splash-v2.png?v=20261015';
 const STATIC_ASSET = /\.(?:js|css|woff2?|png|jpe?g|webp|svg|ico|json)$/i;
 const MAX_RUNTIME_ENTRIES = 80;

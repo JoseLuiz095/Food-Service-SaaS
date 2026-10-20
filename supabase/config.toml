@@ -15,3 +15,6 @@ verify_jwt = false
 
 [functions.food-public-self-signup]
 verify_jwt = false
+
+[functions.food-delivery-quote-99]
+verify_jwt = false
