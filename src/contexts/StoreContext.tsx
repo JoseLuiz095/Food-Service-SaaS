@@ -24,6 +24,7 @@ type StoreContextValue = {
   publicStoreSlug: string | null;
   reloadPublic: () => Promise<void>;
   reloadAdmin: (options?: { silent?: boolean }) => Promise<void>;
+  reloadAdminOrders: () => Promise<void>;
   saveProduct: (product: Product) => Promise<void>;
   updateProductStock: (productId: string, input: { stockQuantity: number; stockStatus: Product['stockStatus']; availabilityStatus: Product['availabilityStatus'] }) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
@@ -84,6 +85,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [storeUnavailable, setStoreUnavailable] = useState(false);
   const [unavailableStoreName, setUnavailableStoreName] = useState('');
   const loadVersionRef = useRef(0);
+  const adminOrdersRequestRef = useRef<Promise<void> | null>(null);
 
   const applySnapshot = useCallback((snapshot: Awaited<ReturnType<typeof storeApi.loadPublic>>) => {
     setSettings(snapshot.settings); setCategories(snapshot.categories); setProducts(snapshot.products); setAddons(snapshot.addons); setDeliveryZones(snapshot.deliveryZones); setOrders(snapshot.orders); setPlanUsage(snapshot.planUsage);
@@ -138,6 +140,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     finally { if (!silent && requestVersion === loadVersionRef.current) setLoading(false); }
   }, [membership, applySnapshot]);
 
+  const reloadAdminOrders = useCallback(async () => {
+    if (!membership) return;
+    if (adminOrdersRequestRef.current) return adminOrdersRequestRef.current;
+    const request = storeApi.loadAdminOrders(membership.storeId)
+      .then((nextOrders) => { setOrders(nextOrders); })
+      .finally(() => {
+        if (adminOrdersRequestRef.current === request) adminOrdersRequestRef.current = null;
+      });
+    adminOrdersRequestRef.current = request;
+    return request;
+  }, [membership]);
+
   useEffect(() => {
     const isMasterRoute = location.pathname.startsWith('/admin-master');
     const isStoreAdminRoute = location.pathname === '/admin' || location.pathname.startsWith('/admin/');
@@ -175,6 +189,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     products, categories, addons, deliveryZones, settings, orders, planUsage, loading, error, storeUnavailable, unavailableStoreName, dataMode: storeApi.mode, storeBasePath, publicStoreSlug,
     reloadPublic,
     reloadAdmin,
+    reloadAdminOrders,
     saveProduct: async (product) => { await storeApi.saveProduct(product); await reloadAdmin(); notifyStoreChange(); },
     updateProductStock: async (productId, input) => { await storeApi.updateProductStock(settings.id, productId, input); setProducts((current) => current.map((product) => product.id === productId ? { ...product, ...input } : product)); notifyStoreChange(); },
     deleteProduct: async (id) => { await storeApi.deleteProduct(id); await reloadAdmin(); notifyStoreChange(); },
@@ -199,7 +214,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     confirmOrderPayment: async (orderId) => { const result=await storeApi.confirmOrderPayment(orderId); await reloadAdmin({ silent: true }); notifyStoreChange(); return result; },
     updateOrderStatus: async (orderId, status) => { await storeApi.updateOrderStatus(orderId, status); await reloadAdmin({ silent: true }); notifyStoreChange(); },
     updateOrderStatuses: async (updates) => { await storeApi.updateOrderStatuses(updates); await reloadAdmin({ silent: true }); notifyStoreChange(); },
-  }), [products,categories,addons,deliveryZones,settings,orders,planUsage,loading,error,storeUnavailable,unavailableStoreName,reloadPublic,reloadAdmin,applySnapshot,storeBasePath,publicStoreSlug]);
+  }), [products,categories,addons,deliveryZones,settings,orders,planUsage,loading,error,storeUnavailable,unavailableStoreName,reloadPublic,reloadAdmin,reloadAdminOrders,applySnapshot,storeBasePath,publicStoreSlug]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

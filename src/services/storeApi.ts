@@ -105,6 +105,23 @@ type OrderItemOptionRow = {
   id: string; order_item_id: string; group_name: string; option_name: string; option_kind: string;
   price_delta: number | string | null; quantity: number | null;
 };
+
+// Projeções enxutas para o painel. Mantemos os campos opcionais para que
+// restFetchProjected consiga retirar apenas os que ainda não existem em uma
+// instalação durante a aplicação das migrations.
+const ADMIN_ORDER_SELECT = [
+  'id', 'order_number', 'store_id', 'customer_name', 'customer_phone', 'customer_email',
+  'delivery_type', 'desired_date', 'desired_period', 'recipient_name', 'recipient_phone',
+  'delivery_address', 'delivery_zip_code', 'delivery_street', 'delivery_number', 'delivery_complement',
+  'delivery_neighborhood', 'delivery_zone_id', 'delivery_zone_name', 'delivery_fee', 'delivery_city',
+  'delivery_state', 'reference_point', 'card_message', 'card_signature', 'anonymous_sender', 'notes',
+  'payment_method', 'subtotal', 'total', 'status', 'payment_status', 'payment_received_at',
+  'payment_confirmed_by', 'needs_change', 'change_for', 'change_amount', 'scheduled_for',
+  'preparation_estimate_minutes', 'inventory_status', 'source', 'customer_instagram', 'acquisition_source',
+  'whatsapp_clicked_at', 'created_at',
+].join(',');
+const ADMIN_ORDER_ITEM_SELECT = 'id,order_id,product_id,product_name,quantity,unit_price,variant_name,variant_price_delta,item_total,addons,created_at';
+const ADMIN_ORDER_OPTION_SELECT = 'id,order_item_id,group_name,option_name,option_kind,price_delta,quantity,created_at';
 const toNumber = (value: number | string | null | undefined) => value == null ? 0 : Number(value);
 const encode = (value: string) => encodeURIComponent(value);
 const inFilter = (ids: string[]) => `in.(${ids.join(',')})`;
@@ -296,6 +313,44 @@ const buildProducts = (
   });
 };
 
+/**
+ * Atualiza somente os pedidos do painel. A tela de pedidos faz uma leitura
+ * periódica; repetir o snapshot completo (catálogo, imagens, opções, zonas e
+ * assinatura) a cada ciclo desperdiça consultas e aumenta a latência conforme
+ * a loja cresce.
+ */
+const loadAdminOrdersFromSupabase = async (storeId: string): Promise<Order[]> => {
+  const orderRows = await restFetchProjected<OrderRow>('food_orders', ADMIN_ORDER_SELECT, `&store_id=eq.${encode(storeId)}&order=created_at.desc&limit=100`);
+  let orders = orderRows.map(mapOrder);
+  if (!orderRows.length) return orders;
+
+  const orderIds = orderRows.map((order) => order.id);
+  const itemRows = await restFetchProjected<OrderItemRow>('food_order_items', ADMIN_ORDER_ITEM_SELECT, `&order_id=${encode(inFilter(orderIds))}&order=created_at.asc`).catch(() => [] as OrderItemRow[]);
+  const itemIds = itemRows.map((item) => item.id);
+  const optionRows = itemIds.length
+    ? await restFetchProjected<OrderItemOptionRow>('food_order_item_options', ADMIN_ORDER_OPTION_SELECT, `&order_item_id=${encode(inFilter(itemIds))}&order=created_at.asc`).catch(() => [] as OrderItemOptionRow[])
+    : [];
+
+  const optionsByItem = new Map<string, OrderItemOptionRow[]>();
+  optionRows.forEach((option) => {
+    const current = optionsByItem.get(option.order_item_id) || [];
+    current.push(option);
+    optionsByItem.set(option.order_item_id, current);
+  });
+  const itemsByOrder = new Map<string, OrderItemRow[]>();
+  itemRows.forEach((item) => {
+    const current = itemsByOrder.get(item.order_id) || [];
+    current.push(item);
+    itemsByOrder.set(item.order_id, current);
+  });
+  orders = orders.map((order) => ({
+    ...order,
+    items: (itemsByOrder.get(order.id) || [])
+      .map((item) => mapOrderItem(item, optionsByItem.get(item.id) || [])),
+  }));
+  return orders;
+};
+
 const createDemoDb = (): DemoDatabase => {
   const activeProductCount = seedProducts.filter((product) => product.active).length;
   return { settings:clone(seedSettings), categories:clone(seedCategories), products:clone(seedProducts), addons:clone(seedAddons), deliveryZones:clone(seedDeliveryZones), orders:clone(seedOrders), planUsage:{ plan:clone(seedPlan), productCount:seedProducts.length, activeProductCount, canCreateProduct:true, canActivateProduct:seedPlan.productLimit == null || activeProductCount < seedPlan.productLimit } };
@@ -411,25 +466,10 @@ const loadSnapshotFromSupabase = async (slugOrId: string, admin = false): Promis
   const deliveryZones = deliveryZoneRows.map(mapDeliveryZone);
   const products = buildProducts(productRows, imageRows, optionGroupRows, optionItemRows, optionLinks, variantRows, addons, addonLinks);
   const activeProductCount = products.filter((product) => product.active).length;
-  const [orderRows, planUsage] = await Promise.all([
-    admin ? restFetch<OrderRow[]>(`food_orders?select=*&store_id=eq.${encode(settings.id)}&order=created_at.desc&limit=100`) : Promise.resolve([] as OrderRow[]),
+  const [orders, planUsage] = await Promise.all([
+    admin ? loadAdminOrdersFromSupabase(settings.id) : Promise.resolve([] as Order[]),
     admin ? loadPlanUsage(settings.id, products.length, activeProductCount) : Promise.resolve({ plan:seedPlan, productCount:products.length, activeProductCount, canCreateProduct:true, canActivateProduct:true }),
   ]);
-  let orders = orderRows.map(mapOrder);
-  if (admin && orderRows.length) {
-    const orderIds = orderRows.map((order) => order.id);
-    const itemRows = await restFetch<OrderItemRow[]>(`food_order_items?select=*&order_id=${encode(inFilter(orderIds))}&order=created_at.asc`).catch(() => [] as OrderItemRow[]);
-    const itemIds = itemRows.map((item) => item.id);
-    const optionRows = itemIds.length
-      ? await restFetch<OrderItemOptionRow[]>(`food_order_item_options?select=*&order_item_id=${encode(inFilter(itemIds))}&order=created_at.asc`).catch(() => [] as OrderItemOptionRow[])
-      : [];
-    orders = orders.map((order) => ({
-      ...order,
-      items: itemRows
-        .filter((item) => item.order_id === order.id)
-        .map((item) => mapOrderItem(item, optionRows.filter((option) => option.order_item_id === item.id))),
-    }));
-  }
   return { settings, categories, products, addons, deliveryZones, orders, planUsage };
 };
 
@@ -481,6 +521,7 @@ export const storeApi = {
   },
 
   async loadAdmin(storeId: string) { return isDemoMode ? readDemo() : loadSnapshotFromSupabase(storeId, true); },
+  async loadAdminOrders(storeId: string): Promise<Order[]> { return isDemoMode ? readDemo().orders : loadAdminOrdersFromSupabase(storeId); },
   invalidatePublicCache() { publicSnapshotCache.clear(); },
   async resetDemo() { const db = createDemoDb(); writeDemo(db); return db; },
 
