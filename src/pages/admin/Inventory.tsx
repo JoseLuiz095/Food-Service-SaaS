@@ -116,12 +116,7 @@ export default function InventoryAdmin() {
     if (!pendingQuantityChanges.length) return;
     setBusyId('inventory-stock-batch');
     try {
-      for (const item of pendingQuantityChanges) {
-        const target = Math.max(0, Number(quantityDrafts[item.id]));
-        const delta = target - Number(item.currentQuantity);
-        if (!delta) continue;
-        await inventoryApi.adjust({ storeId: settings.id, inventoryItemId: item.id, quantityDelta: delta, reason: 'Conferência de estoque real', movementType: delta > 0 ? 'adjustment_in' : 'adjustment_out' });
-      }
+      await inventoryApi.commitPhysicalCount(settings.id, pendingQuantityChanges.map((item) => ({ inventoryItemId: item.id, countedQuantity: Math.max(0, Number(quantityDrafts[item.id])) })));
       await loadItems();
       showToast(`${pendingQuantityChanges.length} saldo${pendingQuantityChanges.length === 1 ? '' : 's'} conferido${pendingQuantityChanges.length === 1 ? '' : 's'} e recalibrado${pendingQuantityChanges.length === 1 ? '' : 's'}.`, 'success');
     } catch (err) { showToast(err instanceof Error ? err.message : 'Não foi possível salvar os saldos do estoque.', 'error'); }

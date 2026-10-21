@@ -3378,7 +3378,7 @@ body{overflow-x:hidden;-webkit-tap-highlight-color:transparent}
   .checkout-topbar-v44{min-height:60px;padding-block:10px}
   .checkout-topbar-v44>a{font-size:.76rem}
   .checkout-topbar-v44>span{max-width:42vw}
-  .checkout-trustbar-v44{display:none}
+  .checkout-trustbar-v44{display:grid;grid-template-columns:1fr;margin-top:8px;margin-bottom:12px;border-radius:12px}.checkout-trustbar-v44>span{display:none}.checkout-trustbar-v44>span:first-child{display:grid;min-height:48px;padding:9px 12px}.checkout-trustbar-v44>span:first-child small{display:none}
   .checkout-page-v44 .checkout-layout--premium{padding-top:18px}
   .checkout-page-v44 .checkout-card{padding:17px 14px;border-radius:17px}
   .checkout-page-v44 .checkout-card__title{margin-bottom:14px}

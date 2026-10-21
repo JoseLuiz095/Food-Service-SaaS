@@ -467,6 +467,27 @@ export const inventoryApi = {
     };
   },
 
+  async commitPhysicalCount(storeId: string, items: Array<{ inventoryItemId: string; countedQuantity: number }>, notes?: string): Promise<{ countId: string; itemsCounted: number; itemsAdjusted: number }> {
+    if (isDemoMode) throw new Error('A conferência de estoque exige o modo conectado ao Supabase.');
+    if (!items.length || items.some((item) => !item.inventoryItemId || !Number.isFinite(item.countedQuantity) || item.countedQuantity < 0)) {
+      throw new Error('Informe saldos físicos válidos para concluir a conferência.');
+    }
+    const result = await restFetch<Record<string, unknown> | Array<Record<string, unknown>>>('rpc/food_commit_inventory_count', {
+      method: 'POST',
+      body: {
+        p_store_id: storeId,
+        p_items: items.map((item) => ({ inventory_item_id: item.inventoryItemId, counted_quantity: item.countedQuantity })),
+        p_notes: notes?.trim() || null,
+      },
+    });
+    const payload = rpcResult(result);
+    return {
+      countId: String(payload.countId ?? payload.count_id ?? ''),
+      itemsCounted: Number(payload.itemsCounted ?? payload.items_counted ?? 0),
+      itemsAdjusted: Number(payload.itemsAdjusted ?? payload.items_adjusted ?? 0),
+    };
+  },
+
   async adjustQuantity(storeId: string, inventoryItemId: string, quantityDelta: number): Promise<InventoryItem> {
     await this.adjust({
       storeId,
