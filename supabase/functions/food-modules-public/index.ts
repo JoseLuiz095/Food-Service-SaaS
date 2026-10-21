@@ -31,7 +31,8 @@ Deno.serve(async (req: Request) => {
     const storeId = String(body.data.seller_store_id || '');
     if (body.action === 'create' ? !uuid.test(storeId) || !uuid.test(String(body.data.request_id)) : !uuid.test(String(body.data.order_id))) return respond({ error: 'Identificador inválido.' }, 400);
     const url = Deno.env.get('SUPABASE_URL')!;
-    const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+    const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false },
+      global: { fetch: (input,init) => fetch(input,{ ...init, signal: AbortSignal.timeout(10000) }) } });
     // Não confiar em IP fornecido pelo cliente nem em x-forwarded-for arbitrário.
     const ip = req.headers.get('cf-connecting-ip') || req.headers.get('x-real-ip') || 'unknown';
     const salt = Deno.env.get('TURNSTILE_SECRET_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -44,9 +45,12 @@ Deno.serve(async (req: Request) => {
       const verification = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
         method: 'POST', body: new URLSearchParams({ secret, response: body.turnstileToken }), signal: AbortSignal.timeout(10000),
       });
-      const captcha = await verification.json() as { success?: boolean; hostname?: string };
-      if (!captcha.success || captcha.hostname !== new URL(origin).hostname) return respond({ error: 'Verificação de segurança inválida.' }, 403);
+      const captcha = await verification.json() as { success?: boolean; hostname?: string; action?: string };
+      if (!captcha.success || captcha.hostname !== new URL(origin).hostname || captcha.action !== 'modules') return respond({ error: 'Verificação de segurança inválida.' }, 403);
     }
+    // Cada RPC é uma transação: a limpeza não mantém locks durante a compra.
+    const { error: cleanupError } = await admin.rpc('food_modules_cleanup');
+    if (cleanupError) return respond({ error: 'Não foi possível atualizar as reservas. Tente novamente.' }, 503);
     const { data, error } = await admin.rpc('food_modules_customer', { p_action: body.action, p_data: body.data });
     if (error) {
       if (error.code === 'P0001') return respond({ error: error.message }, 400);

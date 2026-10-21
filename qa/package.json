@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "test:modules": "playwright test --config modules.config.ts",
     "browser:install": "playwright install chromium",
     "browser:install:all": "playwright install chromium firefox webkit",
     "test": "node scripts/run-qa.mjs",

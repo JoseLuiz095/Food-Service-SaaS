@@ -21,6 +21,8 @@
     "design:detect": "npx --yes impeccable@3.6.0 detect src/",
     "design:context": "node .agents/skills/impeccable/scripts/context.mjs --target src/App.tsx",
     "test:critical": "node scripts/critical-flow.mjs",
+    "test:modules": "node scripts/test-modules.mjs",
+    "qa:modules": "npm --prefix qa run test:modules",
     "check:env": "node scripts/check-env.mjs",
     "qa:setup": "npm --prefix qa install && npm --prefix qa run browser:install",
     "qa": "npm run qa:lite",

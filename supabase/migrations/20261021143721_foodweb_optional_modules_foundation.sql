@@ -1,6 +1,6 @@
 -- shared_future: opt-in. Não modifica tabelas, funções ou gatilhos da venda normal.
 begin;
-create schema if not exists private;
+create schema if not exists food_modules_private;
 
 create table public.food_module_organizations (
   id uuid primary key default gen_random_uuid(), name text not null check(length(name) between 2 and 120),
@@ -88,7 +88,7 @@ create table public.food_module_order_parts (
   total_cents bigint not null default 0 check(total_cents >= 0),
   urgency text not null default 'not_needed' check(urgency in ('not_needed','pending','accepted','rejected')),
   foreign key(organization_id,store_id) references public.food_module_stores(organization_id,store_id),
-  unique(order_id,store_id), unique(id,organization_id,store_id)
+  unique(order_id,store_id), unique(id,order_id,organization_id,store_id), unique(id,organization_id,store_id)
 );
 create index food_module_order_parts_store_idx on public.food_module_order_parts(store_id,scheduled_for);
 create table public.food_module_order_items (
@@ -99,12 +99,13 @@ create table public.food_module_order_items (
   snapshot jsonb not null check(jsonb_typeof(snapshot)='object'), total_cents bigint not null check(total_cents >= 0),
   status text not null default 'active' check(status in ('active','removed','cancelled')),
   inventory_state text not null default 'reserved' check(inventory_state in ('reserved','consumed','released')),
-  foreign key(part_id,organization_id,store_id) references public.food_module_order_parts(id,organization_id,store_id),
+  foreign key(part_id,order_id,organization_id,store_id) references public.food_module_order_parts(id,order_id,organization_id,store_id),
   foreign key(offer_id,organization_id,store_id) references public.food_module_offers(id,organization_id,store_id),
-  unique(order_id,offer_id)
+  unique(order_id,offer_id), unique(id,offer_id,organization_id,store_id)
 );
 create index food_module_order_items_order_idx on public.food_module_order_items(order_id);
 create index food_module_order_items_part_idx on public.food_module_order_items(part_id);
+create index food_module_order_items_store_idx on public.food_module_order_items(store_id,order_id);
 create table public.food_module_receivables (
   part_id uuid primary key, organization_id uuid not null, store_id uuid not null,
   amount_cents bigint not null check(amount_cents >= 0),
@@ -118,8 +119,10 @@ create table public.food_module_refunds (
   part_id uuid not null unique, organization_id uuid not null, store_id uuid not null,
   amount_cents bigint not null check(amount_cents > 0), status text not null default 'pending' check(status in ('pending','paid')),
   reference text, paid_at timestamptz,
-  foreign key(part_id,organization_id,store_id) references public.food_module_order_parts(id,organization_id,store_id)
+  foreign key(part_id,order_id,organization_id,store_id) references public.food_module_order_parts(id,order_id,organization_id,store_id)
 );
+create index food_module_receivables_store_idx on public.food_module_receivables(store_id);
+create index food_module_refunds_store_idx on public.food_module_refunds(store_id,order_id);
 create table public.food_custom_requests (
   id uuid primary key default gen_random_uuid(), organization_id uuid not null, store_id uuid not null,
   customer_name text not null check(length(customer_name) between 2 and 120),
@@ -137,10 +140,12 @@ create table public.food_custom_files (
   foreign key(request_id,organization_id,store_id) references public.food_custom_requests(id,organization_id,store_id)
 );
 create index food_custom_requests_store_idx on public.food_custom_requests(store_id,created_at desc);
+create index food_custom_files_store_idx on public.food_custom_files(store_id,request_id);
 create table public.food_rental_assets (
   offer_id uuid primary key, organization_id uuid not null, store_id uuid not null,
   maintenance boolean not null default false, maintenance_notes text not null default '',
-  foreign key(offer_id,organization_id,store_id) references public.food_module_offers(id,organization_id,store_id)
+  foreign key(offer_id,organization_id,store_id) references public.food_module_offers(id,organization_id,store_id),
+  unique(offer_id,organization_id,store_id)
 );
 create table public.food_rental_reservations (
   id uuid primary key default gen_random_uuid(), offer_id uuid not null references public.food_rental_assets(offer_id),
@@ -151,9 +156,12 @@ create table public.food_rental_reservations (
   deposit_cents bigint not null default 0 check(deposit_cents >= 0), deposit_reference text,
   contract text not null default '', assembly_checklist jsonb not null default '[]',
   return_checklist jsonb not null default '[]',
+  foreign key(item_id,offer_id,organization_id,store_id) references public.food_module_order_items(id,offer_id,organization_id,store_id),
+  foreign key(offer_id,organization_id,store_id) references public.food_rental_assets(offer_id,organization_id,store_id),
   foreign key(organization_id,store_id) references public.food_module_stores(organization_id,store_id)
 );
 create index food_rental_reservations_interval_idx on public.food_rental_reservations(offer_id,starts_at,ends_at) where status='reserved';
+create index food_rental_reservations_store_idx on public.food_rental_reservations(store_id,starts_at);
 create table public.food_module_audit (
   id bigint generated always as identity primary key, organization_id uuid not null, store_id uuid not null,
   actor_id uuid, action text not null, entity_id uuid, details jsonb not null default '{}',
@@ -163,20 +171,20 @@ create table public.food_module_audit (
 create index food_module_audit_store_idx on public.food_module_audit(store_id,created_at desc);
 
 -- Helpers privados: uma associação em outra loja da mesma organização não autoriza acesso.
-create function private.food_modules_master() returns boolean language sql stable security definer set search_path=''
+create function food_modules_private.food_modules_master() returns boolean language sql stable security definer set search_path=''
 as $$ select coalesce(auth.uid() is not null and public.food_is_platform_admin() and auth.jwt()->>'aal'='aal2',false) $$;
-create function private.food_modules_access(p_org uuid,p_store uuid,p_manage boolean default false)
+create function food_modules_private.food_modules_access(p_org uuid,p_store uuid,p_manage boolean default false)
 returns boolean language sql stable security definer set search_path=''
 as $$
   select auth.uid() is not null and exists(
     select 1 from public.food_module_stores ms join public.food_stores s on s.id=ms.store_id
     where ms.organization_id=p_org and ms.store_id=p_store
-      and (private.food_modules_master() or (s.active and s.archived_at is null and exists(select 1 from public.food_store_users su
+      and (food_modules_private.food_modules_master() or (s.active and s.archived_at is null and exists(select 1 from public.food_store_users su
         where su.store_id=p_store and su.user_id=auth.uid() and su.active
           and su.role in ('owner','admin','manager','finance')
           and (not p_manage or su.role in ('owner','admin','manager'))))))
 $$;
-create function private.food_modules_enabled(p_store uuid,p_module text) returns boolean
+create function food_modules_private.food_modules_enabled(p_store uuid,p_module text) returns boolean
 language sql stable security definer set search_path='' as $$
   select exists(select 1 from public.food_module_settings m join public.food_stores s on s.id=m.store_id
     where m.store_id=p_store and s.active and s.archived_at is null and s.access_status='online'
@@ -197,33 +205,33 @@ do $$ declare t text; begin
   foreach t in array array['food_module_stores','food_module_settings','food_module_offers','food_combo_items',
     'food_module_order_parts','food_module_order_items','food_module_receivables','food_module_refunds',
     'food_custom_requests','food_custom_files','food_rental_assets','food_rental_reservations','food_module_audit'] loop
-    execute format('create policy %I on public.%I for select to authenticated using(private.food_modules_access(organization_id,store_id))',t||'_read',t);
+    execute format('create policy %I on public.%I for select to authenticated using(food_modules_private.food_modules_access(organization_id,store_id))',t||'_read',t);
   end loop;
   foreach t in array array['food_combos','food_combo_versions','food_module_orders'] loop
-    execute format('create policy %I on public.%I for select to authenticated using(private.food_modules_access(organization_id,seller_store_id))',t||'_read',t);
+    execute format('create policy %I on public.%I for select to authenticated using(food_modules_private.food_modules_access(organization_id,seller_store_id))',t||'_read',t);
   end loop;
 end $$;
 create policy food_module_organizations_read on public.food_module_organizations for select to authenticated
-using(private.food_modules_master() or exists(select 1 from public.food_module_stores s where s.organization_id=id and private.food_modules_access(s.organization_id,s.store_id)));
+using(food_modules_private.food_modules_master() or exists(select 1 from public.food_module_stores s where s.organization_id=id and food_modules_private.food_modules_access(s.organization_id,s.store_id)));
 
 -- Bucket privado. Não altera nenhuma policy de bucket existente.
 insert into storage.buckets(id,name,public,file_size_limit) values('food-custom-files','food-custom-files',false,26214400);
-create function private.food_modules_file_access(p_path text) returns boolean language sql stable security definer set search_path=''
+create function food_modules_private.food_modules_file_access(p_path text) returns boolean language sql stable security definer set search_path=''
 as $$
   select exists(select 1 from public.food_custom_requests r
     where p_path like r.organization_id::text||'/'||r.store_id::text||'/'||r.id::text||'/%'
-      and private.food_modules_access(r.organization_id,r.store_id,true)
+      and food_modules_private.food_modules_access(r.organization_id,r.store_id,true)
       and lower(p_path) ~ '\.(png|jpg|jpeg|webp|pdf|stl|obj|3mf)$')
 $$;
 create policy food_custom_storage_read on storage.objects for select to authenticated
-using(bucket_id='food-custom-files' and private.food_modules_file_access(name));
+using(bucket_id='food-custom-files' and food_modules_private.food_modules_file_access(name));
 create policy food_custom_storage_insert on storage.objects for insert to authenticated
-with check(bucket_id='food-custom-files' and private.food_modules_file_access(name));
+with check(bucket_id='food-custom-files' and food_modules_private.food_modules_file_access(name));
 -- Sem UPDATE/upsert: anexos novos usam UUID; histórico não é sobrescrito.
-revoke all on function private.food_modules_master() from public,anon;
-revoke all on function private.food_modules_access(uuid,uuid,boolean) from public,anon;
-revoke all on function private.food_modules_enabled(uuid,text) from public,anon,authenticated;
-revoke all on function private.food_modules_file_access(text) from public,anon;
-grant usage on schema private to authenticated;
-grant execute on function private.food_modules_master(),private.food_modules_access(uuid,uuid,boolean),private.food_modules_file_access(text) to authenticated;
+revoke all on function food_modules_private.food_modules_master() from public,anon;
+revoke all on function food_modules_private.food_modules_access(uuid,uuid,boolean) from public,anon;
+revoke all on function food_modules_private.food_modules_enabled(uuid,text) from public,anon,authenticated;
+revoke all on function food_modules_private.food_modules_file_access(text) from public,anon;
+grant usage on schema food_modules_private to authenticated;
+grant execute on function food_modules_private.food_modules_master(),food_modules_private.food_modules_access(uuid,uuid,boolean),food_modules_private.food_modules_file_access(text) to authenticated;
 commit;

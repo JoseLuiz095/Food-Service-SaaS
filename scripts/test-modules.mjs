@@ -1,4 +1,6 @@
 try {
+  await import('./modules-unit-test.mjs');
+  await import('./modules-edge-test.mjs');
   await import('./modules-db-test.mjs');
 } catch (error) {
   console.error('Falha nos testes de módulos:', error.message);

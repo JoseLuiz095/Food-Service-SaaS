@@ -31,6 +31,7 @@ export default function EventsPage() {
   const capability = new URLSearchParams(window.location.hash.slice(1)).get('key') || '';
   useEffect(() => {
     let active = true; setError(''); setLoading(true); setOrder(undefined); setCatalog(undefined);
+    if (sellerId) { pending.current = null; setChoice(''); setQuantity(1); }
     const promise = eventOrderId ? modulesApi.customer('get', { order_id: eventOrderId, token: capability }).then(value => { if (active) setOrder(value); })
       : sellerId ? modulesApi.catalog(sellerId).then(value => { if (active) setCatalog(value); }) : Promise.reject(new Error('Loja não informada.'));
     void promise.catch(e => { if (active) setError((e as Error).message); }).finally(() => { if (active) setLoading(false); });
@@ -67,7 +68,7 @@ export default function EventsPage() {
         customer_name: form.name, customer_phone: form.phone, scheduled_for: new Date(form.starts).toISOString(), ends_at: new Date(form.ends).toISOString(),
         version_id: selectedCombo?.id, items: selectedOffer ? [{ offer_id: selectedOffer.id, quantity }] : undefined,
       }, captcha);
-      navigate(`/eventos/pedido/${result.id}#key=${pending.current.token}`);
+      navigate(`/modulos/eventos/pedido/${result.id}#key=${pending.current.token}`);
     } catch (e) { setError((e as Error).message); setCaptcha(''); setCaptchaReset(x => x + 1); } finally { setBusy(false); }
   };
   const mutate = async (action: 'remove' | 'freeze', itemId?: string) => {
@@ -109,7 +110,7 @@ export default function EventsPage() {
       {pix.code && <div className="module-card"><h3>Pix para {order.pix?.receiver}</h3><p>Valor único: {moduleMoney(order.charged_cents)}. A loja conferirá o crédito manualmente.</p>{qr && <img className="module-pix" src={qr} alt={`QR Code Pix de ${moduleMoney(order.charged_cents)}`} />}
         <label>Pix Copia e Cola<textarea readOnly value={pix.code} /></label><button className="button button-primary" onClick={() => void navigator.clipboard.writeText(pix.code).then(() => setCopyStatus('Pix copiado.')).catch(() => setCopyStatus('Selecione e copie o código acima.'))}>Copiar Pix</button><p role="status">{copyStatus}</p></div>}
       {order.status === 'payment_pending' && order.charged_cents !== order.total_cents && <div><p role="alert">O pedido foi alterado após a cobrança. Não pague o Pix anterior. Se já pagou, informe a loja para conferir o crédito antes de qualquer novo pagamento.</p><button className="button" disabled={busy || order.total_cents <= 0} onClick={() => void mutate('freeze')}>Conferi os itens; gerar cobrança atualizada</button></div>}
-      <Link to={`/eventos/${order.seller_store_id}`}>Ver catálogo de eventos</Link>
+      <Link to={`/modulos/eventos/${order.seller_store_id}`}>Ver catálogo de eventos</Link>
     </section>}
   </main>;
 }

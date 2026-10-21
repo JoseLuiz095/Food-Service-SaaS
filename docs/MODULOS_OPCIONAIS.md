@@ -27,6 +27,8 @@ Linha de base: `npm run validate` passou (smoke, 120 verificações críticas, t
 ## Decisões e riscos
 
 - Classificação `shared_future`, inteiramente no namespace food_*. Monólito React/PostgreSQL; nenhuma fila ou microserviço novo.
+- Auxiliares ficam no schema exclusivo `food_modules_private`; não são concedidas permissões no schema privado compartilhado com FloriWeb.
+- Rotas públicas ficam em `/modulos/eventos/`, evitando colisão com carrinho e confirmação de uma eventual loja cujo slug seja `eventos`.
 - Organização é um agrupamento administrativo novo. Apenas lojas explicitamente habilitadas são vinculadas. Permissão sempre exige a loja e sua organização correspondente; pertencer a outra loja da mesma organização não dá acesso.
 - Fornecedores de organizações diferentes podem colaborar por ofertas publicadas e aprovações explícitas. Dados privados não acompanham o catálogo.
 - Estoque dos módulos é uma alocação própria, cadastrada conscientemente na oferta. Não espelha nem debita o estoque/insumos do checkout normal. Não anunciar o mesmo saldo físico simultaneamente nos dois catálogos. Compartilhar estoque futuramente exige integração e testes próprios.

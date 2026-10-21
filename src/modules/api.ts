@@ -28,6 +28,22 @@ export const modulesApi = {
   files: (storeId: string) => rows<CustomFile>('food_custom_files', storeId),
   assets: (storeId: string) => rows<RentalAsset>('food_rental_assets', storeId),
   reservations: (storeId: string) => rows<RentalReservation>('food_rental_reservations', storeId),
+  async masterParents(ids: string[]) {
+    const batches: string[][] = [];
+    for (let offset = 0; offset < ids.length; offset += 50) batches.push(ids.slice(offset, offset + 50));
+    return (await Promise.all(batches.map(batch => restFetch<ModuleOrder[]>(`food_module_orders?select=*&id=in.(${batch.join(',')})&limit=50`)))).flat();
+  },
+  async masterDetail(orderId: string) {
+    const filter = `order_id=eq.${encodeURIComponent(orderId)}&limit=200`;
+    const [parts,items,refunds] = await Promise.all([
+      restFetch<OrderPart[]>(`food_module_order_parts?select=*&${filter}`),
+      restFetch<ModuleOrderItem[]>(`food_module_order_items?select=*&${filter}`),
+      restFetch<Refund[]>(`food_module_refunds?select=*&${filter}`),
+    ]);
+    // Pedido tem no máximo 50 itens/fornecedores; consulta nunca trunca sua composição.
+    const receivables = parts.length ? await restFetch<Receivable[]>(`food_module_receivables?select=*&part_id=in.(${parts.map(p => p.id).join(',')})&limit=200`) : [];
+    return { parts, items, refunds, receivables };
+  },
   async upload(request: CustomRequest, file: File) {
     const extension = file.name.split('.').pop()?.toLowerCase();
     if (!extension || !['png','jpg','jpeg','webp','pdf','stl','obj','3mf'].includes(extension)) throw new Error('Use foto, PDF, STL, OBJ ou 3MF.');

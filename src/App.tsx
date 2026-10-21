@@ -71,8 +71,8 @@ const fallback=<div className="page-center"><LoadingState label="Carregando inte
 
 export default function App() {
   return <Suspense fallback={fallback}><Routes>
-    <Route path="/eventos/:sellerId" element={<EventsPage />} />
-    <Route path="/eventos/pedido/:eventOrderId" element={<EventsPage />} />
+    <Route path="/modulos/eventos/:sellerId" element={<EventsPage />} />
+    <Route path="/modulos/eventos/pedido/:eventOrderId" element={<EventsPage />} />
     <Route element={<StoreLayout />}>
       <Route path="/" element={<Home />} />
       <Route path="/produto/:slug" element={<ProductDetail />} />

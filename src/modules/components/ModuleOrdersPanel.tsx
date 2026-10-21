@@ -3,9 +3,9 @@ import { moduleMoney } from '../calculator';
 import type { ModuleOrder, ModuleOrderItem, OrderPart, Receivable, Refund } from '../types';
 import type { ModuleCommand } from './OffersPanel';
 
-export default function ModuleOrdersPanel({ orders, parts, items, receivables, refunds, command, busy, master, storeId }: {
+export default function ModuleOrdersPanel({ orders, parts, items, receivables, refunds, command, busy, master, storeId, onDetail }: {
   orders: ModuleOrder[]; parts: OrderPart[]; items: ModuleOrderItem[]; receivables: Receivable[]; refunds: Refund[];
-  command: ModuleCommand; busy: boolean; master: boolean; storeId: string;
+  command: ModuleCommand; busy: boolean; master: boolean; storeId: string; onDetail: (orderId: string) => Promise<void>;
 }) {
   const [references, setReferences] = useState<Record<string,string>>({});
   const [amounts, setAmounts] = useState<Record<string,string>>({});
@@ -14,6 +14,7 @@ export default function ModuleOrdersPanel({ orders, parts, items, receivables, r
   return <section className="module-card"><h2>Pedidos dos módulos</h2><p>Um código para o cliente. Cada loja recebe acesso aos próprios itens e valores. O vendedor confere a cobrança única; o Master consulta a composição completa.</p>
     {orderIds.map(id => { const order = orders.find(o => o.id === id); const orderParts = parts.filter(p => p.order_id === id); const code = order?.code || orderParts[0]?.code; return <article className="module-card" key={id}>
       <h3>FW-E{code} {order ? `· ${order.status}` : ''}</h3>
+      {master && <button className="button" disabled={busy} onClick={() => void onDetail(id)}>Consultar composição completa</button>}
       {order && <p>{order.customer_name} · Cobrança: {moduleMoney(order.charged_cents)} · Pago: {moduleMoney(order.paid_cents)} · Total vigente: {moduleMoney(order.total_cents)}</p>}
       {orderParts.map(p => <div className="module-row" key={p.id}><div><strong>Parte {p.store_id === storeId ? 'desta loja' : p.store_id.slice(0,8)} · {moduleMoney(p.total_cents)}</strong><p>{p.status} · Urgência: {p.urgency}</p>
         {items.filter(i => i.part_id === p.id).map(i => <p key={i.id}>{i.quantity} × {i.snapshot.name} · {moduleMoney(i.total_cents)} · {i.status}</p>)}</div>

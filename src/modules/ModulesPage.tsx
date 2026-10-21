@@ -47,16 +47,8 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
     if (master) {
       const orderIds = [...new Set([...orders.map(o => o.id),...parts.map(p => p.order_id)])];
       if (orderIds.length) {
-        const filter = `order_id=in.(${orderIds.join(',')})&limit=1000`;
-        const [allOrders,allParts,allItems,allRefunds] = await Promise.all([
-          restFetch<ModuleOrder[]>(`food_module_orders?select=*&id=in.(${orderIds.join(',')})&limit=200`),
-          restFetch<OrderPart[]>(`food_module_order_parts?select=*&${filter}`),
-          restFetch<ModuleOrderItem[]>(`food_module_order_items?select=*&${filter}`),
-          restFetch<Refund[]>(`food_module_refunds?select=*&${filter}`),
-        ]);
-        const partIds = allParts.map(p => p.id);
-        const allReceivables = partIds.length ? await restFetch<Receivable[]>(`food_module_receivables?select=*&part_id=in.(${partIds.join(',')})&limit=1000`) : [];
-        return { settings, offers, directory, versions, approvals, orders: allOrders, parts: allParts, items: allItems, receivables: allReceivables, refunds: allRefunds, customs, files, assets, reservations };
+        const allOrders = await modulesApi.masterParents(orderIds);
+        return { settings, offers, directory, versions, approvals, orders: allOrders, parts, items, receivables, refunds, customs, files, assets, reservations };
       }
     }
     return { settings, offers, directory, versions, approvals, orders, parts, items, receivables, refunds, customs, files, assets, reservations };
@@ -69,6 +61,18 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
     return () => { active = false; };
   }, [store, load]);
   const reload = async () => setData(await load());
+  const loadDetail = async (orderId: string) => {
+    setBusy(true); setError('');
+    try {
+      const detail = await modulesApi.masterDetail(orderId);
+      setData(current => ({ ...current,
+        parts: [...current.parts.filter(p => p.order_id !== orderId), ...detail.parts],
+        items: [...current.items.filter(i => i.order_id !== orderId), ...detail.items],
+        refunds: [...current.refunds.filter(r => r.order_id !== orderId), ...detail.refunds],
+        receivables: [...current.receivables.filter(r => !detail.parts.some(p => p.id === r.part_id)), ...detail.receivables],
+      }));
+    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  };
   const command = async (action: string, payload: unknown): Promise<boolean> => {
     if (busy) return false;
     setBusy(true); setError(''); setNotice('');
@@ -85,10 +89,10 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
       {tab === 'settings' && canManage && <ModuleSettingsForm settings={data.settings} busy={busy} save={value => void command('settings', value)} />}
       {tab === 'offers' && canManage && <OffersPanel key={store} settings={data.settings} offers={data.offers} command={command} busy={busy} />}
       {tab === 'combos' && canManage && <CombosPanel directory={data.directory} approvals={data.approvals} versions={data.versions} command={command} busy={busy} canApprove={!master || membership?.storeId === store} />}
-      {(tab === 'orders' || !canManage) && <ModuleOrdersPanel orders={data.orders} parts={data.parts} items={data.items} receivables={data.receivables} refunds={data.refunds} command={command} busy={busy || !canManage} master={master} storeId={store} />}
+      {(tab === 'orders' || !canManage) && <ModuleOrdersPanel orders={data.orders} parts={data.parts} items={data.items} receivables={data.receivables} refunds={data.refunds} command={command} busy={busy || !canManage} master={master} storeId={store} onDetail={loadDetail} />}
       {tab === 'custom' && canManage && <CustomPanel requests={data.customs} files={data.files} command={command} busy={busy} urgencyBps={data.settings.urgency_bps} reload={reload} onError={setError} />}
       {tab === 'rentals' && canManage && <RentalsPanel offers={data.offers} assets={data.assets} reservations={data.reservations} command={command} busy={busy} />}
-      {hasModule && <p><a href={`/eventos/${store}`} target="_blank" rel="noreferrer">Abrir catálogo de eventos desta loja</a></p>}
+      {hasModule && <p><a href={`/modulos/eventos/${store}`} target="_blank" rel="noreferrer">Abrir catálogo de eventos desta loja</a></p>}
       <p className="module-caption">Exibição limitada aos primeiros 200 registros por seção. Todas as consultas permanecem sujeitas às permissões da loja.</p>
     </>}
   </div>;
