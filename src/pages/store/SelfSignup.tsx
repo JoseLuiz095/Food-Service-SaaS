@@ -10,6 +10,8 @@ import {
   type SelfServiceSignupInput,
 } from '../../services/selfServiceSignup';
 import { currency } from '../../utils/format';
+import { BusinessSegmentPicker } from '../../segments/BusinessSegmentPicker';
+import { normalizeBusinessSegment } from '../../segments/businessSegments';
 
 const DEMO_PLAN: LandingPlan = { id:'demo-self-service', code:'DEMO', name:'Demo 30 dias', monthlyPrice:0, featureCodes:[], marketingBenefits:[] };
 const allowedPlan=(code:string)=>['DEMO','ESSENTIAL','STARTER','PROFESSIONAL'].includes(code.toUpperCase());
@@ -26,9 +28,11 @@ export default function SelfSignup(){
   const[loading,setLoading]=useState(false);
   const[error,setError]=useState('');
   const[success,setSuccess]=useState('');
+  const[presentationNeedsReview,setPresentationNeedsReview]=useState(false);
   const[captchaToken,setCaptchaToken]=useState('');
   const[captchaReset,setCaptchaReset]=useState(0);
   const[form,setForm]=useState<SelfServiceSignupInput>({
+    businessSegment:normalizeBusinessSegment(searchParams.get('segment')),
     storeName:'',ownerName:'',email:'',password:'',planCode:allowedPlan(requestedPlan)?requestedPlan:'DEMO',city:'',state:'',contactPhone:'',businessDocument:'',captchaToken:'',
   });
 
@@ -52,7 +56,7 @@ export default function SelfSignup(){
   const submit=async(event:FormEvent)=>{
     event.preventDefault();
     if(loading)return;
-    setError('');setSuccess('');
+    setError('');setSuccess('');setPresentationNeedsReview(false);
     if(form.storeName.trim().length<2){setError('Informe o nome do estabelecimento.');return;}
     if(form.ownerName.trim().length<2){setError('Informe o nome do responsável.');return;}
     if(!/^\S+@\S+\.\S+$/.test(form.email.trim())){setError('Informe um e-mail válido.');return;}
@@ -68,7 +72,8 @@ export default function SelfSignup(){
     try{
       if(mode==='existing'){
         const completion=await continueFoodSelfServiceWithExistingAccount(input);
-        setSuccess(completion.existing?'Sua conta já possui um estabelecimento no FoodWeb. Abrindo painel...':'Solicitação criada. Abrindo seu espaço de configuração...');
+        setSuccess(completion.presentationWarning ? `Solicitação criada. ${completion.presentationWarning}` : (completion.existing?'Sua conta já possui um estabelecimento no FoodWeb. Abrindo painel...':'Solicitação criada. Abrindo seu espaço de configuração...'));
+        if(completion.presentationWarning){setPresentationNeedsReview(true);return;}
         window.setTimeout(()=>navigate('/admin/primeiros-passos',{replace:true}),700);
         return;
       }
@@ -77,7 +82,8 @@ export default function SelfSignup(){
       if(result.requiresEmailConfirmation){
         setSuccess('Cadastro iniciado. Confira seu e-mail para confirmar a conta; depois você será direcionado para concluir a criação do estabelecimento.');
       }else{
-        setSuccess('Conta criada. Abrindo seu painel...');
+        setSuccess(result.completion.presentationWarning ? `Conta criada. ${result.completion.presentationWarning}` : 'Conta criada. Abrindo seu painel...');
+        if(result.completion.presentationWarning){setPresentationNeedsReview(true);return;}
         window.setTimeout(()=>navigate('/admin/primeiros-passos',{replace:true}),700);
       }
     }catch(e){
@@ -92,8 +98,8 @@ export default function SelfSignup(){
     <main className="self-signup-shell">
       <section className="self-signup-intro">
         <span className="eyebrow">COMECE AGORA</span>
-        <h1>Crie seu acesso, escolha o plano e deixe o FoodWeb pronto antes da liberação final.</h1>
-        <p>Você adianta cardápio, identidade e configurações. O Admin Master acompanha a solicitação e libera a operação comercial quando estiver tudo certo.</p>
+        <h1>Seu negócio, com um jeito próprio de vender.</h1>
+        <p>Escolha seu ramo e prepare uma vitrine com a sua identidade. Produtos, encomendas, peças ou serviços: você organiza o catálogo e acompanha os pedidos em um só lugar.</p>
         <div className="self-signup-rules">
           <article><Clock3/><div><strong>Demo por {demoDays} dias</strong><span>Teste gratuito sujeito à validação cadastral do negócio.</span></div></article>
           <article><Store/><div><strong>Configuração antecipada</strong><span>Planos pagos entram em modo de preparação até a aprovação.</span></div></article>
@@ -109,7 +115,9 @@ export default function SelfSignup(){
         <form onSubmit={submit}>
           <div className="self-signup-heading"><UserPlus size={22}/><div><h2>{mode==='new'?'Novo cadastro':'Usar uma conta existente'}</h2><p>{mode==='new'?'Você poderá confirmar o e-mail antes da ativação.':'Entre com seu usuário Supabase e solicite um novo acesso ao FoodWeb.'}</p></div></div>
 
-          <label>Nome do estabelecimento<input required value={form.storeName} onChange={(e)=>setField('storeName',e.target.value)} placeholder="Ex.: Burguer da Vila"/></label>
+          <label>Nome do estabelecimento<input required value={form.storeName} onChange={(e)=>setField('storeName',e.target.value)} placeholder="Ex.: Sua loja ou ateliê"/></label>
+          <BusinessSegmentPicker value={form.businessSegment || 'food'} onChange={(segment)=>setField('businessSegment',segment)}/>
+          {mode==='existing'&&<p className="business-picker__note">Se sua conta já tem uma loja, a identidade atual será preservada. Para mudar o ramo dela, use Configurações no painel.</p>}
           <div className="self-signup-grid"><label>Responsável<input required value={form.ownerName} onChange={(e)=>setField('ownerName',e.target.value)} placeholder="Seu nome"/></label><label>Cidade<input value={form.city||''} onChange={(e)=>setField('city',e.target.value)} placeholder="Cidade"/></label></div>
           <div className="self-signup-grid"><label>E-mail<input required type="email" autoComplete="email" value={form.email} onChange={(e)=>setField('email',e.target.value)} placeholder="voce@empresa.com"/></label><label>UF<input maxLength={2} value={form.state||''} onChange={(e)=>setField('state',e.target.value.toUpperCase())} placeholder="ES"/></label></div>
           <div className="self-signup-grid"><label>WhatsApp comercial<input required inputMode="tel" value={form.contactPhone} onChange={(e)=>setField('contactPhone',e.target.value)} placeholder="(27) 99999-9999"/></label><label>CNPJ <small>(opcional)</small><input inputMode="numeric" value={form.businessDocument||''} onChange={(e)=>setField('businessDocument',e.target.value)} placeholder="00.000.000/0001-00"/></label></div>
@@ -123,7 +131,7 @@ export default function SelfSignup(){
           {appConfig.turnstileSiteKey?<TurnstileWidget siteKey={appConfig.turnstileSiteKey} action="signup" onToken={setCaptchaToken} resetSignal={captchaReset}/>:<div className="form-error">Turnstile não configurado neste build. O auto cadastro permanece bloqueado por segurança.</div>}
           {error&&<div className="form-error">{error}</div>}
           {success&&<div className="form-success self-signup-success">{success}</div>}
-          <button className="primary-button self-signup-submit" disabled={loading||!appConfig.turnstileSiteKey||!captchaToken}>{loading?'Processando...':mode==='new'?'Criar conta e continuar':'Entrar e solicitar acesso'}</button>
+          {presentationNeedsReview?<Link className="primary-button self-signup-submit" to="/admin/configuracoes">Abrir configurações da loja</Link>:<button className="primary-button self-signup-submit" disabled={loading||!appConfig.turnstileSiteKey||!captchaToken}>{loading?'Processando...':mode==='new'?'Criar conta e continuar':'Entrar e solicitar acesso'}</button>}
           <small className="self-signup-footnote">Ao continuar, você solicita a criação de um ambiente FoodWeb. Cadastros são revisados pelo Admin Master antes da liberação definitiva e o teste gratuito depende de elegibilidade cadastral.</small>
         </form>
       </section>

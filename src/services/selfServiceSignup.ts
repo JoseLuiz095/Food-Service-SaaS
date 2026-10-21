@@ -1,8 +1,11 @@
 import { appConfig } from '../lib/config';
 import { getSupabaseClient } from '../lib/supabase';
 import { invokePublicFunction, restFetch, SupabaseHttpError } from '../lib/supabaseRest';
+import type { BusinessSegment } from '../segments/businessSegments';
+import { saveNewStorePresentation } from './businessPresentation';
 
 export type SelfServiceSignupInput = {
+  businessSegment?: BusinessSegment;
   storeName: string;
   ownerName: string;
   email: string;
@@ -16,6 +19,7 @@ export type SelfServiceSignupInput = {
 };
 
 export type SelfServiceCompletion = {
+  presentationWarning?: string;
   ok: boolean;
   existing?: boolean;
   requestId?: string;
@@ -139,6 +143,7 @@ export async function createFoodSelfServiceAccount(input: SelfServiceSignupInput
   });
   if (error) throw authError(error);
   const completion = directCompletion || await completeFoodSelfServiceSignup(input);
+  if (!completion.existing) completion.presentationWarning = await saveNewStorePresentation(completion.storeId,input.businessSegment);
   return { requiresEmailConfirmation: false, completion };
 }
 
@@ -153,7 +158,9 @@ export async function continueFoodSelfServiceWithExistingAccount(input: SelfServ
     options: { captchaToken: input.captchaToken },
   });
   if (error) throw authError(error);
-  return completeFoodSelfServiceSignup(input);
+  const completion = await completeFoodSelfServiceSignup(input);
+  if (!completion.existing) completion.presentationWarning = await saveNewStorePresentation(completion.storeId,input.businessSegment);
+  return completion;
 }
 
 export async function listFoodSelfServiceSignupRequests(): Promise<SelfServiceSignupRequest[]> {

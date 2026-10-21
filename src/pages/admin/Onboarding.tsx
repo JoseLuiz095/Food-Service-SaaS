@@ -21,6 +21,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { copyText } from '../../utils/clipboard';
 import { getStoreReadiness } from '../../utils/storeReadiness';
 import { publicStorefrontPath, publicStorefrontUrl } from '../../utils/storefrontRoute';
+import { getBusinessSegment } from '../../segments/businessSegments';
 
 export default function Onboarding() {
   const { settings, categories, products, deliveryZones, orders, loading, error, reloadAdmin } = useStore();
@@ -29,6 +30,8 @@ export default function Onboarding() {
   const [storeQrCodeError, setStoreQrCodeError] = useState('');
   const publicPath = publicStorefrontPath(settings.slug);
   const publicUrl = publicStorefrontUrl(settings.slug);
+  const segment = getBusinessSegment(settings.visualTheme);
+  const segmentPresentation = segment.id !== 'food' && settings.visualTheme.preset !== 'doce_lua';
 
   useEffect(() => {
     let cancelled = false;
@@ -79,8 +82,8 @@ export default function Onboarding() {
     <div className="admin-page-title onboarding-title">
       <div>
         <span className="eyebrow">PRIMEIROS PASSOS</span>
-        <h1>Coloque sua loja pronta para receber pedidos</h1>
-        <p>Finalize a configuração essencial, simule um pedido e só depois divulgue o catálogo aos clientes.</p>
+        <h1>{segmentPresentation?'Deixe seu catálogo pronto para vender':'Coloque sua loja pronta para receber pedidos'}</h1>
+        <p>{segmentPresentation?'Configure a identidade e os itens do catálogo. Confira como o cliente compra antes de compartilhar a vitrine.':'Finalize a configuração essencial, simule um pedido e só depois divulgue o catálogo aos clientes.'}</p>
       </div>
       <div className="onboarding-title__actions">
         <button type="button" className="secondary-button" onClick={() => void copyStoreUrl()}><Copy size={17}/>Copiar link</button>

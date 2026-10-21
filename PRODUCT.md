@@ -1,6 +1,16 @@
-# FoodWeb — Produto v0.4
+# FoodWeb — Produto
 
-FoodWeb é um SaaS multempresa para negócios de alimentação. A vitrine pública é a porta de entrada; o produto evolui para pedidos, inteligência comercial, financeiro gerencial e operação.
+FoodWeb é uma plataforma multempresa de vitrines, pedidos e operação para pequenos negócios. Alimentação, confeitaria, varejo, impressão 3D, aluguel e serviços compartilham a base comercial, com apresentação própria por ramo e módulos opcionais. A marca está em estudo; nomes técnicos e integrações permanecem compatíveis.
+
+## Apresentação por ramo — shared_future
+
+O ramo é escolhido no cadastro, na criação da loja pelo Master ou em Configurações. Ele define vocabulário, cores e apresentação da vitrine e do painel. É guardado em `food_stores.visual_theme.businessSegment`, sem novas tabelas ou migrations.
+
+Lojas sem ramo mantêm a apresentação anterior. Cores personalizadas e o tema exclusivo Doce Lua prevalecem sobre as cores sugeridas. O ramo não ativa módulos, não modifica catálogo existente e não altera preços, estoque, Pix, horários, entrega, retirada ou permissões.
+
+Produtos prontos continuam no catálogo normal. Reservas de aluguel, solicitações personalizadas e vendas com parceiros usam os respectivos módulos, mediante ativação explícita. A escolha do ramo não converte produtos comuns em reservas ou orçamentos.
+
+Consulte [configuração e validação](docs/SEGMENTOS_IDENTIDADE.md) e [estudos de marca](docs/PROPOSTAS_MARCA.md).
 
 ## Escada comercial
 

@@ -6,9 +6,11 @@ import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import { publicStorefrontUrl } from '../../utils/storefrontRoute';
 import { downloadQrImage, sharePixQrImage } from '../../utils/pixShare';
+import { getBusinessSegment } from '../../segments/businessSegments';
 
 export function AdminStoreShare() {
   const { settings } = useStore();
+  const catalogLabel = getBusinessSegment(settings.visualTheme).catalogLabel;
   const { showToast } = useToast();
   const [open, setOpen] = useState(false);
   const [qrCode, setQrCode] = useState('');
@@ -45,8 +47,8 @@ export function AdminStoreShare() {
     try {
       const result = await sharePixQrImage({
         dataUrl: qrCode,
-        title: `Cardápio da ${settings.name}`,
-        text: `Confira o cardápio da ${settings.name}:\n${shareUrl}`,
+        title: `${catalogLabel} da ${settings.name}`,
+        text: `Confira o ${catalogLabel.toLowerCase()} da ${settings.name}:\n${shareUrl}`,
         fileName: `qr-code-${settings.slug || 'loja'}.png`,
       });
       if (result === 'image') showToast('QR Code e link prontos para compartilhar.', 'success');
@@ -70,7 +72,7 @@ export function AdminStoreShare() {
         <div className="admin-store-share-card__icon"><QrCode size={21} /></div>
         <span className="eyebrow">DIVULGUE SUA VITRINE</span>
         <h2 id="admin-store-share-title">Compartilhe {settings.name}</h2>
-        <p>Envie o link ou mostre o QR Code para o cliente abrir o cardápio.</p>
+        <p>Envie o link ou mostre o QR Code para o cliente abrir o {catalogLabel.toLowerCase()}.</p>
         {qrCode ? <img className="admin-store-share-card__qr" src={qrCode} alt={`QR Code da loja ${settings.name}`} /> : <div className="admin-store-share-card__qr-placeholder">Gerando QR Code…</div>}
         <div className="admin-store-share-card__link"><span title={shareUrl}>{shareUrl}</span><button type="button" className="secondary-button compact-button" onClick={() => void copyLink()}><Copy size={15} />Copiar link</button></div>
         <div className="admin-store-share-card__actions">

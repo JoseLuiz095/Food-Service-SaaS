@@ -1,0 +1,220 @@
+/* Commercial surfaces only: storefront and checkout themes stay independent. */
+.food-sales-page--segments {
+  --sales-red: #ba482d;
+  --commercial-ink: #25332c;
+  --commercial-muted: #646a63;
+  --commercial-line: #e3e3da;
+  color: var(--commercial-ink);
+  background: #fcfcf8;
+}
+.food-sales-page--segments .sales-shell { width: min(1200px, calc(100% - 64px)); }
+.food-sales-page--segments :is(h1,h2,h3,p) { text-wrap: pretty; }
+.food-sales-page--segments :is(a,button):focus-visible { outline: 3px solid #486fa2; outline-offset: 4px; }
+.food-sales-page--segments section[id] { scroll-margin-top: 95px; }
+.food-sales-page--segments .sales-nav { background: #fcfcf8; backdrop-filter: none; border-color: var(--commercial-line); box-shadow: none; }
+.food-sales-page--segments .sales-nav > .sales-shell { height: 86px; gap: 36px; }
+.food-sales-page--segments .sales-brand { color: var(--commercial-ink); }
+.food-sales-page--segments .sales-brand > span { background: var(--commercial-ink); border-radius: 9px; width: 39px; height: 39px; font-size: 14px; }
+.food-sales-page--segments .sales-brand strong { display: grid; gap: 4px; font-size: 20px; }
+.food-sales-page--segments .sales-brand strong small { font-size: 9px; letter-spacing: .025em; color: var(--commercial-muted); font-weight: 500; }
+.food-sales-page--segments .sales-nav nav { gap: 24px; }
+.food-sales-page--segments .sales-nav nav a { font-size: 12px; font-weight: 650; }
+.food-sales-page--segments .sales-nav-primary { gap: 10px; border-radius: 7px; min-height: 43px; font-size: 12px; }
+.food-sales-page--segments .sales-cta-primary { background: var(--sales-red); box-shadow: none; color: #fff; border-radius: 7px; min-height: 49px; padding: 0 19px; font-size: 12px; }
+.food-sales-page--segments .sales-cta-primary:hover { background: #963821; }
+.food-sales-page--segments .sales-cta-secondary { border: 1px solid #cfd3c9; color: var(--commercial-ink); background: transparent; border-radius: 7px; min-height: 49px; font-size: 12px; cursor: pointer; }
+.food-sales-page--segments .sales-cta-secondary:hover { background: #f0f1e9; }
+.food-sales-page--segments .commercial-eyebrow { display: inline-flex; align-items: center; gap: 8px; color: #6b7566; font-size: 10px; font-weight: 750; line-height: 1.5; letter-spacing: .13em; }
+.food-sales-page--segments .commercial-eyebrow > span { width: 7px; height: 7px; border-radius: 50%; background: var(--sales-red); }
+.food-sales-page--segments .commercial-hero { padding: 70px 0 66px; background: #f3f3e9; border-bottom: 1px solid var(--commercial-line); }
+.food-sales-page--segments .commercial-hero__grid { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); gap: 64px; align-items: center; }
+.food-sales-page--segments .commercial-hero__copy h1 { color: var(--commercial-ink); font-size: clamp(42px,4.5vw,66px); font-weight: 650; line-height: 1.06; letter-spacing: -.052em; margin: 21px 0 23px; }
+.food-sales-page--segments .commercial-hero__copy h1 em { color: var(--sales-red); font-family: Georgia, 'Times New Roman', serif; font-weight: 400; letter-spacing: -.045em; }
+.food-sales-page--segments .commercial-hero__copy > p { max-width: 500px; font-size: 15px; line-height: 1.8; color: var(--commercial-muted); }
+.food-sales-page--segments .sales-hero-actions { margin-top: 27px; gap: 10px; }
+.food-sales-page--segments .sales-proof-row { gap: 12px; margin-top: 19px; font-size: 10px; color: #697064; }
+.food-sales-page--segments .sales-proof-row svg { color: #59845f; width: 13px; height: 13px; }
+.food-sales-page--segments .commercial-hero__caption { margin-top: 34px; display: flex; align-items: center; gap: 11px; }
+.food-sales-page--segments .commercial-hero__caption > span { width: 38px; height: 38px; border: 1px solid #d9ddce; display: grid; place-items: center; border-radius: 50%; color: #75806a; }
+.food-sales-page--segments .commercial-hero__caption p { font-size: 11px; line-height: 1.7; margin: 0; color: var(--commercial-muted); }
+.food-sales-page--segments .commercial-hero__caption strong { font-weight: 600; color: #3c493a; }
+.food-sales-page--segments .commercial-preview { min-width: 0; border: 1px solid #d6d9cd; border-radius: 13px; background: #fff; box-shadow: 0 20px 45px #2835240b; overflow: hidden; }
+.food-sales-page--segments .commercial-preview__browser { height: 32px; background: #f8f8f3; display: flex; gap: 4px; align-items: center; padding: 0 13px; border-bottom: 1px solid #ebebe4; }
+.food-sales-page--segments .commercial-preview__browser > span { width: 5px; height: 5px; background: #d6d8d0; border-radius: 50%; }
+.food-sales-page--segments .commercial-preview__browser small { margin-left: auto; font-size: 8px; color: #6b7167; }
+.food-sales-page--segments .commercial-preview__store { padding: 21px; }
+.food-sales-page--segments .commercial-preview__store > header { display: flex; gap: 9px; align-items: center; }
+.food-sales-page--segments .commercial-preview__store-logo { color: var(--preview-accent); background: color-mix(in srgb,var(--preview-accent) 9%,white); width: 42px; height: 42px; border-radius: 9px; display: grid; place-items: center; }
+.food-sales-page--segments .commercial-preview__store > header > div { display: grid; gap: 4px; flex: 1; }
+.food-sales-page--segments .commercial-preview__store > header strong { font-size: 14px; color: #2c342d; }
+.food-sales-page--segments .commercial-preview__store > header small { font-size: 9px; color: #72776e; }
+.food-sales-page--segments .commercial-preview__store > header > svg { color: #747c6e; }
+.food-sales-page--segments .commercial-preview__cover { position: relative; margin: 19px 0 9px; padding: 24px 18px; border-radius: 9px; overflow: hidden; background: color-mix(in srgb,var(--preview-accent) 10%,#faf9f4); min-height: 155px; }
+.food-sales-page--segments .commercial-preview__cover > span { position: relative; z-index: 1; display: block; font-size: 9px; color: var(--preview-accent); margin-bottom: 9px; font-weight: 650; }
+.food-sales-page--segments .commercial-preview__cover strong { position: relative; z-index: 1; max-width: 70%; display: block; font-size: 22px; line-height: 1.13; color: #303d31; letter-spacing: -.04em; }
+.food-sales-page--segments .commercial-preview__cover p { position: relative; z-index: 1; max-width: 70%; font-size: 10px; color: #5d675c; margin: 10px 0 0; }
+.food-sales-page--segments .commercial-preview__cover > svg { position: absolute; right: 10px; top: 32px; color: var(--preview-accent); opacity: .5; transform: rotate(-9deg); }
+.food-sales-page--segments .commercial-preview__product { display: flex; align-items: center; gap: 11px; padding: 13px 0; border-bottom: 1px solid #efefe9; }
+.food-sales-page--segments .commercial-preview__product > span { width: 55px; height: 55px; flex: 0 0 auto; background: #f1f2e9; color: var(--preview-accent); border-radius: 7px; display: grid; place-items: center; }
+.food-sales-page--segments .commercial-preview__product > div { flex: 1; min-width: 0; }
+.food-sales-page--segments .commercial-preview__product small { font-size: 7px; letter-spacing: .055em; color: #6d7666; display: block; }
+.food-sales-page--segments .commercial-preview__product strong { display: block; color: #313c31; font-size: 11px; margin-top: 5px; }
+.food-sales-page--segments .commercial-preview__product p { color: #747a70; font-size: 9px; line-height: 1.5; margin: 4px 0 0; }
+.food-sales-page--segments .commercial-preview__product > svg { color: #98a18f; flex-shrink: 0; }
+.food-sales-page--segments .commercial-preview__footer { color: #7b8473; display: flex; align-items: center; gap: 5px; font-size: 8px; padding-top: 12px; }
+.food-sales-page--segments .commercial-preview__admin { background: #29382c; color: #fff; display: flex; align-items: center; gap: 11px; padding: 18px 21px; }
+.food-sales-page--segments .commercial-preview__admin > span { width: 34px; height: 34px; color: #b3c1a5; border: 1px solid #52604e; border-radius: 7px; display: grid; place-items: center; }
+.food-sales-page--segments .commercial-preview__admin > div { flex: 1; }
+.food-sales-page--segments .commercial-preview__admin strong { font-size: 11px; display: block; color: #fff; }
+.food-sales-page--segments .commercial-preview__admin small { font-size: 9px; display: block; color: #b8c0b2; margin-top: 5px; }
+.food-sales-page--segments .commercial-preview__admin > svg { color: #b3c1a5; }
+.food-sales-page--segments .commercial-section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 36px; margin-bottom: 28px; }
+.food-sales-page--segments .commercial-section-heading h2 { font-size: clamp(28px,3vw,38px); line-height: 1.15; font-weight: 600; letter-spacing: -.04em; color: var(--commercial-ink); margin: 12px 0 0; }
+.food-sales-page--segments .commercial-section-heading > p { max-width: 340px; font-size: 13px; line-height: 1.8; color: var(--commercial-muted); margin: 0; }
+.food-sales-page--segments .commercial-segments { padding: 64px 0; background: #fcfcf8; }
+.food-sales-page--segments .commercial-segments__choices { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 10px; }
+.food-sales-page--segments .commercial-segments__choices button { min-height: 124px; display: grid; justify-items: start; align-content: space-between; gap: 13px; border: 1px solid #e0e2d8; background: transparent; border-radius: 8px; color: #52604c; padding: 17px 15px; cursor: pointer; position: relative; font: inherit; transition: background .15s, border-color .15s; }
+.food-sales-page--segments .commercial-segments__choices button > span { font-size: 11px; color: #3e4938; font-weight: 650; text-align: left; }
+.food-sales-page--segments .commercial-segments__choices button > svg:last-child { position: absolute; top: 19px; right: 12px; opacity: 0; }
+.food-sales-page--segments .commercial-segments__choices button:is(:hover,.is-selected) { background: #f0f1e8; border-color: #8b9a7e; }
+.food-sales-page--segments .commercial-segments__choices button.is-selected > svg:last-child { opacity: 1; }
+.food-sales-page--segments .commercial-segments__detail { margin-top: 22px; display: flex; align-items: center; justify-content: space-between; gap: 30px; min-height: 95px; }
+.food-sales-page--segments .commercial-segments__detail strong { font-size: 16px; color: #35432f; font-weight: 650; }
+.food-sales-page--segments .commercial-segments__detail p { font-size: 12px; line-height: 1.8; color: var(--commercial-muted); max-width: 690px; margin: 7px 0 0; }
+.food-sales-page--segments .commercial-segments__detail > a { flex-shrink: 0; color: var(--sales-red); font-size: 12px; font-weight: 700; display: inline-flex; gap: 8px; align-items: center; text-decoration: none; }
+.food-sales-page--segments .existing-value { padding: 70px 0; background: #fff; border-block: 1px solid var(--commercial-line); }
+.food-sales-page--segments .existing-value__shell { width: min(1200px, calc(100% - 64px)); }
+.food-sales-page--segments .existing-value__heading { text-align: left; max-width: 680px; margin: 0 0 35px; }
+.food-sales-page--segments .existing-value__heading > span { color: #6b7566; letter-spacing: .13em; font-size: 10px; }
+.food-sales-page--segments .existing-value__heading h2 { color: var(--commercial-ink); font-size: clamp(28px,3vw,38px); line-height: 1.15; font-weight: 600; letter-spacing: -.04em; }
+.food-sales-page--segments .existing-value__heading p { font-size: 13px; color: var(--commercial-muted); }
+.food-sales-page--segments .existing-value__grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 30px 35px; }
+.food-sales-page--segments .existing-value__grid article { border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; }
+.food-sales-page--segments .existing-value__grid article > span { color: #6d7c5f; background: #f3f5ed; border-radius: 8px; }
+.food-sales-page--segments .existing-value__grid h3 { font-size: 14px; font-weight: 650; color: #33422e; }
+.food-sales-page--segments .existing-value__grid p { color: var(--commercial-muted); font-size: 12px; line-height: 1.8; }
+.food-sales-page--segments .existing-value__footer { border-color: #dfe5d7; background: #f5f7f0; color: #59674d; font-size: 11px; margin-top: 34px; }
+.food-sales-page--segments .commercial-modules { padding: 80px 0; background: #29382c; }
+.food-sales-page--segments .commercial-modules__layout { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.1fr); gap: 72px; }
+.food-sales-page--segments .commercial-modules .commercial-eyebrow { color: #bbc8ae; }
+.food-sales-page--segments .commercial-modules h2 { color: #f6f7f0; margin: 15px 0 19px; font-size: 36px; font-weight: 500; line-height: 1.15; letter-spacing: -.04em; }
+.food-sales-page--segments .commercial-modules__layout > div > p { color: #c0c8b9; font-size: 13px; line-height: 1.9; max-width: 430px; }
+.food-sales-page--segments .commercial-modules__principle { margin-top: 26px; display: flex; gap: 12px; align-items: center; color: #cbd4c4; font-size: 11px; line-height: 1.8; }
+.food-sales-page--segments .commercial-modules__principle svg { color: #a8be97; flex-shrink: 0; }
+.food-sales-page--segments .commercial-modules__principle strong { color: #eef2e8; font-weight: 500; }
+.food-sales-page--segments .commercial-modules__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+.food-sales-page--segments .commercial-modules__grid article { border-top: 1px solid #52604a; padding-top: 18px; }
+.food-sales-page--segments .commercial-modules__grid svg { color: #b5c69f; width: 25px; height: 25px; }
+.food-sales-page--segments .commercial-modules__grid h3 { color: #f3f5ef; font-size: 14px; font-weight: 550; margin: 13px 0 8px; }
+.food-sales-page--segments .commercial-modules__grid p { color: #bdc7b5; font-size: 11px; line-height: 1.8; margin: 0; }
+.food-sales-page--segments .commercial-demo-context { padding-top: 65px; }
+.food-sales-page--segments .commercial-demo-context p { max-width: 720px; color: var(--commercial-muted); font-size: 13px; line-height: 1.8; margin-bottom: 0; }
+.food-sales-page--segments .interactive-showcase { background: #fcfcf8; padding-top: 30px; padding-bottom: 65px; }
+.food-sales-page--segments .interactive-showcase__shell { width: min(1200px, calc(100% - 64px)); }
+.food-sales-page--segments .interactive-showcase__heading h2 { font-weight: 600; letter-spacing: -.035em; color: var(--commercial-ink); }
+.food-sales-page--segments .sales-stores { padding: 65px 0; background: #fff; border-top: 1px solid var(--commercial-line); }
+.food-sales-page--segments .sales-store-card { border-radius: 10px; border-color: var(--commercial-line); box-shadow: none; }
+.food-sales-page--segments .sales-section-heading h2 { font-weight: 600; letter-spacing: -.04em; color: var(--commercial-ink); }
+.food-sales-page--segments .sales-section-heading > span { color: #6b7566; font-size: 10px; letter-spacing: .13em; }
+.food-sales-page--segments .sales-section-heading p { color: var(--commercial-muted); }
+.food-sales-page--segments .sales-plans { padding: 70px 0; background: #f4f4ec; border-top: 1px solid var(--commercial-line); }
+.food-sales-page--segments .sales-plan-grid { gap: 14px; }
+.food-sales-page--segments .sales-plan-card { padding: 23px 20px; border-radius: 10px; box-shadow: none; border-color: #dadfd1; }
+.food-sales-page--segments .sales-plan-card.recommended { border-color: #7e8f6c; border-width: 2px; box-shadow: none; }
+.food-sales-page--segments .sales-plan-card.recommended .sales-plan-badge { background: #556847; }
+.food-sales-page--segments .sales-plan-card .sales-plan-badge { border-radius: 5px; }
+.food-sales-page--segments .sales-plan-card-business-v59 { background: #29382c; border-color: #29382c; }
+.food-sales-page--segments .sales-plan-card-business-v59 .sales-plan-price { align-items: flex-start; flex-direction: column; gap: 5px; margin-top: 15px; margin-bottom: 16px; }
+.food-sales-page--segments .sales-plan-card-business-v59 .sales-plan-price strong { font-size: 27px; white-space: nowrap; }
+.food-sales-page--segments .sales-plan-card-business-v59 .sales-plan-price span { font-size: 10px; padding: 0; }
+.food-sales-page--segments .sales-plan-card-business-v59 .sales-plan-description-v59 { margin-bottom: 15px; }
+.food-sales-page--segments .sales-plan-contact-v59 { border-radius: 6px; margin-top: auto; box-shadow: none; }
+.food-sales-page--segments .sales-plan-card .sales-plan-fit-v59 { border-radius: 8px; }
+.food-sales-page--segments .sales-plan-card .sales-plan-contact-v59--featured { background: #556847; border-color: #556847; }
+.food-sales-page--segments .sales-plan-card .sales-plan-contact-v59--featured:hover { background: #435337; box-shadow: none; }
+.food-sales-page--segments .commercial-plan-note { display: flex; align-items: flex-start; gap: 11px; padding: 18px 0 0; max-width: 840px; margin: 10px auto 0; color: #68745e; }
+.food-sales-page--segments .commercial-plan-note svg { flex-shrink: 0; margin-top: 2px; }
+.food-sales-page--segments .commercial-plan-note p { font-size: 11px; line-height: 1.8; margin: 0; }
+.food-sales-page--segments .commercial-plan-note strong { color: #3c4c34; }
+.food-sales-page--segments .commercial-final { padding: 75px 0 80px; text-align: center; background: #ebeede; border-top: 1px solid #d9dfcb; }
+.food-sales-page--segments .commercial-final > div > svg { display: block; color: #6e8258; margin: 0 auto 18px; }
+.food-sales-page--segments .commercial-final h2 { color: #29382c; font-size: clamp(29px,3.6vw,45px); font-weight: 550; letter-spacing: -.04em; line-height: 1.15; margin: 15px 0; }
+.food-sales-page--segments .commercial-final p { font-size: 13px; color: #6c7661; }
+.food-sales-page--segments .commercial-final .sales-shell > div { display: flex; gap: 11px; justify-content: center; margin-top: 25px; }
+.food-sales-page--segments .sales-footer { background: #fcfcf8; border-top: 1px solid var(--commercial-line); color: #6c7466; }
+.food-sales-page--segments .sales-footer > .sales-shell > span { font-size: 11px; }
+.food-sales-page--segments .sales-footer > .sales-shell > a:last-child { color: #4f5b46; font-size: 11px; }
+@media (max-width: 1100px) {
+  .food-sales-page--segments .sales-nav nav { gap: 16px; }
+  .food-sales-page--segments .sales-nav nav a { font-size: 10px; }
+  .food-sales-page--segments .sales-nav > .sales-shell { gap: 22px; }
+  .food-sales-page--segments .commercial-hero__grid { gap: 35px; }
+  .food-sales-page--segments .commercial-hero__copy h1 { font-size: 48px; }
+  .food-sales-page--segments .commercial-modules__layout { gap: 40px; }
+  .food-sales-page--segments .commercial-segments__detail > a { max-width: 230px; line-height: 1.5; }
+}
+@media (max-width: 900px) {
+  .food-sales-page--segments .sales-nav nav { display: none; }
+  .food-sales-page--segments .sales-nav-actions { margin-left: auto; }
+  .food-sales-page--segments .commercial-hero { padding: 50px 0; }
+  .food-sales-page--segments .commercial-hero__grid { grid-template-columns: 1fr; gap: 35px; }
+  .food-sales-page--segments .commercial-hero__copy { max-width: 640px; }
+  .food-sales-page--segments .commercial-hero__copy h1 { font-size: 56px; }
+  .food-sales-page--segments .commercial-preview { width: min(100%,540px); justify-self: center; }
+  .food-sales-page--segments .commercial-segments__choices { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .food-sales-page--segments .commercial-segments__choices button { min-height: 100px; }
+  .food-sales-page--segments .commercial-section-heading > p { max-width: 280px; }
+  .food-sales-page--segments .commercial-modules__layout { grid-template-columns: 1fr; gap: 35px; }
+  .food-sales-page--segments .commercial-modules__layout > div > p { max-width: 660px; }
+  .food-sales-page--segments .existing-value__grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .food-sales-page--segments .commercial-segments__detail { align-items: flex-start; }
+}
+@media (max-width: 600px) {
+  .food-sales-page--segments :is(.sales-shell,.existing-value__shell,.interactive-showcase__shell) { width: calc(100% - 36px); }
+  .food-sales-page--segments .sales-nav > .sales-shell { height: 69px; gap: 10px; }
+  .food-sales-page--segments .sales-brand strong { font-size: 18px; }
+  .food-sales-page--segments .sales-brand strong small { font-size: 7px; }
+  .food-sales-page--segments .sales-brand > span { width: 32px; height: 32px; font-size: 11px; }
+  .food-sales-page--segments .sales-nav-primary { min-height: 38px; font-size: 10px; padding: 0 11px; gap: 6px; }
+  .food-sales-page--segments .sales-nav-primary svg { width: 13px; }
+  .food-sales-page--segments .commercial-hero { padding: 36px 0 38px; }
+  .food-sales-page--segments .commercial-eyebrow { font-size: 8px; letter-spacing: .11em; }
+  .food-sales-page--segments .commercial-hero__copy h1 { font-size: clamp(36px,10.5vw,48px); margin: 17px 0; }
+  .food-sales-page--segments .commercial-hero__copy > p { font-size: 13px; line-height: 1.8; }
+  .food-sales-page--segments .sales-hero-actions { justify-content: flex-start; margin-top: 22px; }
+  .food-sales-page--segments .sales-hero-actions > a { width: 100%; }
+  .food-sales-page--segments .sales-proof-row { justify-content: flex-start; gap: 10px; font-size: 9px; }
+  .food-sales-page--segments .commercial-hero__caption { margin-top: 25px; }
+  .food-sales-page--segments .commercial-hero__caption p { font-size: 10px; }
+  .food-sales-page--segments .commercial-preview__store { padding: 15px; }
+  .food-sales-page--segments .commercial-preview__cover { margin-top: 15px; padding: 21px 14px; min-height: 145px; }
+  .food-sales-page--segments .commercial-preview__cover strong { font-size: 20px; max-width: 73%; }
+  .food-sales-page--segments .commercial-preview__cover > svg { width: 70px; right: 4px; }
+  .food-sales-page--segments .commercial-preview__admin { padding: 15px; gap: 8px; }
+  .food-sales-page--segments .commercial-preview__admin strong { font-size: 9px; }
+  .food-sales-page--segments .commercial-preview__admin small { font-size: 8px; }
+  .food-sales-page--segments .commercial-preview__admin > svg { display: none; }
+  .food-sales-page--segments :is(.commercial-segments,.existing-value,.commercial-modules,.sales-stores,.sales-plans) { padding: 45px 0; }
+  .food-sales-page--segments .commercial-section-heading { display: block; margin-bottom: 22px; }
+  .food-sales-page--segments .commercial-section-heading h2 { font-size: 28px; }
+  .food-sales-page--segments .commercial-section-heading > p { max-width: none; margin-top: 14px; font-size: 12px; }
+  .food-sales-page--segments .commercial-segments__choices { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+  .food-sales-page--segments .commercial-segments__choices button { min-height: 99px; padding: 15px; }
+  .food-sales-page--segments .commercial-segments__detail { display: block; margin-top: 22px; }
+  .food-sales-page--segments .commercial-segments__detail strong { font-size: 15px; }
+  .food-sales-page--segments .commercial-segments__detail > a { margin-top: 17px; max-width: none; }
+  .food-sales-page--segments .existing-value__grid { grid-template-columns: 1fr; gap: 23px; }
+  .food-sales-page--segments .existing-value__heading h2 { font-size: 28px; }
+  .food-sales-page--segments .existing-value__footer > svg:last-child { display: none; }
+  .food-sales-page--segments .commercial-modules h2 { font-size: 29px; }
+  .food-sales-page--segments .commercial-modules__grid { gap: 25px 21px; }
+  .food-sales-page--segments .commercial-modules__grid h3 { font-size: 13px; }
+  .food-sales-page--segments .commercial-modules__grid p { font-size: 11px; }
+  .food-sales-page--segments .commercial-demo-context { padding-top: 42px; }
+  .food-sales-page--segments .commercial-demo-context p { font-size: 12px; }
+  .food-sales-page--segments .interactive-showcase { padding-bottom: 45px; }
+  .food-sales-page--segments .sales-plan-card { padding: 25px 22px; }
+  .food-sales-page--segments .commercial-final { padding: 45px 0; }
+  .food-sales-page--segments .commercial-final .sales-shell > div { flex-direction: column; }
+  .food-sales-page--segments .sales-footer > .sales-shell { gap: 16px; }
+}

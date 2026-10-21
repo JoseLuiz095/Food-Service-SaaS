@@ -1,4 +1,10 @@
-# FoodWeb — Food Service SaaS v0.4.1
+# FoodWeb — vendas e operação para pequenos negócios
+
+## Vitrines e painel por ramo
+
+A página comercial e o cadastro agora apresentam alimentação, confeitaria, varejo, impressão 3D, aluguel e serviços. O ramo adapta a apresentação e pode ser alterado em **Configurações** ou pelo Master. Lojas existentes mantêm seu visual; a Doce Lua preserva sua identidade e operação.
+
+Esta evolução reutiliza `visual_theme`, sem migration. A ativação de módulos continua separada e desativada por padrão. Consulte [como configurar e testar](docs/SEGMENTOS_IDENTIDADE.md) e [ideias de nome e logo](docs/PROPOSTAS_MARCA.md).
 
 ## Evolução opcional: eventos, combos, personalizados e aluguel
 

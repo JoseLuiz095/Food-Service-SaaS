@@ -142,8 +142,9 @@ for(const file of sourceFiles){
 ok('CSS com chaves balanceadas',(css.match(/\{/g)||[]).length===(css.match(/\}/g)||[]).length);
 
 ok('Supabase publico possui fallback de producao', read('src/lib/config.ts').includes('FOODWEB_DEFAULT_SUPABASE_URL'));
-ok('Landing comercial FoodWeb preservada',landing.includes('Seu cardápio profissional')&&landing.includes('InteractiveShowcase')&&landing.includes('ExistingValueSection'));
-ok('Teste de 14 dias com CTA para criar conta', read('src/pages/store/Landing.tsx').includes('Criar conta e testar')&&read('src/pages/store/Landing.tsx').includes('{trialDays} dias')&&read('src/data/platformDefaults.ts').includes('demoDurationDays: 14'));
+const commercialSegments=read('src/components/marketing/CommercialSegments.tsx');
+ok('Landing comercial multirramos preserva demonstração e recursos',landing.includes('CommercialHero')&&landing.includes('InteractiveShowcase')&&landing.includes('ExistingValueSection')&&commercialSegments.includes('Seu negócio tem um jeito.'));
+ok('Teste configurável com CTA para criar conta',commercialSegments.includes('Criar conta e testar')&&commercialSegments.includes('{trialDays} dias')&&commercialSegments.includes('/cadastro?plan=DEMO&segment=')&&read('src/data/platformDefaults.ts').includes('demoDurationDays: 14'));
 ok('WhatsApp comercial e suporte configuráveis', masterPlans.includes('marketingWhatsapp')&&masterPlans.includes('supportWhatsapp')&&read('src/services/platformApi.ts').includes('support_whatsapp'));
 ok('Suporte flutuante restrito ao Admin',helpButton.includes('loadAdminSupportContact')&&(adminLayout.includes('<PlatformHelpButton/>')||adminLayout.includes('<PlatformHelpButton />'))&&(masterLayout.includes('<PlatformHelpButton/>')||masterLayout.includes('<PlatformHelpButton />'))&&!home.includes('PlatformHelpButton'));
 ok('Previews visuais otimizados incluídos', exists('public/assets/marketing/storefront-preview.webp')&&exists('public/assets/marketing/storefront-products.webp')&&exists('public/assets/marketing/storefront-hero.webp'));
@@ -217,14 +218,14 @@ const valueV058=read('src/components/marketing/ExistingValueSection.tsx');
 const landingV058=read('src/pages/store/Landing.tsx');
 ok('v0.5.8 pedido demo localStorage',interactiveV058.includes('foodweb_interactive_demo_v060')&&interactiveV058.includes('Finalizar pedido demonstrativo')&&interactiveV058.includes('Ver no painel de gestão'));
 ok('v0.5.8 pedido aparece na gestao',interactiveV058.includes('setOrders((current)=>[order,...current])')&&interactiveV058.includes('Confirmar recebimento')&&interactiveV058.includes('foodStatuses'));
-ok('v0.5.9 CTA principal preserva teste',landingV058.includes('Criar conta e testar')&&landingV058.includes('href="#demonstracao"'));
+ok('v0.5.9 CTA principal preserva teste',commercialSegments.includes('Criar conta e testar')&&commercialSegments.includes('href="#demonstracao"'));
 ok('v0.5.9 remove CTA criar conta duplicado',!landingV058.includes('sales-nav-self-service')&&!landingV058.includes('sales-cta-self-service'));
 ok('v0.5.9 planos usam contato comercial',!landingV058.includes('sales-plan-self-service--primary')&&landingV058.includes('sales-plan-contact-v59'));
-ok('v0.5.9 Profissional detalhado',landingV058.includes('Até 120 produtos no cardápio')&&landingV058.includes('Até 30 categorias e 120 adicionais')&&landingV058.includes('Leitura local de boletos, cupons e comprovantes'));
-ok('v0.5.9 CTA final WhatsApp',landingV058.includes('Entrar em contato no WhatsApp')&&landingV058.includes('sales-cta-contact-v59'));
+ok('v0.5.9 Profissional detalhado',landingV058.includes('Até 120 produtos no catálogo')&&landingV058.includes('Até 30 categorias e 120 adicionais')&&landingV058.includes('Leitura local de boletos, cupons e comprovantes'));
+ok('v0.5.9 CTA final mantém contato protegido',commercialSegments.includes('Conversar com a equipe')&&commercialSegments.includes('ProtectedContactButton')&&commercialSegments.includes('intent="commercial"'));
 ok('v0.5.9 visual de planos aplicado',css.includes('FOODWEB_LANDING_PLANOS_V059'));
 ok('v0.5.8 remove demo estatica e texto explicativo',!landingV058.includes('demonstracao-legado')&&!interactiveV058.includes('Não é um slide:'));
-ok('v0.5.8 valor real do produto',valueV058.includes('Venda sem comissão por pedido')&&valueV058.includes('Financeiro ligado ao recebimento')&&valueV058.includes('Leitura assistida de documentos'));
+ok('v0.5.8 valor real do produto',valueV058.includes('sem comissão por pedido')&&valueV058.includes('Financeiro gerencial')&&valueV058.includes('Leitura assistida de documentos')&&valueV058.includes('revisão humana'));
 ok('v0.5.8 fallback global de produto',read('public/assets/placeholder-food.svg').includes('PRODUCT_IMAGE_FALLBACK_V058'));
 const v060Migration=read('supabase/migrations/202609221300_foodweb_v060_product_personalization.sql');
 const productMediaV060=read('src/components/ProductMedia.tsx');
@@ -252,7 +253,7 @@ ok('v0.6.1 CRM simples de clientes',ordersV061.includes('CRM simples de clientes
 ok('v0.6.1 KDS opcional em Pedidos',settingsV061.includes('Modo cozinha / KDS')&&ordersV061.includes('COZINHA / KDS')&&growthMigrationV061.includes('kds_enabled'));
 ok('v0.6.1 upsell no carrinho',cartV061.includes('Que tal levar também?')&&cartV061.includes('cart-upsell-v061'));
 ok('v0.6.1 pedir novamente local',cartV061.includes('Pedir novamente')&&read('src/pages/store/Checkout.tsx').includes('saveRecentOrder'));
-ok('v0.6.1 landing comunica novas ferramentas',landingV061.includes('Recuperação de vendas')&&landingV061.includes('Cozinha / KDS opcional')&&landingV061.includes('CRM simples + pedir novamente'));
+ok('v0.6.1 landing comunica novas ferramentas',landingV061.includes('ExistingValueSection')&&valueV058.includes('Recuperação de vendas')&&valueV058.includes('Quadro de operação opcional')&&valueV058.includes('CRM simples + pedir novamente'));
 ok('v0.6.1 SQL de validacao existe',exists('supabase/VALIDAR_V061.sql'));
 console.log(`\nSmoke FoodWeb v0.6.2 concluído: ${checks.length} verificações + ${sourceFiles.length} arquivos TS/TSX.`);
 
@@ -296,7 +297,7 @@ ok('v0.6.2 recuperacao configuravel',settingsV062.includes('salesRecoveryMinutes
 ok('v0.6.2 KDS usa acoes de status',ordersV062.includes('kds-status-buttons-v062')&&ordersV062.includes('changeStatusWithCustomerDraft')&&settingsV062.includes('kdsNotifyCustomer'));
 ok('v0.6.2 upsell e recompra configuraveis',settingsV062.includes('upsellEnabled')&&settingsV062.includes('repeatOrderEnabled')&&read('src/pages/store/Cart.tsx').includes('settings.upsellEnabled'));
 ok('v0.6.2 checkout refinado',css.includes('FoodWeb v0.6.2 - refinamento operacional e comercial')&&css.includes('.checkout-review-check-v44'));
-ok('v0.6.2 Premium possui narrativa superior',landingV062.includes('POR QUE O PREMIUM?')&&landingV062.includes('MAIS COMPLETO'));
+ok('v0.6.2 Premium possui narrativa superior',landingV062.includes('mais capacidade de catálogo')&&landingV062.includes('MAIS COMPLETO')&&landingV062.includes('Domínio próprio incluído'));
 ok('v0.6.2 beneficios comerciais editaveis',masterPlansV062.includes('Benefícios comerciais extras')&&landingApiV062.includes('marketingBenefits')&&benefitsMigrationV062.includes('marketing_benefits'));
 ok('v0.6.2 auto cadastro Demo acompanha LandingPlan',read('src/pages/store/SelfSignup.tsx').includes('marketingBenefits:[]'));
 ok('v0.6.2 demo evita emoji nativo de produto',read('src/components/marketing/InteractiveShowcase.tsx').includes('interactive-demo__food-icon-v062'));

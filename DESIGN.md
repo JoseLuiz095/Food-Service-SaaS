@@ -1,4 +1,17 @@
-# FoodWeb — Direção visual v0.3
+# FoodWeb — Direção visual por ramo
+
+## Evolução multirramos
+
+- Comercial: fundo marfim, texto verde carvão, ação terracota e prévias ilustradas por ramo. Produto e operação permanecem no centro da comunicação.
+- Cadastro: seis opções com rótulos claros, seleção acessível e prévia; planos e liberação comercial permanecem independentes.
+- Loja e painel: alimentação mantém o visual anterior; confeitaria usa rosa queimado; varejo azul; impressão 3D índigo; aluguel ocre; serviços verde petróleo. A loja pode manter suas próprias cores.
+- Varejo, 3D, aluguel e serviços priorizam imagens inteiras e cards verticais. Conteúdo, fotos e identidade do lojista prevalecem.
+- Doce Lua: manter tema, layout e comportamento existentes. Não recebe as classes dos novos temas.
+- Master: superfície neutra e navegação verde escura, representando a plataforma inteira.
+- Estilos novos ficam em `src/segments/`, com escopo explícito. Evitar regras globais que alterem checkout ou lojas existentes.
+- Estudos de nova marca estão separados da interface publicada, em `docs/brand-directions.html`.
+
+As orientações históricas abaixo seguem como base para alimentação e para compatibilidade das lojas existentes.
 
 ## Objetivo
 

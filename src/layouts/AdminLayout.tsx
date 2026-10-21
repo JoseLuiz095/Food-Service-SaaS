@@ -17,13 +17,14 @@ import {
   Settings,
   ShieldCheck,
   ShoppingBag,
+  Store,
   Smartphone,
   Tags,
   Truck,
   UtensilsCrossed,
   X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PlatformHelpButton } from '../components/PlatformHelpButton';
 import { AdminNotifications } from '../components/admin/AdminNotifications';
@@ -35,6 +36,8 @@ import { billingApi, type StoreBillingOverview } from '../services/billingApi';
 import { getBillingVisualStatus } from '../utils/billingStatus';
 import { planHasFeature } from '../utils/plan';
 import { publicStorefrontPath } from '../utils/storefrontRoute';
+import { getBusinessSegment, resolveBusinessTheme, isDefaultStoreImage } from '../segments/businessSegments';
+import '../segments/segments.css';
 
 const navSections = [
   {
@@ -87,6 +90,11 @@ export default function AdminLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [billingOverview, setBillingOverview] = useState<StoreBillingOverview | null>(null);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const segment = getBusinessSegment(settings.visualTheme);
+  const segmentPresentation = segment.id !== 'food' && settings.visualTheme.preset !== 'doce_lua';
+  const logoUrl = segmentPresentation && isDefaultStoreImage(settings.logoUrl) ? '/assets/placeholder-catalog.svg' : settings.logoUrl;
+  const theme = resolveBusinessTheme(settings.visualTheme);
+  const segmentStyle = segmentPresentation ? { '--segment-primary': theme.primaryColor, '--segment-accent': theme.accentColor } as CSSProperties : undefined;
 
   useEffect(() => {
     const onBeforeInstallPrompt = (event: Event) => {
@@ -164,15 +172,15 @@ export default function AdminLayout() {
     || /vital[ií]cio|cortesia|isenta|sem cobrança/i.test(planIdentity);
 
   return (
-    <div className={`admin-shell food-admin-parity-v054 ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
+    <div data-business-segment={segment.id} data-visual-preset={settings.visualTheme.preset} style={segmentStyle} className={`admin-shell food-admin-parity-v054 ${segmentPresentation ? 'admin-business-theme' : ''} ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
       <button className="admin-mobile-menu" onClick={() => setOpen(true)} aria-label="Abrir menu"><Menu size={21} /></button>
       {open && <button className="admin-backdrop" onClick={() => setOpen(false)} aria-label="Fechar menu" />}
 
       <aside className={`admin-sidebar ${open ? 'is-open' : ''}`}>
         <button className="admin-sidebar-close" onClick={() => setOpen(false)} aria-label="Fechar"><X /></button>
         <button type="button" className="admin-sidebar-collapse" onClick={() => setSidebarCollapsed((current) => !current)} aria-pressed={sidebarCollapsed} aria-label={sidebarCollapsed ? "Expandir menu" : "Recolher menu"} title={sidebarCollapsed ? "Expandir menu" : "Recolher menu"}>{sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}</button>
-        <div className="admin-brand"><UtensilsCrossed size={24} /><div><strong>FoodWeb</strong><span>Administração</span></div></div>
-        <div className="admin-store-mini"><ImageWithFallback src={settings.logoUrl} alt={`Logo ${settings.name}`} /><div><strong>{settings.name}</strong><span>{settings.city} · {settings.state}</span></div></div>
+        <div className="admin-brand">{segmentPresentation?<Store size={24}/>:<UtensilsCrossed size={24} />}<div><strong>FoodWeb</strong><span>{segmentPresentation?segment.adminTitle:'Administração'}</span></div></div>
+        <div className="admin-store-mini"><ImageWithFallback src={logoUrl} fallbackSrc={segmentPresentation?'/assets/placeholder-catalog.svg':undefined} alt={`Logo ${settings.name}`} /><div><strong>{settings.name}</strong><span>{settings.city} · {settings.state}</span></div></div>
 
         {memberships.length > 1 && (
           <label className="admin-store-switcher">
@@ -190,9 +198,9 @@ export default function AdminLayout() {
             if (!items.length) return null;
             return (
               <div className="admin-nav__group" key={section.label}>
-                <span className="admin-nav__label">{section.label}</span>
+                <span className="admin-nav__label">{section.label==='Catálogo'&&segmentPresentation?segment.catalogLabel:section.label}</span>
                 {items.map(({ to, label, icon: Icon, end }) => (
-                  <NavLink key={to} to={to} end={end} onClick={() => setOpen(false)}><Icon size={18} /><span className="admin-nav-text">{label}</span></NavLink>
+                  <NavLink key={to} to={to} end={end} onClick={() => setOpen(false)}><Icon size={18} /><span className="admin-nav-text">{segmentPresentation&&to==='/admin/produtos'?segment.catalogLabel:label}</span></NavLink>
                 ))}
               </div>
             );
@@ -210,7 +218,7 @@ export default function AdminLayout() {
       <section className="admin-content">
         <header className="admin-topbar">
           <div className="admin-topbar__context">
-            <span className="eyebrow">{dataMode === 'demo' ? 'MODO DEMONSTRAÇÃO' : 'SUPABASE ATIVO'}</span>
+            <span className="eyebrow">{segmentPresentation?segment.label:dataMode === 'demo' ? 'MODO DEMONSTRAÇÃO' : 'SUPABASE ATIVO'}</span>
             <div className="admin-topbar__meta">
               <strong>Plano {planUsage.plan.name}</strong>
               <span className={`admin-live-status ${storeOnline ? 'is-online' : 'is-offline'}`}><CircleCheckBig size={14} />{storeOnline ? 'Loja online' : 'Loja indisponível'}</span>

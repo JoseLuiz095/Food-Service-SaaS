@@ -6,15 +6,17 @@ import { Badge } from './Badge';
 import { ProductMedia } from './ProductMedia';
 import { useStore } from '../contexts/StoreContext';
 import { storefrontPath } from '../utils/storefrontRoute';
+import { getBusinessSegment } from '../segments/businessSegments';
 
 export function ProductCard({product,category}:{product:Product;category?:Category}){
-  const {storeBasePath}=useStore();
+  const {storeBasePath,settings}=useStore();
+  const profile=getBusinessSegment(settings.visualTheme);
   const unavailable=product.stockStatus==='unavailable'||product.availabilityStatus!=='available';
   const outOfStock=product.trackStock&&Number(product.stockQuantity||0)-Number(product.stockReservedQuantity||0)<=0;
   return <Link to={storefrontPath(storeBasePath,`/produto/${product.slug}`)} className={`product-card product-card--food ${unavailable?'is-unavailable':''}`}>
     <div className="product-card__content">
       {product.featured&&<span className="product-card__featured">Mais pedido</span>}
-      <span className="product-card__category">{category?.name??'Cardápio'}</span>
+      <span className="product-card__category">{category?.name??profile.catalogLabel}</span>
       <h3>{product.name}</h3>
       <p>{product.description}</p>
       <div className="product-card__price">{product.promotionalPrice!=null?<><strong>{currency.format(product.promotionalPrice)}</strong><del>{currency.format(product.price)}</del></>:<strong>{currency.format(product.price)}</strong>}</div>

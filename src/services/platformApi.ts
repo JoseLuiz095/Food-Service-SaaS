@@ -1,6 +1,7 @@
 import { DEFAULT_PLATFORM_SETTINGS } from '../data/platformDefaults';
 import { isDemoMode } from '../lib/config';
 import { edgeFunctionHealth, invokeFunction, restFetch } from '../lib/supabaseRest';
+import { normalizeBusinessSegment } from '../segments/businessSegments';
 import type { PlatformEventKind, PlatformEventLog, PlatformEventResult } from './interactionTelemetry';
 import type {
   Plan,
@@ -53,7 +54,7 @@ const daysUntil = (value?: string) => {
 };
 const trialExpired = (value?: string) => Boolean(value) && new Date(value as string).getTime() <= Date.now();
 
-type StoreRow = { id:string; slug:string; name:string; city:string|null; state:string|null; owner_name:string|null; owner_email:string|null; active:boolean; access_status:StoreAccessStatus; suspended_at:string|null; suspension_reason:string|null };
+type StoreRow = { visual_theme?: {businessSegment?: import('../segments/businessSegments').BusinessSegment}; id:string; slug:string; name:string; city:string|null; state:string|null; owner_name:string|null; owner_email:string|null; active:boolean; access_status:StoreAccessStatus; suspended_at:string|null; suspension_reason:string|null };
 type PlanRow = { id:string; code:string; name:string; product_limit:number|null; image_limit_per_product:number|null; custom_domain:boolean; reports:boolean; priority_support:boolean; monthly_price:number|string|null; setup_price:number|string|null; category_limit:number|null; addon_limit:number|null; admin_user_limit:number|null; sort_order:number|null; active:boolean; marketing_benefits?: string[] | null };
 type SubscriptionRow = { id:string; store_id:string; plan_id:string; status:'trial'|'active'|'suspended'|'cancelled'; status_before_suspension:'trial'|'active'|null; started_at:string; expires_at:string|null; billing_amount:number|string|null; billing_mode?:SubscriptionBillingMode|null; due_day:number|null; next_due_date:string|null };
 type DomainRow = { id:string; store_id:string; domain:string; is_primary:boolean; active:boolean };
@@ -80,6 +81,7 @@ const mapPlatformSettings = (row?: PlatformSettingsRow): PlatformSettings => row
 } : DEFAULT_PLATFORM_SETTINGS;
 
 export type CreatePlatformStoreInput = {
+  businessSegment?: import('../segments/businessSegments').BusinessSegment;
   name:string;
   slug:string;
   city:string;
@@ -166,6 +168,7 @@ export const platformApi = {
       const demoExpired = plan?.code === 'DEMO' && sub?.status === 'trial' && Boolean(sub.expires_at) && new Date(sub.expires_at as string).getTime() <= Date.now();
       return {
         id:store.id,name:store.name,slug:store.slug,city:store.city||'',state:store.state||'',ownerName:store.owner_name||undefined,ownerEmail:store.owner_email||undefined,
+        businessSegment: normalizeBusinessSegment(store.visual_theme?.businessSegment),
         active:store.active,accessStatus:demoExpired?'suspended':(store.access_status||'online'),productCount:storeProducts.length,activeProductCount:storeProducts.filter((item)=>item.active).length,
         adminUserCount:users.filter((item)=>item.store_id===store.id&&item.active).length,subscriptionId:sub?.id,subscriptionStatus:sub?.status,
         planId:plan?.id,planName:plan?.name,planCode:plan?.code,billingAmount:sub?.billing_amount==null?toNumber(plan?.monthly_price):toNumber(sub.billing_amount),billingMode:sub?.billing_mode||((sub?.billing_amount==null?toNumber(plan?.monthly_price):toNumber(sub.billing_amount))===0?'complimentary':'negotiated'),
@@ -272,7 +275,10 @@ export const platformApi = {
 
   async createStore(input: CreatePlatformStoreInput): Promise<{storeId:string;slug:string;invited:boolean;existingUser?:boolean;createdWithPassword?:boolean;warning?:string;expiresAt?:string}> {
     if (isDemoMode) return {storeId:'demo-new-store',slug:input.slug,invited:false,createdWithPassword:input.credentialMode==='temporary_password'};
-    return invokeFunction<{storeId:string;slug:string;invited:boolean;existingUser?:boolean;createdWithPassword?:boolean;warning?:string;expiresAt?:string}>('food-platform-create-store', input);
+    const result = await invokeFunction<{storeId:string;slug:string;invited:boolean;existingUser?:boolean;createdWithPassword?:boolean;warning?:string;expiresAt?:string}>('food-platform-create-store', input);
+    const {saveNewStorePresentation} = await import('./businessPresentation');
+    const warning = await saveNewStorePresentation(result.storeId,input.businessSegment);
+    return {...result, warning:[result.warning,warning].filter(Boolean).join(' ') || undefined};
   },
 
   async updateStoreCredentials(input: { storeId:string; email:string; password?:string; forcePasswordChange?:boolean }): Promise<{ok:boolean;email:string;emailChanged:boolean;passwordChanged:boolean;linkedStoreCount?:number}> {

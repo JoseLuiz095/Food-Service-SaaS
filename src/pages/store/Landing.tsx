@@ -1,11 +1,13 @@
-import { ArrowRight, BarChart3, Check, ChefHat, LockKeyhole, MessageCircle, RefreshCw, ShieldCheck, ShoppingBag, Sparkles, Store, TrendingUp, Users, Wallet } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { ArrowRight, Check, MessageCircle, ShieldCheck, Store } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { ProtectedContactButton } from '../../components/ProtectedContactButton';
 import { LoadingState } from '../../components/ui/AsyncState';
 import { loadPublicLanding, type LandingPlan, type PublicLanding } from '../../services/landingApi';
 import { currency } from '../../utils/format';
 import { InteractiveShowcase } from '../../components/marketing/InteractiveShowcase';
 import { ExistingValueSection } from '../../components/marketing/ExistingValueSection';
+import '../../segments/commercial.css';
+import { CommercialHero, CommercialModules, CommercialFinal } from '../../components/marketing/CommercialSegments';
 
 type PlanMarketingContent = {
   eyebrow: string;
@@ -19,10 +21,10 @@ type PlanMarketingContent = {
 const planMarketingContent: Record<string, PlanMarketingContent> = {
   ESSENTIAL: {
     eyebrow: 'PARA COMEÇAR',
-    description: 'A base para publicar um cardápio profissional, receber pedidos e organizar o atendimento sem depender somente de redes sociais.',
-    idealFor: 'Operações enxutas, início do delivery ou cardápio digital com foco em praticidade.',
+    description: 'A base para publicar seus produtos, receber pedidos e organizar o atendimento em um canal próprio.',
+    idealFor: 'Negócios que estão começando e querem uma vitrine simples para vender.',
     features: [
-      'Até 40 produtos no cardápio',
+      'Até 40 produtos no catálogo',
       'Até 12 categorias organizadas',
       '1 imagem por produto',
       'Pedidos online com carrinho',
@@ -36,9 +38,9 @@ const planMarketingContent: Record<string, PlanMarketingContent> = {
   STARTER: {
     eyebrow: 'MAIS INDICADO',
     description: 'O Profissional reúne os recursos mais importantes para vender melhor, acompanhar a operação e dar mais consistência à gestão do negócio.',
-    idealFor: 'Restaurantes, lanchonetes e operações que querem vender com controle comercial e financeiro.',
+    idealFor: 'Lojas que querem acompanhar vendas, produtos e o financeiro do dia a dia.',
     features: [
-      'Até 120 produtos no cardápio',
+      'Até 120 produtos no catálogo',
       'Até 30 categorias e 120 adicionais',
       'Até 5 imagens por produto',
       'Pedidos online com delivery e retirada',
@@ -126,42 +128,31 @@ export default function Landing() {
   }, []);
 
   const view = data || fallback;
-  const demo = useMemo(() => view.stores.find((store) => store.slug === view.demoStoreSlug) || view.stores[0], [view]);
   const demoHref = `/${encodeURIComponent(view.demoStoreSlug)}`;
   const trialDays = view.demoEnabled ? view.demoDurationDays : 14;
-  const premiumPlan = view.plans.find((plan) => plan.code === 'PROFESSIONAL');
 
   if (!data) return <div className="landing-loading"><LoadingState label="Preparando apresentação FoodWeb..." /></div>;
 
-  return <div className="food-sales-page food-sales-page-v43 food-sales-page-v44 food-sales-page-v59">
+  return <div className="food-sales-page food-sales-page-v43 food-sales-page-v44 food-sales-page-v59 food-sales-page--segments">
     <header className="sales-nav sales-nav-v44"><div className="sales-shell">
-      <a className="sales-brand" href="/"><span className="foodweb-brand-mark">FW</span><strong>FoodWeb</strong></a>
-      <nav><a href="#recursos">Recursos</a><a href="#demonstracao">Demonstração</a><a href="#lojas">Lojas</a><a href="#planos">Planos</a></nav>
-      <div className="sales-nav-actions"><a href="/admin/login">Entrar</a><a className="sales-nav-primary" href="/cadastro?plan=DEMO">Criar conta e testar por {trialDays} dias</a></div>
+      <a className="sales-brand" href="/"><span className="foodweb-brand-mark">FW</span><strong>FoodWeb<small>Seu negócio, em movimento.</small></strong></a>
+      <nav aria-label="Navegação comercial"><a href="#ramos">Para seu negócio</a><a href="#recursos">Recursos</a><a href="#demonstracao">Demonstração</a><a href="#planos">Planos</a></nav>
+      <div className="sales-nav-actions"><a href="/admin/login">Entrar</a><a className="sales-nav-primary" href="/cadastro?plan=DEMO">Começar agora <ArrowRight size={15} /></a></div>
     </div></header>
 
-    <div className="sales-main">
-      <section className="sales-hero sales-hero-v43 sales-hero-v44"><div className="sales-shell sales-hero-grid-v43">
-        <div className="sales-hero-copy"><span className="sales-kicker"><Sparkles size={16} /> Plataforma completa para delivery</span><h1>Seu cardápio profissional, seus pedidos e sua gestão <em>em um só lugar.</em></h1><p>Venda direto pelo seu canal, sem comissão por pedido, com cardápio, delivery e retirada, pedidos, Analytics e Financeiro em um só painel.</p>
-          <div className="sales-hero-actions"><a className="sales-cta-primary sales-cta-trial" href="/cadastro?plan=DEMO">Criar conta e testar por {trialDays} dias</a><a className="sales-cta-secondary" href="#demonstracao">Ver demonstração <ArrowRight size={18} /></a></div>
-          <div className="sales-proof-row"><span><Check />Sem cartão no teste</span><span><Check />Ativação acompanhada</span><span><ShieldCheck />Contato comercial protegido</span></div>
-        </div>
-        <div className="sales-hero-visual-v43 sales-hero-visual-v44"><img src="/assets/marketing/storefront-preview.webp" alt="Prévia do cardápio FoodWeb" loading="eager" /><div className="sales-hero-visual-badge"><strong>Experiência pronta para celular</strong><span>Cardápio, carrinho e checkout</span></div></div>
-      </div></section>
-
-      <section className="sales-trust-strip-v44"><div className="sales-shell"><div><ShoppingBag /><span><strong>Loja online em minutos</strong><small>Cardápio pronto para vender</small></span></div><div><BarChart3 /><span><strong>Gestão em tempo real</strong><small>Pedidos e desempenho</small></span></div><div><Wallet /><span><strong>Financeiro gerencial</strong><small>Entradas, saídas e documentos</small></span></div><div><LockKeyhole /><span><strong>Segurança por padrão</strong><small>Turnstile nas ações públicas</small></span></div></div></section>
-
-      <section id="recursos" className="sales-benefits sales-benefits-v43"><div className="sales-shell"><div className="sales-section-heading center"><span>POR QUE FOODWEB?</span><h2>Uma experiência melhor para quem compra e mais controle para quem administra.</h2></div><div className="sales-benefit-grid sales-benefit-grid-v43"><article><span><ShoppingBag /></span><h3>Cardápio que dá vontade de pedir</h3><p>Fotos em destaque, busca, categorias, adicionais e carrinho pensado para celular.</p></article><article><span><BarChart3 /></span><h3>Entenda o que realmente vende</h3><p>Analytics para acompanhar visualizações, conversão e comportamento de compra.</p></article><article><span><Wallet /></span><h3>Financeiro simples e útil</h3><p>Entradas, saídas, categorias, vencimentos e leitura local de boletos, cupons e documentos.</p></article><article><span><ShieldCheck /></span><h3>Suporte reservado ao lojista</h3><p>O canal de suporte da plataforma fica disponível apenas dentro das áreas autenticadas de Admin e Master.</p></article></div></div></section>
+    <main className="sales-main">
+      <CommercialHero trialDays={trialDays} />
 
       <ExistingValueSection variant="food" />
 
-      <section className="sales-growth-v061"><div className="sales-shell"><div className="sales-section-heading center"><span>VENDA MAIS COM A BASE QUE VOCÊ JÁ TEM</span><h2>O FoodWeb agora ajuda a recuperar oportunidades, organizar a cozinha e estimular novas compras.</h2><p>Recursos simples, integrados ao fluxo atual, sem transformar sua operação em um ERP pesado.</p></div><div className="sales-growth-v061__grid"><article><span><RefreshCw/></span><h3>Recuperação de vendas</h3><p>Identifique pedidos registrados que não seguiram para o WhatsApp e retome o contato com uma mensagem pronta.</p></article><article><span><ChefHat/></span><h3>Cozinha / KDS opcional</h3><p>Acompanhe pedidos em etapas de produção e envie atualizações prontas ao cliente a cada mudança de status.</p></article><article><span><TrendingUp/></span><h3>Upsell no carrinho</h3><p>Sugestões de produtos complementares aparecem no momento certo para aumentar o ticket sem atrapalhar a compra.</p></article><article><span><Users/></span><h3>CRM simples + pedir novamente</h3><p>Veja frequência e valor dos clientes recentes e facilite a recompra no dispositivo do próprio consumidor.</p></article></div></div></section>
+      <CommercialModules />
 
+      <div className="commercial-demo-context sales-shell"><span className="commercial-eyebrow">EXPERIMENTE NA PRÁTICA</span><p>A demonstração abaixo usa uma loja de alimentação para mostrar a jornada de compra e gestão. Os dados são fictícios e nenhuma cobrança é feita.</p></div>
       <InteractiveShowcase variant="food" demoHref={demoHref} />
 
-      <section id="lojas" className="sales-stores sales-stores-v43"><div className="sales-shell"><div className="sales-section-heading split"><div><span>NEGÓCIOS PUBLICADOS</span><h2>Veja lojas que já estão no FoodWeb.</h2></div><Store size={28} /></div>{view.stores.length ? <div className="sales-store-grid">{view.stores.map((store) => <a key={store.id} className="sales-store-card" href={`/${encodeURIComponent(store.slug)}`}><div className="sales-store-cover" style={store.coverUrl ? { backgroundImage: `url(${store.coverUrl})` } : undefined}></div><div className="sales-store-content"><img src={store.logoUrl || '/assets/marketing/app-splash-v2.png?v=20261015'} alt="" loading="lazy" decoding="async" /><div><h3>{store.name}</h3><p>{store.description}</p><span>{[store.city, store.state].filter(Boolean).join(' · ') || 'Atendimento online'}</span></div></div><div className="sales-store-footer"><span>{store.deliveryEnabled ? 'Delivery' : ''}{store.deliveryEnabled && store.pickupEnabled ? ' + ' : ''}{store.pickupEnabled ? 'Retirada' : ''}</span><strong>Ver cardápio <ArrowRight size={15} /></strong></div></a>)}</div> : <div className="sales-empty-stores"><Store size={30} /><h3>As lojas publicadas aparecerão aqui automaticamente.</h3></div>}</div></section>
+      <section id="lojas" className="sales-stores sales-stores-v43"><div className="sales-shell"><div className="sales-section-heading split"><div><span>NEGÓCIOS PUBLICADOS</span><h2>Cada loja, uma história. Cada marca, seu espaço.</h2></div><Store size={28} /></div>{view.stores.length ? <div className="sales-store-grid">{view.stores.map((store) => <a key={store.id} className="sales-store-card" href={`/${encodeURIComponent(store.slug)}`}><div className="sales-store-cover" style={store.coverUrl ? { backgroundImage: `url(${store.coverUrl})` } : undefined}></div><div className="sales-store-content"><img src={store.logoUrl || '/assets/marketing/app-splash-v2.png?v=20261015'} alt="" loading="lazy" decoding="async" /><div><h3>{store.name}</h3><p>{store.description}</p><span>{[store.city, store.state].filter(Boolean).join(' · ') || 'Atendimento online'}</span></div></div><div className="sales-store-footer"><span>{store.deliveryEnabled ? 'Delivery' : ''}{store.deliveryEnabled && store.pickupEnabled ? ' + ' : ''}{store.pickupEnabled ? 'Retirada' : ''}</span><strong>Conhecer a loja <ArrowRight size={15} /></strong></div></a>)}</div> : <div className="sales-empty-stores"><Store size={30} /><h3>As lojas publicadas aparecerão aqui automaticamente.</h3></div>}</div></section>
 
-      <section id="planos" className="sales-plans sales-plans-v43"><div className="sales-shell"><div className="sales-section-heading center"><span>PLANOS</span><h2>Preço de entrada competitivo e recursos que crescem junto com a operação.</h2><p>Experimente o Profissional por {trialDays} dias antes de decidir como continuar.</p></div><div className="sales-plan-grid">{view.plans.filter((plan) => plan.code !== 'DEMO').map((plan) => {
+      <section id="planos" className="sales-plans sales-plans-v43"><div className="sales-shell"><div className="sales-section-heading center"><span>PLANOS</span><h2>Escolha a base que combina com o seu momento.</h2><p>Experimente o Profissional por {trialDays} dias antes de decidir como continuar.</p></div><div className="sales-plan-grid">{view.plans.filter((plan) => plan.code !== 'DEMO').map((plan) => {
         const recommended = plan.code === 'STARTER';
         const content = getPlanContent(plan, trialDays);
         return <article key={plan.id} className={`sales-plan-card ${recommended ? 'recommended' : ''}`}>
@@ -176,11 +167,11 @@ export default function Landing() {
           <ul>{planFeatures(plan, content).map((feature) => <li key={`${plan.id}-${feature}`}><Check size={15} />{feature}</li>)}</ul>
           <ProtectedContactButton className={`sales-plan-contact-v59 ${recommended ? 'sales-plan-contact-v59--featured' : ''}`} intent={content.intent}><MessageCircle size={16} />{content.contactLabel}</ProtectedContactButton>
         </article>;
-      })}<article className="sales-plan-card food-business-sales-v051 sales-plan-card-business-v59"><span className="sales-plan-badge">SOB MEDIDA</span><small>BUSINESS</small><h3>Business</h3><div className="sales-plan-price"><strong>Sob consulta</strong><span>valor definido pelo projeto</span></div><p className="sales-plan-description-v59">Projeto desenhado para operações que precisam de mais integração, automação e acompanhamento técnico no dia a dia.</p><div className="sales-plan-fit-v59 sales-plan-fit-v59--dark"><strong>Indicado para</strong><span>Operações multiunidade, franquias, centrais de produção e negócios com necessidades especiais.</span></div><ul><li><Check size={15} />Presença digital sob medida</li><li><Check size={15} />Multiunidade e fluxos personalizados</li><li><Check size={15} />Integrações com ERP, PDV e APIs</li><li><Check size={15} />Indicadores e automações sob medida</li><li><Check size={15} />Acompanhamento técnico dedicado</li></ul><ProtectedContactButton className="sales-plan-contact-v59 sales-plan-contact-v59--dark" intent="commercial"><MessageCircle size={16} />Quero avaliar um projeto Business</ProtectedContactButton></article></div><div className="premium-value-story-v062"><div><span>POR QUE O PREMIUM?</span><h3>O Profissional organiza. O Premium ajuda a vender novamente e operar melhor.</h3></div><p>Quando a operação começa a ganhar recorrência, {premiumPlan?.customDomain ? 'domínio próprio, ' : ''}CRM, recuperação, upsell e KDS deixam de ser detalhes e passam a reduzir trabalho e criar novas oportunidades de venda.</p></div><div className="sales-plan-note"><ShieldCheck size={17} /><span>O telefone comercial não fica exposto no HTML. O contato é liberado pelo servidor somente após a validação anti-robô.</span></div></div></section>
+      })}<article className="sales-plan-card food-business-sales-v051 sales-plan-card-business-v59"><span className="sales-plan-badge">SOB MEDIDA</span><small>BUSINESS</small><h3>Business</h3><div className="sales-plan-price"><strong>Sob consulta</strong><span>valor definido pelo projeto</span></div><p className="sales-plan-description-v59">Projeto desenhado para operações que precisam de mais integração, automação e acompanhamento técnico no dia a dia.</p><div className="sales-plan-fit-v59 sales-plan-fit-v59--dark"><strong>Indicado para</strong><span>Operações multiunidade, franquias, centrais de produção e negócios com necessidades especiais.</span></div><ul><li><Check size={15} />Presença digital sob medida</li><li><Check size={15} />Multiunidade e fluxos personalizados</li><li><Check size={15} />Integrações com ERP, PDV e APIs</li><li><Check size={15} />Indicadores e automações sob medida</li><li><Check size={15} />Acompanhamento técnico dedicado</li></ul><ProtectedContactButton className="sales-plan-contact-v59 sales-plan-contact-v59--dark" intent="commercial"><MessageCircle size={16} />Quero avaliar um projeto Business</ProtectedContactButton></article></div><div className="commercial-plan-note"><ShieldCheck size={19} /><p><strong>Recursos e limites conforme o plano contratado.</strong> Módulos opcionais são ativados nas configurações da loja. Pagamentos, sinais e repasses que exigem conferência continuam com confirmação manual.</p></div></div></section>
 
-      <section className="sales-final-cta sales-final-cta-v43 sales-final-cta-v59"><div className="sales-shell"><div><span>PRONTO PARA CONHECER MELHOR?</span><h2>Fale com a equipe comercial e entenda qual plano faz mais sentido para o seu negócio.</h2><p>O contato público é protegido e o suporte técnico continua reservado para lojistas autenticados.</p></div><ProtectedContactButton className="sales-cta-light sales-cta-contact-v59" intent="commercial"><MessageCircle size={18} />Entrar em contato no WhatsApp</ProtectedContactButton></div></section>
-    </div>
+      <CommercialFinal trialDays={trialDays} />
+    </main>
 
-    <footer className="sales-footer"><div className="sales-shell"><a className="sales-brand" href="/"><span className="foodweb-brand-mark">FW</span><strong>FoodWeb</strong></a><span>Cardápio, pedidos e gestão para negócios de alimentação.</span><a href="/admin/login">Área do lojista</a></div></footer>
+    <footer className="sales-footer"><div className="sales-shell"><a className="sales-brand" href="/"><span className="foodweb-brand-mark">FW</span><strong>FoodWeb</strong></a><span>Produtos, serviços e novas possibilidades para o seu negócio.</span><a href="/admin/login">Área do lojista</a></div></footer>
   </div>;
 }
