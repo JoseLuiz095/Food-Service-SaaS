@@ -1,0 +1,36 @@
+export type ModuleSettings = {
+  store_id: string; organization_id?: string; events_enabled: boolean; combos_enabled: boolean;
+  rentals_enabled: boolean; custom_enabled: boolean; max_quantity: number; lead_hours: number; urgency_bps: number;
+};
+export const disabledModules = (storeId: string): ModuleSettings => ({ store_id: storeId, events_enabled: false,
+  combos_enabled: false, rentals_enabled: false, custom_enabled: false, max_quantity: 100, lead_hours: 24, urgency_bps: 0 });
+export type OfferKind = 'product' | 'service' | 'printing3d' | 'custom' | 'rental';
+export const offerKindLabels: Record<OfferKind, string> = { product: 'Produto', service: 'Serviço', printing3d: 'Impressão 3D', custom: 'Personalizado', rental: 'Aluguel' };
+export type Offer = { id: string; store_id: string; organization_id: string; name: string; kind: OfferKind;
+  price_cents: number; published: boolean; active: boolean; ready_now: boolean; max_quantity: number; lead_hours: number;
+  stock_quantity: number | null; reserved_quantity: number; store_name?: string };
+export type ComboVersion = { id: string; combo_id: string; seller_store_id: string; version: number; name: string; published: boolean };
+export type ComboItem = { id: string; version_id: string; store_id: string; offer_id: string; quantity: number; discount_bps: number;
+  approval: 'pending' | 'approved' | 'rejected'; snapshot: { name: string; kind: OfferKind; price_cents: number } };
+export type OrderPart = { id: string; order_id: string; store_id: string; code: number; total_cents: number; status: string; urgency: string; scheduled_for: string };
+export type ModuleOrder = { id: string; code: number; seller_store_id: string; total_cents: number; charged_cents: number; paid_cents: number;
+  status: string; customer_name: string; customer_phone: string; scheduled_for: string; expires_at: string };
+export type ModuleOrderItem = { id: string; order_id: string; part_id: string; store_id: string; quantity: number; total_cents: number; status: string; snapshot: { name: string; kind: OfferKind; urgency_bps: number; discount_bps: number } };
+export type Receivable = { part_id: string; store_id: string; amount_cents: number; settled_cents: number; status: string };
+export type Refund = { id: string; order_id: string; part_id: string; amount_cents: number; status: string };
+export type CustomRequest = { id: string; organization_id: string; store_id: string; customer_name: string; customer_phone: string;
+  quantity: number; size: string; material: string; color: string; due_at: string; notes: string; status: string; final_cents: number | null; quote: PrintCosts | null };
+export type CustomFile = { id: string; request_id: string; name: string; storage_path: string; size_bytes: number };
+export type RentalAsset = { offer_id: string; maintenance: boolean; maintenance_notes: string };
+export type ChecklistItem = { label: string; checked: boolean };
+export type RentalReservation = { id: string; item_id: string; offer_id: string; starts_at: string; ends_at: string; status: string;
+  deposit_cents: number; deposit_reference: string | null; contract: string; assembly_checklist: ChecklistItem[]; return_checklist: ChecklistItem[] };
+export type PrintCosts = { grams: number; cents_per_gram: number; watts: number; energy_cents_kwh: number; hours: number;
+  machine_cents_hour: number; labor_cents: number; finishing_cents: number; margin_bps: number };
+export type PublicCatalog = { store?: { name: string; logo_url: string | null }; offers: Pick<Offer, 'id' | 'name' | 'kind' | 'price_cents' | 'store_id' | 'max_quantity' | 'lead_hours' | 'ready_now'>[];
+  combos: { id: string; combo_id: string; version: number; name: string; items: { id: string; name: string; quantity: number; price_cents: number; discount_bps: number; lead_hours: number; ready_now: boolean }[] }[] };
+export type CustomerOrder = { id: string; code: number; seller_store_id: string; status: string; total_cents: number; charged_cents: number;
+  paid_cents: number; expires_at: string; refund_due_cents: number;
+  pix: null | { receiptMode: 'key' | 'copy_paste'; key: string; copyPaste: string; receiver: string; city: string };
+  items: { id: string; name: string; kind: OfferKind; store_id: string; quantity: number; total_cents: number; status: string; urgent: boolean;
+    urgency_bps: number; urgency: string; ready_now: boolean; lead_hours: number }[] };

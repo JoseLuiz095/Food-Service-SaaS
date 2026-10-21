@@ -66,6 +66,7 @@ const navSections = [
     items: [
       { to: '/admin/plano', label: 'Meu plano', icon: BadgeDollarSign },
       { to: '/admin/configuracoes', label: 'Configurações', icon: Settings },
+      { to: '/admin/modulos', label: 'Módulos opcionais', icon: Boxes },
     ],
   },
 ];

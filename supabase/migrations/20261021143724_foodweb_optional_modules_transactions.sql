@@ -49,7 +49,9 @@ end $$;
 
 -- Só informações deliberadamente publicadas; nunca estoque interno, Pix ou arquivos.
 create function public.food_modules_catalog(p_seller uuid) returns jsonb language sql stable security definer set search_path='' as $$
- select jsonb_build_object('offers',coalesce((select jsonb_agg(jsonb_build_object('id',o.id,'store_id',o.store_id,'name',o.name,'kind',o.kind,
+ select jsonb_build_object('store',(select jsonb_build_object('name',s.name) from public.food_stores s join public.food_module_settings m on m.store_id=s.id
+   where s.id=p_seller and s.active and s.archived_at is null and (m.events_enabled or m.combos_enabled or m.rentals_enabled or m.custom_enabled)),
+ 'offers',coalesce((select jsonb_agg(jsonb_build_object('id',o.id,'store_id',o.store_id,'name',o.name,'kind',o.kind,
    'price_cents',o.price_cents,'ready_now',o.ready_now,'lead_hours',greatest(o.lead_hours,m.lead_hours),'max_quantity',least(o.max_quantity,m.max_quantity)))
    from public.food_module_offers o join public.food_module_settings m on m.store_id=o.store_id
    where o.store_id=p_seller and o.published and o.active and private.food_modules_enabled(o.store_id,
@@ -61,7 +63,8 @@ create function public.food_modules_catalog(p_seller uuid) returns jsonb languag
    where v.seller_store_id=p_seller and v.published and private.food_modules_enabled(p_seller,'combos')
      and not exists(select 1 from public.food_combo_versions newer where newer.combo_id=v.combo_id and newer.published and newer.version>v.version)
      and not exists(select 1 from public.food_combo_items ci join public.food_module_offers o on o.id=ci.offer_id
-       where ci.version_id=v.id and (ci.approval<>'approved' or not o.active or not o.published or not private.food_modules_enabled(o.store_id,'combos')))),'[]'::jsonb))
+       where ci.version_id=v.id and (ci.approval<>'approved' or not o.active or not o.published or not private.food_modules_enabled(o.store_id,'combos')
+         or not private.food_modules_enabled(o.store_id,case o.kind when 'rental' then 'rentals' when 'custom' then 'custom' when 'printing3d' then 'custom' else 'events' end)))),'[]'::jsonb))
 $$;
 revoke all on function public.food_modules_catalog(uuid) from public;
 grant execute on function public.food_modules_catalog(uuid) to anon,authenticated,service_role;
@@ -141,8 +144,8 @@ begin
    select coalesce(max(version),0)+1 into v_number from public.food_combo_versions where combo_id=parent;
    insert into public.food_combo_versions(combo_id,organization_id,seller_store_id,version,name)
      values(parent,org,p_store,v_number,trim(p_data->>'name')) returning id into obj;
-   for v_item in select * from jsonb_array_elements(p_data->'items') loop
-     select * into strict v_offer from public.food_module_offers where id=(v_item->>'offer_id')::uuid and active and published;
+   for v_item in select * from jsonb_array_elements(p_data->'items') order by value->>'offer_id' loop
+     select * into strict v_offer from public.food_module_offers where id=(v_item->>'offer_id')::uuid and active and published for share;
      if not private.food_modules_enabled(v_offer.store_id,'combos') then raise exception 'Fornecedor não habilitou combos.'; end if;
      if (v_item->>'quantity')::integer>v_offer.max_quantity then raise exception 'Quantidade excede limite da oferta.'; end if;
      insert into public.food_combo_items(version_id,offer_id,organization_id,store_id,quantity,discount_bps,snapshot)
@@ -174,7 +177,8 @@ begin
    if p_action='urgency' then
      select * into strict v_part from public.food_module_order_parts where order_id=obj and store_id=p_store for update;
      if v_order.status<>'draft' or v_part.urgency not in ('pending','accepted','rejected') then raise exception 'Urgência indisponível.'; end if;
-     update public.food_module_order_parts set urgency=case when (p_data->>'accept')::boolean then 'accepted' else 'rejected' end where id=v_part.id;
+   update public.food_module_order_parts set urgency=case when (p_data->>'accept')::boolean then 'accepted' else 'rejected' end where id=v_part.id;
+   perform private.food_modules_audit(p_store,'urgency.decision',v_part.id,jsonb_build_object('accepted',(p_data->>'accept')::boolean));
    elsif p_action='payment' then
      if v_order.seller_store_id<>p_store then raise exception 'Somente a loja vendedora confere o pagamento.' using errcode='42501'; end if;
      if v_order.status='paid' then return jsonb_build_object('id',obj,'already_paid',true); end if;
@@ -290,8 +294,8 @@ begin
  if coalesce(current_setting('request.jwt.claims',true)::jsonb->>'role','')<>'service_role' and session_user<>'postgres' then raise exception 'Acesso negado.' using errcode='42501'; end if;
  token:=p_data->>'token';
  if token is null or token !~ '^[a-f0-9]{64}$' then raise exception 'Credencial inválida.' using errcode='42501'; end if;
+ perform private.food_modules_expire();
  if p_action='create' then
-   perform private.food_modules_expire();
    seller:=(p_data->>'seller_store_id')::uuid; req:=(p_data->>'request_id')::uuid;
    perform pg_advisory_xact_lock(hashtextextended(seller::text||req::text,0));
    select * into o from public.food_module_orders where seller_store_id=seller and request_id=req;
@@ -349,7 +353,7 @@ begin
        select ord,offer.organization_id,offer.store_id,code,starts,case when urgent then 'pending' else 'not_needed' end from public.food_module_orders where id=ord
        on conflict(order_id,store_id) do update set urgency=case when excluded.urgency='pending' then 'pending' else food_module_order_parts.urgency end returning id into part;
      insert into public.food_module_order_items(order_id,part_id,organization_id,store_id,offer_id,combo_item_id,quantity,snapshot,total_cents)
-       values(ord,part,offer.organization_id,offer.store_id,offer.id,nullif(x->>'combo_item_id','')::uuid,qty,terms,line_cents) returning id into item;
+       values(ord,part,offer.organization_id,offer.store_id,offer.id,case when ver is not null then (x->>'combo_item_id')::uuid end,qty,terms,line_cents) returning id into item;
      if offer.kind='rental' then
        insert into public.food_rental_reservations(offer_id,item_id,organization_id,store_id,starts_at,ends_at) values(offer.id,item,offer.organization_id,offer.store_id,starts,ends);
      end if;
@@ -370,8 +374,7 @@ begin
      perform private.food_modules_recalculate(ord);
      perform private.food_modules_audit(o.seller_store_id,'customer.item_removed',item);
    elsif p_action='freeze' then
-     if o.status='payment_pending' then return private.food_modules_customer_view(ord); end if;
-     if o.status<>'draft' or o.expires_at<=now() or o.total_cents<=0 then raise exception 'Pedido indisponível ou vazio.'; end if;
+     if o.status not in ('draft','payment_pending') or o.expires_at<=now() or o.total_cents<=0 then raise exception 'Pedido indisponível ou vazio.'; end if;
      if exists(select 1 from public.food_module_order_parts where order_id=ord and total_cents>0 and urgency in ('pending','rejected')) then raise exception 'Prazo mínimo não atendido: aguarde decisão de urgência dos fornecedores ou remova os itens recusados.'; end if;
      select * into strict s from public.food_stores where id=o.seller_store_id;
      if not s.pix_enabled then raise exception 'Pix da loja vendedora indisponível.'; end if;

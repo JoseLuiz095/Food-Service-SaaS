@@ -170,11 +170,11 @@ returns boolean language sql stable security definer set search_path=''
 as $$
   select auth.uid() is not null and exists(
     select 1 from public.food_module_stores ms join public.food_stores s on s.id=ms.store_id
-    where ms.organization_id=p_org and ms.store_id=p_store and s.active and s.archived_at is null
-      and (private.food_modules_master() or exists(select 1 from public.food_store_users su
+    where ms.organization_id=p_org and ms.store_id=p_store
+      and (private.food_modules_master() or (s.active and s.archived_at is null and exists(select 1 from public.food_store_users su
         where su.store_id=p_store and su.user_id=auth.uid() and su.active
           and su.role in ('owner','admin','manager','finance')
-          and (not p_manage or su.role in ('owner','admin','manager')))))
+          and (not p_manage or su.role in ('owner','admin','manager'))))))
 $$;
 create function private.food_modules_enabled(p_store uuid,p_module text) returns boolean
 language sql stable security definer set search_path='' as $$
