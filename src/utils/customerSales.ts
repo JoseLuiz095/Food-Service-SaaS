@@ -65,6 +65,19 @@ export function ensureCustomerMessageVariables(key: keyof CustomerMessageTemplat
   return missing.length ? `${text.trimEnd()}${text.trim() ? ' ' : ''}${missing.join(' ')}` : text;
 }
 
+/** Insere uma variável na posição do cursor, sem obrigar o usuário a apagar palavras. */
+export function insertCustomerMessageVariable(value: string, variable: string, start: number, end: number) {
+  const text = typeof value === 'string' ? value : '';
+  const safeStart = Math.max(0, Math.min(start, text.length));
+  const safeEnd = Math.max(safeStart, Math.min(end, text.length));
+  const before = text.slice(0, safeStart);
+  const after = text.slice(safeEnd);
+  const spacingBefore = before && !/\s$/.test(before) ? ' ' : '';
+  const spacingAfter = after && !/^\s/.test(after) ? ' ' : '';
+  const next = `${before}${spacingBefore}${variable}${spacingAfter}${after}`;
+  return { value: next, cursor: before.length + spacingBefore.length + variable.length };
+}
+
 export function normalizeCustomerMessageTemplates(value: unknown): CustomerMessageTemplates {
   const raw = value && typeof value === 'object' ? value as Partial<CustomerMessageTemplates> : {};
   const merged = { ...DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ...Object.fromEntries(Object.entries(raw).filter(([,v]) => typeof v === 'string' && v.trim())) } as CustomerMessageTemplates;

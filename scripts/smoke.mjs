@@ -339,5 +339,7 @@ const inventoryCountMigration=read('supabase/migrations/20261021003621_foodweb_i
 ok('estoque usa conferência física atômica',inventoryVNext.includes('commitPhysicalCount')&&inventoryApiVNext.includes('food_commit_inventory_count'));
 ok('conferência física preserva auditoria e bloqueio',inventoryCountMigration.includes('food_inventory_counts')&&inventoryCountMigration.includes('for update')&&inventoryCountMigration.includes('Conferência de estoque real'));
 ok('pedidos possuem índices para leitura operacional',inventoryCountMigration.includes('food_order_items_order_id_idx')&&inventoryCountMigration.includes('food_order_item_options_order_item_id_idx'));
+ok('unidade de insumo converte histórico com segurança',read('src/services/inventoryApi.ts').includes('changeUnit')&&exists('supabase/migrations/20261021011000_foodweb_inventory_unit_conversion.sql')&&read('supabase/migrations/20261021011000_foodweb_inventory_unit_conversion.sql').includes('food_convert_inventory_unit'));
+ok('mensagens inserem variável no cursor',read('src/utils/customerSales.ts').includes('insertCustomerMessageVariable')&&read('src/pages/admin/Settings.tsx').includes('insertMessageVariable'));
 if(failures.length){console.error(`\n${failures.length} falha(s) nas verificações de estoque inteligente:`);for(const failure of failures)console.error(`- ${failure}`);process.exit(1)}
 console.log(`Smoke final FoodWeb: ${checks.length} verificações aprovadas.`);

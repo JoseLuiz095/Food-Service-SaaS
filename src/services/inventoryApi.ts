@@ -260,6 +260,14 @@ export const inventoryApi = {
     return mapItem(rows[0]);
   },
 
+  async changeUnit(storeId: string, itemId: string, unit: InventoryUnit): Promise<InventoryItem> {
+    if (isDemoMode) throw new Error('A edição de unidade exige o modo conectado ao Supabase.');
+    const result = await restFetch<Record<string, unknown> | Array<Record<string, unknown>>>('rpc/food_convert_inventory_unit', { method: 'POST', body: { p_store_id: storeId, p_inventory_item_id: itemId, p_new_unit: unit } });
+    const payload = rpcResult(result);
+    if (!payload.item || typeof payload.item !== 'object') throw new Error('A unidade não pôde ser convertida.');
+    return mapItem(payload.item as InventoryItemRow);
+  },
+
   /** Arquiva o cadastro sem apagar movimentos, compras ou fichas técnicas históricas. */
   async archiveItem(storeId: string, itemId: string): Promise<InventoryItem> {
     return this.updateItem(storeId, itemId, { active: false });
