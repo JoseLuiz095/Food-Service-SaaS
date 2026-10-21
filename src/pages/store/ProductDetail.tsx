@@ -1,6 +1,6 @@
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clock3, Minus, Package, Plus, Share2, ShoppingBag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ProductMedia, hasProductImage } from '../../components/ProductMedia';
 import { LoadingState } from '../../components/ui/AsyncState';
 import { useCart } from '../../contexts/CartContext';
@@ -53,6 +53,7 @@ const InstagramGlyph = ({ size = 15 }: { size?: number }) => <svg aria-hidden="t
 
 export default function ProductDetail() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const { products, categories, settings, loading, storeBasePath } = useStore();
   const { addItem } = useCart();
   const { showToast } = useToast();
@@ -192,7 +193,7 @@ export default function ProductDetail() {
     addItem(product, quantity, selectedOptions, partyConfig ? { partyPackageWeightGrams: selectedPartyWeight } : undefined);
     void trackPublicEvent(settings.id, 'add_to_cart', product.id);
     showToast('Produto adicionado ao carrinho.', 'success');
-    window.location.assign(storefrontPath(storeBasePath, '/carrinho'));
+    navigate(storefrontPath(storeBasePath, '/carrinho'));
   };
 
   return <div className="simple-page">

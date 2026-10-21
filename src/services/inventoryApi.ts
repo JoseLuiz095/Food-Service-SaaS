@@ -241,12 +241,14 @@ export const inventoryApi = {
     }));
   },
 
-  async updateItem(storeId: string, itemId: string, input: { name?: string; reorderPoint?: number; lowStockAlertEnabled?: boolean; active?: boolean }): Promise<InventoryItem> {
+  async updateItem(storeId: string, itemId: string, input: { name?: string; itemType?: InventoryItemType; reorderPoint?: number; lowStockAlertEnabled?: boolean; notes?: string; active?: boolean }): Promise<InventoryItem> {
     if (isDemoMode) throw new Error('A edição de insumos exige o modo conectado ao Supabase.');
     const body: Record<string, unknown> = {};
     if (input.name !== undefined) body.name = input.name.trim();
+    if (input.itemType !== undefined) body.item_type = input.itemType;
     if (input.reorderPoint !== undefined) body.reorder_point = Math.max(0, input.reorderPoint);
     if (input.lowStockAlertEnabled !== undefined) body.low_stock_alert_enabled = input.lowStockAlertEnabled;
+    if (input.notes !== undefined) body.notes = input.notes.trim() || null;
     if (input.active !== undefined) body.active = input.active;
     if (input.name !== undefined && !String(input.name).trim()) throw new Error('Informe o nome do insumo.');
     const rows = await restFetch<InventoryItemRow[]>(`food_inventory_items?select=${INVENTORY_ITEM_SELECT}&id=eq.${encodeURIComponent(itemId)}&store_id=eq.${encodeURIComponent(storeId)}`, {
