@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PlatformHelpButton } from '../components/PlatformHelpButton';
 import { useAuth } from '../contexts/AuthContext';
+import '../segments/segments.css';
 
 const nav = [
   { to: '/admin-master', label: 'Visão geral', icon: LayoutDashboard, end: true },
@@ -27,7 +28,7 @@ export default function MasterLayout() {
   };
 
   return (
-    <div className="admin-shell master-shell">
+    <div className="admin-shell master-shell platform-business-shell">
       <button className="admin-mobile-menu" onClick={() => setOpen(true)} aria-label="Abrir menu"><Menu size={21} /></button>
       {open && <button className="admin-backdrop" onClick={() => setOpen(false)} aria-label="Fechar menu" />}
 
@@ -52,7 +53,7 @@ export default function MasterLayout() {
         </nav>
 
         <div className="admin-sidebar__bottom">
-          <a href="/" target="_blank" rel="noreferrer"><ExternalLink size={18} /> Abrir catálogo</a>
+          <a href="/" target="_blank" rel="noreferrer"><ExternalLink size={18} /> Página comercial</a>
           <button onClick={() => void logout()}><LogOut size={18} /> Sair</button>
         </div>
       </aside>

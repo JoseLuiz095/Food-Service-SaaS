@@ -14,13 +14,16 @@ import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ensureCustomerMessageVariables, ins
 import { DEFAULT_STORE_VISUAL_THEME, getStorefrontThemeStyle, isStoreVisualColor, STORE_VISUAL_THEME_PRESETS } from '../../utils/storeVisualTheme';
 import { pwaPushStatus, requestPwaNotificationPermission, showPwaNotification, subscribeToPwaPush } from '../../services/pwaNotifications';
 import { useAuth } from '../../contexts/AuthContext';
+import { BusinessSegmentPicker } from '../../segments/BusinessSegmentPicker';
+import { getBusinessSegment, resolveBusinessTheme, selectBusinessSegment } from '../../segments/businessSegments';
 
 const isDoceLuaStore = (store: Pick<StoreSettings, 'slug' | 'name'>) =>
   `${store.slug} ${store.name}`.toLowerCase().replace(/[^a-z0-9]/g, '').includes('docelua');
 
 const cloneSettingsForForm = (settings: StoreSettings) => {
   const next = structuredClone(settings);
-  if (!isDoceLuaStore(next) && next.visualTheme.preset === 'doce_lua') next.visualTheme = { ...DEFAULT_STORE_VISUAL_THEME };
+  if (!isDoceLuaStore(next) && next.visualTheme.preset === 'doce_lua') next.visualTheme = { ...DEFAULT_STORE_VISUAL_THEME, businessSegment:next.visualTheme.businessSegment };
+  next.visualTheme = resolveBusinessTheme(next.visualTheme);
   return next;
 };
 
@@ -37,6 +40,7 @@ export default function SettingsAdmin() {
   const pixCopyPasteRef = useRef<HTMLTextAreaElement | null>(null);
   const canCustomBanner = planHasFeature(planUsage.plan, 'custom_banner');
   const canUseDoceLua = isDoceLuaStore(form);
+  const businessProfile = getBusinessSegment(form.visualTheme);
   const messageTemplates = normalizeCustomerMessageTemplates(form.messageTemplates);
   const pristineSettings = useMemo(() => cloneSettingsForForm(settings), [settings]);
   const hasUnsavedChanges = Boolean(logoFile || coverFile) || JSON.stringify(form) !== JSON.stringify(pristineSettings);
@@ -62,7 +66,7 @@ export default function SettingsAdmin() {
     ...current,
     visualTheme: { ...current.visualTheme, [key]: value, preset: key === 'preset' ? value as StoreVisualTheme['preset'] : 'custom' },
   }));
-  const applyVisualPreset = (preset: keyof typeof STORE_VISUAL_THEME_PRESETS) => setForm((current) => ({ ...current, visualTheme: { ...STORE_VISUAL_THEME_PRESETS[preset] } }));
+  const applyVisualPreset = (preset: keyof typeof STORE_VISUAL_THEME_PRESETS) => setForm((current) => ({ ...current, visualTheme: resolveBusinessTheme({ ...STORE_VISUAL_THEME_PRESETS[preset], businessSegment:current.visualTheme.businessSegment }) }));
   const updateMessageTemplate = (key: keyof NonNullable<StoreSettings['messageTemplates']>, value: string) => setForm((current) => ({ ...current, messageTemplates: { ...normalizeCustomerMessageTemplates(current.messageTemplates), [key]: ensureCustomerMessageVariables(key, value) } }));
   const insertMessageVariable = (variable: string) => {
     const current = messageTemplates[messageCursor.key];
@@ -227,6 +231,7 @@ export default function SettingsAdmin() {
           <div className="admin-card__header"><div><span className="eyebrow">IDENTIDADE</span><h2>Dados do estabelecimento</h2></div></div>
           <div className="form-grid">
             <label className="full">Nome<input required value={form.name} onChange={(e) => update('name', e.target.value)} /></label>
+            <div className="full"><BusinessSegmentPicker compact value={businessProfile.id} onChange={(segment)=>setForm((current)=>({...current,visualTheme:selectBusinessSegment(current.visualTheme,segment)}))}/></div>
             <label className="full">Frase da loja<input value={form.tagline} onChange={(e) => update('tagline', e.target.value)} /></label>
             <label>Cidade<input value={form.city} onChange={(e) => update('city', e.target.value)} /></label>
             <label>UF<input value={form.state} onChange={(e) => update('state', e.target.value.toUpperCase())} maxLength={2} /></label>
@@ -260,23 +265,23 @@ export default function SettingsAdmin() {
           <section className="subform-section">
             <span className="eyebrow">APARÊNCIA DA VITRINE</span>
             <h3>Uma identidade que parece sua</h3>
-            <p className="muted">Escolha uma base pronta ou refine as cores. A prévia vale apenas para a vitrine pública desta loja.</p>
+            <p className="muted">O ramo orienta a vitrine e o painel. Escolha a base do ramo ou refine as cores da sua loja.</p>
             <div style={{ display: 'grid', gap: 8, marginTop: 14 }} role="radiogroup" aria-label="Tema visual da vitrine">
-              <label className="switch-row"><span><strong>FoodWeb clássico</strong><small>Neutro, versátil e pronto para qualquer cardápio.</small></span><input type="radio" name="visual-theme-preset" checked={form.visualTheme.preset === 'foodweb'} onChange={() => applyVisualPreset('foodweb')} /></label>
+              <label className="switch-row"><span><strong>Identidade do ramo</strong><small>Base visual para {businessProfile.label.toLowerCase()}, com a marca da sua loja.</small></span><input type="radio" name="visual-theme-preset" checked={form.visualTheme.preset === 'foodweb'} onChange={() => applyVisualPreset('foodweb')} /></label>
               {canUseDoceLua && <label className="switch-row"><span><strong>Doce Lua</strong><small>Creme, chocolate, pêssego e dourado para uma vitrine delicada.</small></span><input type="radio" name="visual-theme-preset" checked={form.visualTheme.preset === 'doce_lua'} onChange={() => applyVisualPreset('doce_lua')} /></label>}
             </div>
             <div style={{ marginTop: 16, padding: 18, border: `1px solid ${form.visualTheme.borderColor}`, borderRadius: form.visualTheme.radius, background: form.visualTheme.backgroundColor, color: form.visualTheme.textColor }}>
                <div className="settings-storefront-preview" style={{ ...getStorefrontThemeStyle(form.visualTheme), borderRadius: form.visualTheme.radius, background: form.visualTheme.backgroundColor, color: form.visualTheme.textColor }}>
                  <div className="settings-storefront-preview__bar"><strong>{form.name || 'Sua loja'}</strong><span>Pedido direto</span></div>
                  <div className="settings-storefront-preview__hero" style={{ background: form.visualTheme.surfaceColor, borderColor: form.visualTheme.borderColor }}>
-                   <span style={{ color: form.visualTheme.accentColor }}>ENCOMENDAS ONLINE</span>
-                   <strong>{form.tagline || 'Sabores que dão vontade de voltar'}</strong>
+                   <span style={{ color: form.visualTheme.accentColor }}>{canUseDoceLua ? 'ENCOMENDAS ONLINE' : businessProfile.heroEyebrow}</span>
+                   <strong>{form.tagline || (canUseDoceLua ? 'Sabores que dão vontade de voltar' : businessProfile.heroTitle)}</strong>
                    <small>{form.storefrontNotice || 'Encomendas confirmadas conforme o horário da loja.'}</small>
                  </div>
                  <div className="settings-storefront-preview__body">
                    <div className="settings-storefront-preview__section-title"><span>DESTAQUES</span><small>Prévia enquanto você edita</small></div>
                    <div className="settings-storefront-preview__products">
-                     {['Doce especial', 'Caixa para compartilhar', 'Favorito da casa'].map((product, index) => <div className="settings-storefront-preview__product" key={product} style={{ background: form.visualTheme.surfaceColor, borderColor: form.visualTheme.borderColor }}><span style={{ background: index === 1 ? form.visualTheme.highlightColor : form.visualTheme.accentColor }} /> <strong>{product}</strong><small>R$ {(18 + index * 7).toFixed(2).replace('.', ',')}</small></div>)}
+                     {(canUseDoceLua ? ['Doce especial', 'Caixa para compartilhar', 'Favorito da casa'] : businessProfile.examples).map((product, index) => <div className="settings-storefront-preview__product" key={product} style={{ background: form.visualTheme.surfaceColor, borderColor: form.visualTheme.borderColor }}><span style={{ background: index === 1 ? form.visualTheme.highlightColor : form.visualTheme.accentColor }} /> <strong>{product}</strong><small>R$ {(18 + index * 7).toFixed(2).replace('.', ',')}</small></div>)}
                    </div>
                    <div className="settings-storefront-preview__pickup" style={{ borderColor: form.visualTheme.borderColor, color: form.visualTheme.mutedColor }}>{form.pickupInstructions || 'Retirada combinada após a confirmação do pedido.'}</div>
                  </div>

@@ -9,10 +9,11 @@ import { useToast } from '../../contexts/ToastContext';
 import type { OptionGroup, OptionGroupKind, OptionItem, PartyOrderConfig, Product, ProductImage } from '../../types';
 import { currency, roundMoney, slugify } from '../../utils/format';
 import { createId } from '../../utils/id';
+import { getBusinessSegment, type BusinessSegment } from '../../segments/businessSegments';
 
-const emptyProduct = (storeId: string): Product => ({
+const emptyProduct = (storeId: string, segment: BusinessSegment = 'food'): Product => ({
   id: createId(), storeId, categoryId: '', name: '', slug: '', description: '', price: 0,
-  imageUrl: '/assets/placeholder-food.svg', visualEmoji: '🍔', gallery: [], images: [], featured: false, active: true,
+  imageUrl: '/assets/placeholder-food.svg', visualEmoji: segment === 'food' ? '🍔' : segment === 'confectionery' ? '🍰' : segment === 'printing3d' ? '🧩' : segment === 'rentals' ? '🎪' : '📦', gallery: [], images: [], featured: false, active: true,
   madeToOrder: false, productionDays: 0, stockStatus: 'available', availabilityStatus: 'available',
   trackStock: true, stockQuantity: 0, preparationTimeMinutes: 0, sortOrder: 0,
   optionGroups: [], variations: [], addons: [],
@@ -93,10 +94,17 @@ const productForEditor = (product: Product): Product => ({
 export default function ProductForm() {
   const { id } = useParams();
   const { products, categories, settings, saveProduct, uploadProductImages, deleteProductImage, setPrimaryImage, planUsage, loading } = useStore();
+  const businessProfile = getBusinessSegment(settings.visualTheme);
+  const foodPresentation = businessProfile.id === 'food' || businessProfile.id === 'confectionery';
+  const emojiChoices = foodPresentation ? productEmojiOptions : ['📦','🎁','🧩','🔧','🎨','🏷️','🛍️','🎪','🎈','🪑','💡','⭐'];
+  const optionPresets: GroupPreset[] = foodPresentation ? groupPresets : [
+    {label:'Tamanho',name:'Tamanho',kind:'variant',minChoices:1,maxChoices:1,description:'Escolha o tamanho.',items:[{name:'Pequeno',priceDelta:0},{name:'Médio',priceDelta:0},{name:'Grande',priceDelta:0}]},
+    {label:'Cor',name:'Cor',kind:'choice',minChoices:1,maxChoices:1,description:'Escolha a cor disponível.',items:[{name:'Branco',priceDelta:0},{name:'Preto',priceDelta:0}]},
+  ];
   const { showToast } = useToast();
   const navigate = useNavigate();
   const existing = products.find((product) => product.id === id);
-  const [product, setProduct] = useState<Product>(() => existing ? productForEditor(existing) : emptyProduct(settings.id));
+  const [product, setProduct] = useState<Product>(() => existing ? productForEditor(existing) : emptyProduct(settings.id,businessProfile.id));
   const [partyConfig, setPartyConfig] = useState<PartyOrderConfig>(() => existing?.partyOrderConfig || (existing ? readPartyConfig(existing.optionGroups) : defaultPartyConfig()));
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
@@ -110,7 +118,7 @@ export default function ProductForm() {
       // o lojista abre apenas o grupo que deseja editar.
       setOpenGroups(Object.fromEntries(existing.optionGroups.filter((group) => !isPartyConfigGroup(group)).map((group) => [group.id, false])));
     } else if (!id) {
-      setProduct((current) => current.storeId === settings.id ? current : emptyProduct(settings.id));
+      setProduct((current) => current.storeId === settings.id ? current : emptyProduct(settings.id,businessProfile.id));
       setPartyConfig(defaultPartyConfig());
     }
   }, [id, existing, settings.id]);
@@ -257,7 +265,7 @@ export default function ProductForm() {
           <label className="full">Nome do produto<input required value={product.name} onChange={(event) => update('name', event.target.value)} placeholder="Ex.: X-Bacon Artesanal"/></label>
           <label>Categoria<select required value={product.categoryId} onChange={(event) => update('categoryId', event.target.value)}><option value="">Selecione</option>{activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
           <label>Código interno<input value={product.internalCode || ''} onChange={(event) => update('internalCode', event.target.value)} placeholder="Ex.: XB001"/></label>
-          <label className="full product-emoji-field-v060"><span>Visual sem foto</span><div className="product-emoji-input-v060"><input value={product.visualEmoji || ''} onChange={(event) => update('visualEmoji', event.target.value.slice(0, 16))} placeholder="Ex.: 🍔"/><div className="product-emoji-picker-v060" aria-label="Sugestões de emoji">{productEmojiOptions.map((emoji) => <button type="button" key={emoji} className={product.visualEmoji === emoji ? 'selected' : ''} onClick={() => update('visualEmoji', emoji)}>{emoji}</button>)}</div></div><small>Se o produto não tiver imagem, o FoodWeb usa este emoji no cardápio.</small></label>
+          <label className="full product-emoji-field-v060"><span>Visual sem foto</span><div className="product-emoji-input-v060"><input value={product.visualEmoji || ''} onChange={(event) => update('visualEmoji', event.target.value.slice(0, 16))} placeholder={foodPresentation ? 'Ex.: 🍔' : 'Ex.: 📦'}/><div className="product-emoji-picker-v060" aria-label="Sugestões de emoji">{emojiChoices.map((emoji) => <button type="button" key={emoji} className={product.visualEmoji === emoji ? 'selected' : ''} onClick={() => update('visualEmoji', emoji)}>{emoji}</button>)}</div></div><small>Se o produto não tiver imagem, o FoodWeb usa este emoji no {businessProfile.catalogLabel.toLowerCase()}.</small></label>
           <label>Preço<input required type="number" min="0" step="0.01" value={product.price} onChange={(event) => update('price', Number(event.target.value))}/></label>
           <label>Preço promocional<input type="number" min="0" step="0.01" value={product.promotionalPrice ?? ''} onChange={(event) => update('promotionalPrice', event.target.value ? Number(event.target.value) : undefined)}/></label>
           <label>Tempo adicional de preparo (min)<input type="number" min="0" step="1" value={product.preparationTimeMinutes} onChange={(event) => update('preparationTimeMinutes', Number(event.target.value))}/></label>
@@ -280,7 +288,7 @@ export default function ProductForm() {
 
         <div className="subform-section">
           <div className="subform-title"><div><span className="eyebrow">PERSONALIZAÇÃO</span><h3>Grupos de opções</h3><p className="muted">Um único modelo atende tamanho, ponto da carne, adicionais e remoções.</p></div><button type="button" className="secondary-button" onClick={addGroup}><Plus size={16}/>Adicionar grupo</button></div>
-          <div className="option-preset-bar-v060"><span>Adicionar rapidamente:</span><div>{groupPresets.map((preset) => <button type="button" key={preset.label} onClick={() => addPresetGroup(preset)}><Plus size={14}/>{preset.label}</button>)}</div></div>
+          <div className="option-preset-bar-v060"><span>Adicionar rapidamente:</span><div>{optionPresets.map((preset) => <button type="button" key={preset.label} onClick={() => addPresetGroup(preset)}><Plus size={14}/>{preset.label}</button>)}</div></div>
                     {product.optionGroups.length === 0 ? <div className="option-builder-empty"><p>Este produto não possui personalizações.</p><button type="button" className="secondary-button" onClick={addGroup}><Plus size={16}/>Criar primeiro grupo</button></div> : <div className="option-builder-list">
             {product.optionGroups.map((group) => <section className="option-builder-group" key={group.id}>
               <header><button type="button" className="option-builder-toggle" onClick={() => setOpenGroups((current) => ({ ...current, [group.id]: !current[group.id] }))}><ChevronDown size={17} className={openGroups[group.id] ? 'is-open' : ''}/><strong>{group.name || 'Novo grupo'}</strong><span>{kindLabel[group.kind]} · {group.minChoices}-{group.maxChoices} escolha(s)</span></button><button type="button" className="row-delete" onClick={() => removeGroup(group.id)} aria-label="Excluir grupo"><Trash2 size={16}/></button></header>
@@ -312,10 +320,10 @@ export default function ProductForm() {
       </section>
 
       <aside>
-        <section className="admin-card form-section"><span className="eyebrow">PUBLICAÇÃO</span><h2>Disponibilidade</h2><label className="switch-row"><span><strong>Produto ativo</strong><small>Aparece no cardápio público</small></span><input type="checkbox" checked={product.active} onChange={(event) => update('active', event.target.checked)}/></label><label className="switch-row"><span><strong>Destaque</strong><small>Produto em evidência</small></span><input type="checkbox" checked={product.featured} onChange={(event) => update('featured', event.target.checked)}/></label><div className="product-form-preview"><span>Preço atual</span><strong>{partyConfig.enabled && partyConfig.pricePerGram > 0 ? `${currency.format(partyConfig.pricePerGram)}/g` : currency.format(product.promotionalPrice ?? product.price)}</strong>{product.visualEmoji && <span className="product-form-emoji-preview-v060" aria-label="Emoji do produto">{product.visualEmoji}</span>}{partyConfig.enabled && <small>Encomenda para festas · mínimo de {partyConfig.minimumPackages} pacote(s)</small>}<small>{product.optionGroups.length} grupo(s) de personalização</small></div></section>
+        <section className="admin-card form-section"><span className="eyebrow">PUBLICAÇÃO</span><h2>Disponibilidade</h2><label className="switch-row"><span><strong>Produto ativo</strong><small>Aparece no {businessProfile.catalogLabel.toLowerCase()} público</small></span><input type="checkbox" checked={product.active} onChange={(event) => update('active', event.target.checked)}/></label><label className="switch-row"><span><strong>Destaque</strong><small>Produto em evidência</small></span><input type="checkbox" checked={product.featured} onChange={(event) => update('featured', event.target.checked)}/></label><div className="product-form-preview"><span>Preço atual</span><strong>{partyConfig.enabled && partyConfig.pricePerGram > 0 ? `${currency.format(partyConfig.pricePerGram)}/g` : currency.format(product.promotionalPrice ?? product.price)}</strong>{product.visualEmoji && <span className="product-form-emoji-preview-v060" aria-label="Emoji do produto">{product.visualEmoji}</span>}{partyConfig.enabled && <small>Encomenda para festas · mínimo de {partyConfig.minimumPackages} pacote(s)</small>}<small>{product.optionGroups.length} grupo(s) de personalização</small></div></section>
         <div className="product-form-save-hint">{hasUnsavedChanges ? 'Alterações pendentes. Use o botão flutuante para salvar.' : 'Tudo salvo.'}</div>
       </aside>
     </form>
-    {hasUnsavedChanges && <FloatingSaveBar label="Salvar produto" description="O produto tem alterações pendentes." saving={saving} onSave={() => { const form = document.getElementById('product-form'); if (form instanceof HTMLFormElement) form.requestSubmit(); }} onCancel={() => { setFiles([]); setProduct(existing ? productForEditor(existing) : emptyProduct(settings.id)); setPartyConfig(existing?.partyOrderConfig || (existing ? readPartyConfig(existing.optionGroups) : defaultPartyConfig())); }} />}
+    {hasUnsavedChanges && <FloatingSaveBar label="Salvar produto" description="O produto tem alterações pendentes." saving={saving} onSave={() => { const form = document.getElementById('product-form'); if (form instanceof HTMLFormElement) form.requestSubmit(); }} onCancel={() => { setFiles([]); setProduct(existing ? productForEditor(existing) : emptyProduct(settings.id,businessProfile.id)); setPartyConfig(existing?.partyOrderConfig || (existing ? readPartyConfig(existing.optionGroups) : defaultPartyConfig())); }} />}
   </>;
 }

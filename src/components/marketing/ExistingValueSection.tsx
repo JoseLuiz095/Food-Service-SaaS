@@ -6,15 +6,15 @@ type ValueItem={title:string;description:string;icon:'orders'|'delivery'|'analyt
 
 const items:Record<Variant,ValueItem[]>={
   food:[
-    {icon:'orders',title:'Venda sem comissão por pedido',description:'Cardápio próprio, carrinho e pedido salvo no sistema antes do contato pelo WhatsApp.'},
-    {icon:'delivery',title:'Delivery, retirada e agendamento',description:'A operação já trabalha com entrega, retirada, taxas e pedido agendado conforme configuração da loja.'},
+    {icon:'orders',title:'Seu canal de venda',description:'Catálogo próprio, carrinho e pedido salvo no sistema antes do contato pelo WhatsApp, sem comissão por pedido.'},
+    {icon:'delivery',title:'Recebimento do seu jeito',description:'Entrega, retirada, taxas e agendamento conforme a configuração e a operação de cada loja.'},
     {icon:'whatsapp',title:'Pedido estruturado antes do WhatsApp',description:'O WhatsApp entra como continuidade do atendimento, sem substituir o registro do pedido no FoodWeb.'},
     {icon:'analytics',title:'Analytics do funil de vendas',description:'Acompanhe visualizações, produto visto, carrinho, checkout, conversão e oportunidades.'},
-    {icon:'finance',title:'Financeiro ligado ao recebimento',description:'A receita do pedido entra no Financeiro após a confirmação de recebimento, evitando inflar o resultado.'},
+    {icon:'finance',title:'Financeiro gerencial',description:'Acompanhe entradas, saídas e vencimentos. Os registros ajudam a entender a rotina financeira do negócio.'},
     {icon:'document',title:'Leitura assistida de documentos',description:'Notas, cupons e boletos podem ser lidos localmente para apoiar o lançamento financeiro, mantendo revisão humana.'},
-    {icon:'inventory',title:'Estoque e compras sem adivinhação',description:'Saiba quais insumos estão acabando, registre entradas em lote e acompanhe saldo, custo médio e alertas de reposição.'},
-    {icon:'margin',title:'Custo e margem por produto',description:'Fichas técnicas relacionam ingredientes e embalagens às vendas para estimar o custo real de cada produto e o que sobra no caixa.'},
-    {icon:'analytics',title:'Automação que reduz retrabalho',description:'O consumo proporcional, os ajustes e os cancelamentos preservam um histórico confiável para você corrigir a operação sem perder o controle.'},
+    {icon:'inventory',title:'Estoque e produção',description:'Organize insumos, fichas técnicas e reposição, com uma visão dos custos e da margem estimada dos produtos.'},
+    {icon:'orders',title:'Quadro de operação opcional',description:'Acompanhe as etapas do pedido em um quadro. Na alimentação, ele também atende a rotina de cozinha / KDS.'},
+    {icon:'whatsapp',title:'Recuperação de vendas',description:'CRM simples + pedir novamente: histórico de pedidos e mensagens prontas apoiam o relacionamento com o cliente.'},
   ],
   flori:[
     {icon:'orders',title:'Pedido pensado para presente',description:'Destinatário, mensagem do cartão, entrega ou retirada e dados do pedido ficam organizados no mesmo fluxo.'},
@@ -38,15 +38,15 @@ function Icon({name}:{name:ValueItem['icon']}){
 }
 
 export function ExistingValueSection({variant}:{variant:Variant}){
-  return <section className={`existing-value existing-value--${variant}`}>
+  return <section id={variant==='food'?'recursos':undefined} className={`existing-value existing-value--${variant}`}>
     <div className="existing-value__shell">
       <div className="existing-value__heading">
-        <span>VALOR QUE JÁ EXISTE NO PRODUTO</span>
-        <h2>{variant==='food'?'Mais que um cardápio: venda, operação e gestão sem cobrar comissão por pedido.':'Mais que um catálogo: venda, entrega programada e gestão pensadas para floriculturas.'}</h2>
-        <p>{variant==='food'?'O FoodWeb concentra recursos que pequenos negócios normalmente precisam combinar em várias ferramentas.':'O FloriWeb organiza a jornada do presente e a rotina da floricultura sem transformar o painel em um ERP pesado.'}</p>
+        <span>UMA BASE PARA O DIA A DIA</span>
+        <h2>{variant==='food'?'Mais tempo para o que você faz de melhor.':'Mais que um catálogo: venda, entrega programada e gestão pensadas para floriculturas.'}</h2>
+        <p>{variant==='food'?'Venda com clareza para o cliente e acompanhe seu negócio em um painel feito para a rotina. Recursos disponíveis conforme o plano contratado.':'O FloriWeb organiza a jornada do presente e a rotina da floricultura sem transformar o painel em um ERP pesado.'}</p>
       </div>
       <div className="existing-value__grid">{items[variant].map((item)=><article key={item.title}><span><Icon name={item.icon}/></span><div><h3>{item.title}</h3><p>{item.description}</p></div></article>)}</div>
-      <div className="existing-value__footer"><CheckCircle2/><span>{variant==='food'?'Os recursos apresentados fazem parte do produto atual e ajudam a reduzir o uso de ferramentas separadas na operação.':'Os recursos apresentados fazem parte do produto atual e concentram a jornada do presente e a gestão da floricultura.'}</span><Clock3/></div>
+      <div className="existing-value__footer"><CheckCircle2/><span>{variant==='food'?'Sua loja mantém identidade, Pix, equipe e acesso aos próprios dados. A plataforma organiza a venda e o atendimento continua próximo do cliente.':'Os recursos apresentados fazem parte do produto atual e concentram a jornada do presente e a gestão da floricultura.'}</span><Clock3/></div>
     </div>
   </section>;
 }

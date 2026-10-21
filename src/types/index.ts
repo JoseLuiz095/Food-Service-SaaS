@@ -183,6 +183,7 @@ export type CustomerMessageTemplates = {
 export type StoreVisualThemePreset = 'foodweb' | 'doce_lua' | 'custom';
 
 export type StoreVisualTheme = {
+  businessSegment?: import('../segments/businessSegments').BusinessSegment;
   preset: StoreVisualThemePreset;
   primaryColor: string;
   accentColor: string;
@@ -579,6 +580,7 @@ export type SaveProductInput = Omit<Product, 'imageUrl' | 'gallery' | 'images'> 
 
 
 export type PlatformStoreSummary = {
+  businessSegment?: import('../segments/businessSegments').BusinessSegment;
   id: string;
   name: string;
   slug: string;

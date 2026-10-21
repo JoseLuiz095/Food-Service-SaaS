@@ -12,6 +12,7 @@ import { normalizeInstagramHandle, sanitizeWhatsAppNumber } from '../utils/forma
 import { getOpeningScheduleOverview, getStoreOpenStatus } from '../utils/storeHours';
 import { loadFulfillmentPreference, saveFulfillmentPreference } from '../utils/fulfillmentPreference';
 import { ImageWithFallback } from './ui/ImageWithFallback';
+import { getBusinessSegment, isDefaultStoreImage } from '../segments/businessSegments';
 
 function InstagramGlyph({ size = 17 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".7" fill="currentColor" stroke="none"/></svg>;
@@ -19,6 +20,10 @@ function InstagramGlyph({ size = 17 }: { size?: number }) {
 
 export function StoreHeader(){
   const {settings,storeBasePath}=useStore();
+  const catalogLabel = getBusinessSegment(settings.visualTheme).catalogLabel;
+  const neutralPresentation = getBusinessSegment(settings.visualTheme).id !== 'food' && settings.visualTheme.preset !== 'doce_lua';
+  const logoUrl = neutralPresentation && isDefaultStoreImage(settings.logoUrl) ? '/assets/placeholder-catalog.svg' : settings.logoUrl;
+  const heroUrl = neutralPresentation && settings.heroUrl.split('?')[0] === '/assets/food-hero.svg' ? '/assets/placeholder-catalog.svg' : settings.heroUrl;
   const {totalItems}=useCart();
   const {showToast}=useToast();
   const whatsapp=sanitizeWhatsAppNumber(settings.whatsapp);
@@ -75,8 +80,8 @@ export function StoreHeader(){
     try{
       const result=await sharePixQrImage({
         dataUrl:shareQr,
-        title:`Cardápio da ${settings.name}`,
-        text:`Confira o cardápio da ${settings.name}:\n${shareUrl}`,
+        title:`${catalogLabel} da ${settings.name}`,
+        text:`Confira o ${catalogLabel.toLowerCase()} da ${settings.name}:\n${shareUrl}`,
         fileName:`qr-code-${settings.slug||'loja'}.png`,
       });
       if(result==='image')showToast('QR Code e link prontos para compartilhar.','success');
@@ -92,9 +97,9 @@ export function StoreHeader(){
   };
   return <header className="food-storefront-header food-storefront-header-v43">
     <div className="food-platform-bar"><div className="container"><Link className="foodweb-wordmark" to={storefrontPath(storeBasePath)} aria-label="FoodWeb"><span>F</span><strong>FoodWeb</strong></Link><div className="food-platform-trust"><ShieldCheck size={15}/><span>Pedido direto com o estabelecimento</span></div><Link className="food-platform-cart" to={storefrontPath(storeBasePath,'/carrinho')}><ShoppingBag size={18}/><span>Sacola</span>{totalItems>0&&<b>{totalItems}</b>}</Link></div></div>
-    <div className="food-store-hero-v43" style={{backgroundImage:`linear-gradient(90deg,rgba(18,10,8,.62),rgba(18,10,8,.18) 48%,rgba(18,10,8,.18)),url(${settings.heroUrl})`}}><div className="container"><span>Pedido online</span><strong>{settings.tagline||'Seu pedido, do seu jeito.'}</strong></div></div>
+    <div className="food-store-hero-v43" style={{backgroundImage:`linear-gradient(90deg,rgba(18,10,8,.62),rgba(18,10,8,.18) 48%,rgba(18,10,8,.18)),url(${heroUrl})`}}><div className="container"><span>Pedido online</span><strong>{settings.tagline||'Seu pedido, do seu jeito.'}</strong></div></div>
     <section className="container food-store-profile-v43">
-      <ImageWithFallback loading="eager" className="food-store-profile-logo" src={settings.logoUrl} alt={`Logo ${settings.name}`}/>
+      <ImageWithFallback loading="eager" className="food-store-profile-logo" fallbackSrc={neutralPresentation ? '/assets/placeholder-catalog.svg' : undefined} src={logoUrl} alt={`Logo ${settings.name}`}/>
       <div className="food-store-profile-main">
         <div className="food-store-profile-title"><h1>{settings.name}</h1><span className={`open-pill ${status.open?'is-open':'is-closed'}`}>{status.label}</span></div>
         <div className="food-store-profile-location"><MapPin size={14}/>{locationLabel}</div>
@@ -118,6 +123,6 @@ export function StoreHeader(){
     {settings.storefrontNotice?.trim() && <section className="container food-store-operation-notices" aria-label="Informações importantes da loja">
       {settings.storefrontNotice?.trim() && <div><Info size={18}/><span><strong>Antes de pedir</strong>{settings.storefrontNotice.trim()}</span></div>}
     </section>}
-    {shareOpen&&typeof document!=='undefined'&&createPortal(<div className="store-share-overlay" role="presentation" onMouseDown={(event)=>{if(event.target===event.currentTarget)setShareOpen(false);}}><section className="store-share-card" role="dialog" aria-modal="true" aria-labelledby="store-share-title"><button ref={shareCloseRef} type="button" className="icon-button store-share-card__close" onClick={()=>setShareOpen(false)} aria-label="Fechar compartilhamento"><X size={19}/></button><div className="store-share-card__icon"><QrCode size={22}/></div><span className="eyebrow">COMPARTILHE</span><h2 id="store-share-title">Leve a {settings.name} com você</h2><p>Escaneie o QR Code ou copie o link para enviar o cardápio.</p>{shareQr?<img className="store-share-card__qr" src={shareQr} alt={`QR Code da loja ${settings.name}`}/>:<div className="store-share-card__qr-placeholder">Gerando QR Code…</div>}<div className="store-share-card__link"><span title={shareUrl}>{shareUrl}</span><button type="button" className="secondary-button compact-button" onClick={()=>void copyShareUrl()}><Copy size={15}/>{shareCopied?'Copiado':'Copiar link'}</button></div><div className="store-share-card__actions">{typeof navigator !== 'undefined' && 'share' in navigator&&<button type="button" className="primary-button store-share-card__native" disabled={!shareQr} onClick={()=>void shareStoreWithDevice()}><Share2 size={16}/>Compartilhar pelo telefone</button>}{shareQr&&<button type="button" className="secondary-button store-share-card__download" onClick={()=>{if(downloadQrImage(shareQr,`qr-code-${settings.slug||'loja'}.png`))showToast('QR Code baixado.','success');else showToast('Não foi possível baixar o QR Code.','error')}}><Download size={16}/>Baixar QR Code</button>}</div></section></div>,document.body)}
+    {shareOpen&&typeof document!=='undefined'&&createPortal(<div className="store-share-overlay" role="presentation" onMouseDown={(event)=>{if(event.target===event.currentTarget)setShareOpen(false);}}><section className="store-share-card" role="dialog" aria-modal="true" aria-labelledby="store-share-title"><button ref={shareCloseRef} type="button" className="icon-button store-share-card__close" onClick={()=>setShareOpen(false)} aria-label="Fechar compartilhamento"><X size={19}/></button><div className="store-share-card__icon"><QrCode size={22}/></div><span className="eyebrow">COMPARTILHE</span><h2 id="store-share-title">Leve a {settings.name} com você</h2><p>Escaneie o QR Code ou copie o link para enviar o {catalogLabel.toLowerCase()}.</p>{shareQr?<img className="store-share-card__qr" src={shareQr} alt={`QR Code da loja ${settings.name}`}/>:<div className="store-share-card__qr-placeholder">Gerando QR Code…</div>}<div className="store-share-card__link"><span title={shareUrl}>{shareUrl}</span><button type="button" className="secondary-button compact-button" onClick={()=>void copyShareUrl()}><Copy size={15}/>{shareCopied?'Copiado':'Copiar link'}</button></div><div className="store-share-card__actions">{typeof navigator !== 'undefined' && 'share' in navigator&&<button type="button" className="primary-button store-share-card__native" disabled={!shareQr} onClick={()=>void shareStoreWithDevice()}><Share2 size={16}/>Compartilhar pelo telefone</button>}{shareQr&&<button type="button" className="secondary-button store-share-card__download" onClick={()=>{if(downloadQrImage(shareQr,`qr-code-${settings.slug||'loja'}.png`))showToast('QR Code baixado.','success');else showToast('Não foi possível baixar o QR Code.','error')}}><Download size={16}/>Baixar QR Code</button>}</div></section></div>,document.body)}
   </header>;
 }

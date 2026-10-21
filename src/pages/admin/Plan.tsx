@@ -20,7 +20,7 @@ const BILLING_WARNING_DAYS=7;
 const paymentStatusLabel=(status:SubscriptionPayment['status'])=>({pending:'Aguardando pagamento',proof_sent:'Comprovante enviado',paid:'Pago',rejected:'Não renovado',expired:'Vencido',cancelled:'Cancelado',refunded:'Estornado'}[status]||status);
 
 const planCopy:Record<string,{headline:string;description:string;bullets:string[]}>= {
-  ESSENTIAL:{headline:'Seu cardápio profissional, sem complicação',description:'Para sair do PDF e começar a receber pedidos organizados pelo WhatsApp.',bullets:['Cardápio online + checkout','Pedidos gravados antes do WhatsApp','Delivery e retirada','1 foto por produto']},
+  ESSENTIAL:{headline:'Seu catálogo profissional, sem complicação',description:'Para apresentar seus produtos e organizar os pedidos antes do atendimento pelo WhatsApp.',bullets:['Catálogo online + checkout','Pedidos gravados antes do WhatsApp','Entrega e retirada conforme a loja','1 foto por produto']},
   STARTER:{headline:'Profissionalize a operação e enxergue o resultado',description:'Tudo do Essencial com Analytics, Financeiro e recursos para uma operação em crescimento.',bullets:['Tudo do Essencial','Analytics e conversão','Financeiro de entradas e saídas','Leitura assistida de nota, cupom e boleto','Banners personalizados']},
   PROFESSIONAL:{headline:'Mais capacidade para uma operação consolidada',description:'Tudo do Profissional com maior capacidade, domínio próprio e suporte prioritário.',bullets:['Tudo do Profissional','Produtos sem limite','Até 10 fotos por produto','Domínio próprio','Suporte prioritário']},
 };

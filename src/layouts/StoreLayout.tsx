@@ -8,6 +8,8 @@ import { storefrontPath } from '../utils/storefrontRoute';
 import { isFoodWebMarketingRoot } from '../lib/config';
 import { getStorefrontThemeStyle } from '../utils/storeVisualTheme';
 import { StorePlatformFooter } from '../components/StorePlatformFooter';
+import { getBusinessSegment, resolveBusinessTheme } from '../segments/businessSegments';
+import '../segments/segments.css';
 
 export default function StoreLayout(){
   const location=useLocation();
@@ -18,7 +20,9 @@ export default function StoreLayout(){
 
   if(marketingRoot)return <main className="store-layout marketing-root-layout"><Outlet/></main>;
 
-  const storefrontThemeStyle=getStorefrontThemeStyle(settings.visualTheme);
+  const segment=getBusinessSegment(settings.visualTheme);
+  const storefrontThemeStyle=getStorefrontThemeStyle(resolveBusinessTheme(settings.visualTheme));
+  const useSegmentPresentation=segment.id!=='food'&&settings.visualTheme.preset!=='doce_lua';
 
   if(storeUnavailable){
     return <main className="store-layout food-storefront-theme storefront-unavailable-page" style={storefrontThemeStyle}>
@@ -37,5 +41,5 @@ export default function StoreLayout(){
   const hideDock=path.includes('/carrinho')||path.includes('/finalizar')||path.includes('/pedido/');
   const showDock=totalItems>0&&!hideDock;
 
-  return <main className={`store-layout food-storefront-theme ${showDock?'has-mobile-cart-dock':''}`} style={storefrontThemeStyle}><div key={location.pathname} className="store-route-view"><Outlet/></div><StorePlatformFooter/>{showDock&&<Link className="mobile-cart-dock" to={storefrontPath(storeBasePath,'/carrinho')} aria-label={`Abrir carrinho com ${totalItems} item(ns)`}><span className="mobile-cart-dock__icon"><ShoppingBag size={19}/><b>{totalItems}</b></span><span className="mobile-cart-dock__copy"><small>Seu carrinho</small><strong>{currency.format(subtotal)}</strong></span><span className="mobile-cart-dock__action">Ver carrinho <ArrowRight size={17}/></span></Link>}</main>;
+  return <main data-business-segment={segment.id} data-visual-preset={settings.visualTheme.preset} className={`store-layout food-storefront-theme ${useSegmentPresentation?'storefront-business-theme':''} ${showDock?'has-mobile-cart-dock':''}`} style={storefrontThemeStyle}><div key={location.pathname} className="store-route-view"><Outlet/></div><StorePlatformFooter/>{showDock&&<Link className="mobile-cart-dock" to={storefrontPath(storeBasePath,'/carrinho')} aria-label={`Abrir carrinho com ${totalItems} item(ns)`}><span className="mobile-cart-dock__icon"><ShoppingBag size={19}/><b>{totalItems}</b></span><span className="mobile-cart-dock__copy"><small>Seu carrinho</small><strong>{currency.format(subtotal)}</strong></span><span className="mobile-cart-dock__action">Ver carrinho <ArrowRight size={17}/></span></Link>}</main>;
 }
