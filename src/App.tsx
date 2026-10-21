@@ -38,6 +38,8 @@ const SignupComplete=lazy(()=>import('./pages/store/SignupComplete'));
 const ProductDetail=lazy(()=>import('./pages/store/ProductDetail'));
 const OrderSuccess=lazy(()=>import('./pages/store/OrderSuccess'));
 const NotFound=lazy(()=>import('./pages/NotFound'));
+const ModulesPage=lazy(()=>import('./modules/ModulesPage'));
+const EventsPage=lazy(()=>import('./modules/EventsPage'));
 
 function ProtectedAdmin() {
   const { user, membership, loading } = useAuth();
@@ -69,6 +71,8 @@ const fallback=<div className="page-center"><LoadingState label="Carregando inte
 
 export default function App() {
   return <Suspense fallback={fallback}><Routes>
+    <Route path="/modulos/eventos/:sellerId" element={<EventsPage />} />
+    <Route path="/modulos/eventos/pedido/:eventOrderId" element={<EventsPage />} />
     <Route element={<StoreLayout />}>
       <Route path="/" element={<Home />} />
       <Route path="/produto/:slug" element={<ProductDetail />} />
@@ -103,6 +107,7 @@ export default function App() {
       <Route path="/admin/entregas" element={<DeliveryZonesAdmin />} />
       <Route path="/admin/configuracoes" element={<SettingsAdmin />} />
       <Route path="/admin/plano" element={<AdminPlan />} />
+      <Route path="/admin/modulos" element={<ModulesPage />} />
     </Route>
 
     <Route path="/admin-master/login" element={<MasterLogin />} />
@@ -114,6 +119,7 @@ export default function App() {
       <Route path="/admin-master/planos" element={<MasterPlans />} />
       <Route path="/admin-master/pagamentos" element={<MasterPayments />} />
       <Route path="/admin-master/diagnostico" element={<MasterDiagnostics />} />
+      <Route path="/admin-master/modulos" element={<ModulesPage master />} />
     </Route>
 
     <Route path="/404" element={<NotFound/>}/>

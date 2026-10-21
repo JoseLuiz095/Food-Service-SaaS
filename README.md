@@ -1,5 +1,13 @@
 # FoodWeb — Food Service SaaS v0.4.1
 
+## Evolução opcional: eventos, combos, personalizados e aluguel
+
+Novos módulos ficam desativados por padrão e têm catálogo, pedidos e financeiro interno separados da venda normal.
+O checkout atual da Doce Lua permanece no mesmo fluxo. A configuração fica em **Módulos opcionais** no painel da loja e do Master.
+
+Consulte [auditoria e arquitetura](docs/MODULOS_OPCIONAIS.md) e [implantação, testes e arquivos alterados](docs/TESTAR_MODULOS_OPCIONAIS.md).
+As instruções históricas abaixo descrevem a versão original; não reaplique migrations antigas em produção.
+
 Plataforma SaaS multempresa para negócios de alimentação, construída em React + TypeScript + Vite, Supabase/PostgreSQL e Cloudflare.
 
 A v0.4.1 consolida três frentes comerciais:

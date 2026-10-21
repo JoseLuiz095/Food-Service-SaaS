@@ -64,3 +64,15 @@ Pedidos concluídos geram receita automática uma única vez. Despesas e outras 
 - IA não grava movimentação financeira sem confirmação;
 - segredos de pagamentos e IA nunca entram no frontend;
 - interface mobile-first para o comprador e operacional para o lojista.
+
+## Módulos opcionais — shared_future
+
+Eventos, combos, aluguel e personalizados são habilitados por loja e começam desativados. A venda normal permanece independente.
+Cada loja mantém identidade, Pix, equipe e dados próprios. O catálogo dos módulos recebe saldo explicitamente destinado a essa operação, sem consumir automaticamente o estoque normal.
+
+Combos têm versões imutáveis e aprovação de cada fornecedor. O cliente recebe um pedido e uma cobrança para seller_store_id.
+Subpedidos, snapshots, urgência, cancelamentos, reembolsos e A receber são registrados por loja; o Master consulta a composição completa com MFA.
+Cobrança e transferências continuam manuais. Aprovação de arte e conversa continuam pelo WhatsApp.
+
+Impressão 3D inclui ficha de especificações, arquivos privados e calculadora por unidade com preço final editável.
+Aluguel inclui reservas por intervalo/ativo, sinal manual, contrato, checklists e manutenção.
