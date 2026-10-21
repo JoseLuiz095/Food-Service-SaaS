@@ -4,7 +4,8 @@
 
 Base final integrada: main `9d5c79f`. A branch incorpora as melhorias de estoque e responsividade já aprovadas em main.
 O teste de preservação compara 112 arquivos operacionais a essa base, incluindo vitrine, checkout, Pix, estoque, serviços, tipos, notificações e migrations antigas.
-Nenhuma migration ou Edge Function desta entrega foi aplicada em produção. Nenhum pedido de teste foi gravado no banco compartilhado.
+Implantação concluída em produção em 21/10/2026, após autorização do proprietário e validação da operação existente. As duas migrations e a função nova foram publicadas; os módulos continuam desativados. Nenhum pedido de teste foi mantido no banco compartilhado.
+Consulte o [registro da implantação e verificações no ambiente real](IMPLANTACAO_MODULOS_20261021.md). Não reaplique as migrations já registradas.
 
 ## Validação automatizada
 
