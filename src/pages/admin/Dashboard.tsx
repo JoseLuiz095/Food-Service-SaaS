@@ -5,6 +5,7 @@ import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { useStore } from '../../contexts/StoreContext';
 import { getStoreReadiness } from '../../utils/storeReadiness';
 import { publicStorefrontPath } from '../../utils/storefrontRoute';
+import { currency } from '../../utils/format';
 
 export default function Dashboard(){
   const {products,categories,deliveryZones,orders,settings,planUsage,loading,error,reloadAdmin}=useStore();
@@ -23,6 +24,9 @@ export default function Dashboard(){
   const processingOrders=orders.filter((order)=>activeOrder(order)&&order.paymentStatus==='paid');
   const pendingPayments=orders.filter((order)=>activeOrder(order)&&order.paymentStatus!=='paid');
   const scheduledToday=orders.filter((order)=>activeOrder(order)&&order.scheduledFor&&dateKey(new Date(order.scheduledFor))===todayKey);
+  const paidToday=orders.filter((order)=>order.paymentStatus==='paid'&&dateKey(new Date(order.createdAt))===todayKey);
+  const revenueToday=paidToday.reduce((total,order)=>total+Number(order.total||0),0);
+  const pendingAmount=pendingPayments.reduce((total,order)=>total+Number(order.total||0),0);
   const lowStockProducts=products.filter((product)=>{if(!product.trackStock)return false;const available=Math.max(0,Number(product.stockQuantity||0)-Number(product.stockReservedQuantity||0));return product.stockStatus==='low_stock'||available<=3;});
   const cards=[
     {label:'Produtos cadastrados',value:products.length,icon:Boxes},
@@ -40,11 +44,11 @@ export default function Dashboard(){
     <div className="stat-grid">{cards.map(({label,value,icon:Icon})=><article className="stat-card" key={label}><div className="stat-icon"><Icon size={20}/></div><span>{label}</span><strong>{value}</strong></article>)}</div>
 
     <section className="admin-card dashboard-today-card" aria-labelledby="dashboard-today-title">
-      <div className="dashboard-today-card__header"><div><span className="eyebrow">ACOMPANHAMENTO RÁPIDO</span><h2 id="dashboard-today-title">Hoje</h2><p>Uma leitura operacional para você decidir o próximo passo sem abrir várias telas.</p></div><span className="dashboard-today-card__date"><CalendarDays size={15}/>{new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'})}</span></div>
+      <div className="dashboard-today-card__header"><div><span className="eyebrow">CAIXA E OPERAÇÃO</span><h2 id="dashboard-today-title">O que importa hoje</h2><p>Comece pelo faturamento, recebimentos e pendências antes de entrar no catálogo.</p></div><span className="dashboard-today-card__date"><CalendarDays size={15}/>{new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'})}</span></div>
       <div className="dashboard-today-grid">
-        <Link to="/admin/pedidos" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-orange"><ShoppingBag size={17}/></span><span><small>Pedidos novos</small><strong>{newOrdersToday.length}</strong><em>registrados hoje</em></span><ArrowUpRight size={15}/></Link>
-        <Link to="/admin/pedidos" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-green"><Clock3 size={17}/></span><span><small>Em processamento</small><strong>{processingOrders.length}</strong><em>recebidos e ativos</em></span><ArrowUpRight size={15}/></Link>
-        <Link to="/admin/pedidos" className={`dashboard-today-metric ${pendingPayments.length?'is-attention':''}`}><span className="dashboard-today-metric__icon is-yellow"><CircleDollarSign size={17}/></span><span><small>Pagamentos pendentes</small><strong>{pendingPayments.length}</strong><em>aguardando conferência</em></span><ArrowUpRight size={15}/></Link>
+        <Link to="/admin/financeiro" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-green"><CircleDollarSign size={17}/></span><span><small>Recebido hoje</small><strong>{currency.format(revenueToday)}</strong><em>{paidToday.length} pedido(s) confirmado(s)</em></span><ArrowUpRight size={15}/></Link>
+        <Link to="/admin/pedidos" className={`dashboard-today-metric ${pendingPayments.length?'is-attention':''}`}><span className="dashboard-today-metric__icon is-yellow"><CircleDollarSign size={17}/></span><span><small>A receber</small><strong>{currency.format(pendingAmount)}</strong><em>{pendingPayments.length} aguardando conferência</em></span><ArrowUpRight size={15}/></Link>
+        <Link to="/admin/pedidos" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-orange"><ShoppingBag size={17}/></span><span><small>Pedidos novos</small><strong>{newOrdersToday.length}</strong><em>{processingOrders.length} em processamento</em></span><ArrowUpRight size={15}/></Link>
         <Link to="/admin/pedidos" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-purple"><CalendarDays size={17}/></span><span><small>Agendados hoje</small><strong>{scheduledToday.length}</strong><em>encomendas programadas</em></span><ArrowUpRight size={15}/></Link>
         <Link to="/admin/estoque" className={`dashboard-today-metric ${lowStockProducts.length?'is-attention':''}`}><span className="dashboard-today-metric__icon is-red"><PackageOpen size={17}/></span><span><small>Estoque baixo</small><strong>{lowStockProducts.length}</strong><em>{lowStockProducts.length?'itens para revisar':'tudo sob controle'}</em></span><ArrowUpRight size={15}/></Link>
       </div>

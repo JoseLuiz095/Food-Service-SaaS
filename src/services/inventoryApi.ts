@@ -241,12 +241,14 @@ export const inventoryApi = {
     }));
   },
 
-  async updateItem(storeId: string, itemId: string, input: { name?: string; reorderPoint?: number; lowStockAlertEnabled?: boolean; active?: boolean }): Promise<InventoryItem> {
+  async updateItem(storeId: string, itemId: string, input: { name?: string; itemType?: InventoryItemType; reorderPoint?: number; lowStockAlertEnabled?: boolean; notes?: string; active?: boolean }): Promise<InventoryItem> {
     if (isDemoMode) throw new Error('A edição de insumos exige o modo conectado ao Supabase.');
     const body: Record<string, unknown> = {};
     if (input.name !== undefined) body.name = input.name.trim();
+    if (input.itemType !== undefined) body.item_type = input.itemType;
     if (input.reorderPoint !== undefined) body.reorder_point = Math.max(0, input.reorderPoint);
     if (input.lowStockAlertEnabled !== undefined) body.low_stock_alert_enabled = input.lowStockAlertEnabled;
+    if (input.notes !== undefined) body.notes = input.notes.trim() || null;
     if (input.active !== undefined) body.active = input.active;
     if (input.name !== undefined && !String(input.name).trim()) throw new Error('Informe o nome do insumo.');
     const rows = await restFetch<InventoryItemRow[]>(`food_inventory_items?select=${INVENTORY_ITEM_SELECT}&id=eq.${encodeURIComponent(itemId)}&store_id=eq.${encodeURIComponent(storeId)}`, {
@@ -256,6 +258,14 @@ export const inventoryApi = {
     });
     if (!rows[0]) throw new Error('O insumo não foi encontrado ou não pôde ser atualizado.');
     return mapItem(rows[0]);
+  },
+
+  async changeUnit(storeId: string, itemId: string, unit: InventoryUnit): Promise<InventoryItem> {
+    if (isDemoMode) throw new Error('A edição de unidade exige o modo conectado ao Supabase.');
+    const result = await restFetch<Record<string, unknown> | Array<Record<string, unknown>>>('rpc/food_convert_inventory_unit', { method: 'POST', body: { p_store_id: storeId, p_inventory_item_id: itemId, p_new_unit: unit } });
+    const payload = rpcResult(result);
+    if (!payload.item || typeof payload.item !== 'object') throw new Error('A unidade não pôde ser convertida.');
+    return mapItem(payload.item as InventoryItemRow);
   },
 
   /** Arquiva o cadastro sem apagar movimentos, compras ou fichas técnicas históricas. */
@@ -462,6 +472,27 @@ export const inventoryApi = {
       quantityAfter: Number(payload.quantityAfter ?? payload.quantity_after ?? 0),
       averageUnitCost: Number(payload.averageUnitCost ?? payload.average_unit_cost ?? 0),
       duplicate: Boolean(payload.duplicate),
+    };
+  },
+
+  async commitPhysicalCount(storeId: string, items: Array<{ inventoryItemId: string; countedQuantity: number }>, notes?: string): Promise<{ countId: string; itemsCounted: number; itemsAdjusted: number }> {
+    if (isDemoMode) throw new Error('A conferência de estoque exige o modo conectado ao Supabase.');
+    if (!items.length || items.some((item) => !item.inventoryItemId || !Number.isFinite(item.countedQuantity) || item.countedQuantity < 0)) {
+      throw new Error('Informe saldos físicos válidos para concluir a conferência.');
+    }
+    const result = await restFetch<Record<string, unknown> | Array<Record<string, unknown>>>('rpc/food_commit_inventory_count', {
+      method: 'POST',
+      body: {
+        p_store_id: storeId,
+        p_items: items.map((item) => ({ inventory_item_id: item.inventoryItemId, counted_quantity: item.countedQuantity })),
+        p_notes: notes?.trim() || null,
+      },
+    });
+    const payload = rpcResult(result);
+    return {
+      countId: String(payload.countId ?? payload.count_id ?? ''),
+      itemsCounted: Number(payload.itemsCounted ?? payload.items_counted ?? 0),
+      itemsAdjusted: Number(payload.itemsAdjusted ?? payload.items_adjusted ?? 0),
     };
   },
 

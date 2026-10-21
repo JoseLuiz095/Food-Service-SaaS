@@ -331,3 +331,15 @@ ok('v0.6.5 detectores QA Lite',read('qa/tests/helpers/project.ts').includes('ima
 ok('v0.6.5 checklist manual e padrao visual',exists('docs/QA_LITE.md')&&read('docs/QA_LITE.md').includes('Checklist manual curto')&&exists('docs/PADRAO_VISUAL_UNICO.md')&&read('docs/PADRAO_VISUAL_UNICO.md').includes('Desktop - 1280'));
 if(failures.length){console.error(`\n${failures.length} falha(s) nas verificacoes v0.6.5:`);for(const failure of failures)console.error(`- ${failure}`);process.exit(1)}
 console.log(`Smoke final FoodWeb v0.6.5: ${checks.length} verificações aprovadas.`);
+
+// Estoque inteligente - conferência física atômica e auditável
+const inventoryVNext=read('src/pages/admin/Inventory.tsx');
+const inventoryApiVNext=read('src/services/inventoryApi.ts');
+const inventoryCountMigration=read('supabase/migrations/20261021003621_foodweb_inventory_count_and_order_indexes.sql');
+ok('estoque usa conferência física atômica',inventoryVNext.includes('commitPhysicalCount')&&inventoryApiVNext.includes('food_commit_inventory_count'));
+ok('conferência física preserva auditoria e bloqueio',inventoryCountMigration.includes('food_inventory_counts')&&inventoryCountMigration.includes('for update')&&inventoryCountMigration.includes('Conferência de estoque real'));
+ok('pedidos possuem índices para leitura operacional',inventoryCountMigration.includes('food_order_items_order_id_idx')&&inventoryCountMigration.includes('food_order_item_options_order_item_id_idx'));
+ok('unidade de insumo converte histórico com segurança',read('src/services/inventoryApi.ts').includes('changeUnit')&&exists('supabase/migrations/20261021011000_foodweb_inventory_unit_conversion.sql')&&read('supabase/migrations/20261021011000_foodweb_inventory_unit_conversion.sql').includes('food_convert_inventory_unit'));
+ok('mensagens inserem variável no cursor',read('src/utils/customerSales.ts').includes('insertCustomerMessageVariable')&&read('src/pages/admin/Settings.tsx').includes('insertMessageVariable'));
+if(failures.length){console.error(`\n${failures.length} falha(s) nas verificações de estoque inteligente:`);for(const failure of failures)console.error(`- ${failure}`);process.exit(1)}
+console.log(`Smoke final FoodWeb: ${checks.length} verificações aprovadas.`);

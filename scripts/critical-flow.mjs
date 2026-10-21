@@ -189,7 +189,7 @@ check('Nenhuma referência ao ícone FoodWeb antigo permanece nos fallbacks',!in
 check('Landing mantém a prévia original do cardápio',landing.includes('/assets/marketing/storefront-preview.webp')&&!landing.includes('app-opening-hero.png'));
 check('Interações ficam restritas a Analytics e Financeiro',analyticsPage.includes('aria-pressed')&&financePage.includes('finance-chart-selection')&&!ordersAdmin.includes('analytics-chart'));
 check('Financeiro permite registrar despesa operacional rápida',financePage.includes('finance-quick-expense')&&financePage.includes('submitQuickExpense')&&financePage.includes('financial_quick_expense_create')&&financePage.includes('Forma de pagamento'));
-check('Painel mostra resumo operacional do dia',dashboardPage.includes('dashboard-today-card')&&dashboardPage.includes('Pedidos novos')&&dashboardPage.includes('Pagamentos pendentes')&&dashboardPage.includes('Agendados hoje')&&dashboardPage.includes('/admin/estoque'));
+check('Painel prioriza caixa e resumo operacional do dia',dashboardPage.includes('dashboard-today-card')&&dashboardPage.includes('Recebido hoje')&&dashboardPage.includes('A receber')&&dashboardPage.includes('Agendados hoje')&&dashboardPage.includes('/admin/financeiro')&&dashboardPage.includes('/admin/estoque'));
 check('Estoque permite entrada rápida em lote com custo médio preservado',inventoryPage.includes('Compras e abastecimentos')&&inventoryPage.includes('saveBatchPurchase')&&inventoryPage.includes('usesProvidedCost')&&inventoryPage.includes('unitCost: line.totalCost / line.quantity'));
 
 for(const[name,condition]of checks)console.log(`${condition?'OK  ':'FAIL'} ${name}`);

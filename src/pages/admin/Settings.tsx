@@ -10,7 +10,7 @@ import { formatOpeningSchedule, openingDayName } from '../../utils/storeHours';
 import { PasswordChangeCard } from '../../components/admin/PasswordChangeCard';
 import { FloatingSaveBar } from '../../components/admin/FloatingSaveBar';
 import { planHasFeature } from '../../utils/plan';
-import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ensureCustomerMessageVariables, normalizeCustomerMessageTemplates } from '../../utils/customerSales';
+import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ensureCustomerMessageVariables, insertCustomerMessageVariable, normalizeCustomerMessageTemplates } from '../../utils/customerSales';
 import { DEFAULT_STORE_VISUAL_THEME, getStorefrontThemeStyle, isStoreVisualColor, STORE_VISUAL_THEME_PRESETS } from '../../utils/storeVisualTheme';
 import { pwaPushStatus, requestPwaNotificationPermission, showPwaNotification, subscribeToPwaPush } from '../../services/pwaNotifications';
 import { useAuth } from '../../contexts/AuthContext';
@@ -32,7 +32,8 @@ export default function SettingsAdmin() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ identity: false, service: true, alerts: true, growth: true, messages: true, confirm: true, pix: true, card: true, cash: true, order: true });
+  const [messageCursor, setMessageCursor] = useState<{ key: keyof NonNullable<StoreSettings['messageTemplates']>; start: number; end: number }>({ key: 'received', start: 0, end: 0 });
   const pixCopyPasteRef = useRef<HTMLTextAreaElement | null>(null);
   const canCustomBanner = planHasFeature(planUsage.plan, 'custom_banner');
   const canUseDoceLua = isDoceLuaStore(form);
@@ -63,6 +64,16 @@ export default function SettingsAdmin() {
   }));
   const applyVisualPreset = (preset: keyof typeof STORE_VISUAL_THEME_PRESETS) => setForm((current) => ({ ...current, visualTheme: { ...STORE_VISUAL_THEME_PRESETS[preset] } }));
   const updateMessageTemplate = (key: keyof NonNullable<StoreSettings['messageTemplates']>, value: string) => setForm((current) => ({ ...current, messageTemplates: { ...normalizeCustomerMessageTemplates(current.messageTemplates), [key]: ensureCustomerMessageVariables(key, value) } }));
+  const insertMessageVariable = (variable: string) => {
+    const current = messageTemplates[messageCursor.key];
+    const next = insertCustomerMessageVariable(current, variable, messageCursor.start, messageCursor.end);
+    updateMessageTemplate(messageCursor.key, next.value);
+    window.requestAnimationFrame(() => {
+      const input = document.querySelector<HTMLTextAreaElement>(`textarea[data-message-template="${messageCursor.key}"]`);
+      input?.focus(); input?.setSelectionRange(next.cursor, next.cursor);
+    });
+  };
+  const rememberMessageCursor = (key: keyof NonNullable<StoreSettings['messageTemplates']>, element: HTMLTextAreaElement) => setMessageCursor({ key, start: element.selectionStart ?? 0, end: element.selectionEnd ?? 0 });
   const toggleDesktopNotifications = async (enabled: boolean) => {
     if (!enabled) { update('notificationsDesktopEnabled', false); return; }
     try {
@@ -344,16 +355,16 @@ export default function SettingsAdmin() {
             <span className="eyebrow">COMUNICAÇÃO</span>
             <h2>Mensagens programadas</h2>
             <p>Edite as mensagens abertas manualmente no WhatsApp. As variáveis entre chaves são protegidas: se alguma for apagada, ela será recolocada automaticamente e também será corrigida ao salvar.</p>
-            <div className="message-template-variables-v063"><code>{'{cliente}'}</code><code>{'{pedido}'}</code><code>{'{loja}'}</code><code>{'{total}'}</code><code>{'{previsao}'}</code><code>{'{status}'}</code></div>
+            <div className="message-template-variables-v063" aria-label="Inserir variável na posição do cursor"><span>Toque para inserir:</span>{['{cliente}','{pedido}','{loja}','{total}','{previsao}','{status}'].map((variable)=><button type="button" key={variable} onMouseDown={(event)=>event.preventDefault()} onClick={()=>insertMessageVariable(variable)}>{variable}</button>)}</div>
             <details open><summary>Status do pedido</summary><div className="message-template-grid-v063">
-              <label>Recebido<textarea rows={3} value={messageTemplates.received} onChange={(e)=>updateMessageTemplate('received',e.target.value)} /></label>
-              <label>Confirmado<textarea rows={3} value={messageTemplates.confirmed} onChange={(e)=>updateMessageTemplate('confirmed',e.target.value)} /></label>
-              <label>Em preparação<textarea rows={3} value={messageTemplates.preparing} onChange={(e)=>updateMessageTemplate('preparing',e.target.value)} /></label>
-              <label>Pronto<textarea rows={3} value={messageTemplates.ready} onChange={(e)=>updateMessageTemplate('ready',e.target.value)} /></label>
-              <label>Saiu para entrega<textarea rows={3} value={messageTemplates.outForDelivery} onChange={(e)=>updateMessageTemplate('outForDelivery',e.target.value)} /></label>
-              <label>Entregue<textarea rows={3} value={messageTemplates.delivered} onChange={(e)=>updateMessageTemplate('delivered',e.target.value)} /></label>
-              <label>Retirado<textarea rows={3} value={messageTemplates.pickedUp} onChange={(e)=>updateMessageTemplate('pickedUp',e.target.value)} /></label>
-              <label>Cancelado<textarea rows={3} value={messageTemplates.cancelled} onChange={(e)=>updateMessageTemplate('cancelled',e.target.value)} /></label>
+              <label>Recebido<textarea data-message-template="received" rows={3} value={messageTemplates.received} onFocus={(e)=>rememberMessageCursor('received',e.currentTarget)} onSelect={(e)=>rememberMessageCursor('received',e.currentTarget)} onChange={(e)=>updateMessageTemplate('received',e.target.value)} /></label>
+              <label>Confirmado<textarea data-message-template="confirmed" rows={3} value={messageTemplates.confirmed} onFocus={(e)=>rememberMessageCursor('confirmed',e.currentTarget)} onSelect={(e)=>rememberMessageCursor('confirmed',e.currentTarget)} onChange={(e)=>updateMessageTemplate('confirmed',e.target.value)} /></label>
+              <label>Em preparação<textarea data-message-template="preparing" rows={3} value={messageTemplates.preparing} onFocus={(e)=>rememberMessageCursor('preparing',e.currentTarget)} onSelect={(e)=>rememberMessageCursor('preparing',e.currentTarget)} onChange={(e)=>updateMessageTemplate('preparing',e.target.value)} /></label>
+              <label>Pronto<textarea data-message-template="ready" rows={3} value={messageTemplates.ready} onFocus={(e)=>rememberMessageCursor('ready',e.currentTarget)} onSelect={(e)=>rememberMessageCursor('ready',e.currentTarget)} onChange={(e)=>updateMessageTemplate('ready',e.target.value)} /></label>
+              <label>Saiu para entrega<textarea data-message-template="outForDelivery" rows={3} value={messageTemplates.outForDelivery} onFocus={(e)=>rememberMessageCursor('outForDelivery',e.currentTarget)} onSelect={(e)=>rememberMessageCursor('outForDelivery',e.currentTarget)} onChange={(e)=>updateMessageTemplate('outForDelivery',e.target.value)} /></label>
+              <label>Entregue<textarea data-message-template="delivered" rows={3} value={messageTemplates.delivered} onFocus={(e)=>rememberMessageCursor('delivered',e.currentTarget)} onSelect={(e)=>rememberMessageCursor('delivered',e.currentTarget)} onChange={(e)=>updateMessageTemplate('delivered',e.target.value)} /></label>
+              <label>Retirado<textarea data-message-template="pickedUp" rows={3} value={messageTemplates.pickedUp} onFocus={(e)=>rememberMessageCursor('pickedUp',e.currentTarget)} onSelect={(e)=>rememberMessageCursor('pickedUp',e.currentTarget)} onChange={(e)=>updateMessageTemplate('pickedUp',e.target.value)} /></label>
+              <label>Cancelado<textarea data-message-template="cancelled" rows={3} value={messageTemplates.cancelled} onFocus={(e)=>rememberMessageCursor('cancelled',e.currentTarget)} onSelect={(e)=>rememberMessageCursor('cancelled',e.currentTarget)} onChange={(e)=>updateMessageTemplate('cancelled',e.target.value)} /></label>
             </div></details>
             <details><summary>Relacionamento</summary><div className="message-template-grid-v063"><label>Recuperação de venda<textarea rows={4} value={messageTemplates.salesRecovery} onChange={(e)=>updateMessageTemplate('salesRecovery',e.target.value)} /></label><label>Recompra / retorno<textarea rows={4} value={messageTemplates.comeBack} onChange={(e)=>updateMessageTemplate('comeBack',e.target.value)} /></label></div></details>
             <button type="button" className="secondary-button" onClick={()=>setForm((current)=>({...current,messageTemplates:normalizeCustomerMessageTemplates(DEFAULT_CUSTOMER_MESSAGE_TEMPLATES)}))}>Restaurar mensagens padrão</button>
