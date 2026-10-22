@@ -10,6 +10,7 @@ export type CustomerOrderNotificationStatus = 'unsupported' | 'blocked' | 'promp
 
 const CUSTOMER_ORDER_NOTIFICATION_PREFIX = 'foodweb_customer_order_notification_v1_';
 const recentNotificationAt = new Map<string, number>();
+const pendingNotifications = new Map<string, Promise<boolean>>();
 const NOTIFICATION_DEDUP_WINDOW_MS = 3_000;
 
 const canNotify = () => typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
@@ -131,16 +132,17 @@ export const subscribeToPwaPush = async (storeId?: string, userId?: string): Pro
 };
 
 /** Usa o service worker para seguir o padrão de notificações do PWA instalado. */
-export const showPwaNotification = async (title: string, body: string, options: PwaNotificationOptions = {}): Promise<void> => {
-  if (!canNotify()) return;
+export const showPwaNotification = async (title: string, body: string, options: PwaNotificationOptions = {}): Promise<boolean> => {
+  if (!canNotify()) return false;
   const tag = options.tag || title;
   const now = Date.now();
   const previous = recentNotificationAt.get(tag) || 0;
   // Realtime, polling e retry podem entregar o mesmo evento quase juntos.
   // O tag do navegador já substitui avisos antigos; este mapa evita sequer
   // abrir duas notificações durante a mesma janela de reconexão.
-  if (now - previous < NOTIFICATION_DEDUP_WINDOW_MS) return;
-  recentNotificationAt.set(tag, now);
+  if (now - previous < NOTIFICATION_DEDUP_WINDOW_MS) return true;
+  const pending = pendingNotifications.get(tag);
+  if (pending) return pending;
   if (recentNotificationAt.size > 200) {
     const cutoff = now - NOTIFICATION_DEDUP_WINDOW_MS;
     for (const [key, timestamp] of recentNotificationAt) if (timestamp < cutoff) recentNotificationAt.delete(key);
@@ -154,16 +156,23 @@ export const showPwaNotification = async (title: string, body: string, options: 
     data: { url: safeNotificationUrl(options.url) },
   };
 
-  try {
+  // Compartilha a tentativa em andamento; uma falha não bloqueia nova tentativa.
+  const delivery = Promise.resolve().then(async () => { try {
     if ('serviceWorker' in navigator) {
       const registration = await readyPwaRegistration();
       if (typeof registration.showNotification === 'function') {
         await registration.showNotification(title, notificationOptions);
-        return;
+        recentNotificationAt.set(tag, Date.now());
+        return true;
       }
     }
     new Notification(title, notificationOptions);
+    recentNotificationAt.set(tag, Date.now());
+    return true;
   } catch {
     // A permissão pode ser revogada pelo sistema entre a checagem e a exibição.
-  }
+    return false;
+  } }).finally(() => { pendingNotifications.delete(tag); });
+  pendingNotifications.set(tag, delivery);
+  return delivery;
 };

@@ -96,7 +96,7 @@ check('Frontend valida grupos obrigatórios',product.includes('group.minChoices'
 check('Carrinho usa assinatura das personalizações',cart.includes('normalizedOptionKey'));
 check('WhatsApp só abre após pedido existente',success.includes('markOrderWhatsAppClicked(confirmation.orderId)'));
 check('Status operacional não depende do WhatsApp',orders.includes('Em preparação')&&orders.includes('Pronto')&&orders.includes('Saiu para entrega'));
-check('Notificações aguardam o snapshot inicial',adminNotifications.includes('if (!settings.id || loading) return;'));
+check('Notificações aguardam snapshot e tenant selecionado',adminNotifications.includes('const storeReady = !loading')&&adminNotifications.includes('settings.id === membership?.storeId')&&adminNotifications.includes('if (!storeReady) return;'));
 check('Pedidos cancelados não geram alerta de novo pedido',adminNotifications.includes("if (order.status === 'cancelled') return;"));
 check('Assinatura push é sincronizada no painel',adminNotifications.includes('subscribeToPwaPush(membership.storeId, user.id)'));
 check('Painel não pede permissão de notificações sem ação do lojista',adminNotifications.includes("Notification.permission !== 'granted'")&&adminNotifications.includes('subscriptionSyncedFor')&&!adminNotifications.includes('permissionAttemptedFor'));
