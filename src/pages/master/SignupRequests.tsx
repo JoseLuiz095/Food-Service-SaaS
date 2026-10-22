@@ -1,6 +1,7 @@
 import { CheckCircle2, Clock3, RefreshCw, ShieldCheck, UserPlus, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
+import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { trackInteraction } from '../../services/interactionTelemetry';
 import {
   approveFoodSelfServiceSignup,
@@ -16,13 +17,15 @@ export default function SignupRequests(){
   const{showToast}=useToast();
   const[items,setItems]=useState<SelfServiceSignupRequest[]>([]);
   const[loading,setLoading]=useState(true);
+  const[loadError,setLoadError]=useState('');
   const[saving,setSaving]=useState('');
   const[filter,setFilter]=useState<'pending'|'all'>('pending');
 
   const load=async()=>{
     setLoading(true);
+    setLoadError('');
     try{setItems(await listFoodSelfServiceSignupRequests())}
-    catch(e){showToast(e instanceof Error?e.message:'Falha ao carregar solicitações.','error')}
+    catch(e){setLoadError(e instanceof Error?e.message:'Falha ao carregar solicitações.')}
     finally{setLoading(false)}
   };
   useEffect(()=>{void load()},[]);
@@ -50,8 +53,8 @@ export default function SignupRequests(){
 
     <section className="signup-request-summary"><article><UserPlus/><div><strong>{pending}</strong><span>Aguardando decisão</span></div></article><article><ShieldCheck/><div><strong>{items.filter((item)=>item.status==='approved').length}</strong><span>Liberados</span></div></article><article><Clock3/><div><strong>{items.filter((item)=>item.trialGranted&&item.status==='pending').length}</strong><span>Demos em análise</span></div></article></section>
 
-    <div className="signup-request-filters"><button className={filter==='pending'?'active':''} onClick={()=>setFilter('pending')}>Pendentes ({pending})</button><button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Histórico ({items.length})</button></div>
+    <div className="signup-request-filters" role="group" aria-label="Filtrar solicitações"><button aria-pressed={filter==='pending'} className={filter==='pending'?'active':''} onClick={()=>setFilter('pending')}>Pendentes ({pending})</button><button aria-pressed={filter==='all'} className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Histórico ({items.length})</button></div>
 
-    <section className="admin-card no-padding signup-request-table">{loading?<div className="master-table-loading">Carregando...</div>:visible.length===0?<div className="signup-request-empty"><CheckCircle2/><h3>Nenhuma solicitação pendente</h3><p>Novos auto cadastros aparecerão aqui automaticamente.</p></div>:<div className="responsive-table"><table><thead><tr><th>Cliente</th><th>Plano solicitado</th><th>Acesso atual</th><th>Cadastro</th><th>Status</th><th></th></tr></thead><tbody>{visible.map((item)=><tr key={item.id}><td><strong>{item.storeName}</strong><small>{item.ownerName} · {item.email}</small><small>WhatsApp: {item.contactPhone}{item.businessDocument?` · CNPJ: ${item.businessDocument}`:' · CNPJ não informado'}</small></td><td><strong>{item.requestedPlanName}</strong><small>{item.requestedPlanCode}{item.trialGranted?' · Demo solicitado':''}</small></td><td><span className={`signup-access-chip ${item.accessStatus==='online'?'online':'limited'}`}>{item.accessStatus==='online'?'Online':'Preparação'}</span>{item.trialExpiresAt&&<small>Demo até {dateTime(item.trialExpiresAt)}</small>}</td><td>{dateTime(item.createdAt)}</td><td><span className={`signup-status-chip ${item.status}`}>{statusLabel(item.status)}</span>{item.rejectionReason&&<small>{item.rejectionReason}</small>}</td><td>{item.status==='pending'?<div className="signup-request-actions"><button className="primary-button compact" disabled={saving===item.id} onClick={()=>void approve(item)}><CheckCircle2 size={15}/>Liberar</button><button className="danger-button compact" disabled={saving===item.id} onClick={()=>void reject(item)}><XCircle size={15}/>Não liberar</button></div>:<small>Revisado em {dateTime(item.reviewedAt)}</small>}</td></tr>)}</tbody></table></div>}</section>
+    <section className="admin-card no-padding signup-request-table">{loading?<div role="status"><LoadingState label="Carregando solicitações…"/></div>:loadError?<div role="alert"><ErrorState message={loadError} onRetry={()=>void load()}/></div>:visible.length===0?<div className="signup-request-empty"><CheckCircle2/><h3>{filter==='pending'?'Nenhuma solicitação pendente':'Nenhuma solicitação registrada'}</h3><p>{filter==='pending'?'As próximas solicitações para revisão aparecerão aqui.':'Os cadastros enviados pela página comercial aparecerão neste histórico.'}</p></div>:<div className="responsive-table"><table><thead><tr><th>Cliente</th><th>Plano solicitado</th><th>Acesso atual</th><th>Cadastro</th><th>Status</th><th></th></tr></thead><tbody>{visible.map((item)=><tr key={item.id}><td><strong>{item.storeName}</strong><small>{item.ownerName} · {item.email}</small><small>WhatsApp: {item.contactPhone}{item.businessDocument?` · CNPJ: ${item.businessDocument}`:' · CNPJ não informado'}</small></td><td><strong>{item.requestedPlanName}</strong><small>{item.requestedPlanCode}{item.trialGranted?' · Demo solicitado':''}</small></td><td><span className={`signup-access-chip ${item.accessStatus==='online'?'online':'limited'}`}>{item.accessStatus==='online'?'Online':'Preparação'}</span>{item.trialExpiresAt&&<small>Demo até {dateTime(item.trialExpiresAt)}</small>}</td><td>{dateTime(item.createdAt)}</td><td><span className={`signup-status-chip ${item.status}`}>{statusLabel(item.status)}</span>{item.rejectionReason&&<small>{item.rejectionReason}</small>}</td><td>{item.status==='pending'?<div className="signup-request-actions"><button className="primary-button compact" disabled={saving===item.id} onClick={()=>void approve(item)}><CheckCircle2 size={15}/>Liberar</button><button className="danger-button compact" disabled={saving===item.id} onClick={()=>void reject(item)}><XCircle size={15}/>Não liberar</button></div>:<small>Revisado em {dateTime(item.reviewedAt)}</small>}</td></tr>)}</tbody></table></div>}</section>
   </>;
 }

@@ -5,6 +5,7 @@ import { PlatformHelpButton } from '../components/PlatformHelpButton';
 import { useAuth } from '../contexts/AuthContext';
 import { PLATFORM_BRAND } from '../lib/brand';
 import '../segments/segments.css';
+import '../pages/master/master-refinements.css';
 
 const nav = [
   { to: '/admin-master', label: 'Visão geral', icon: LayoutDashboard, end: true },
@@ -22,6 +23,7 @@ export default function MasterLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const initials = (platformAdmin?.name || 'VW').slice(0, 2).toUpperCase();
+  const currentSection = nav.find(({ to, end }) => end ? location.pathname === to : location.pathname.startsWith(to))?.label || 'Gestão da plataforma';
 
   const logout = async () => {
     await signOut();
@@ -30,7 +32,8 @@ export default function MasterLayout() {
 
   return (
     <div className="admin-shell master-shell platform-business-shell">
-      <button className="admin-mobile-menu" onClick={() => setOpen(true)} aria-label="Abrir menu"><Menu size={21} /></button>
+      <a className="master-skip-link" href="#master-main">Ir para o conteúdo</a>
+      <button className="admin-mobile-menu" onClick={() => setOpen(true)} aria-label="Abrir menu" aria-expanded={open} aria-controls="master-navigation"><Menu size={21} /></button>
       {open && <button className="admin-backdrop" onClick={() => setOpen(false)} aria-label="Fechar menu" />}
 
       <aside className={`admin-sidebar master-sidebar ${open ? 'is-open' : ''}`}>
@@ -45,7 +48,7 @@ export default function MasterLayout() {
           </div>
         </div>
 
-        <nav>
+        <nav id="master-navigation" aria-label="Navegação do Admin Master">
           {nav.map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end} onClick={() => setOpen(false)}>
               <Icon size={18} />{label}
@@ -61,7 +64,7 @@ export default function MasterLayout() {
 
       <section className="admin-content">
         <header className="admin-topbar">
-          <div><span className="eyebrow">ADMIN MASTER</span><strong>Gestão central dos estabelecimentos</strong></div>
+          <div className="master-section-context"><strong>{currentSection}</strong><span><ShieldCheck size={14} aria-hidden="true"/>Admin Master · todas as lojas</span></div>
           <div className="admin-user" title={user?.email || platformAdmin?.name || 'Administrador da plataforma'}>
             <span>{initials}</span>
             <div>
@@ -70,7 +73,7 @@ export default function MasterLayout() {
             </div>
           </div>
         </header>
-        <div className="admin-page"><div key={location.pathname}><Outlet /></div></div>
+        <main id="master-main" tabIndex={-1} className="admin-page"><div key={location.pathname}><Outlet /></div></main>
       </section>
       <PlatformHelpButton/>
     </div>

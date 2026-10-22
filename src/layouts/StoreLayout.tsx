@@ -10,6 +10,7 @@ import { getStorefrontThemeStyle } from '../utils/storeVisualTheme';
 import { StorePlatformFooter } from '../components/StorePlatformFooter';
 import { getBusinessSegment, resolveBusinessTheme } from '../segments/businessSegments';
 import '../segments/segments.css';
+import '../segments/storefront-motion.css';
 
 export default function StoreLayout(){
   const location=useLocation();
@@ -41,5 +42,5 @@ export default function StoreLayout(){
   const hideDock=path.includes('/carrinho')||path.includes('/finalizar')||path.includes('/pedido/');
   const showDock=totalItems>0&&!hideDock;
 
-  return <main data-business-segment={segment.id} data-visual-preset={settings.visualTheme.preset} className={`store-layout food-storefront-theme ${useSegmentPresentation?'storefront-business-theme':''} ${showDock?'has-mobile-cart-dock':''}`} style={storefrontThemeStyle}><div key={location.pathname} className="store-route-view"><Outlet/></div><StorePlatformFooter/>{showDock&&<Link className="mobile-cart-dock" to={storefrontPath(storeBasePath,'/carrinho')} aria-label={`Abrir carrinho com ${totalItems} item(ns)`}><span className="mobile-cart-dock__icon"><ShoppingBag size={19}/><b>{totalItems}</b></span><span className="mobile-cart-dock__copy"><small>Seu carrinho</small><strong>{currency.format(subtotal)}</strong></span><span className="mobile-cart-dock__action">Ver carrinho <ArrowRight size={17}/></span></Link>}</main>;
+  return <main data-business-segment={segment.id} data-visual-preset={settings.visualTheme.preset} className={`store-layout food-storefront-theme storefront-motion ${useSegmentPresentation?'storefront-business-theme':''} ${showDock?'has-mobile-cart-dock':''}`} style={storefrontThemeStyle}><div key={location.pathname} className="store-route-view"><Outlet/></div><StorePlatformFooter/>{showDock&&<Link className="mobile-cart-dock" to={storefrontPath(storeBasePath,'/carrinho')} aria-label={`Abrir carrinho com ${totalItems} item(ns)`}><span className="mobile-cart-dock__icon"><ShoppingBag size={19}/><b>{totalItems}</b></span><span className="mobile-cart-dock__copy"><small>Seu carrinho</small><strong>{currency.format(subtotal)}</strong></span><span className="mobile-cart-dock__action">Ver carrinho <ArrowRight size={17}/></span></Link>}</main>;
 }

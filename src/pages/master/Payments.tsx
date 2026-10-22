@@ -1,6 +1,7 @@
 import { Ban, CalendarDays, CheckCircle2, RefreshCw, ReceiptText, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
+import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { platformApi } from '../../services/platformApi';
 import { trackInteraction } from '../../services/interactionTelemetry';
 import type { SubscriptionPayment } from '../../types';
@@ -18,13 +19,15 @@ export default function MasterPayments(){
   const[payments,setPayments]=useState<SubscriptionPayment[]>([]);
   const[busy,setBusy]=useState('');
   const[loading,setLoading]=useState(true);
+  const[loadError,setLoadError]=useState('');
   const[rejecting,setRejecting]=useState<SubscriptionPayment|null>(null);
   const[rejectReason,setRejectReason]=useState('');
 
   const load=async()=>{
     setLoading(true);
+    setLoadError('');
     try{setPayments(await platformApi.listSubscriptionPayments())}
-    catch(error){showToast(error instanceof Error?error.message:'Falha ao carregar pagamentos.','error')}
+    catch(error){setLoadError(error instanceof Error?error.message:'Falha ao carregar pagamentos.')}
     finally{setLoading(false)}
   };
 
@@ -75,12 +78,12 @@ export default function MasterPayments(){
   };
 
   return <>
-    <div className="admin-page-title"><div><span className="eyebrow">MENSALIDADES</span><h1>Pagamentos e alterações de plano</h1><p>Confirme somente após conferir o PIX. Se a renovação não ocorreu, registre a negativa sem avançar o vencimento da loja.</p></div><button className="secondary-button" onClick={()=>void load()}><RefreshCw size={16}/>Atualizar</button></div>
+    <div className="admin-page-title"><div><h1>Pagamentos e alterações de plano</h1><p>Confirme somente após conferir o PIX. Se a renovação não ocorreu, registre a negativa sem avançar o vencimento da loja.</p></div><button className="secondary-button" disabled={loading} onClick={()=>void load()}><RefreshCw size={16}/>Atualizar</button></div>
 
     <section className="master-payment-summary-v046"><span><strong>{stats.waiting}</strong><small>Aguardando decisão</small></span><span><strong>{stats.paid}</strong><small>Pagamentos confirmados</small></span><span><strong>{stats.rejected}</strong><small>Não renovados</small></span></section>
 
     <section className="admin-card billing-payment-table"><div className="section-heading"><div><span className="eyebrow">PIX + WHATSAPP</span><h2>Histórico de cobranças</h2><p>A VendeWeb não confirma mensalidades sozinha. A decisão permanece sob controle do Admin Master.</p></div><ReceiptText size={21}/></div>
-      {loading?<p>Carregando...</p>:payments.length===0?<p>Nenhuma cobrança registrada.</p>:<div className="food-master-payment-list-v046">
+      {loading?<div role="status"><LoadingState label="Carregando cobranças…"/></div>:loadError?<div role="alert"><ErrorState message={loadError} onRetry={()=>void load()}/></div>:payments.length===0?<p>Nenhuma cobrança registrada.</p>:<div className="food-master-payment-list-v046">
         {payments.map((payment)=><article key={payment.id} className="food-master-payment-card-v046">
           <div className="food-payment-status-v046"><ReceiptText/><div><span>{payment.storeName||payment.storeId}</span><h2>{payment.paymentIntent==='plan_change'?`${payment.previousPlanName||'Plano atual'} → ${payment.planName||'Novo plano'}`:payment.planName||'Renovação mensal'}</h2></div><b className={`status-${payment.status}`}>{statusLabel(payment)}</b></div>
           <div className="food-payment-admin-meta-v046">

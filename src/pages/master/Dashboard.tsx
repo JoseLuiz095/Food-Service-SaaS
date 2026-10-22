@@ -1,7 +1,8 @@
 import { AlertCircle, AlertTriangle, Building2, CalendarClock, CircleDollarSign, Clock3, CreditCard, PackageX, Power, Store, TrendingUp, UsersRound } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LoadingState } from '../../components/ui/AsyncState';
+import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { PLATFORM_BRAND } from '../../lib/brand';
 import { DEFAULT_PLATFORM_SETTINGS } from '../../data/platformDefaults';
 import { platformApi } from '../../services/platformApi';
 import type { PlatformEventLog } from '../../services/interactionTelemetry';
@@ -19,10 +20,15 @@ export default function MasterDashboard(){
   const[error,setError]=useState('');
   const[payments,setPayments]=useState<SubscriptionPayment[]>([]);
   const[events,setEvents]=useState<PlatformEventLog[]>([]);
-  useEffect(()=>{void Promise.all([
+  const load=async()=>{
+    setError('');
+    try { const [s,storesResult,platformSettings,paymentRows,eventRows]=await Promise.all([
     platformApi.dashboard(),platformApi.listStores(),platformApi.getPlatformSettings(),
     platformApi.listSubscriptionPayments().catch(()=>[]),platformApi.listPlatformEvents({limit:120}).catch(()=>[]),
-  ]).then(([s,storesResult,platformSettings,paymentRows,eventRows])=>{setStats(s);setStores(storesResult);setSettings(platformSettings);setPayments(paymentRows);setEvents(eventRows)}).catch((e)=>setError(e instanceof Error?e.message:'Falha ao carregar indicadores.'))},[]);
+    ]);setStats(s);setStores(storesResult);setSettings(platformSettings);setPayments(paymentRows);setEvents(eventRows)}
+    catch(e){setError(e instanceof Error?e.message:'Falha ao carregar indicadores.')}
+  };
+  useEffect(()=>{void load()},[]);
 
   const trialWarnings=useMemo(()=>stores.filter((store)=>store.planCode==='DEMO'&&store.subscriptionStatus==='trial'&&!trialExpired(store.expiresAt)&&daysUntil(store.expiresAt)<=settings.demoWarningDays).sort((a,b)=>daysUntil(a.expiresAt)-daysUntil(b.expiresAt)),[stores,settings.demoWarningDays]);
   const payingStores=useMemo(()=>stores.filter((store)=>store.planCode!=='DEMO'&&store.subscriptionStatus==='active'&&store.accessStatus==='online'),[stores]);
@@ -40,7 +46,8 @@ export default function MasterDashboard(){
   const overdueStores=useMemo(()=>stores.filter((store)=>store.planCode!=='DEMO'&&store.subscriptionStatus!=='cancelled'&&store.nextDueDate&&(daysUntilBillingDate(store.nextDueDate)??0)<0),[stores]);
   const recentErrors=useMemo(()=>{const since=Date.now()-86_400_000;return events.filter((event)=>event.result==='error'&&new Date(event.createdAt).getTime()>=since)},[events]);
 
-  if(!stats)return <LoadingState label={error||'Carregando gestão da plataforma...'}/>;
+  if(error)return <div role="alert"><ErrorState message={error} onRetry={()=>void load()}/></div>;
+  if(!stats)return <div role="status"><LoadingState label="Carregando gestão da plataforma..."/></div>;
   const cards=[
     {label:'Lojas cadastradas',value:stats.storesTotal,icon:Building2},
     {label:'Online',value:stats.storesOnline,icon:Power},
@@ -50,7 +57,7 @@ export default function MasterDashboard(){
     {label:'Ticket mensal médio',value:currency.format(averageRevenue),icon:TrendingUp},
   ];
   return <>
-    <div className="admin-page-title"><div><span className="eyebrow">PLATAFORMA</span><h1>Gestão comercial do Food Service SaaS</h1><p>Acompanhe aquisição, demonstrações, clientes ativos e receita recorrente em uma única visão.</p></div><Link className="primary-button" to="/admin-master/lojas">Gerenciar lojas</Link></div>
+    <div className="admin-page-title"><div><h1>Gestão comercial da {PLATFORM_BRAND}</h1><p>Acompanhe aquisição, demonstrações, clientes ativos e receita recorrente em uma única visão.</p></div><Link className="primary-button" to="/admin-master/lojas">Gerenciar lojas</Link></div>
     <div className="stat-grid master-stat-grid">{cards.map(({label,value,icon:Icon})=><article className="stat-card" key={label}><div className="stat-icon"><Icon size={20}/></div><span>{label}</span><strong>{value}</strong></article>)}</div>
 
     <section className="admin-card master-pending-center-r69">

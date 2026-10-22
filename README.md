@@ -4,6 +4,8 @@ Endereço oficial: **https://www.vendeweb.com.br**. Links de loja, produto e QR 
 
 Publicação e testes de 22/10/2026: [relatório de validação, segurança e pendências](docs/VALIDACAO_VENDEWEB_20261022.md).
 
+Correção da edição de pedidos e revisão posterior: [auditoria operacional, integrações, Master e animações](docs/AUDITORIA_OPERACIONAL_20261022.md).
+
 ## Vitrines e painel por ramo
 
 A página comercial e o cadastro agora apresentam alimentação, confeitaria, varejo, impressão 3D, aluguel e serviços. O ramo adapta a apresentação e pode ser alterado em **Configurações** ou pelo Master. Lojas existentes mantêm seu visual; a Doce Lua preserva sua identidade e operação.
