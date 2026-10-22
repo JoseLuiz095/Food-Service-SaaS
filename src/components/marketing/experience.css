@@ -1,0 +1,99 @@
+/* Persuasão e cadastro: estas regras não alcançam vitrines reais ou checkout. */
+:is(.food-sales-page--segments,.self-signup-experience) .business-journey {
+  --journey-ink:#25332c;--journey-muted:#5e695f;--journey-line:#e1e4d9;
+  min-width:0;overflow:hidden;border:0;border-radius:14px;background:#fff;box-shadow:0 20px 48px #25332c14;color:var(--journey-ink);
+}
+.business-journey :is(button,a):focus-visible{outline:3px solid #ba482d;outline-offset:3px}
+.business-journey__browser{height:32px;display:flex;align-items:center;gap:5px;padding:0 16px;background:#e9eddf}
+.business-journey__browser>span{width:5px;height:5px;border-radius:50%;background:#9ba78f}
+.business-journey__browser small{margin-left:auto;color:#4d5c44;font-size:10px}
+.business-journey__identity{display:flex;align-items:center;gap:10px;padding:20px 24px 16px;min-width:0}
+.business-journey__identity>span:first-child{width:40px;height:40px;flex:0 0 40px;display:grid;place-items:center;background:color-mix(in srgb,var(--preview-accent) 9%,white);color:var(--preview-accent);border-radius:10px}
+.business-journey__identity>div{min-width:0;flex:1;display:grid;gap:4px}
+.business-journey__identity strong{font-size:16px;overflow-wrap:anywhere;line-height:1.3}
+.business-journey__identity small{font-size:11px;color:var(--journey-muted)}
+.business-journey__identity-label{font-size:8px;letter-spacing:.1em;color:var(--journey-muted)}
+.business-journey__steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:0 20px 12px}
+.business-journey__steps>button{position:relative;display:flex;align-items:center;justify-content:center;gap:6px;border:0;background:#f5f6f0;color:var(--journey-muted);border-radius:6px;min-height:44px;padding:8px 14px 8px 8px;font:inherit;font-size:11px;cursor:pointer;transition:background 150ms,color 150ms}
+.business-journey__steps>button[aria-pressed=true]{background:var(--preview-accent);color:#fff}
+.business-journey__steps>button:hover:not([aria-pressed=true]){background:#e7ecdf;color:var(--journey-ink)}
+.business-journey__connector{position:absolute;right:-8px;z-index:1;background:#fff;color:#607053;border-radius:50%;width:15px;height:15px;padding:2px}
+.business-journey__scene{min-height:305px;padding:0 24px 20px;animation:journey-update 320ms cubic-bezier(.16,1,.3,1) both}
+.business-journey__scene h2{font-size:23px;line-height:1.2;letter-spacing:-.03em;margin:12px 0;color:var(--journey-ink)}
+.business-journey__scene p{font-size:12px;line-height:1.65;color:var(--journey-muted);margin:8px 0 14px}
+.business-journey__cover{background:color-mix(in srgb,var(--preview-accent) 8%,#fbfbf5);padding:18px;border-radius:8px}
+.business-journey__cover>span{font-size:11px;color:var(--preview-accent);font-weight:600}
+.business-journey__cover h2{margin:9px 0;font-size:25px;max-width:17ch}
+.business-journey__cover p{margin-bottom:0;max-width:41ch}
+.business-journey__product{display:flex;align-items:center;gap:14px;padding:18px 0}
+.business-journey__product-art{height:62px;width:62px;flex:0 0 62px;display:grid;place-items:center;background:#f1f3eb;border-radius:8px;color:var(--preview-accent)}
+.business-journey__product>div:last-child{min-width:0;flex:1}
+.business-journey__product strong{display:block;font-size:13px;line-height:1.4}
+.business-journey__product p{font-size:11px;margin:4px 0 7px}
+.business-journey__product>div>span{font-size:12px;font-weight:700;color:var(--preview-accent)}
+.business-journey__next{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--preview-accent);color:#fff;border:0;border-radius:6px;min-height:44px;padding:10px 13px;cursor:pointer;font:inherit;font-size:11px;font-weight:600}
+.business-journey__next:hover{filter:brightness(.9)}
+.business-journey__next>svg{flex-shrink:0;transition:transform 150ms}
+.business-journey__next:hover>svg{transform:translateX(3px)}
+.business-journey__status{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:650;color:var(--preview-accent);padding-top:12px}
+.business-journey__receipt{border-block:1px solid var(--journey-line);margin:20px 0;padding:4px 0}
+.business-journey__receipt>div{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:11px 0;font-size:11px;line-height:1.5}
+.business-journey__receipt>div+div{border-top:1px dashed var(--journey-line)}
+.business-journey__receipt strong{text-align:right;max-width:55%;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.business-journey__receipt>div>span:last-child{max-width:55%;text-align:right;color:var(--journey-muted)}
+.business-journey__queue{display:flex;align-items:center;gap:16px;background:#f2f4eb;padding:18px;border-radius:8px;margin:20px 0}
+.business-journey__queue>div{display:grid;gap:8px;flex:1;min-width:0}
+.business-journey__queue>div>span{font-size:9px;letter-spacing:.06em;color:var(--journey-muted)}
+.business-journey__queue strong{font-size:13px}
+.business-journey__queue small{font-size:10px;color:var(--journey-muted)}
+.business-journey__queue-check{height:30px;width:30px;display:grid;place-items:center;background:var(--preview-accent);color:#fff;border-radius:50%;flex-shrink:0}
+.business-journey__operation-note{display:flex;align-items:center;gap:10px;color:var(--journey-muted);font-size:11px;line-height:1.7}
+.business-journey__operation-note svg{flex-shrink:0;color:var(--preview-accent)}
+.business-journey__operation-note strong{color:var(--journey-ink);font-weight:600}
+.business-journey__restart{display:flex;align-items:center;gap:6px;min-height:44px;margin:10px 0 0;padding:4px 0;border:0;background:transparent;color:var(--preview-accent);font:inherit;font-size:11px;font-weight:600;cursor:pointer;text-align:left}
+.business-journey__disclaimer{padding:12px 24px;margin:0!important;background:#f5f6f0;color:#59634f!important;font-size:10px!important;line-height:1.6!important}
+.food-sales-page--segments .commercial-experience{min-width:0;scroll-margin-top:100px}
+.food-sales-page--segments .commercial-experience>p{margin:0 0 12px;font-size:12px;color:var(--commercial-muted)}
+.food-sales-page--segments .commercial-experience .commercial-segments__choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:18px}
+.food-sales-page--segments .commercial-experience .commercial-segments__choices button{min-height:44px;padding:10px;display:flex;align-items:center;gap:7px;border-radius:6px;text-align:left}
+.food-sales-page--segments .commercial-experience .commercial-segments__choices button>svg{width:16px;height:16px;flex-shrink:0}
+.food-sales-page--segments .commercial-experience .commercial-segments__choices button>svg:last-child{display:none}
+.food-sales-page--segments .commercial-experience .commercial-segments__choices button>span{font-size:10px;margin:0;line-height:1.4}
+.food-sales-page--segments .commercial-experience .commercial-segments__detail{display:block;min-height:0;margin-top:18px}
+.food-sales-page--segments .commercial-experience .commercial-segments__detail strong{font-size:14px}
+.food-sales-page--segments .commercial-experience .commercial-segments__detail p{font-size:11px;line-height:1.7;margin-top:5px}
+.food-sales-page--segments .commercial-hero__copy h1{letter-spacing:-.04em}
+.food-sales-page--segments .commercial-hero__copy h1 em{letter-spacing:-.035em}
+.food-sales-page--segments .commercial-hero__caption{align-items:flex-start}
+.food-sales-page--segments .commercial-hero__caption>span{flex-shrink:0}
+.food-sales-page--segments ::selection,.self-signup-experience ::selection{background:#dce5ce;color:#25332c}
+.self-signup-experience{--signup-ink:#25332c;--signup-muted:#5e695f;background:#f3f3e9;color:var(--signup-ink)}
+.self-signup-experience .self-signup-topbar{border-color:#dce1d3;background:#fcfcf8}
+.self-signup-experience .self-signup-intro h1{color:var(--signup-ink);letter-spacing:-.04em}
+.self-signup-experience .self-signup-intro>p{color:var(--signup-muted)}
+.self-signup-experience .self-signup-mobile-start{display:none}
+.self-signup-experience #signup-form{scroll-margin-top:20px}
+.self-signup-experience .signup-live-preview{margin-top:28px}
+.self-signup-experience .signup-live-preview>p{font-size:12px;line-height:1.6;color:var(--signup-muted);margin:0 0 12px}
+.self-signup-experience .self-signup-rules{margin-top:24px;gap:16px}
+.self-signup-experience .self-signup-rules article{padding:0;background:transparent;border:0}
+.self-signup-experience .self-signup-rules article>svg{color:#526e43}
+.self-signup-experience .self-signup-card{box-shadow:0 12px 35px #25332c08;border-color:#dce1d3}
+.self-signup-experience input{caret-color:#17633d}
+.self-signup-experience :is(input,button,a):focus-visible{outline:3px solid #ba482d;outline-offset:3px}
+.self-signup-experience .self-signup-mode>button{min-height:44px}
+.self-signup-experience .self-signup-mode>button.active{color:#fff;background:#29382c}
+.self-signup-experience .self-signup-submit{background:#ba482d;border-color:#ba482d;min-height:48px}
+.self-signup-experience .self-signup-submit:hover:not(:disabled){background:#963821}
+.self-signup-experience .self-signup-password button{min-width:44px;min-height:44px}
+.self-signup-experience .self-signup-progress{display:flex;gap:12px;margin:0 0 20px;padding:0;list-style:none;font-size:11px;color:var(--signup-muted);flex-wrap:wrap}
+.self-signup-experience .self-signup-progress li{display:flex;align-items:center;gap:6px}
+.self-signup-experience .self-signup-progress svg{color:#526e43}
+.showcase-loading{padding:32px 0;min-height:240px;background:#f3f3e9;color:#25332c;border-radius:12px;display:grid;place-content:center;text-align:center;gap:10px}
+.showcase-loading a{color:#963821;text-underline-offset:4px}
+@keyframes journey-update{from{clip-path:inset(0 0 16% 0);opacity:.65;transform:translateY(5px)}to{clip-path:inset(0);opacity:1;transform:none}}
+@media(min-width:1000px){.self-signup-experience .self-signup-intro{align-self:start}.self-signup-experience .signup-live-preview{max-width:430px}}
+@media(max-width:900px){.food-sales-page--segments .commercial-experience{width:min(100%,580px);justify-self:center}.self-signup-experience .signup-live-preview{max-width:560px}.self-signup-experience .business-journey--compact .business-journey__scene{min-height:0}}
+@media(max-width:850px){.self-signup-experience .self-signup-mobile-start{display:inline-flex;align-items:center;gap:8px;background:#ba482d;color:#fff;min-height:44px;padding:10px 16px;text-decoration:none;font-size:13px;font-weight:650;border-radius:6px}}
+@media(max-width:600px){.business-journey__identity{padding:16px}.business-journey__identity-label{display:none}.business-journey__steps{padding-inline:12px}.business-journey__scene{padding:0 16px 16px;min-height:335px}.business-journey__identity strong{font-size:14px}.business-journey__cover{padding:16px}.business-journey__cover h2{font-size:23px}.business-journey__disclaimer{padding:12px 16px}.food-sales-page--segments .commercial-experience .commercial-segments__choices button{padding:9px 7px;gap:5px}.food-sales-page--segments .commercial-experience .commercial-segments__choices button>span{font-size:9px}.self-signup-experience .signup-live-preview{margin:24px 0}.self-signup-experience .business-journey--compact .business-journey__cover p{display:none}.self-signup-experience .business-journey--compact .business-journey__scene{min-height:0}.self-signup-experience .self-signup-progress{gap:8px;font-size:10px}}
+@media(prefers-reduced-motion:reduce){.business-journey__scene{animation:none}.business-journey__next>svg{transition:none}.business-journey__next:hover>svg{transform:none}.business-journey__steps>button{transition:background 100ms,color 100ms}}

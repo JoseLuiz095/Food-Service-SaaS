@@ -14,6 +14,23 @@ const NOTIFICATION_DEDUP_WINDOW_MS = 3_000;
 
 const canNotify = () => typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted';
 
+const readyPwaRegistration = (): Promise<ServiceWorkerRegistration> => new Promise((resolve, reject) => {
+  const timer = window.setTimeout(() => reject(new Error('O app de notificações ainda não está pronto. Reabra a página e tente novamente.')), 10_000);
+  navigator.serviceWorker.ready.then(registration => { window.clearTimeout(timer); resolve(registration); }, error => {
+    window.clearTimeout(timer);
+    reject(error);
+  });
+});
+
+const safeNotificationUrl = (value?: string): string => {
+  const fallback = '/admin/pedidos';
+  try {
+    const url = new URL(value || fallback, window.location.origin);
+    if (url.origin === window.location.origin && !url.username && !url.password) return url.href;
+  } catch { /* URLs inválidas voltam à área interna de pedidos. */ }
+  return new URL(fallback, window.location.origin).href;
+};
+
 export const requestPwaNotificationPermission = async (): Promise<NotificationPermission | null> => {
   if (typeof window === 'undefined' || !('Notification' in window)) return null;
   if (Notification.permission === 'default') return Notification.requestPermission();
@@ -85,11 +102,11 @@ export const pwaPushStatus = () => {
 /** Solicita permissão, cria a assinatura Web Push e a vincula à loja/usuário autenticado. */
 export const subscribeToPwaPush = async (storeId?: string, userId?: string): Promise<PushSubscription> => {
   const status = pwaPushStatus();
-  if (status === 'unsupported') throw new Error('Este navegador não oferece notificações push para o PWA. Instale o app pelo Chrome/Edge no Android.');
+  if (status === 'unsupported') throw new Error('Este navegador não oferece notificações push. No iPhone/iPad, adicione o app à Tela de Início pelo Safari; no Android, instale pelo Chrome ou Edge.');
   if (status === 'not_configured') throw new Error('As notificações do telefone ainda não foram configuradas no servidor (VAPID).');
   const permission = await requestPwaNotificationPermission();
   if (permission !== 'granted') throw new Error('Permissão de notificações não concedida no telefone.');
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await readyPwaRegistration();
   const existing = await registration.pushManager.getSubscription();
   const subscription = existing || await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: decodeVapidKey(appConfig.vapidPublicKey) as unknown as BufferSource });
 
@@ -130,16 +147,16 @@ export const showPwaNotification = async (title: string, body: string, options: 
   }
   const notificationOptions: NotificationOptions & { data?: { url: string }; renotify?: boolean } = {
     body,
-    icon: '/assets/marketing/app-splash-v2.png?v=20261015',
-    badge: '/assets/marketing/app-splash-v2.png?v=20261015',
+    icon: '/assets/vendeweb-icon-192.png',
+    badge: '/assets/vendeweb-badge-96.png',
     tag,
     renotify: false,
-    data: { url: options.url || '/admin/pedidos' },
+    data: { url: safeNotificationUrl(options.url) },
   };
 
   try {
     if ('serviceWorker' in navigator) {
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await readyPwaRegistration();
       if (typeof registration.showNotification === 'function') {
         await registration.showNotification(title, notificationOptions);
         return;

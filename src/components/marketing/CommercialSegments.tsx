@@ -1,60 +1,41 @@
-import { ArrowRight, BarChart3, CakeSlice, CalendarDays, Check, ChevronRight, CircleCheck, Cuboid, Handshake, LayoutDashboard, MessageCircle, Package, Palette, PartyPopper, Settings2, ShoppingBag, Store, Utensils, Wrench } from 'lucide-react';
-import { useState, type CSSProperties } from 'react';
+import { ArrowRight, CakeSlice, CalendarDays, Check, Cuboid, Handshake, MessageCircle, Palette, PartyPopper, Settings2, ShoppingBag, Store, Utensils, Wrench } from 'lucide-react';
+import { useState } from 'react';
 import { ProtectedContactButton } from '../ProtectedContactButton';
+import { BusinessJourneyPreview } from './BusinessJourneyPreview';
+import type { BusinessSegment } from '../../segments/businessSegments';
 
 type CommercialSegment = {
-  id: string;
+  id: BusinessSegment;
   name: string;
   title: string;
   description: string;
-  storefront: string;
-  product: string;
-  detail: string;
-  category: string;
-  accent: string;
   icon: typeof Store;
 };
 
 const segments: CommercialSegment[] = [
-  { id: 'food', name: 'Alimentação', title: 'Do cardápio ao próximo pedido.', description: 'Fotos que abrem o apetite, adicionais, entrega e retirada. Sua rotina de vendas no centro da experiência.', storefront: 'Sabor da Vila', product: 'Hambúrguer da casa', detail: 'Feito na hora, do seu jeito.', category: 'Mais pedidos', accent: '#c84e35', icon: Utensils },
-  { id: 'confectionery', name: 'Confeitaria', title: 'Seu cuidado aparece em cada detalhe.', description: 'Valorize doces, presentes e encomendas com uma vitrine delicada e informações claras sobre seus produtos.', storefront: 'Ateliê de Doces', product: 'Caixa de doces especiais', detail: 'Um presente feito com carinho.', category: 'Para presentear', accent: '#9b5368', icon: CakeSlice },
-  { id: 'retail', name: 'Produtos e lojas', title: 'Uma vitrine com a sua identidade.', description: 'Organize coleções, destaque produtos e facilite a escolha. Seu catálogo, sua marca e seu canal de venda.', storefront: 'Casa & Forma', product: 'Kit de organização', detail: 'Design que faz parte da rotina.', category: 'Novidades', accent: '#447a67', icon: ShoppingBag },
-  { id: 'printing3d', name: 'Impressão 3D', title: 'Transforme ideias em novos pedidos.', description: 'Apresente peças prontas e, com o módulo opcional de personalizados, receba especificações e arquivos para orçamento.', storefront: 'Forma 3D', product: 'Chaveiro personalizado', detail: 'Seu projeto ganha forma.', category: 'Peças e brindes', accent: '#5069a7', icon: Cuboid },
-  { id: 'rentals', name: 'Aluguel', title: 'O que torna o evento especial.', description: 'Destaque seu catálogo de locação. Ative o módulo opcional para organizar reservas, checklists e sinal manual.', storefront: 'Dia de Festa', product: 'Pula-pula para festas', detail: 'Consulte disponibilidade e condições.', category: 'Para o seu evento', accent: '#96702e', icon: PartyPopper },
-  { id: 'services', name: 'Serviços', title: 'Mostre seu trabalho. Abra novas conversas.', description: 'Uma apresentação clara dos seus serviços, com identidade própria e atendimento que continua pelo WhatsApp.', storefront: 'Oficina Criativa', product: 'Projeto sob medida', detail: 'Conte o que você precisa.', category: 'Nossos serviços', accent: '#487a82', icon: Wrench },
+  { id: 'food', name: 'Alimentação', title: 'Do cardápio ao próximo pedido.', description: 'Fotos que abrem o apetite, adicionais, entrega e retirada. Sua rotina de vendas no centro da experiência.', icon: Utensils },
+  { id: 'confectionery', name: 'Confeitaria', title: 'Seu cuidado aparece em cada detalhe.', description: 'Valorize doces, presentes e encomendas com uma vitrine delicada e informações claras sobre seus produtos.', icon: CakeSlice },
+  { id: 'retail', name: 'Produtos e lojas', title: 'Uma vitrine com a sua identidade.', description: 'Organize coleções, destaque produtos e facilite a escolha. Seu catálogo, sua marca e seu canal de venda.', icon: ShoppingBag },
+  { id: 'printing3d', name: 'Impressão 3D', title: 'Transforme ideias em novos pedidos.', description: 'Apresente peças prontas e, com o módulo opcional de personalizados, receba especificações e arquivos para orçamento.', icon: Cuboid },
+  { id: 'rentals', name: 'Aluguel', title: 'O que torna o evento especial.', description: 'Destaque seu catálogo de locação. Ative o módulo opcional para organizar reservas, checklists e sinal manual.', icon: PartyPopper },
+  { id: 'services', name: 'Serviços', title: 'Mostre seu trabalho. Abra novas conversas.', description: 'Uma apresentação clara dos seus serviços, com identidade própria e atendimento que continua pelo WhatsApp.', icon: Wrench },
 ];
-
-function SegmentPreview({ segment }: { segment: CommercialSegment }) {
-  const Icon = segment.icon;
-  return <div className="commercial-preview" style={{ '--preview-accent': segment.accent } as CSSProperties} aria-label={`Exemplo de apresentação para ${segment.name}`}>
-    <div className="commercial-preview__browser"><span /><span /><span /><small>Uma vitrine com a sua marca</small></div>
-    <div className="commercial-preview__store">
-      <header><span className="commercial-preview__store-logo"><Icon size={23} /></span><div><strong>{segment.storefront}</strong><small>Produtos, cuidado e identidade própria</small></div><ShoppingBag size={19} /></header>
-      <div className="commercial-preview__cover"><span>{segment.category}</span><strong>{segment.product}</strong><p>{segment.detail}</p><Icon size={92} strokeWidth={1.1} /></div>
-      <div className="commercial-preview__product"><span><Icon size={30} strokeWidth={1.5} /></span><div><small>SELECIONADO PARA VOCÊ</small><strong>{segment.product}</strong><p>Informações claras para escolher com confiança.</p></div><ChevronRight size={17} /></div>
-      <div className="commercial-preview__product commercial-preview__product--secondary"><span><Package size={27} strokeWidth={1.5} /></span><div><small>CONHEÇA NOSSO CATÁLOGO</small><strong>Mais possibilidades para você</strong><p>Explore produtos e encontre o que procura.</p></div><ChevronRight size={17} /></div>
-      <div className="commercial-preview__footer"><CircleCheck size={15} /><span>Exemplo ilustrativo de apresentação</span></div>
-    </div>
-    <div className="commercial-preview__admin"><span><LayoutDashboard size={19} /></span><div><strong>Por trás de cada venda, controle.</strong><small>Sua marca na vitrine. Sua operação no painel.</small></div><BarChart3 size={23} /></div>
-  </div>;
-}
 
 export function CommercialHero({ trialDays }: { trialDays: number }) {
   const [selected, setSelected] = useState(segments[0]);
   const signupHref = `/cadastro?plan=DEMO&segment=${selected.id}`;
   return <>
     <section className="commercial-hero"><div className="sales-shell commercial-hero__grid">
-      <div className="commercial-hero__copy"><span className="commercial-eyebrow"><span /> SUA MARCA. SEU JEITO DE VENDER.</span><h1>Um espaço para vender.<br /><em>Do seu jeito.</em></h1><p>Produtos, encomendas ou serviços: aproxime seu negócio de quem compra, com uma vitrine própria e uma operação mais organizada.</p>
+      <div className="commercial-hero__copy"><h1>Um espaço para vender.<br /><em>Do seu jeito.</em></h1><p>Produtos, encomendas ou serviços: aproxime seu negócio de quem compra, com uma vitrine própria e uma operação mais organizada.</p>
         <div className="sales-hero-actions"><a className="sales-cta-primary sales-cta-trial" href={signupHref}>Criar conta e testar por {trialDays} dias <ArrowRight size={17} /></a><a className="sales-cta-secondary" href="#demonstracao">Conhecer a plataforma</a></div>
         <div className="sales-proof-row"><span><Check />Sem cartão no teste</span><span><Check />Sem comissão por pedido</span><span><Check />Sua identidade preservada</span></div>
         <div className="commercial-hero__caption"><span><Store size={18} /></span><p>Do pequeno negócio aos novos projetos.<br /><strong>Uma base simples para crescer com você.</strong></p></div>
       </div>
-      <SegmentPreview segment={selected} />
-    </div></section>
-    <section id="ramos" className="commercial-segments"><div className="sales-shell">
-      <div className="commercial-section-heading"><div><span className="commercial-eyebrow">FEITO PARA O SEU RAMO</span><h2>Seu negócio tem um jeito.<br />Sua página também.</h2></div><p>Escolha seu ramo para explorar a apresentação. A identidade acompanha o negócio na vitrine e no painel.</p></div>
+      <div id="ramos" className="commercial-experience"><p>Escolha seu ramo. Explore a experiência da sua loja.</p>
       <div className="commercial-segments__choices" role="group" aria-label="Explore a apresentação por ramo">{segments.map((segment) => { const Icon = segment.icon; return <button key={segment.id} type="button" aria-pressed={selected.id === segment.id} className={selected.id === segment.id ? 'is-selected' : ''} onClick={() => setSelected(segment)}><Icon size={23} strokeWidth={1.6} /><span>{segment.name}</span><ArrowRight size={15} /></button>; })}</div>
+      <BusinessJourneyPreview segment={selected.id} />
       <div className="commercial-segments__detail" aria-live="polite"><div><strong>{selected.title}</strong><p>{selected.description}</p></div><a href={signupHref}>Começar com {selected.name.toLocaleLowerCase('pt-BR')} <ArrowRight size={17} /></a></div>
+      </div>
     </div></section>
   </>;
 }

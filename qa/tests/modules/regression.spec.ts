@@ -80,7 +80,7 @@ for(const fulfillment of ['pickup','delivery']) {
       await page.getByLabel('Rua',{exact:true}).fill('Rua de teste');
       await page.getByLabel('Número',{exact:true}).fill('10');
     }
-    await page.getByRole('button',{name:'PIX',exact:true}).click();
+    await page.getByRole('button',{name:/^PIX/}).click();
     const submit=page.getByRole('button',{name:/Registrar pedido|Finalizar/}).filter({visible:true}).first();
     await submit.click();
     await expect(page).toHaveURL(new RegExp(ORDER));

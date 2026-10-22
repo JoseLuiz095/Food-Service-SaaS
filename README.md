@@ -1,5 +1,9 @@
 # VendeWeb — vendas e operação para pequenos negócios
 
+Endereço oficial: **https://www.vendeweb.com.br**. Links de loja, produto e QR Code compartilham o domínio oficial. Consulte [configuração de domínio e PWA](docs/DOMINIO_VENDEWEB.md) e [experiência comercial](docs/VENDEWEB_EXPERIENCIA.md).
+
+Publicação e testes de 22/10/2026: [relatório de validação, segurança e pendências](docs/VALIDACAO_VENDEWEB_20261022.md).
+
 ## Vitrines e painel por ramo
 
 A página comercial e o cadastro agora apresentam alimentação, confeitaria, varejo, impressão 3D, aluguel e serviços. O ramo adapta a apresentação e pode ser alterado em **Configurações** ou pelo Master. Lojas existentes mantêm seu visual; a Doce Lua preserva sua identidade e operação.
@@ -150,8 +154,12 @@ Ele publica somente:
 
 ```text
 food-platform-create-store
+food-platform-manage-store-user
 food-public-checkout
-food-finance-document-extract
+food-public-contact
+food-public-self-signup
+food-send-push
+food-modules-public
 ```
 
 ### Secrets obrigatórios para checkout em produção

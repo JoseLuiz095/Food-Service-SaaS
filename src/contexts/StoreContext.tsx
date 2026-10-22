@@ -177,7 +177,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const isMasterRoute = location.pathname.startsWith('/admin-master');
     const isStoreAdminRoute = location.pathname === '/admin' || location.pathname.startsWith('/admin/');
     const marketingRoot = typeof window !== 'undefined' && isFoodWebMarketingRoot(location.pathname, window.location.hostname);
-    if (isMasterRoute || marketingRoot) { setLoading(false); return; }
+    const isStandalonePublicRoute = /^\/(?:cadastro|modulos)(?:\/|$)/.test(location.pathname);
+    if (isMasterRoute || marketingRoot || isStandalonePublicRoute) { setLoading(false); return; }
     if (authLoading) { setLoading(true); return; }
     if (isStoreAdminRoute) {
       if (user && membership) void reloadAdmin();
@@ -192,7 +193,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const isMasterRoute = location.pathname.startsWith('/admin-master');
       const isStoreAdminRoute = location.pathname === '/admin' || location.pathname.startsWith('/admin/');
       const marketingRoot = typeof window !== 'undefined' && isFoodWebMarketingRoot(location.pathname, window.location.hostname);
-      if (isMasterRoute || marketingRoot || authLoading) return;
+      const isStandalonePublicRoute = /^\/(?:cadastro|modulos)(?:\/|$)/.test(location.pathname);
+      if (isMasterRoute || marketingRoot || isStandalonePublicRoute || authLoading) return;
       if (isStoreAdminRoute) {
         if (user && membership) void reloadAdmin({ force: true });
         return;

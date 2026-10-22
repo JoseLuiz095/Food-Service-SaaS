@@ -9,12 +9,15 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "build": "npm run typecheck && vite build",
+    "build": "npm run check:env && npm run typecheck && vite build",
     "preview": "vite preview",
-    "validate": "npm run smoke && npm run test:critical && npm run test:segments && npm run build",
+    "validate": "npm run smoke && npm run test:critical && npm run test:segments && npm run test:domains && npm run test:pwa && npm run test:security && npm run build",
+    "test:domains": "node scripts/domain-unit-test.mjs",
+    "test:pwa": "node scripts/pwa-security.mjs",
+    "test:security": "node scripts/security-unit-test.mjs",
     "test:segments": "node scripts/segments-unit-test.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "deploy": "npm run check:env && npm run build && wrangler deploy",
+    "deploy": "npm run build && wrangler deploy",
     "design:setup": "npx --yes impeccable@3.6.0 skills install -y --providers=codex --scope=project",
     "design:help": "node scripts/impeccable-help.mjs",
     "design:update": "npx --yes impeccable@3.6.0 skills update -y",
@@ -60,7 +63,7 @@
     "@types/react-dom": "19.2.5",
     "@vitejs/plugin-react": "6.1.0",
     "typescript": "6.0.3",
-    "vite": "8.2.1",
-    "wrangler": "4.126.0"
+    "vite": "8.3.5",
+    "wrangler": "4.151.3"
   }
 }

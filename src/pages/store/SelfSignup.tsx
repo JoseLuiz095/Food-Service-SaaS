@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Clock3, Eye, EyeOff, ShieldCheck, Store, UserPlus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Clock3, Eye, EyeOff, ShieldCheck, Store, UserPlus } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { TurnstileWidget } from '../../components/ui/TurnstileWidget';
@@ -13,6 +13,7 @@ import { currency } from '../../utils/format';
 import { BusinessSegmentPicker } from '../../segments/BusinessSegmentPicker';
 import { normalizeBusinessSegment } from '../../segments/businessSegments';
 import { PLATFORM_BRAND } from '../../lib/brand';
+import { BusinessJourneyPreview } from '../../components/marketing/BusinessJourneyPreview';
 
 const DEMO_PLAN: LandingPlan = { id:'demo-self-service', code:'DEMO', name:'Demo 30 dias', monthlyPrice:0, featureCodes:[], marketingBenefits:[] };
 const allowedPlan=(code:string)=>['DEMO','ESSENTIAL','STARTER','PROFESSIONAL'].includes(code.toUpperCase());
@@ -94,13 +95,14 @@ export default function SelfSignup(){
     }finally{setLoading(false)}
   };
 
-  return <div className="self-signup-page">
+  return <div className="self-signup-page self-signup-experience">
     <header className="self-signup-topbar"><Link to="/"><ArrowLeft size={18}/>Voltar</Link><strong>{PLATFORM_BRAND}</strong><Link to="/admin/login">Entrar</Link></header>
     <main className="self-signup-shell">
       <section className="self-signup-intro">
-        <span className="eyebrow">COMECE AGORA</span>
         <h1>Seu negócio, com um jeito próprio de vender.</h1>
         <p>Escolha seu ramo e prepare uma vitrine com a sua identidade. Produtos, encomendas, peças ou serviços: você organiza o catálogo e acompanha os pedidos em um só lugar.</p>
+        <a className="self-signup-mobile-start" href="#signup-form">Preencher cadastro <ArrowRight size={16} aria-hidden="true"/></a>
+        <div className="signup-live-preview"><p>Veja sua loja começar a ganhar forma. O nome e o ramo escolhidos aparecem nesta prévia.</p><BusinessJourneyPreview segment={form.businessSegment || 'food'} storeName={form.storeName} compact /></div>
         <div className="self-signup-rules">
           <article><Clock3/><div><strong>Demo por {demoDays} dias</strong><span>Teste gratuito sujeito à validação cadastral do negócio.</span></div></article>
           <article><Store/><div><strong>Configuração antecipada</strong><span>Planos pagos entram em modo de preparação até a aprovação.</span></div></article>
@@ -108,13 +110,14 @@ export default function SelfSignup(){
         </div>
       </section>
 
-      <section className="self-signup-card">
+      <section id="signup-form" className="self-signup-card">
         <div className="self-signup-mode">
-          <button type="button" className={mode==='new'?'active':''} onClick={()=>{setMode('new');setError('')}}>Criar nova conta</button>
-          <button type="button" className={mode==='existing'?'active':''} onClick={()=>{setMode('existing');setError('')}}>Já tenho conta</button>
+          <button type="button" aria-pressed={mode==='new'} className={mode==='new'?'active':''} onClick={()=>{setMode('new');setError('')}}>Criar nova conta</button>
+          <button type="button" aria-pressed={mode==='existing'} className={mode==='existing'?'active':''} onClick={()=>{setMode('existing');setError('')}}>Já tenho conta</button>
         </div>
         <form onSubmit={submit}>
           <div className="self-signup-heading"><UserPlus size={22}/><div><h2>{mode==='new'?'Novo cadastro':'Usar uma conta existente'}</h2><p>{mode==='new'?'Você poderá confirmar o e-mail antes da ativação.':`Entre com seu usuário Supabase e solicite um novo acesso à ${PLATFORM_BRAND}.`}</p></div></div>
+          <ol className="self-signup-progress" aria-label="Etapas até a publicação"><li><Store size={14} aria-hidden="true"/>Prepare sua loja</li><li><ShieldCheck size={14} aria-hidden="true"/>Aguarde a revisão</li><li><Check size={14} aria-hidden="true"/>Comece após a liberação</li></ol>
 
           <label>Nome do estabelecimento<input required value={form.storeName} onChange={(e)=>setField('storeName',e.target.value)} placeholder="Ex.: Sua loja ou ateliê"/></label>
           <BusinessSegmentPicker value={form.businessSegment || 'food'} onChange={(segment)=>setField('businessSegment',segment)}/>
@@ -130,8 +133,8 @@ export default function SelfSignup(){
           {!isDemo&&<div className="self-signup-notice"><ShieldCheck size={17}/><span>Você poderá preparar o sistema, mas a vitrine permanecerá indisponível até o Admin Master liberar o cadastro.</span></div>}
 
           {appConfig.turnstileSiteKey?<TurnstileWidget siteKey={appConfig.turnstileSiteKey} action="signup" onToken={setCaptchaToken} resetSignal={captchaReset}/>:<div className="form-error">Turnstile não configurado neste build. O auto cadastro permanece bloqueado por segurança.</div>}
-          {error&&<div className="form-error">{error}</div>}
-          {success&&<div className="form-success self-signup-success">{success}</div>}
+          {error&&<div className="form-error" role="alert">{error}</div>}
+          {success&&<div className="form-success self-signup-success" role="status">{success}</div>}
           {presentationNeedsReview?<Link className="primary-button self-signup-submit" to="/admin/configuracoes">Abrir configurações da loja</Link>:<button className="primary-button self-signup-submit" disabled={loading||!appConfig.turnstileSiteKey||!captchaToken}>{loading?'Processando...':mode==='new'?'Criar conta e continuar':'Entrar e solicitar acesso'}</button>}
           <small className="self-signup-footnote">Ao continuar, você solicita a criação de um ambiente {PLATFORM_BRAND}. Cadastros são revisados pelo Admin Master antes da liberação definitiva e o teste gratuito depende de elegibilidade cadastral.</small>
         </form>

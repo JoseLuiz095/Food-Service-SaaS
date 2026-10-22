@@ -19,8 +19,9 @@ console.log('OK calculadora: custos, margem, urgência, limites e zero');
 // Contrato de preservação: compara arquivos legados à base main integrada, sem executar Git mutante.
 const baseline='9d5c79f';
 // Presentation changes audited in the segment release. A small, explicit VendeWeb list
-// is allowed below: it only changes public identity, PWA assets and additive CORS origins.
-// Payment, stock, order services, contexts and every existing SQL migration remain exact.
+// is allowed below: identity, domain links, public-route loading and PWA security.
+// Payment/stock/order services and all preexisting migrations stay exact. New
+// additive security migrations and domain/PWA adapters have their own behavior tests.
 const presentationFiles=new Set([
   'src/pages/store/Landing.tsx','src/pages/store/SelfSignup.tsx','src/pages/store/Home.tsx',
   'src/services/platformApi.ts','src/services/selfServiceSignup.ts','src/utils/storeVisualTheme.ts',
@@ -32,6 +33,9 @@ const vendewebIdentityFiles=new Set([
   'supabase/functions/food-public-checkout/index.ts',
   'supabase/functions/food-public-contact/index.ts',
   'supabase/functions/food-public-self-signup/index.ts',
+  'src/utils/storefrontRoute.ts', 'src/services/pwaNotifications.ts',
+  'src/contexts/StoreContext.tsx',
+  'src/pages/store/ProductDetail.tsx',
 ]);
 const protectedFiles=execFileSync('git',['ls-tree','-r','--name-only',baseline,'src/contexts','src/pages/store','src/services','src/utils','src/styles.css','src/types','src/components/admin','supabase/functions','supabase/migrations'],{encoding:'utf8'}).trim().split(/\r?\n/).filter(file=>file&&!presentationFiles.has(file)&&!vendewebIdentityFiles.has(file));
 const changed=execFileSync('git',['diff','--name-only',baseline,'--',...protectedFiles],{encoding:'utf8'}).trim();

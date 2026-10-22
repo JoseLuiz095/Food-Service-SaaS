@@ -92,7 +92,7 @@ ok('Frontend usa tabelas Food',storeApi.includes('food_stores?')&&storeApi.inclu
 ok('RLS Food independente',migration.includes('food_products_admin_all')&&migration.includes('food_orders_admin_all'));
 ok('Buckets Food separados',migration.includes("'food-product-images'")&&migration.includes("'food-store-assets'")&&commercialMigration.includes("'food-finance-documents','food-finance-documents',false"));
 ok('Seed comercial Food Service',seed.includes("'Central Food'")&&seed.includes("'X-Bacon Artesanal'"));
-ok('Branding FoodWeb aplicado',adminLayout.includes('FoodWeb')&&masterLayout.includes('FoodWeb')&&header.includes('foodweb-wordmark'));
+ok('Branding VendeWeb aplicado',adminLayout.includes('PLATFORM_BRAND')&&masterLayout.includes('PLATFORM_BRAND')&&header.includes('foodweb-wordmark')&&read('src/lib/brand.ts').includes("PLATFORM_BRAND = 'VendeWeb'"));
 ok('Favicon FoodWeb substitui identidade floral',(favicon.includes('#ea1d2c')||favicon.includes('#d66539'))&&!favicon.toLowerCase().includes('flower'));
 ok('Redesign marketplace aplicado',css.includes('FoodWeb v0.4.0')&&css.includes('--food-red:#ea1d2c')&&home.includes('Os queridinhos da casa')&&header.includes('Pedido direto com o estabelecimento'));
 
@@ -143,7 +143,7 @@ ok('CSS com chaves balanceadas',(css.match(/\{/g)||[]).length===(css.match(/\}/g
 
 ok('Supabase publico possui fallback de producao', read('src/lib/config.ts').includes('FOODWEB_DEFAULT_SUPABASE_URL'));
 const commercialSegments=read('src/components/marketing/CommercialSegments.tsx');
-ok('Landing comercial multirramos preserva demonstração e recursos',landing.includes('CommercialHero')&&landing.includes('InteractiveShowcase')&&landing.includes('ExistingValueSection')&&commercialSegments.includes('Seu negócio tem um jeito.'));
+ok('Landing comercial multirramos preserva demonstração e recursos',landing.includes('CommercialHero')&&landing.includes('InteractiveShowcase')&&landing.includes('ExistingValueSection')&&commercialSegments.includes('BusinessJourneyPreview'));
 ok('Teste configurável com CTA para criar conta',commercialSegments.includes('Criar conta e testar')&&commercialSegments.includes('{trialDays} dias')&&commercialSegments.includes('/cadastro?plan=DEMO&segment=')&&read('src/data/platformDefaults.ts').includes('demoDurationDays: 14'));
 ok('WhatsApp comercial e suporte configuráveis', masterPlans.includes('marketingWhatsapp')&&masterPlans.includes('supportWhatsapp')&&read('src/services/platformApi.ts').includes('support_whatsapp'));
 ok('Suporte flutuante restrito ao Admin',helpButton.includes('loadAdminSupportContact')&&(adminLayout.includes('<PlatformHelpButton/>')||adminLayout.includes('<PlatformHelpButton />'))&&(masterLayout.includes('<PlatformHelpButton/>')||masterLayout.includes('<PlatformHelpButton />'))&&!home.includes('PlatformHelpButton'));

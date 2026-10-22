@@ -1,3 +1,5 @@
+import { isLocalPlatformHost, isPlatformDomain } from './brand';
+
 const trimSlash = (value: string) => value.replace(/\/+$/, '');
 
 // Esses dois identificadores sao publicos por natureza e ja fazem parte do bundle
@@ -19,14 +21,8 @@ export const appConfig = {
 export const isSupabaseConfigured = Boolean(appConfig.supabaseUrl && appConfig.supabaseAnonKey);
 export const isDemoMode = import.meta.env.DEV && !isSupabaseConfigured;
 
-const PLATFORM_HOSTS = new Set([
-  'vendeweb.com.br',
-  'www.vendeweb.com.br',
-  'foodweb.joseluizacama.workers.dev',
-  'localhost',
-  '127.0.0.1',
-  '172.26.224.1',
-]);
-
-export const isFoodWebPlatformHost = (hostname: string) => PLATFORM_HOSTS.has(String(hostname || '').trim().toLowerCase());
+export const isFoodWebPlatformHost = (hostname: string) => {
+  const host = String(hostname || '').trim().toLowerCase();
+  return isPlatformDomain(host) || isLocalPlatformHost(host);
+};
 export const isFoodWebMarketingRoot = (pathname: string, hostname: string) => pathname === '/' && isFoodWebPlatformHost(hostname);

@@ -1,11 +1,11 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import AdminLayout from './layouts/AdminLayout';
 import MasterLayout from './layouts/MasterLayout';
 import StoreLayout from './layouts/StoreLayout';
 import { useAuth } from './contexts/AuthContext';
 import { LoadingState } from './components/ui/AsyncState';
-import { PLATFORM_DOMAIN, LEGACY_PLATFORM_ORIGIN } from './lib/brand';
+import { canonicalPlatformRedirect, hasOriginBoundAuthCallback, hasOriginBoundShoppingState, isOriginBoundShoppingPath } from './lib/brand';
 
 const Analytics=lazy(()=>import('./pages/admin/Analytics'));
 const Finance=lazy(()=>import('./pages/admin/Finance'));
@@ -70,24 +70,26 @@ function ProtectedMaster() {
 
 const fallback=<div className="page-center"><LoadingState label="Carregando interface..."/></div>;
 
-function LegacyPlatformRedirect(){
+export function CanonicalPlatformBoundary({ children }: { children: ReactNode }){
   const location=useLocation();
-  const legacyHost=new URL(LEGACY_PLATFORM_ORIGIN).hostname;
-  const isLegacyHost=typeof window!=='undefined'&&window.location.hostname.toLowerCase()===legacyHost;
+  // Mantém toda a jornada iniciada na origem anterior. Nenhum carrinho, dado
+  // pessoal ou token é transportado em query string para outra origem.
+  const [preserveShoppingSession]=useState(()=>{
+    if(typeof window==='undefined')return false;
+    if(isOriginBoundShoppingPath(window.location.pathname))return true;
+    try{return hasOriginBoundShoppingState(window.localStorage)||hasOriginBoundAuthCallback(window.location.href,window.localStorage)}catch{return true}
+  });
+  const target=typeof window==='undefined'?null:canonicalPlatformRedirect(window.location.href,preserveShoppingSession);
 
   useEffect(()=>{
-    if(!isLegacyHost||typeof window==='undefined')return;
-    const target=new URL(window.location.href);
-    target.protocol='https:';
-    target.hostname=PLATFORM_DOMAIN;
-    window.location.replace(target.toString());
-  },[isLegacyHost,location.pathname,location.search,location.hash]);
+    if(target)window.location.replace(target);
+  },[target,location.pathname,location.search,location.hash]);
 
-  return isLegacyHost?fallback:null;
+  return target?fallback:children;
 }
 
 export default function App() {
-  return <Suspense fallback={fallback}><LegacyPlatformRedirect/><Routes>
+  return <Suspense fallback={fallback}><Routes>
     <Route path="/modulos/eventos/:sellerId" element={<EventsPage />} />
     <Route path="/modulos/eventos/pedido/:eventOrderId" element={<EventsPage />} />
     <Route element={<StoreLayout />}>
