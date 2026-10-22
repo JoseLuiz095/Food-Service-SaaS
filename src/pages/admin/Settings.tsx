@@ -98,12 +98,13 @@ export default function SettingsAdmin() {
   };
   const sendTestNotification = async () => {
     try {
-      if (pwaPushStatus() !== 'not_configured') await subscribeToPwaPush(membership?.storeId, user?.id);
+      if (form.notificationsDesktopEnabled && pwaPushStatus() === 'available') await subscribeToPwaPush(membership?.storeId, user?.id);
       else {
         const permission = await requestPwaNotificationPermission();
         if (permission !== 'granted') throw new Error('Permissão de notificações não concedida no telefone.');
       }
-      await showPwaNotification('VendeWeb · teste', 'Se você recebeu este aviso, o PWA está autorizado neste telefone.', { tag: 'vendeweb:test' });
+      const delivered = await showPwaNotification('VendeWeb · teste', 'Se você recebeu este aviso, o PWA está autorizado neste telefone.', { tag: `vendeweb:test:${settings.id}` });
+      if (!delivered) throw new Error('O navegador não confirmou o envio. Confira as permissões do sistema e tente novamente.');
       showToast('Notificação de teste enviada.', 'success');
     } catch (notificationError) {
       showToast(notificationError instanceof Error ? notificationError.message : 'Não foi possível enviar o teste.', 'error');

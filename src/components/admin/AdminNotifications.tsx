@@ -48,6 +48,14 @@ export function AdminNotifications() {
   const [pushStatus, setPushStatus] = useState(() => pwaPushStatus());
   const [testing, setTesting] = useState(false);
   const [lastSignalAt, setLastSignalAt] = useState<string | null>(null);
+  const [testError, setTestError] = useState('');
+  const [testFeedback, setTestFeedback] = useState('');
+  const [pushRegistered, setPushRegistered] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const scope = `${membership?.storeId || ''}:${user?.id || ''}`;
+  const currentScope = useRef(scope);
+  currentScope.current = scope;
+  const storeReady = !loading && Boolean(settings.id && settings.id === membership?.storeId);
 
   const refreshNotificationStatus = () => {
     setPermission(typeof Notification === 'undefined' ? null : Notification.permission);
@@ -55,32 +63,74 @@ export function AdminNotifications() {
   };
 
   const sendTestNotification = async () => {
+    if (!storeReady || !membership || !user || testing) return;
+    const requestedScope = scope;
     setTesting(true);
+    setTestError('');
+    setTestFeedback('');
     try {
       const nextPermission = await requestPwaNotificationPermission();
+      if (currentScope.current !== requestedScope) return;
       setPermission(nextPermission);
       setPushStatus(pwaPushStatus());
-      if (nextPermission !== 'granted') return;
-      if (membership?.storeId && user?.id && pwaPushStatus() === 'available') {
+      if (nextPermission !== 'granted') {
+        setTestError(nextPermission === 'denied'
+          ? 'As notificações estão bloqueadas. Permita os avisos nas configurações deste site e tente novamente.'
+          : nextPermission === null ? 'Este navegador não oferece notificações.' : 'A permissão não foi concedida. Você pode tentar novamente.');
+        return;
+      }
+      if (settings.notificationsDesktopEnabled && pwaPushStatus() === 'available') {
         await subscribeToPwaPush(membership.storeId, user.id);
+        if (currentScope.current !== requestedScope) return;
         pushSynced.current = true;
         subscriptionSyncedFor.current = `${settings.id}:${membership.storeId}:${user.id}`;
+        setPushRegistered(true);
       }
-      await showPwaNotification('Teste de notificações', 'A VendeWeb conseguiu enviar um aviso para este dispositivo.', { tag: `notification-test:${settings.id}` });
+      const delivered = await showPwaNotification('Teste de notificações', 'Aviso de teste da VendeWeb.', { tag: `notification-test:${settings.id}` });
+      if (currentScope.current !== requestedScope) return;
+      if (!delivered) {
+        setTestError('O navegador não confirmou o envio. Confira as permissões do sistema e tente novamente.');
+        return;
+      }
+      setTestFeedback('Teste enviado ao navegador. Confira o aviso neste dispositivo.');
       setLastSignalAt(new Date().toISOString());
     } catch {
-      // O navegador pode recusar a solicitação fora de um gesto explícito.
+      if (currentScope.current !== requestedScope) return;
+      setPushRegistered(false);
+      setTestError('Não foi possível concluir o teste. Confira a conexão e tente novamente.');
       refreshNotificationStatus();
     } finally {
-      setTesting(false);
+      if (currentScope.current === requestedScope) setTesting(false);
     }
   };
+
+  useEffect(() => {
+    setUnread(0); setLastSignalAt(null); setTestError(''); setTestFeedback('');
+    setDiagnosticOpen(false); setTesting(false); setPushRegistered(false);
+    pushSynced.current = false; subscriptionSyncedFor.current = '';
+    initialized.current = false; initializedStoreId.current = '';
+    knownOrderIds.current.clear(); knownPaymentStatus.current.clear();
+  }, [scope]);
+
+  useEffect(() => {
+    if (!diagnosticOpen) return;
+    const previousFocus = document.activeElement;
+    closeButtonRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); setDiagnosticOpen(false); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, [diagnosticOpen]);
 
   useEffect(() => {
     // Aguarda o primeiro snapshot completo. Antes disso o contexto ainda tem
     // uma lista vazia; tratá-la como base fazia todos os pedidos históricos
     // parecerem novos assim que chegavam do Supabase.
-    if (!settings.id || loading) return;
+    if (!storeReady) return;
     if (!initialized.current || initializedStoreId.current !== settings.id) {
       initializedStoreId.current = settings.id;
       knownOrderIds.current = new Set(orders.map((order) => order.id));
@@ -145,7 +195,7 @@ export function AdminNotifications() {
         if (settings.notificationsDesktopEnabled) void showPwaNotification('Pedido agendado próximo', `${label} · ${detail}`, { tag: `scheduled-order:${order.id}` });
       });
     }
-  }, [loading, orders, settings]);
+  }, [storeReady, orders, settings]);
 
   useEffect(() => {
     // Nunca abra o pedido de permissão automaticamente. Em celulares e no
@@ -153,7 +203,7 @@ export function AdminNotifications() {
     // deixa a primeira abertura do painel com uma mensagem confusa. Depois
     // de o lojista optar por ativar no botão abaixo, a assinatura continua
     // sendo sincronizada normalmente nas próximas aberturas.
-    if (!settings.id || loading || !membership?.storeId || !user?.id || !settings.notificationsDesktopEnabled) return;
+    if (!storeReady || !membership?.storeId || !user?.id || !settings.notificationsDesktopEnabled) return;
     const syncKey = `${settings.id}:${membership.storeId}:${user.id}`;
     if (subscriptionSyncedFor.current === syncKey) return;
     if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
@@ -167,23 +217,29 @@ export function AdminNotifications() {
       if (status === 'not_configured' || status === 'unsupported' || status === 'blocked') return;
       if (pushSynced.current) return;
       pushSynced.current = true;
-      void subscribeToPwaPush(membership.storeId, user.id).catch(() => {
+      void subscribeToPwaPush(membership.storeId, user.id).then(() => {
+        if (!cancelled) setPushRegistered(true);
+      }).catch(() => {
         // O alerta local continua funcionando quando o servidor VAPID ainda
         // não foi configurado ou quando a assinatura antiga foi revogada.
-        pushSynced.current = false;
+        if (!cancelled) {
+          pushSynced.current = false;
+          subscriptionSyncedFor.current = '';
+          setPushRegistered(false);
+        }
       });
     };
 
     void syncGrantedSubscription();
     return () => { cancelled = true; };
-  }, [loading, membership?.storeId, settings.id, settings.notificationsDesktopEnabled, user?.id]);
+  }, [storeReady, membership?.storeId, settings.id, settings.notificationsDesktopEnabled, user?.id]);
 
   useEffect(() => {
     // A tela de pedidos já atualiza a lista a cada 15 segundos. Mantemos
     // este ciclo para as demais telas do painel, mas o desligamos naquela
     // rota para não duplicar a mesma consulta ao Supabase.
     if (isOrdersScreen) return;
-    if (!settings.id || loading) return;
+    if (!storeReady) return;
     let inFlight = false;
     const refresh = () => {
       if (document.visibilityState === 'hidden' || inFlight) return;
@@ -194,13 +250,13 @@ export function AdminNotifications() {
     document.addEventListener('visibilitychange', onVisibilityChange);
     const interval = window.setInterval(refresh, 60_000);
     return () => { document.removeEventListener('visibilitychange', onVisibilityChange); window.clearInterval(interval); };
-  }, [isOrdersScreen, loading, reloadOrders, settings.id]);
+  }, [isOrdersScreen, storeReady, reloadOrders, settings.id]);
 
   useEffect(() => {
     // O painel administrativo também verifica insumos em segundo plano. O
     // estado local evita repetir o mesmo aviso enquanto o saldo continuar
     // abaixo do mínimo configurado.
-    if (!settings.id || loading || !settings.notificationsDesktopEnabled) return;
+    if (!storeReady || !settings.notificationsDesktopEnabled) return;
     let cancelled = false;
     const checkLowStock = async () => {
       try {
@@ -222,7 +278,7 @@ export function AdminNotifications() {
     void checkLowStock();
     const interval = window.setInterval(() => { if (document.visibilityState === 'visible') void checkLowStock(); }, 60_000);
     return () => { cancelled = true; window.clearInterval(interval); };
-  }, [loading, settings.id, settings.notificationsDesktopEnabled]);
+  }, [storeReady, settings.id, settings.notificationsDesktopEnabled]);
 
   useEffect(() => {
     refreshNotificationStatus();
@@ -235,11 +291,13 @@ export function AdminNotifications() {
   const statusIcon = permission === 'granted' ? <CheckCircle2 size={15}/> : permission === 'denied' ? <CircleAlert size={15}/> : <Info size={15}/>;
   const diagnostic = diagnosticOpen && typeof document !== 'undefined' ? createPortal(
     <section className="admin-notification-diagnostic" id="admin-notification-diagnostic" role="dialog" aria-label="Diagnóstico de notificações">
-      <div className="admin-notification-diagnostic__heading"><div><span className="eyebrow">CENTRAL DE AVISOS</span><strong>Notificações do painel</strong></div><button type="button" className="icon-button" onClick={() => setDiagnosticOpen(false)} aria-label="Fechar diagnóstico"><X size={16}/></button></div>
+      <div className="admin-notification-diagnostic__heading"><div><span className="eyebrow">CENTRAL DE AVISOS</span><strong>Notificações do painel</strong></div><button ref={closeButtonRef} type="button" className="icon-button" onClick={() => setDiagnosticOpen(false)} aria-label="Fechar diagnóstico"><X size={16}/></button></div>
       <div className="admin-notification-diagnostic__status"><span>{statusIcon} Permissão do navegador</span><strong className={permission === 'granted' ? 'is-ok' : permission === 'denied' ? 'is-error' : ''}>{permissionLabel}</strong></div>
-      <div className="admin-notification-diagnostic__status"><span><Bell size={15}/> Push em segundo plano</span><strong>{pushStatus === 'available' ? 'Configurado' : pushStatus === 'not_configured' ? 'Ainda não configurado' : pushStatus === 'blocked' ? 'Bloqueado' : 'Indisponível'}</strong></div>
+      <div className="admin-notification-diagnostic__status"><span><Bell size={15}/> Push em segundo plano</span><strong>{pushStatus === 'available' ? pushRegistered ? 'Assinatura registrada' : 'Aguardando ativação' : pushStatus === 'not_configured' ? 'Ainda não configurado' : pushStatus === 'blocked' ? 'Bloqueado' : 'Indisponível'}</strong></div>
       {lastSignalAt && <small className="admin-notification-diagnostic__last">Último sinal recebido nesta sessão: {formatDateTimeBR(lastSignalAt)}</small>}
-      <button type="button" className="secondary-button admin-notification-diagnostic__test" onClick={() => void sendTestNotification()} disabled={testing}>{testing ? <Loader2 className="spin" size={15}/> : <Bell size={15}/>} {testing ? 'Enviando teste...' : permission === 'default' ? 'Ativar e testar notificações' : 'Enviar notificação de teste'}</button>
+      <button type="button" className="secondary-button admin-notification-diagnostic__test" onClick={() => void sendTestNotification()} disabled={testing || !storeReady}>{testing ? <Loader2 className="spin" size={15}/> : <Bell size={15}/>} {testing ? 'Enviando teste...' : permission === 'default' ? 'Ativar e testar notificações' : 'Enviar notificação de teste'}</button>
+      {testError && <p role="alert">{testError}</p>}
+      {testFeedback && <p role="status">{testFeedback}</p>}
       <div className="admin-notification-diagnostic__links"><Link to="/admin/pedidos" onClick={() => setDiagnosticOpen(false)}>Ver pedidos →</Link><Link to="/admin/estoque" onClick={() => setDiagnosticOpen(false)}>Ver estoque →</Link></div>
       <p>Pedidos novos, pagamentos confirmados e agendamentos próximos são verificados ao abrir o painel e enquanto esta aba estiver ativa.</p>
     </section>,

@@ -8,7 +8,7 @@ Nunca grave dados Food em `stores`, `store_users`, `products`, `orders`, `plans`
 
 ## Regra de produção
 
-Não aplique migration, altere RLS ou publique Edge Function sem revisar o diff. Neste pacote, a única migration ativa é `202608280400_foodservice_shared_database.sql`.
+Não aplique migration, altere RLS ou publique Edge Function sem revisar o diff. `202608280400_foodservice_shared_database.sql` é a base histórica; há migrations posteriores em `supabase/migrations/`. Compare o histórico local com o ambiente alvo antes de executar qualquer alteração. Testes PostgreSQL locais não comprovam quais migrations estão aplicadas remotamente.
 
 ## Arquitetura
 

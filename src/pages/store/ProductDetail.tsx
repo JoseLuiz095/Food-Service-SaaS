@@ -10,6 +10,7 @@ import { currency, roundMoney } from '../../utils/format';
 import { useToast } from '../../contexts/ToastContext';
 import { publicProductUrl, storefrontPath } from '../../utils/storefrontRoute';
 import { trackPublicEvent } from '../../services/analyticsApi';
+import '../../segments/product-detail-mobile.css';
 
 const groupInstruction = (group: OptionGroup) => {
   if (group.minChoices === group.maxChoices && group.maxChoices === 1) return 'Escolha 1 opção';

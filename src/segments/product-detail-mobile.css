@@ -1,0 +1,28 @@
+/* Keep quantity and the full price readable on narrow storefronts. */
+@media (max-width: 430px) {
+  .product-detail-info .buy-box {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .product-detail-info .buy-box > .quantity-control {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    display: grid;
+    grid-template-columns: 36px 34px 36px;
+    justify-self: start;
+    height: auto;
+  }
+
+  .product-detail-info .buy-box > .quantity-control small {
+    grid-column: 1 / -1;
+    margin: 4px 0 0;
+    text-align: center;
+  }
+
+  .product-detail-info .buy-box > .buy-total {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    white-space: nowrap;
+  }
+}
