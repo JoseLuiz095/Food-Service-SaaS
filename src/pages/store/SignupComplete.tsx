@@ -4,12 +4,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getSupabaseClient } from '../../lib/supabase';
 import { completeFoodSelfServiceSignup } from '../../services/selfServiceSignup';
+import { PLATFORM_BRAND } from '../../lib/brand';
 
 export default function SignupComplete(){
   const navigate=useNavigate();
   const{refreshAccess}=useAuth();
   const[state,setState]=useState<'loading'|'success'|'error'>('loading');
-  const[message,setMessage]=useState('Confirmando sua conta e preparando o FoodWeb...');
+  const[message,setMessage]=useState(`Confirmando sua conta e preparando a ${PLATFORM_BRAND}...`);
 
   useEffect(()=>{
     let active=true;

@@ -12,6 +12,7 @@ import {
 import { currency } from '../../utils/format';
 import { BusinessSegmentPicker } from '../../segments/BusinessSegmentPicker';
 import { normalizeBusinessSegment } from '../../segments/businessSegments';
+import { PLATFORM_BRAND } from '../../lib/brand';
 
 const DEMO_PLAN: LandingPlan = { id:'demo-self-service', code:'DEMO', name:'Demo 30 dias', monthlyPrice:0, featureCodes:[], marketingBenefits:[] };
 const allowedPlan=(code:string)=>['DEMO','ESSENTIAL','STARTER','PROFESSIONAL'].includes(code.toUpperCase());
@@ -72,7 +73,7 @@ export default function SelfSignup(){
     try{
       if(mode==='existing'){
         const completion=await continueFoodSelfServiceWithExistingAccount(input);
-        setSuccess(completion.presentationWarning ? `Solicitação criada. ${completion.presentationWarning}` : (completion.existing?'Sua conta já possui um estabelecimento no FoodWeb. Abrindo painel...':'Solicitação criada. Abrindo seu espaço de configuração...'));
+        setSuccess(completion.presentationWarning ? `Solicitação criada. ${completion.presentationWarning}` : (completion.existing?`Sua conta já possui um estabelecimento na ${PLATFORM_BRAND}. Abrindo painel...`:'Solicitação criada. Abrindo seu espaço de configuração...'));
         if(completion.presentationWarning){setPresentationNeedsReview(true);return;}
         window.setTimeout(()=>navigate('/admin/primeiros-passos',{replace:true}),700);
         return;
@@ -94,7 +95,7 @@ export default function SelfSignup(){
   };
 
   return <div className="self-signup-page">
-    <header className="self-signup-topbar"><Link to="/"><ArrowLeft size={18}/>Voltar</Link><strong>FoodWeb</strong><Link to="/admin/login">Entrar</Link></header>
+    <header className="self-signup-topbar"><Link to="/"><ArrowLeft size={18}/>Voltar</Link><strong>{PLATFORM_BRAND}</strong><Link to="/admin/login">Entrar</Link></header>
     <main className="self-signup-shell">
       <section className="self-signup-intro">
         <span className="eyebrow">COMECE AGORA</span>
@@ -113,7 +114,7 @@ export default function SelfSignup(){
           <button type="button" className={mode==='existing'?'active':''} onClick={()=>{setMode('existing');setError('')}}>Já tenho conta</button>
         </div>
         <form onSubmit={submit}>
-          <div className="self-signup-heading"><UserPlus size={22}/><div><h2>{mode==='new'?'Novo cadastro':'Usar uma conta existente'}</h2><p>{mode==='new'?'Você poderá confirmar o e-mail antes da ativação.':'Entre com seu usuário Supabase e solicite um novo acesso ao FoodWeb.'}</p></div></div>
+          <div className="self-signup-heading"><UserPlus size={22}/><div><h2>{mode==='new'?'Novo cadastro':'Usar uma conta existente'}</h2><p>{mode==='new'?'Você poderá confirmar o e-mail antes da ativação.':`Entre com seu usuário Supabase e solicite um novo acesso à ${PLATFORM_BRAND}.`}</p></div></div>
 
           <label>Nome do estabelecimento<input required value={form.storeName} onChange={(e)=>setField('storeName',e.target.value)} placeholder="Ex.: Sua loja ou ateliê"/></label>
           <BusinessSegmentPicker value={form.businessSegment || 'food'} onChange={(segment)=>setField('businessSegment',segment)}/>
@@ -132,7 +133,7 @@ export default function SelfSignup(){
           {error&&<div className="form-error">{error}</div>}
           {success&&<div className="form-success self-signup-success">{success}</div>}
           {presentationNeedsReview?<Link className="primary-button self-signup-submit" to="/admin/configuracoes">Abrir configurações da loja</Link>:<button className="primary-button self-signup-submit" disabled={loading||!appConfig.turnstileSiteKey||!captchaToken}>{loading?'Processando...':mode==='new'?'Criar conta e continuar':'Entrar e solicitar acesso'}</button>}
-          <small className="self-signup-footnote">Ao continuar, você solicita a criação de um ambiente FoodWeb. Cadastros são revisados pelo Admin Master antes da liberação definitiva e o teste gratuito depende de elegibilidade cadastral.</small>
+          <small className="self-signup-footnote">Ao continuar, você solicita a criação de um ambiente {PLATFORM_BRAND}. Cadastros são revisados pelo Admin Master antes da liberação definitiva e o teste gratuito depende de elegibilidade cadastral.</small>
         </form>
       </section>
     </main>

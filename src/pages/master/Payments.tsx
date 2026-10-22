@@ -79,7 +79,7 @@ export default function MasterPayments(){
 
     <section className="master-payment-summary-v046"><span><strong>{stats.waiting}</strong><small>Aguardando decisão</small></span><span><strong>{stats.paid}</strong><small>Pagamentos confirmados</small></span><span><strong>{stats.rejected}</strong><small>Não renovados</small></span></section>
 
-    <section className="admin-card billing-payment-table"><div className="section-heading"><div><span className="eyebrow">PIX + WHATSAPP</span><h2>Histórico de cobranças</h2><p>O FoodWeb não confirma mensalidades sozinho. A decisão permanece sob controle do Admin Master.</p></div><ReceiptText size={21}/></div>
+    <section className="admin-card billing-payment-table"><div className="section-heading"><div><span className="eyebrow">PIX + WHATSAPP</span><h2>Histórico de cobranças</h2><p>A VendeWeb não confirma mensalidades sozinha. A decisão permanece sob controle do Admin Master.</p></div><ReceiptText size={21}/></div>
       {loading?<p>Carregando...</p>:payments.length===0?<p>Nenhuma cobrança registrada.</p>:<div className="food-master-payment-list-v046">
         {payments.map((payment)=><article key={payment.id} className="food-master-payment-card-v046">
           <div className="food-payment-status-v046"><ReceiptText/><div><span>{payment.storeName||payment.storeId}</span><h2>{payment.paymentIntent==='plan_change'?`${payment.previousPlanName||'Plano atual'} → ${payment.planName||'Novo plano'}`:payment.planName||'Renovação mensal'}</h2></div><b className={`status-${payment.status}`}>{statusLabel(payment)}</b></div>

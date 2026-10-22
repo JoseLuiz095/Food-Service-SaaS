@@ -2,7 +2,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const origins = new Set((Deno.env.get('PUBLIC_APP_ORIGINS') || 'https://foodweb.joseluizacama.workers.dev').split(',').map(x => x.trim()).filter(Boolean));
+const DEFAULT_PUBLIC_ORIGINS = ['https://foodweb.joseluizacama.workers.dev','https://vendeweb.com.br','https://www.vendeweb.com.br'];
+const origins = new Set([...DEFAULT_PUBLIC_ORIGINS,...String(Deno.env.get('PUBLIC_APP_ORIGINS') || '').split(',').map(x => x.trim()).filter(Boolean)]);
 const hash = async (value: string) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))).map(x => x.toString(16).padStart(2, '0')).join('');
 
 Deno.serve(async (req: Request) => {

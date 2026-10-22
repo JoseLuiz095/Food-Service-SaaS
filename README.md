@@ -1,4 +1,4 @@
-# FoodWeb — vendas e operação para pequenos negócios
+# VendeWeb — vendas e operação para pequenos negócios
 
 ## Vitrines e painel por ramo
 
@@ -46,7 +46,7 @@ O fluxo da v0.4.1 é exclusivamente manual:
 2. o lojista acessa `Meu plano`;
 3. escolhe renovar ou mudar de plano;
 4. o servidor cria a cobrança com o preço cadastrado no plano;
-5. o FoodWeb monta o PIX Copia e Cola com o valor exato;
+5. o VendeWeb monta o PIX Copia e Cola com o valor exato;
 6. o lojista paga;
 7. o card de comprovante abre o WhatsApp cadastrado no Master;
 8. o lojista informa que enviou o comprovante;
@@ -76,7 +76,7 @@ A IA não decide se o lançamento é Entrada ou Saída e nunca grava um lançame
 
 A vitrine foi redesenhada para uma linguagem própria de delivery:
 
-- vermelho/coral FoodWeb como CTA;
+- coral VendeWeb como CTA;
 - fundo neutro e superfícies brancas;
 - cabeçalho compacto da loja;
 - busca e categorias sticky;
@@ -85,7 +85,7 @@ A vitrine foi redesenhada para uma linguagem própria de delivery:
 - sacola fixa no mobile;
 - personalização e CTA de compra focados em celular.
 
-O favicon também foi substituído pela identidade FoodWeb.
+O favicon usa a identidade VendeWeb.
 
 ## Banco compartilhado com FloriWeb
 
@@ -161,14 +161,16 @@ No Supabase, configure:
 ```text
 TURNSTILE_SECRET_KEY=SEU_SECRET
 TURNSTILE_REQUIRED=true
-PUBLIC_APP_ORIGINS=https://foodweb.joseluizacama.workers.dev
+PUBLIC_APP_ORIGINS=https://vendeweb.com.br,https://www.vendeweb.com.br,https://foodweb.joseluizacama.workers.dev
 ```
 
-O código v0.4 já reconhece a origem oficial do FoodWeb por padrão, mas manter `PUBLIC_APP_ORIGINS` explicitamente configurado é recomendado.
+O código já reconhece o domínio VendeWeb e o endereço anterior por padrão, mas manter `PUBLIC_APP_ORIGINS` explicitamente configurado é recomendado.
 
 No widget Turnstile da Cloudflare, o hostname deve incluir:
 
 ```text
+vendeweb.com.br
+www.vendeweb.com.br
 foodweb.joseluizacama.workers.dev
 ```
 
@@ -249,7 +251,7 @@ Se a pasta já é um repositório Git, não execute `git init` novamente:
 
 ```bash
 git add -A
-git commit -m "feat: FoodWeb v0.4.1"
+git commit -m "feat: identidade VendeWeb"
 git push origin main
 ```
 

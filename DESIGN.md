@@ -1,4 +1,4 @@
-# FoodWeb — Direção visual por ramo
+# VendeWeb — Direção visual por ramo
 
 ## Evolução multirramos
 

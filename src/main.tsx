@@ -13,7 +13,7 @@ installGlobalInteractionTelemetry();
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js?v=20261015', { updateViaCache: 'none' }).catch(() => {
+    void navigator.serviceWorker.register('/sw.js?v=20261022', { updateViaCache: 'none' }).catch(() => {
       // O app continua funcionando normalmente mesmo sem o modo instalável.
     });
   });

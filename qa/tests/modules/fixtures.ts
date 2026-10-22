@@ -44,7 +44,7 @@ export async function mockBackend(page: Page, { auth=false, enabled=false, maste
     else if(path.endsWith('/food_module_settings')) data=[state];
     else if(path.endsWith('/food_modules_command')) { if(body.p_action==='settings') Object.assign(state,body.p_data); data={id:STORE}; }
     else if(path.endsWith('/food_modules_directory')) data=[];
-    else if(path.endsWith('/food-public-checkout')) data={orderId:ORDER,orderNumber:123,total:body.payload.delivery_type==='delivery'?15:10};
+    else if(path.endsWith('/food-public-checkout')) data={orderId:ORDER,orderNumber:123,total:body?.payload?.delivery_type==='delivery'?15:10};
     else if(path.endsWith('/food_modules_catalog')) data={store:{name:'Loja de eventos'},offers:state.events_enabled?[{id:PRODUCT,name:'Brindes para evento',kind:'printing3d',price_cents:2000,store_id:STORE,max_quantity:10,lead_hours:48,ready_now:false}]:[],combos:[]};
     else if(path.includes('/rpc/food_get_store_billing')) data={};
     else if(path.endsWith('/food_track_public_event_v1') || path.endsWith('/food_mark_public_order_whatsapp_clicked')) data=null;

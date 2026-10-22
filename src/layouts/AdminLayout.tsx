@@ -37,6 +37,7 @@ import { getBillingVisualStatus } from '../utils/billingStatus';
 import { planHasFeature } from '../utils/plan';
 import { publicStorefrontPath } from '../utils/storefrontRoute';
 import { getBusinessSegment, resolveBusinessTheme, isDefaultStoreImage } from '../segments/businessSegments';
+import { PLATFORM_BRAND } from '../lib/brand';
 import '../segments/segments.css';
 
 const navSections = [
@@ -179,7 +180,7 @@ export default function AdminLayout() {
       <aside className={`admin-sidebar ${open ? 'is-open' : ''}`}>
         <button className="admin-sidebar-close" onClick={() => setOpen(false)} aria-label="Fechar"><X /></button>
         <button type="button" className="admin-sidebar-collapse" onClick={() => setSidebarCollapsed((current) => !current)} aria-pressed={sidebarCollapsed} aria-label={sidebarCollapsed ? "Expandir menu" : "Recolher menu"} title={sidebarCollapsed ? "Expandir menu" : "Recolher menu"}>{sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}</button>
-        <div className="admin-brand">{segmentPresentation?<Store size={24}/>:<UtensilsCrossed size={24} />}<div><strong>FoodWeb</strong><span>{segmentPresentation?segment.adminTitle:'Administração'}</span></div></div>
+        <div className="admin-brand">{segmentPresentation?<Store size={24}/>:<img className="platform-brand-icon" src="/assets/vendeweb-mark.svg" alt=""/>}<div><strong>{PLATFORM_BRAND}</strong><span>{segmentPresentation?segment.adminTitle:'Administração'}</span></div></div>
         <div className="admin-store-mini"><ImageWithFallback src={logoUrl} fallbackSrc={segmentPresentation?'/assets/placeholder-catalog.svg':undefined} alt={`Logo ${settings.name}`} /><div><strong>{settings.name}</strong><span>{settings.city} · {settings.state}</span></div></div>
 
         {memberships.length > 1 && (

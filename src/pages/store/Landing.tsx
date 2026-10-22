@@ -8,6 +8,7 @@ import { InteractiveShowcase } from '../../components/marketing/InteractiveShowc
 import { ExistingValueSection } from '../../components/marketing/ExistingValueSection';
 import '../../segments/commercial.css';
 import { CommercialHero, CommercialModules, CommercialFinal } from '../../components/marketing/CommercialSegments';
+import { PLATFORM_BRAND } from '../../lib/brand';
 
 type PlanMarketingContent = {
   eyebrow: string;
@@ -59,7 +60,7 @@ const planMarketingContent: Record<string, PlanMarketingContent> = {
   },
   PROFESSIONAL: {
     eyebrow: 'MAIS COMPLETO',
-    description: 'Para quem quer transformar o FoodWeb em uma ferramenta contínua de venda, relacionamento e operação, com mais autonomia de marca e recursos para crescer sem trocar de plataforma.',
+    description: `Para quem quer transformar a ${PLATFORM_BRAND} em uma ferramenta contínua de venda, relacionamento e operação, com mais autonomia de marca e recursos para crescer sem trocar de plataforma.`,
     idealFor: 'Operações com maior volume, identidade própria e necessidade de mais capacidade de catálogo.',
     features: [
       'Tudo do plano Profissional',
@@ -131,11 +132,11 @@ export default function Landing() {
   const demoHref = `/${encodeURIComponent(view.demoStoreSlug)}`;
   const trialDays = view.demoEnabled ? view.demoDurationDays : 14;
 
-  if (!data) return <div className="landing-loading"><LoadingState label="Preparando apresentação FoodWeb..." /></div>;
+  if (!data) return <div className="landing-loading"><LoadingState label={`Preparando apresentação ${PLATFORM_BRAND}...`} /></div>;
 
   return <div className="food-sales-page food-sales-page-v43 food-sales-page-v44 food-sales-page-v59 food-sales-page--segments">
     <header className="sales-nav sales-nav-v44"><div className="sales-shell">
-      <a className="sales-brand" href="/"><span className="foodweb-brand-mark">FW</span><strong>FoodWeb<small>Seu negócio, em movimento.</small></strong></a>
+      <a className="sales-brand" href="/"><img className="foodweb-brand-mark brand-mark-image" src="/assets/vendeweb-mark.svg" alt=""/><strong>{PLATFORM_BRAND}<small>Seu negócio, em movimento.</small></strong></a>
       <nav aria-label="Navegação comercial"><a href="#ramos">Para seu negócio</a><a href="#recursos">Recursos</a><a href="#demonstracao">Demonstração</a><a href="#planos">Planos</a></nav>
       <div className="sales-nav-actions"><a href="/admin/login">Entrar</a><a className="sales-nav-primary" href="/cadastro?plan=DEMO">Começar agora <ArrowRight size={15} /></a></div>
     </div></header>
@@ -172,6 +173,6 @@ export default function Landing() {
       <CommercialFinal trialDays={trialDays} />
     </main>
 
-    <footer className="sales-footer"><div className="sales-shell"><a className="sales-brand" href="/"><span className="foodweb-brand-mark">FW</span><strong>FoodWeb</strong></a><span>Produtos, serviços e novas possibilidades para o seu negócio.</span><a href="/admin/login">Área do lojista</a></div></footer>
+    <footer className="sales-footer"><div className="sales-shell"><a className="sales-brand" href="/"><img className="foodweb-brand-mark brand-mark-image" src="/assets/vendeweb-mark.svg" alt=""/><strong>{PLATFORM_BRAND}</strong></a><span>Produtos, serviços e novas possibilidades para o seu negócio.</span><a href="/admin/login">Área do lojista</a></div></footer>
   </div>;
 }

@@ -1,7 +1,7 @@
 {
-  "name": "FoodWeb Administração",
-  "short_name": "FoodWeb Admin",
-  "description": "Painel de administração da loja FoodWeb.",
+  "name": "VendeWeb Administração",
+  "short_name": "VendeWeb Admin",
+  "description": "Painel de administração da loja VendeWeb.",
   "lang": "pt-BR",
   "start_url": "/admin",
   "scope": "/",
@@ -10,9 +10,9 @@
   "theme_color": "#123d28",
   "icons": [
     {
-      "src": "/assets/marketing/app-splash-v2.png?v=20261015",
-      "sizes": "1024x1024",
-      "type": "image/png",
+      "src": "/assets/vendeweb-mark.svg?v=20261022",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ]

@@ -41,7 +41,7 @@ const getPlanFeatures = (plan: Plan): PlanFeature[] => [
   { key: 'categories', label: limitText(plan.categoryLimit, 'categoria', 'categorias'), icon: Tags },
   { key: 'images', label: limitText(plan.imageLimitPerProduct, 'foto por produto', 'fotos por produto'), icon: Images },
   { key: 'addons', label: limitText(plan.addonLimit, 'adicional', 'adicionais'), icon: Puzzle },
-  { key: 'domain', label: plan.customDomain ? 'Domínio próprio incluído' : 'Endereço padrão FoodWeb', icon: Globe2 },
+  { key: 'domain', label: plan.customDomain ? 'Domínio próprio incluído' : 'Endereço padrão VendeWeb', icon: Globe2 },
   { key: 'reports', label: plan.reports ? 'Relatórios comerciais' : 'Visão geral operacional', icon: BarChart3 },
   { key: 'prioritySupport', label: plan.prioritySupport ? 'Suporte prioritário' : 'Suporte padrão', icon: MessageCircleMore },
 ];
@@ -51,7 +51,7 @@ const planHighlightCopy = (plan: Plan) => {
     return {
       eyebrow: 'TESTE',
       title: 'Período de avaliação',
-      description: 'Configuração inicial para degustação do FoodWeb antes da contratação.',
+      description: 'Configuração inicial para conhecer a VendeWeb antes da contratação.',
     };
   }
 
@@ -230,7 +230,7 @@ export default function MasterPlans() {
             <Clock3 size={18} />
           </div>
           <p>
-            Controle quantos dias o FoodWeb fica com os recursos liberados na degustação e quando o aviso de encerramento deve aparecer.
+            Controle quantos dias a VendeWeb fica com os recursos liberados na degustação e quando o aviso de encerramento deve aparecer.
           </p>
           <div className="demo-settings-grid">
             <label>
@@ -271,7 +271,7 @@ export default function MasterPlans() {
             <QrCode size={18} />
           </div>
           <p>
-            Cadastro usado para gerar o copia e cola com valor dinâmico das mensalidades do FoodWeb. Conferência manual do comprovante permanece obrigatória antes da liberação.
+            Cadastro usado para gerar o copia e cola com valor dinâmico das mensalidades da VendeWeb. Conferência manual do comprovante permanece obrigatória antes da liberação.
           </p>
 
           <div className="food-master-billing-toggles">
@@ -569,7 +569,7 @@ export default function MasterPlans() {
           <span><ShieldCheck size={17} />Acompanhamento técnico dedicado</span>
         </div>
         <p>
-          O plano Business continua preservando as regras comerciais do FoodWeb: a contratação ocorre sob análise do suporte e não entra na configuração padrão de cobrança automática.
+          O plano Business continua preservando as regras comerciais da VendeWeb: a contratação ocorre sob análise do suporte e não entra na configuração padrão de cobrança automática.
         </p>
       </section>
     </>

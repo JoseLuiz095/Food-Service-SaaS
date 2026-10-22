@@ -12,6 +12,7 @@ const origins = () => new Set([
   'http://127.0.0.1:5173', 'http://127.0.0.1:5174',
   'http://172.26.224.1:5173', 'http://172.26.224.1:5174',
   'https://foodweb.joseluizacama.workers.dev',
+  'https://vendeweb.com.br', 'https://www.vendeweb.com.br',
   ...String(Deno.env.get('PUBLIC_APP_ORIGINS') || '').split(',').map(clean).filter(Boolean),
 ]);
 const allowed = (origin: string) => origins().has(clean(origin));
@@ -41,7 +42,7 @@ async function verifyTurnstile(token: string, origin: string, remoteIp: string) 
   if (!response.ok || !result.success) throw new Error('A verificação de segurança expirou. Atualize a página e tente novamente.');
   if (result.action && result.action !== 'signup') throw new Error('A verificação recebida não corresponde ao cadastro.');
   const host = originHost(origin);
-  if (host && result.hostname && result.hostname.toLowerCase() !== host) throw new Error('A verificação não pertence a este endereço do FoodWeb.');
+  if (host && result.hostname && result.hostname.toLowerCase() !== host) throw new Error('A verificação não pertence a este endereço da VendeWeb.');
 }
 
 Deno.serve(async (request) => {

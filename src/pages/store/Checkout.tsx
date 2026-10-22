@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { TurnstileWidget } from '../../components/ui/TurnstileWidget';
 import { cartItemUnitTotal, useCart } from '../../contexts/CartContext';
 import { useStore } from '../../contexts/StoreContext';
+import { PLATFORM_BRAND } from '../../lib/brand';
 import { useToast } from '../../contexts/ToastContext';
 import { appConfig } from '../../lib/config';
 import { getAnalyticsSessionId, trackPublicEvent } from '../../services/analyticsApi';
@@ -414,7 +415,7 @@ export default function Checkout() {
   if (!items.length) return <div className="simple-page"><header className="simple-topbar container"><Link to={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</Link></header><div className="cart-empty"><ShoppingBag size={48}/><h1>Seu carrinho está vazio</h1><Link className="primary-button" to={storefrontPath(storeBasePath)}>Ver cardápio</Link></div></div>;
 
   return <div className="simple-page checkout-page checkout-page-v44">
-    <header className="simple-topbar checkout-topbar-v44 container"><Link to={storefrontPath(storeBasePath, '/carrinho')}><ArrowLeft size={19}/>Voltar ao carrinho</Link><strong>FoodWeb</strong><span>{settings.name}</span></header>
+    <header className="simple-topbar checkout-topbar-v44 container"><Link to={storefrontPath(storeBasePath, '/carrinho')}><ArrowLeft size={19}/>Voltar ao carrinho</Link><strong>{PLATFORM_BRAND}</strong><span>{settings.name}</span></header>
     <div className="checkout-trustbar-v44 container"><span><ShieldCheck size={17}/><b>Pedido protegido</b><small>Turnstile e validação no servidor</small></span><span><LockKeyhole size={17}/><b>Dados usados só no pedido</b><small>Sem exposição do suporte interno</small></span><span><CheckCircle2 size={17}/><b>{whatsappAvailable ? 'Pedido salvo primeiro' : 'WhatsApp opcional'}</b><small>{whatsappAvailable ? 'Essencial para agilizar confirmação e suporte' : 'Essencial para agilizar confirmação e suporte'}</small></span></div>
     <form className="container checkout-layout checkout-layout--premium" onSubmit={submit} noValidate>
       <section className="checkout-main">

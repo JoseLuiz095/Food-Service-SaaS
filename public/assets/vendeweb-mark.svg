@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="VendeWeb">
+  <rect width="64" height="64" rx="18" fill="#123D28"/>
+  <path d="M14 18h10l8 22 8-22h10L35.8 49h-7.6L14 18Z" fill="#FFF9F1"/>
+  <circle cx="48" cy="17" r="6" fill="#D66539"/>
+  <path d="M46 17h4M48 15v4" stroke="#FFF9F1" stroke-width="1.7" stroke-linecap="round"/>
+</svg>

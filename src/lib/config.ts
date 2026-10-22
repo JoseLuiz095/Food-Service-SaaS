@@ -20,6 +20,8 @@ export const isSupabaseConfigured = Boolean(appConfig.supabaseUrl && appConfig.s
 export const isDemoMode = import.meta.env.DEV && !isSupabaseConfigured;
 
 const PLATFORM_HOSTS = new Set([
+  'vendeweb.com.br',
+  'www.vendeweb.com.br',
   'foodweb.joseluizacama.workers.dev',
   'localhost',
   '127.0.0.1',

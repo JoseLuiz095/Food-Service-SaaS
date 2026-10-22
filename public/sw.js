@@ -1,8 +1,8 @@
-const CACHE_NAME = 'foodweb-shell-v4';
+const CACHE_NAME = 'vendeweb-shell-v1';
 // Incrementado para invalidar bundles antigos que podiam esconder ajustes do
 // cabeçalho e do painel após uma publicação do PWA.
-const RUNTIME_CACHE = 'foodweb-runtime-v2';
-const FOODWEB_ICON = '/assets/marketing/app-splash-v2.png?v=20261015';
+const RUNTIME_CACHE = 'vendeweb-runtime-v1';
+const VENDEWEB_ICON = '/assets/vendeweb-mark.svg?v=20261022';
 const STATIC_ASSET = /\.(?:js|css|woff2?|png|jpe?g|webp|svg|ico|json)$/i;
 const MAX_RUNTIME_ENTRIES = 80;
 
@@ -45,7 +45,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     await Promise.all((await caches.keys())
-      .filter((key) => key.startsWith('foodweb-') && ![CACHE_NAME, RUNTIME_CACHE].includes(key))
+      .filter((key) => /^(?:foodweb|vendeweb)-/.test(key) && ![CACHE_NAME, RUNTIME_CACHE].includes(key))
       .map((key) => caches.delete(key)));
     await self.clients.claim();
   })());
@@ -54,13 +54,13 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   let payload = {};
   try { payload = event.data ? event.data.json() : {}; } catch { payload = { body: event.data?.text() || '' }; }
-  const title = payload.title || 'FoodWeb';
+  const title = payload.title || 'VendeWeb';
   const notificationId = payload.id || payload.orderId || payload.tag || `${title}:${payload.body || ''}`;
-  const tag = payload.tag || `foodweb:${notificationId}`;
+  const tag = payload.tag || `vendeweb:${notificationId}`;
   event.waitUntil(self.registration.showNotification(title, {
     body: payload.body || 'Há uma atualização na operação da loja.',
-    icon: payload.icon || FOODWEB_ICON,
-    badge: payload.badge || FOODWEB_ICON,
+    icon: payload.icon || VENDEWEB_ICON,
+    badge: payload.badge || VENDEWEB_ICON,
     tag,
     // O mesmo pedido atualiza um aviso existente, sem gerar pilhas de alertas.
     renotify: false,

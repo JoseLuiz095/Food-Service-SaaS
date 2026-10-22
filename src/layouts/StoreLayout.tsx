@@ -32,7 +32,7 @@ export default function StoreLayout(){
         <h1>{unavailableStoreName||'Estabelecimento'}</h1>
         <p>Esta loja está passando por uma pausa temporária no catálogo online.</p>
         <div className="storefront-unavailable-note"><Clock3 size={18}/><span>Tente novamente mais tarde. Nenhum dado do estabelecimento ou dos pedidos anteriores foi removido.</span></div>
-        <small>FoodWeb · pedidos online</small>
+        <small>VendeWeb · pedidos online</small>
       </section>
     </main>;
   }

@@ -77,7 +77,7 @@ export default function EventsPage() {
     try { setOrder(await modulesApi.customer(action, { order_id: order.id, token: capability, item_id: itemId, expected_cents: order.total_cents })); }
     catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   };
-  return <main className="food-modules module-public"><header><h1>{catalog?.store?.name || 'FoodWeb'} · Eventos e encomendas</h1><p>Escolha produtos e serviços para uma data. O pedido reúne os fornecedores em uma cobrança.</p></header>
+  return <main className="food-modules module-public"><header><h1>{catalog?.store?.name || 'VendeWeb'} · Eventos e encomendas</h1><p>Escolha produtos e serviços para uma data. O pedido reúne os fornecedores em uma cobrança.</p></header>
     {error && <p role="alert" className="module-message module-error">{error}</p>}{loading && <p role="status">Carregando...</p>}
     {catalog && <>
       {!catalog.offers.length && !catalog.combos.length ? <p>Esta loja ainda não disponibilizou ofertas para eventos.</p> : <form onSubmit={e => { e.preventDefault(); void create(); }}>

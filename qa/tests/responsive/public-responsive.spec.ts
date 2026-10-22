@@ -2,6 +2,7 @@ import { test } from '@playwright/test';
 import { assertNoDocumentOverflow, publicRoutes, runtimeGuard, waitForStablePage } from '../helpers/project';
 
 const viewports = [
+  { name: 'mobile-320', width: 320, height: 700 },
   { name: 'mobile-375', width: 375, height: 812 },
   { name: 'mobile-390', width: 390, height: 844 },
   { name: 'tablet-768', width: 768, height: 1024 },
