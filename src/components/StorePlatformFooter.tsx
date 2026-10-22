@@ -1,6 +1,7 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { loadPublicLanding } from '../services/landingApi';
+import { PLATFORM_BRAND, PLATFORM_URL } from '../lib/brand';
 
 const FALLBACK_TRIAL_DAYS = 14;
 
@@ -35,14 +36,14 @@ export function StorePlatformFooter() {
   const trialMessage = offer.enabled ? ` Teste grátis por ${offer.trialDays} dias.` : '';
 
   return (
-    <footer className="store-platform-footer" aria-label="Conheça o FoodWeb">
+    <footer className="store-platform-footer" aria-label={`Conheça a ${PLATFORM_BRAND}`}>
       <div className="store-platform-footer__inner container">
         <div className="store-platform-footer__content">
           <span className="store-platform-footer__eyebrow"><Sparkles size={15} /> GOSTOU DA EXPERIÊNCIA?</span>
           <strong>Que tal ter uma loja assim?</strong>
-          <p>Venha conhecer o FoodWeb e crie sua própria vitrine agora.{trialMessage}</p>
+          <p>Venha conhecer a {PLATFORM_BRAND} e crie sua própria vitrine agora.{trialMessage}</p>
         </div>
-        <a className="store-platform-footer__action" href="https://foodweb.joseluizacama.workers.dev/">
+        <a className="store-platform-footer__action" href={PLATFORM_URL}>
           Quero me cadastrar <ArrowRight size={16} />
         </a>
       </div>

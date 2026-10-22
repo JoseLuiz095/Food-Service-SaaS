@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { TurnstileWidget } from '../../components/ui/TurnstileWidget';
 import { cartItemUnitTotal, useCart } from '../../contexts/CartContext';
 import { useStore } from '../../contexts/StoreContext';
+import { PLATFORM_BRAND } from '../../lib/brand';
 import { useToast } from '../../contexts/ToastContext';
 import { appConfig } from '../../lib/config';
 import { getAnalyticsSessionId, trackPublicEvent } from '../../services/analyticsApi';
@@ -19,6 +20,7 @@ import { normalizeText } from '../../utils/text';
 import { getStoreOpenStatus } from '../../utils/storeHours';
 import { loadCustomerCheckoutProfile, saveCustomerCheckoutProfile, saveRecentOrder } from '../../utils/customerSales';
 import { loadFulfillmentPreference } from '../../utils/fulfillmentPreference';
+import '../../components/checkout/checkout-refinements.css';
 
 const initial: CheckoutData = {
   customerName: '', customerPhone: '', customerEmail: '', fulfillment: 'delivery', zipCode: '', street: '', addressNumber: '', complement: '',
@@ -414,7 +416,7 @@ export default function Checkout() {
   if (!items.length) return <div className="simple-page"><header className="simple-topbar container"><Link to={storefrontPath(storeBasePath)}><ArrowLeft size={19}/>Voltar ao cardápio</Link></header><div className="cart-empty"><ShoppingBag size={48}/><h1>Seu carrinho está vazio</h1><Link className="primary-button" to={storefrontPath(storeBasePath)}>Ver cardápio</Link></div></div>;
 
   return <div className="simple-page checkout-page checkout-page-v44">
-    <header className="simple-topbar checkout-topbar-v44 container"><Link to={storefrontPath(storeBasePath, '/carrinho')}><ArrowLeft size={19}/>Voltar ao carrinho</Link><strong>FoodWeb</strong><span>{settings.name}</span></header>
+    <header className="simple-topbar checkout-topbar-v44 container"><Link to={storefrontPath(storeBasePath, '/carrinho')}><ArrowLeft size={19}/>Voltar ao carrinho</Link><strong>{PLATFORM_BRAND}</strong><span>{settings.name}</span></header>
     <div className="checkout-trustbar-v44 container"><span><ShieldCheck size={17}/><b>Pedido protegido</b><small>Turnstile e validação no servidor</small></span><span><LockKeyhole size={17}/><b>Dados usados só no pedido</b><small>Sem exposição do suporte interno</small></span><span><CheckCircle2 size={17}/><b>{whatsappAvailable ? 'Pedido salvo primeiro' : 'WhatsApp opcional'}</b><small>{whatsappAvailable ? 'Essencial para agilizar confirmação e suporte' : 'Essencial para agilizar confirmação e suporte'}</small></span></div>
     <form className="container checkout-layout checkout-layout--premium" onSubmit={submit} noValidate>
       <section className="checkout-main">
@@ -430,7 +432,7 @@ export default function Checkout() {
           {form.fulfillment === 'pickup' && <div className="pickup-info"><MapPin size={18}/><div><strong>{settings.hidePublicAddress ? 'Local de retirada combinado com a loja' : settings.address || settings.name}</strong><span>{settings.hidePublicAddress ? settings.pickupInstructions || 'Após registrar o pedido, confirme o local diretamente com a loja.' : `${settings.city}${settings.state ? `/${settings.state}` : ''}`}</span></div></div>}
         </section>
 
-        <section className="checkout-card"><div className="checkout-card__title"><CreditCard size={20}/><div><strong>Pagamento</strong><span>Escolha como deseja pagar.</span></div></div><div className="payment-options">{enabledPayments.map((method) => <button type="button" key={method} className={form.paymentMethod === method ? 'selected' : ''} onClick={() => update('paymentMethod', method)}>{method === 'pix' ? <QrCode size={20}/> : method === 'cash' ? <Banknote size={20}/> : <CreditCard size={20}/>}<span><strong>{method === 'pix' ? 'PIX' : method === 'cash' ? 'Dinheiro' : method === 'card' ? (form.fulfillment === 'delivery' ? 'Cartão na entrega' : 'Cartão na retirada') : 'Confirmar com a loja'}</strong></span></button>)}</div>
+        <section className="checkout-card"><div className="checkout-card__title"><CreditCard size={20}/><div><strong>Pagamento</strong><span>Escolha como deseja pagar.</span></div></div><div className="payment-options" role="group" aria-label="Forma de pagamento">{enabledPayments.map((method) => <button type="button" key={method} aria-pressed={form.paymentMethod === method} className={form.paymentMethod === method ? 'selected' : ''} onClick={() => update('paymentMethod', method)}>{method === 'pix' ? <QrCode size={20}/> : method === 'cash' ? <Banknote size={20}/> : <CreditCard size={20}/>}<span><strong>{method === 'pix' ? 'PIX' : method === 'cash' ? 'Dinheiro' : method === 'card' ? (form.fulfillment === 'delivery' ? 'Cartão na entrega' : 'Cartão na retirada') : 'Confirmar com a loja'}</strong><small>{method === 'pix' ? 'Dados para pagar na confirmação' : method === 'cash' ? 'Informe se precisa de troco' : method === 'card' ? 'Pagamento presencial com a loja' : 'Combine o pagamento no atendimento'}</small></span>{form.paymentMethod === method && <CheckCircle2 size={17} className="payment-option-check" aria-hidden="true"/>}</button>)}</div>
           {form.paymentMethod === 'card' && <div className="cash-change-box"><strong>Cartão por aproximação (NFC)</strong><small>A cobrança será feita presencialmente pela loja. O WhatsApp fica disponível para confirmar o atendimento e eventuais orientações.</small></div>}
           {form.paymentMethod === 'cash' && <div className="cash-change-box"><label className="switch-row"><span><strong>Precisa de troco?</strong><small>Informe o valor que será entregue.</small></span><input type="checkbox" checked={form.needsChange} onChange={(event) => { update('needsChange', event.target.checked); if (!event.target.checked) update('changeFor', null); }}/></label>{form.needsChange && <label>Troco para<input type="number" min="0" step="0.01" value={form.changeFor ?? ''} onChange={(event) => update('changeFor', event.target.value ? Number(event.target.value) : null)} placeholder="Ex.: 100,00"/></label>}{form.needsChange && form.changeFor != null && changeAmount > 0 && <div className="change-result"><span>Troco calculado</span><strong>{currency.format(changeAmount)}</strong></div>}</div>}
         </section>
@@ -450,7 +452,7 @@ export default function Checkout() {
         {!isDoceLuaPilot && <label className="checkout-review-check checkout-review-check-v44"><input type="checkbox" checked={form.reviewConfirmed} onChange={(event) => update('reviewConfirmed', event.target.checked)}/><span><strong>Confirmo que revisei o pedido.</strong><small>Confira itens, telefone, endereço e pagamento antes de registrar.</small></span></label>}
         {isDoceLuaPilot && <div className="checkout-pilot-note"><CheckCircle2 size={17}/><span>O pedido será conferido pela loja no painel após o envio. Guarde o número exibido na confirmação.</span></div>}
         <button className="primary-button checkout-submit" disabled={submitDisabled} type="submit">{saving ? <><LoaderCircle className="spin" size={18}/>Registrando...</> : <><CheckCircle2 size={18}/>Registrar pedido · {currency.format(total)}</>}</button>
-        <small className="checkout-security-note">O navegador envia IDs e escolhas. Preços, opções e taxa são recalculados no servidor.</small>
+        <small className="checkout-security-note">Confira os itens e o total antes de registrar. Na próxima tela, guarde o número do pedido e veja as orientações da loja.</small>
       </aside>
       <div className="checkout-mobile-submit"><div><small>Total do pedido</small><strong>{currency.format(total)}</strong></div><button className="primary-button" disabled={submitDisabled} type="submit">{saving ? <LoaderCircle className="spin" size={18}/> : <><CheckCircle2 size={17}/> Finalizar</>}</button></div>
     </form>

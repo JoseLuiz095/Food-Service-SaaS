@@ -11,8 +11,10 @@ import { emailValidationMessage, normalizeEmail, temporaryPasswordValidationMess
 import { BusinessSegmentPicker } from '../../segments/BusinessSegmentPicker';
 import { getBusinessSegment, type BusinessSegment } from '../../segments/businessSegments';
 import { saveNewStorePresentation } from '../../services/businessPresentation';
+import { platformOrigin } from '../../lib/brand';
+import { customStorefrontUrl, publicStorefrontUrl } from '../../utils/storefrontRoute';
 
-const publicUrlFor = (store: PlatformStoreSummary) => store.customDomain ? `https://${store.customDomain}` : `${window.location.origin}/${store.slug}`;
+const publicUrlFor = (store: PlatformStoreSummary) => customStorefrontUrl(store.customDomain) || publicStorefrontUrl(store.slug, platformOrigin());
 const dateOnly = (value?: string) => value ? value.slice(0,10) : '';
 const daysUntil = (value?: string) => value ? Math.max(0, Math.ceil((new Date(value).getTime()-Date.now())/86_400_000)) : Number.POSITIVE_INFINITY;
 const trialExpired = (value?: string) => Boolean(value) && new Date(value as string).getTime() <= Date.now();
@@ -201,7 +203,7 @@ export default function MasterStores(){
     }
     setSaving(true);
     try{
-      const result=await platformApi.createStore({...createForm,ownerEmail:normalizeEmail(createForm.ownerEmail),slug:createForm.slug||slugify(createForm.name),appOrigin:window.location.origin});
+      const result=await platformApi.createStore({...createForm,ownerEmail:normalizeEmail(createForm.ownerEmail),slug:createForm.slug||slugify(createForm.name),appOrigin:platformOrigin()});
       if(result.warning)showToast(result.warning,'info');
       else if(result.existingUser)showToast('Loja criada e vinculada ao usuário que já existia no Supabase Auth.','success');
       else if(result.createdWithPassword)showToast('Loja e usuário criados com senha temporária. O cliente deverá trocá-la no primeiro acesso.','success');

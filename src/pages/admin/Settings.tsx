@@ -103,7 +103,7 @@ export default function SettingsAdmin() {
         const permission = await requestPwaNotificationPermission();
         if (permission !== 'granted') throw new Error('Permissão de notificações não concedida no telefone.');
       }
-      await showPwaNotification('FoodWeb · teste', 'Se você recebeu este aviso, o PWA está autorizado neste telefone.', { tag: 'foodweb:test' });
+      await showPwaNotification('VendeWeb · teste', 'Se você recebeu este aviso, o PWA está autorizado neste telefone.', { tag: 'vendeweb:test' });
       showToast('Notificação de teste enviada.', 'success');
     } catch (notificationError) {
       showToast(notificationError instanceof Error ? notificationError.message : 'Não foi possível enviar o teste.', 'error');
@@ -352,7 +352,7 @@ export default function SettingsAdmin() {
             <label className="switch-row"><span><strong>Pedir novamente</strong><small>Permite reconstruir o último pedido salvo no dispositivo do cliente.</small></span><input type="checkbox" checked={form.repeatOrderEnabled} onChange={(e)=>update('repeatOrderEnabled',e.target.checked)} /></label>{form.repeatOrderEnabled&&<label>Manter último pedido por (dias)<input type="number" min="1" max="365" value={form.repeatOrderMaxAgeDays ?? 90} onChange={(e)=>update('repeatOrderMaxAgeDays',Math.min(365,Math.max(1,Number(e.target.value)||1)))} /></label>}
             <label className="switch-row"><span><strong>Upsell no carrinho</strong><small>Sugere outros produtos disponíveis antes do checkout.</small></span><input type="checkbox" checked={form.upsellEnabled} onChange={(e)=>update('upsellEnabled',e.target.checked)} /></label>
             {form.upsellEnabled && <label>Quantidade de sugestões<select value={form.upsellLimit} onChange={(e)=>update('upsellLimit',Number(e.target.value))}><option value={1}>1 produto</option><option value={2}>2 produtos</option><option value={3}>3 produtos</option><option value={4}>4 produtos</option><option value={6}>6 produtos</option></select></label>}
-            <div className="admin-info-box"><Info size={17}/><span>Esses recursos usam os dados operacionais que o FoodWeb já possui e não criam uma nova área de ERP.</span></div>
+            <div className="admin-info-box"><Info size={17}/><span>Esses recursos usam os dados operacionais que a VendeWeb já possui e não criam uma nova área de ERP.</span></div>
           </section>
 
           <section className={`admin-card form-section message-templates-v063 settings-collapsible ${collapsedSections.messages ? 'is-collapsed' : ''}`}>

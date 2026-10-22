@@ -1,10 +1,11 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import AdminLayout from './layouts/AdminLayout';
 import MasterLayout from './layouts/MasterLayout';
 import StoreLayout from './layouts/StoreLayout';
 import { useAuth } from './contexts/AuthContext';
 import { LoadingState } from './components/ui/AsyncState';
+import { canonicalPlatformRedirect, hasOriginBoundAuthCallback, hasOriginBoundShoppingState, isOriginBoundShoppingPath } from './lib/brand';
 
 const Analytics=lazy(()=>import('./pages/admin/Analytics'));
 const Finance=lazy(()=>import('./pages/admin/Finance'));
@@ -68,6 +69,24 @@ function ProtectedMaster() {
 }
 
 const fallback=<div className="page-center"><LoadingState label="Carregando interface..."/></div>;
+
+export function CanonicalPlatformBoundary({ children }: { children: ReactNode }){
+  const location=useLocation();
+  // Mantém toda a jornada iniciada na origem anterior. Nenhum carrinho, dado
+  // pessoal ou token é transportado em query string para outra origem.
+  const [preserveShoppingSession]=useState(()=>{
+    if(typeof window==='undefined')return false;
+    if(isOriginBoundShoppingPath(window.location.pathname))return true;
+    try{return hasOriginBoundShoppingState(window.localStorage)||hasOriginBoundAuthCallback(window.location.href,window.localStorage)}catch{return true}
+  });
+  const target=typeof window==='undefined'?null:canonicalPlatformRedirect(window.location.href,preserveShoppingSession);
+
+  useEffect(()=>{
+    if(target)window.location.replace(target);
+  },[target,location.pathname,location.search,location.hash]);
+
+  return target?fallback:children;
+}
 
 export default function App() {
   return <Suspense fallback={fallback}><Routes>

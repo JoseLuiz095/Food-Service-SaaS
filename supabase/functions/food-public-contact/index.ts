@@ -1,7 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 
 type TurnstileResult={success:boolean;hostname?:string;action?:string;'error-codes'?:string[]};
-const originSet=()=>new Set(String(Deno.env.get('PUBLIC_APP_ORIGINS')||'').split(',').map((value)=>value.trim().replace(/\/$/,'')).filter(Boolean));
+const DEFAULT_PUBLIC_ORIGINS=['https://foodweb.joseluizacama.workers.dev','https://vendeweb.com.br','https://www.vendeweb.com.br'];
+const originSet=()=>new Set([...DEFAULT_PUBLIC_ORIGINS,...String(Deno.env.get('PUBLIC_APP_ORIGINS')||'').split(',').map((value)=>value.trim().replace(/\/$/,'')).filter(Boolean)]);
 const cleanOrigin=(value:string)=>value.trim().replace(/\/$/,'');
 const originAllowed=(origin:string)=>{const configured=originSet();return Boolean(origin)&&configured.size>0&&configured.has(cleanOrigin(origin))};
 const hostnameFrom=(origin:string)=>{try{return new URL(origin).hostname.toLowerCase()}catch{return''}};
@@ -27,7 +28,7 @@ async function validateTurnstile(token:string,origin:string,remoteIp:string){
   if(!response.ok||!result.success)throw new Error('Não foi possível confirmar a verificação anti-robô. Atualize a página e tente novamente.');
   if(result.action&&result.action!=='marketing')throw new Error('A verificação recebida não corresponde ao contato comercial.');
   const originHost=hostnameFrom(origin);
-  if(originHost&&result.hostname&&result.hostname.toLowerCase()!==originHost)throw new Error('A verificação não pertence a este endereço do FoodWeb.');
+  if(originHost&&result.hostname&&result.hostname.toLowerCase()!==originHost)throw new Error('A verificação não pertence a este endereço da VendeWeb.');
 }
 
 Deno.serve(async(req)=>{
@@ -57,8 +58,8 @@ Deno.serve(async(req)=>{
     if(!phone)throw new Error('WhatsApp comercial ainda não foi configurado pelo Admin Master.');
     const days=Math.max(1,Number(data?.demo_duration_days||30));
     const message=intent==='trial'
-      ? `Olá! Tenho interesse em testar o Plano Profissional do FoodWeb por ${days} dias. Gostaria de saber como ativar a demonstração.`
-      : 'Olá! Gostaria de saber mais sobre o FoodWeb e os planos disponíveis.';
+      ? `Olá! Tenho interesse em testar o Plano Profissional da VendeWeb por ${days} dias. Gostaria de saber como ativar a demonstração.`
+      : 'Olá! Gostaria de saber mais sobre a VendeWeb e os planos disponíveis.';
     return json(origin,{redirectUrl:`https://wa.me/${phone}?text=${encodeURIComponent(message)}`});
   }catch(error){return json(origin,{error:error instanceof Error?error.message:'Erro inesperado.'},400)}
 });

@@ -3,7 +3,7 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 cls
 echo ============================================================
-echo FoodWeb v0.4.6 - Edge Functions Supabase
+echo VendeWeb - Edge Functions Supabase
 echo ============================================================
 echo.
 echo IMPORTANTE:
@@ -20,33 +20,38 @@ if "%PROJECT_REF%"=="" (
 )
 
 echo.
-echo [1/4] Criacao automatica de lojas...
+echo [1/7] Criacao automatica de lojas...
 call npx supabase@2.116.0 functions deploy food-platform-create-store --project-ref "%PROJECT_REF%"
 if errorlevel 1 goto :falha
 
 echo.
-echo [2/4] Gestao de e-mail e senha do lojista...
+echo [2/7] Gestao de e-mail e senha do lojista...
 call npx supabase@2.116.0 functions deploy food-platform-manage-store-user --project-ref "%PROJECT_REF%"
 if errorlevel 1 goto :falha
 
 echo.
-echo [3/4] Checkout publico + Turnstile...
+echo [3/7] Checkout publico + Turnstile...
 call npx supabase@2.116.0 functions deploy food-public-checkout --project-ref "%PROJECT_REF%" --no-verify-jwt
 if errorlevel 1 goto :falha
 
 echo.
-echo [4/4] Contato comercial publico protegido...
+echo [4/7] Contato comercial publico protegido...
 call npx supabase@2.116.0 functions deploy food-public-contact --project-ref "%PROJECT_REF%" --no-verify-jwt
 if errorlevel 1 goto :falha
 
 echo.
-echo [5/5] Cadastro publico sem dependencia do e-mail do Supabase Auth...
+echo [5/7] Cadastro publico sem dependencia do e-mail do Supabase Auth...
 call npx supabase@2.116.0 functions deploy food-public-self-signup --project-ref "%PROJECT_REF%" --no-verify-jwt
 if errorlevel 1 goto :falha
 
 echo.
-echo [6/6] Notificacoes push do PWA...
+echo [6/7] Notificacoes push do PWA...
 call npx supabase@2.116.0 functions deploy food-send-push --project-ref "%PROJECT_REF%"
+if errorlevel 1 goto :falha
+
+echo.
+echo [7/7] Operacao publica dos modulos opcionais...
+call npx supabase@2.116.0 functions deploy food-modules-public --project-ref "%PROJECT_REF%" --no-verify-jwt
 if errorlevel 1 goto :falha
 
 echo.

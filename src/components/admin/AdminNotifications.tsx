@@ -66,7 +66,7 @@ export function AdminNotifications() {
         pushSynced.current = true;
         subscriptionSyncedFor.current = `${settings.id}:${membership.storeId}:${user.id}`;
       }
-      await showPwaNotification('Teste de notificações', 'O FoodWeb conseguiu enviar um aviso para este dispositivo.', { tag: `notification-test:${settings.id}` });
+      await showPwaNotification('Teste de notificações', 'A VendeWeb conseguiu enviar um aviso para este dispositivo.', { tag: `notification-test:${settings.id}` });
       setLastSignalAt(new Date().toISOString());
     } catch {
       // O navegador pode recusar a solicitação fora de um gesto explícito.

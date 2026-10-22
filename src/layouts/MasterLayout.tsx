@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PlatformHelpButton } from '../components/PlatformHelpButton';
 import { useAuth } from '../contexts/AuthContext';
+import { PLATFORM_BRAND } from '../lib/brand';
 import '../segments/segments.css';
 
 const nav = [
@@ -20,7 +21,7 @@ export default function MasterLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
-  const initials = (platformAdmin?.name || 'FW').slice(0, 2).toUpperCase();
+  const initials = (platformAdmin?.name || 'VW').slice(0, 2).toUpperCase();
 
   const logout = async () => {
     await signOut();
@@ -34,7 +35,7 @@ export default function MasterLayout() {
 
       <aside className={`admin-sidebar master-sidebar ${open ? 'is-open' : ''}`}>
         <button className="admin-sidebar-close" onClick={() => setOpen(false)} aria-label="Fechar"><X /></button>
-        <div className="admin-brand"><ShieldCheck size={24} /><div><strong>FoodWeb</strong><span>Admin da plataforma</span></div></div>
+        <div className="admin-brand"><img className="platform-brand-icon" src="/assets/vendeweb-mark.svg" alt=""/><div><strong>{PLATFORM_BRAND}</strong><span>Admin da plataforma</span></div></div>
 
         <div className="master-admin-mini" title={user?.email || platformAdmin?.name || 'Administrador'}>
           <span>{initials}</span>

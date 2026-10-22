@@ -3,13 +3,14 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { isDemoMode } from '../../lib/config';
 import { requestPasswordRecovery } from '../../lib/supabaseRest';
+import { platformOrigin } from '../../lib/brand';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [technicalError, setTechnicalError] = useState('');
-  const redirectTo = useMemo(() => `${window.location.origin}/admin/redefinir-senha`, []);
+  const redirectTo = useMemo(() => `${platformOrigin()}/admin/redefinir-senha`, []);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();

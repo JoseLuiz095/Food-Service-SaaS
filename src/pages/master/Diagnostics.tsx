@@ -7,7 +7,7 @@ import { platformApi } from '../../services/platformApi';
 import type { PlatformSystemCheck } from '../../types';
 
 const numberLabel=(value:number)=>new Intl.NumberFormat('pt-BR').format(value);
-const productionOrigin='https://foodweb.joseluizacama.workers.dev';
+const productionOrigin='https://vendeweb.com.br, https://www.vendeweb.com.br, https://foodweb.joseluizacama.workers.dev';
 const dateTime=(value:string)=>new Date(value).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'medium'});
 const actionLabel=(value:string)=>({
   subscription_renewal_confirm:'Confirmar renovação',subscription_plan_change_confirm:'Confirmar alteração de plano',

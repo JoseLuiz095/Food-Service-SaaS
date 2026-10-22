@@ -13,6 +13,7 @@ import { getOpeningScheduleOverview, getStoreOpenStatus } from '../utils/storeHo
 import { loadFulfillmentPreference, saveFulfillmentPreference } from '../utils/fulfillmentPreference';
 import { ImageWithFallback } from './ui/ImageWithFallback';
 import { getBusinessSegment, isDefaultStoreImage } from '../segments/businessSegments';
+import { PLATFORM_BRAND } from '../lib/brand';
 
 function InstagramGlyph({ size = 17 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".7" fill="currentColor" stroke="none"/></svg>;
@@ -39,7 +40,7 @@ export function StoreHeader(){
   const [preferredFulfillment,setPreferredFulfillment]=useState<'delivery'|'pickup'|null>(null);
   const hoursRef=useRef<HTMLDivElement|null>(null);
   const shareCloseRef=useRef<HTMLButtonElement|null>(null);
-  useEffect(()=>{document.title=`${settings.name} · FoodWeb`;},[settings.name]);
+  useEffect(()=>{document.title=`${settings.name} · ${PLATFORM_BRAND}`;},[settings.name]);
   useEffect(()=>{setPreferredFulfillment(loadFulfillmentPreference(settings.id));},[settings.id]);
   const shareUrl=publicStorefrontUrl(settings.slug);
   useEffect(()=>{if(!shareOpen)return; setShareCopied(false); void QRCode.toDataURL(shareUrl,{errorCorrectionLevel:'M',margin:2,width:320}).then(setShareQr).catch(()=>setShareQr(''));},[shareOpen,shareUrl]);
@@ -96,7 +97,7 @@ export function StoreHeader(){
     }
   };
   return <header className="food-storefront-header food-storefront-header-v43">
-    <div className="food-platform-bar"><div className="container"><Link className="foodweb-wordmark" to={storefrontPath(storeBasePath)} aria-label="FoodWeb"><span>F</span><strong>FoodWeb</strong></Link><div className="food-platform-trust"><ShieldCheck size={15}/><span>Pedido direto com o estabelecimento</span></div><Link className="food-platform-cart" to={storefrontPath(storeBasePath,'/carrinho')}><ShoppingBag size={18}/><span>Sacola</span>{totalItems>0&&<b>{totalItems}</b>}</Link></div></div>
+    <div className="food-platform-bar"><div className="container"><Link className="foodweb-wordmark" to={storefrontPath(storeBasePath)} aria-label={PLATFORM_BRAND}><img src="/assets/vendeweb-mark.svg" alt=""/><strong>{PLATFORM_BRAND}</strong></Link><div className="food-platform-trust"><ShieldCheck size={15}/><span>Pedido direto com o estabelecimento</span></div><Link className="food-platform-cart" to={storefrontPath(storeBasePath,'/carrinho')}><ShoppingBag size={18}/><span>Sacola</span>{totalItems>0&&<b>{totalItems}</b>}</Link></div></div>
     <div className="food-store-hero-v43" style={{backgroundImage:`linear-gradient(90deg,rgba(18,10,8,.62),rgba(18,10,8,.18) 48%,rgba(18,10,8,.18)),url(${heroUrl})`}}><div className="container"><span>Pedido online</span><strong>{settings.tagline||'Seu pedido, do seu jeito.'}</strong></div></div>
     <section className="container food-store-profile-v43">
       <ImageWithFallback loading="eager" className="food-store-profile-logo" fallbackSrc={neutralPresentation ? '/assets/placeholder-catalog.svg' : undefined} src={logoUrl} alt={`Logo ${settings.name}`}/>

@@ -37,11 +37,14 @@ const inventoryApi=read('src/services/inventoryApi.ts');
 const recipeStagesMigration=read('supabase/migrations/202610141000_foodweb_recipe_stages.sql');
 const analyticsPage=read('src/pages/admin/Analytics.tsx');
 const publicContact=read('supabase/functions/food-public-contact/index.ts');
+const publicSignup=read('supabase/functions/food-public-self-signup/index.ts');
+const modulesPublic=read('supabase/functions/food-modules-public/index.ts');
 const adminLogin=read('src/pages/admin/Login.tsx');
 const masterLogin=read('src/pages/master/Login.tsx');
 const auth=read('src/contexts/AuthContext.tsx');
 const home=read('src/pages/store/Home.tsx');
 const storeHeader=read('src/components/StoreHeader.tsx');
+const appSource=read('src/App.tsx');
 const adminLayout=read('src/layouts/AdminLayout.tsx');
 const storeContext=read('src/contexts/StoreContext.tsx');
 const storeHours=read('src/utils/storeHours.ts');
@@ -80,7 +83,8 @@ check('Edge recupera replay em food_orders',edge.includes('idempotentReplay')&&e
 check('RPC Food só é executável pelo service_role',migration.includes('grant execute on function public.food_create_public_order(jsonb) to service_role'));
 check('Checkout público continua sem JWT',config.includes('[functions.food-public-checkout]')&&config.includes('verify_jwt = false'));
 check('Turnstile é validado no servidor',edge.includes('validateTurnstile(token, remoteIp, origin)'));
-check('Origem oficial é permitida por padrão',edge.includes("'https://foodweb.joseluizacama.workers.dev'"));
+check('Origens oficial e VendeWeb são permitidas por padrão',edge.includes("'https://foodweb.joseluizacama.workers.dev'")&&edge.includes("'https://vendeweb.com.br'")&&edge.includes("'https://www.vendeweb.com.br'"));
+check('Origem VendeWeb cobre contato, cadastro e módulos',publicContact.includes('DEFAULT_PUBLIC_ORIGINS')&&publicContact.includes("'https://vendeweb.com.br'")&&publicSignup.includes("'https://www.vendeweb.com.br'")&&modulesPublic.includes("'https://vendeweb.com.br'"));
 check('POST continua bloqueando origem indevida',edge.includes('originIsAllowed')&&edge.includes('ORIGIN_NOT_ALLOWED'));
 check('Banco recalcula preço',migration.includes('coalesce(v_product.promotional_price,v_product.price)'));
 check('Banco valida opção no produto/loja',migration.includes('pog.product_id=v_product.id')&&migration.includes('pog.store_id=v_store.id'));
@@ -126,6 +130,7 @@ check('A receber permite editar e exibir QR Code PIX',ordersAdmin.includes('Orde
 check('A receber permite editar produtos e cancelar com liberação',ordersAdmin.includes('onCancelOrder={cancelOrderFromDetails}')&&ordersAdmin.includes("changeStatus(orderId, 'cancelled')")&&orderItemEditMigration.includes('food_update_order_items_v1')&&orderItemEditMigration.includes('food_release_order_inventory'));
 check('PIX gerado permite compartilhar QR Code com texto',ordersAdmin.includes('Compartilhar QR Code + texto')&&ordersAdmin.includes('sharePixQrImage')&&read('src/utils/pixShare.ts').includes('navigator.share'));
 check('Compartilhamento da loja envia QR Code e link',read('src/components/admin/AdminStoreShare.tsx').includes('sharePixQrImage')&&read('src/components/admin/AdminStoreShare.tsx').includes('qrCode')&&read('src/components/admin/AdminStoreShare.tsx').includes('Compartilhar pelo telefone'));
+check('Domínio canônico é resolvido antes dos providers e preserva sessão de compra',appSource.includes('CanonicalPlatformBoundary')&&appSource.includes('canonicalPlatformRedirect')&&appSource.includes('preserveShoppingSession')&&mainSource.includes('<CanonicalPlatformBoundary>'));
 check('Vitrine compartilha QR Code, informa cópia e fecha pelo teclado',storeHeader.includes('sharePixQrImage')&&storeHeader.includes('copyShareUrl')&&storeHeader.includes("event.key==='Escape'")&&storeHeader.includes('createPortal'));
 check('Plano não é recarregado ao trocar de tela do painel',adminLayout.includes('billingApi.getOverview(settings.id)')&&adminLayout.includes('}, [settings.id]);'));
 check('Painel reaproveita snapshot curto e invalida após gravação',storeContext.includes('ADMIN_SNAPSHOT_CACHE_MS')&&storeContext.includes('reloadAdmin({ force: true })')&&storeContext.includes('cached.userId === user?.id'));
@@ -184,9 +189,9 @@ check('Suporte da plataforma é somente autenticado',v044.includes('food_get_adm
 check('Logins enviam captchaToken ao Supabase Auth',adminLogin.includes('action="login"')&&masterLogin.includes('action="login"')&&auth.includes('options: captchaToken ? { captchaToken }'));
 check('Landing usa contato protegido sem wa.me público',landing.includes('ProtectedContactButton')&&!landing.includes('wa.me/')&&!landing.includes('marketingWhatsapp'));
 check('v0.4.4 preserva namespace Food',!/alter table public\.(stores|products|orders|plans|platform_settings)\b/i.test(v044));
-check('Splash Screen usa a nova arte também como ícone',mainSource.includes('foodweb-splash-screen')&&mainSource.includes('minimumVisibleMs')&&mainSource.includes('splashImage')&&indexHtml.includes('/manifest.webmanifest?v=20261015')&&indexHtml.includes('rel="icon" type="image/png"')&&indexHtml.includes('/assets/marketing/app-splash-v2.png?v=20261015')&&manifest.includes('/assets/marketing/app-splash-v2.png?v=20261015')&&/foodweb-shell-v[34]/.test(serviceWorker)&&serviceWorker.includes('FOODWEB_ICON')&&styles.includes('#foodweb-splash-screen')&&styles.includes('prefers-reduced-motion'));
+check('Splash Screen e ícones instaláveis mantêm a marca VendeWeb',mainSource.includes('foodweb-splash-screen')&&mainSource.includes('minimumVisibleMs')&&mainSource.includes('splashImage')&&indexHtml.includes('rel="icon" type="image/svg+xml"')&&indexHtml.includes('/assets/vendeweb-mark.svg')&&manifest.includes('/assets/vendeweb-icon-192.png')&&manifest.includes('/assets/vendeweb-maskable-512.png')&&/vendeweb-shell-v2/.test(serviceWorker)&&serviceWorker.includes('VENDEWEB_ICON')&&styles.includes('#foodweb-splash-screen')&&styles.includes('prefers-reduced-motion'));
 check('Nenhuma referência ao ícone FoodWeb antigo permanece nos fallbacks',!indexHtml.includes('favicon-foodweb-v054.svg')&&!serviceWorker.includes('/assets/food-logo.svg')&&!read('src/services/pwaNotifications.ts').includes('/assets/food-logo.svg')&&!read('src/services/storeApi.ts').includes('/assets/food-logo.svg')&&!read('src/services/landingApi.ts').includes('/assets/food-logo.svg')&&!read('src/data/seed.ts').includes('/assets/food-logo.svg')&&!read('src/pages/store/Landing.tsx').includes('favicon-foodweb-v046.svg')&&!demoSeed.includes('/assets/food-logo.svg'));
-check('Landing mantém prévia e jornada demonstrativa',landing.includes('CommercialHero')&&landing.includes('InteractiveShowcase')&&read('src/components/marketing/CommercialSegments.tsx').includes('SegmentPreview')&&!landing.includes('app-opening-hero.png'));
+check('Landing mantém prévia e jornada demonstrativa',landing.includes('CommercialHero')&&landing.includes('InteractiveShowcase')&&read('src/components/marketing/CommercialSegments.tsx').includes('BusinessJourneyPreview')&&!landing.includes('app-opening-hero.png'));
 check('Interações ficam restritas a Analytics e Financeiro',analyticsPage.includes('aria-pressed')&&financePage.includes('finance-chart-selection')&&!ordersAdmin.includes('analytics-chart'));
 check('Financeiro permite registrar despesa operacional rápida',financePage.includes('finance-quick-expense')&&financePage.includes('submitQuickExpense')&&financePage.includes('financial_quick_expense_create')&&financePage.includes('Forma de pagamento'));
 check('Painel prioriza caixa e resumo operacional do dia',dashboardPage.includes('dashboard-today-card')&&dashboardPage.includes('Recebido hoje')&&dashboardPage.includes('A receber')&&dashboardPage.includes('Agendados hoje')&&dashboardPage.includes('/admin/financeiro')&&dashboardPage.includes('/admin/estoque'));
@@ -198,4 +203,4 @@ if(failures.length){
   for(const failure of failures)console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log(`\nFluxo crítico FoodWeb v0.4 concluído: ${checks.length} verificações.`);
+console.log(`\nFluxo crítico VendeWeb concluído: ${checks.length} verificações.`);

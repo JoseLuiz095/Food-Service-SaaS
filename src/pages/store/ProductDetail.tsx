@@ -8,7 +8,7 @@ import { useStore } from '../../contexts/StoreContext';
 import type { OptionGroup, PartyOrderConfig, SelectedOption } from '../../types';
 import { currency, roundMoney } from '../../utils/format';
 import { useToast } from '../../contexts/ToastContext';
-import { storefrontPath } from '../../utils/storefrontRoute';
+import { publicProductUrl, storefrontPath } from '../../utils/storefrontRoute';
 import { trackPublicEvent } from '../../services/analyticsApi';
 
 const groupInstruction = (group: OptionGroup) => {
@@ -179,7 +179,7 @@ export default function ProductDetail() {
   };
 
   const share = async () => {
-    const url = window.location.href;
+    const url = publicProductUrl(settings.slug, product.slug);
     try {
       if (navigator.share) await navigator.share({ title: product.name, text: product.description, url });
       else { await navigator.clipboard.writeText(url); showToast('Link do produto copiado.', 'success'); }

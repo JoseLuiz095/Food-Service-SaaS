@@ -1,6 +1,6 @@
-# FoodWeb — Produto
+# VendeWeb — Produto
 
-FoodWeb é uma plataforma multempresa de vitrines, pedidos e operação para pequenos negócios. Alimentação, confeitaria, varejo, impressão 3D, aluguel e serviços compartilham a base comercial, com apresentação própria por ramo e módulos opcionais. A marca está em estudo; nomes técnicos e integrações permanecem compatíveis.
+VendeWeb é uma plataforma multempresa de vitrines, pedidos e operação para pequenos negócios. Alimentação, confeitaria, varejo, impressão 3D, aluguel e serviços compartilham a base comercial, com apresentação própria por ramo e módulos opcionais. Os nomes técnicos e integrações existentes permanecem compatíveis.
 
 ## Apresentação por ramo — shared_future
 

@@ -1,0 +1,32 @@
+/* Ajustes de apresentação; cores herdadas da identidade de cada loja. */
+.checkout-page .checkout-card__title{align-items:flex-start;gap:12px}
+.checkout-page .checkout-card__title>svg{flex:0 0 auto;margin-top:2px}
+.checkout-page .checkout-card__title>div{display:grid;gap:5px;min-width:0}
+.checkout-page .checkout-card__title>div>strong{display:block;line-height:1.4}
+.checkout-page .checkout-card__title>div>span{display:block;line-height:1.5}
+.checkout-page .pickup-info{display:flex;align-items:flex-start;gap:12px;line-height:1.5}
+.checkout-page .pickup-info>svg{flex:0 0 auto;margin-top:2px;color:var(--food-store-primary,var(--green))}
+.checkout-page .pickup-info>div{display:grid;gap:6px;min-width:0}
+.checkout-page .pickup-info strong,.checkout-page .pickup-info span{display:block;overflow-wrap:anywhere}
+.checkout-page .pickup-info strong{color:var(--food-store-text,var(--ink));line-height:1.4}
+.checkout-page .pickup-info span{color:var(--food-store-muted,var(--muted));font-size:.85rem;line-height:1.6}
+.checkout-page .payment-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.checkout-page .payment-options>button{display:flex;align-items:center;gap:10px;min-width:0;min-height:76px;padding:14px;border:1px solid var(--food-store-border,var(--line));border-radius:12px;background:var(--food-store-surface,var(--surface));color:var(--food-store-text,var(--ink));font:inherit;text-align:left;cursor:pointer;transition:background 150ms,border-color 150ms}
+.checkout-page .payment-options>button>svg{flex:0 0 auto;color:var(--food-store-primary,var(--green))}
+.checkout-page .payment-options>button>span{display:grid;gap:5px;min-width:0;flex:1}
+.checkout-page .payment-options>button strong{display:block;line-height:1.35;font-size:.9rem}
+.checkout-page .payment-options>button small{display:block;line-height:1.45;font-size:.73rem;font-weight:400;color:var(--food-store-muted,var(--muted))}
+.checkout-page .payment-options>button.selected{border-color:var(--food-store-primary,var(--green));background:color-mix(in srgb,var(--food-store-primary,var(--green)) 7%,var(--food-store-surface,var(--surface)))}
+.checkout-page .payment-options>button:hover{border-color:var(--food-store-primary,var(--green))}
+.checkout-page .payment-options>button:focus-visible{outline:3px solid var(--food-store-primary,var(--green));outline-offset:3px}
+.checkout-page .payment-options .payment-option-check{align-self:flex-start;margin-top:1px}
+.checkout-page .checkout-items-mini>div{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:16px;padding-block:12px}
+.checkout-page .checkout-items-mini>div>span{min-width:0;line-height:1.5;overflow-wrap:anywhere}
+.checkout-page .checkout-items-mini>div>span>small{display:block;margin-top:4px;line-height:1.45;color:var(--food-store-muted,var(--muted))}
+.checkout-page .checkout-items-mini>div>strong{white-space:nowrap;font-variant-numeric:tabular-nums;line-height:1.5;text-align:right}
+.checkout-page .preparation-summary{align-items:flex-start;gap:10px}
+.checkout-page .preparation-summary>svg{flex:0 0 auto;margin-top:2px}
+.checkout-page .preparation-summary>div{display:grid;gap:4px}
+.checkout-page .checkout-security-note{display:block;line-height:1.6;margin-top:12px}
+@media(max-width:480px){.checkout-page .payment-options{grid-template-columns:1fr}.checkout-page .payment-options>button{min-height:70px}.checkout-page .checkout-items-mini>div{gap:12px}}
+@media(prefers-reduced-motion:reduce){.checkout-page .payment-options>button{transition:none}}

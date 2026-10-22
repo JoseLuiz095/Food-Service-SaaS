@@ -8,7 +8,7 @@ const items:Record<Variant,ValueItem[]>={
   food:[
     {icon:'orders',title:'Seu canal de venda',description:'Catálogo próprio, carrinho e pedido salvo no sistema antes do contato pelo WhatsApp, sem comissão por pedido.'},
     {icon:'delivery',title:'Recebimento do seu jeito',description:'Entrega, retirada, taxas e agendamento conforme a configuração e a operação de cada loja.'},
-    {icon:'whatsapp',title:'Pedido estruturado antes do WhatsApp',description:'O WhatsApp entra como continuidade do atendimento, sem substituir o registro do pedido no FoodWeb.'},
+    {icon:'whatsapp',title:'Pedido estruturado antes do WhatsApp',description:'O WhatsApp entra como continuidade do atendimento, sem substituir o registro do pedido na VendeWeb.'},
     {icon:'analytics',title:'Analytics do funil de vendas',description:'Acompanhe visualizações, produto visto, carrinho, checkout, conversão e oportunidades.'},
     {icon:'finance',title:'Financeiro gerencial',description:'Acompanhe entradas, saídas e vencimentos. Os registros ajudam a entender a rotina financeira do negócio.'},
     {icon:'document',title:'Leitura assistida de documentos',description:'Notas, cupons e boletos podem ser lidos localmente para apoiar o lançamento financeiro, mantendo revisão humana.'},
