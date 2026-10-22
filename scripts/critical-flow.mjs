@@ -44,6 +44,7 @@ const masterLogin=read('src/pages/master/Login.tsx');
 const auth=read('src/contexts/AuthContext.tsx');
 const home=read('src/pages/store/Home.tsx');
 const storeHeader=read('src/components/StoreHeader.tsx');
+const appSource=read('src/App.tsx');
 const adminLayout=read('src/layouts/AdminLayout.tsx');
 const storeContext=read('src/contexts/StoreContext.tsx');
 const storeHours=read('src/utils/storeHours.ts');
@@ -129,6 +130,7 @@ check('A receber permite editar e exibir QR Code PIX',ordersAdmin.includes('Orde
 check('A receber permite editar produtos e cancelar com liberação',ordersAdmin.includes('onCancelOrder={cancelOrderFromDetails}')&&ordersAdmin.includes("changeStatus(orderId, 'cancelled')")&&orderItemEditMigration.includes('food_update_order_items_v1')&&orderItemEditMigration.includes('food_release_order_inventory'));
 check('PIX gerado permite compartilhar QR Code com texto',ordersAdmin.includes('Compartilhar QR Code + texto')&&ordersAdmin.includes('sharePixQrImage')&&read('src/utils/pixShare.ts').includes('navigator.share'));
 check('Compartilhamento da loja envia QR Code e link',read('src/components/admin/AdminStoreShare.tsx').includes('sharePixQrImage')&&read('src/components/admin/AdminStoreShare.tsx').includes('qrCode')&&read('src/components/admin/AdminStoreShare.tsx').includes('Compartilhar pelo telefone'));
+check('Domínio novo abre a página comercial e links antigos preservam o caminho',appSource.includes("target.hostname=PLATFORM_DOMAIN")&&appSource.includes("new URL(LEGACY_PLATFORM_ORIGIN)")&&appSource.includes("target.protocol='https:'"));
 check('Vitrine compartilha QR Code, informa cópia e fecha pelo teclado',storeHeader.includes('sharePixQrImage')&&storeHeader.includes('copyShareUrl')&&storeHeader.includes("event.key==='Escape'")&&storeHeader.includes('createPortal'));
 check('Plano não é recarregado ao trocar de tela do painel',adminLayout.includes('billingApi.getOverview(settings.id)')&&adminLayout.includes('}, [settings.id]);'));
 check('Painel reaproveita snapshot curto e invalida após gravação',storeContext.includes('ADMIN_SNAPSHOT_CACHE_MS')&&storeContext.includes('reloadAdmin({ force: true })')&&storeContext.includes('cached.userId === user?.id'));

@@ -1,10 +1,11 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import AdminLayout from './layouts/AdminLayout';
 import MasterLayout from './layouts/MasterLayout';
 import StoreLayout from './layouts/StoreLayout';
 import { useAuth } from './contexts/AuthContext';
 import { LoadingState } from './components/ui/AsyncState';
+import { PLATFORM_DOMAIN, LEGACY_PLATFORM_ORIGIN } from './lib/brand';
 
 const Analytics=lazy(()=>import('./pages/admin/Analytics'));
 const Finance=lazy(()=>import('./pages/admin/Finance'));
@@ -69,8 +70,24 @@ function ProtectedMaster() {
 
 const fallback=<div className="page-center"><LoadingState label="Carregando interface..."/></div>;
 
+function LegacyPlatformRedirect(){
+  const location=useLocation();
+  const legacyHost=new URL(LEGACY_PLATFORM_ORIGIN).hostname;
+  const isLegacyHost=typeof window!=='undefined'&&window.location.hostname.toLowerCase()===legacyHost;
+
+  useEffect(()=>{
+    if(!isLegacyHost||typeof window==='undefined')return;
+    const target=new URL(window.location.href);
+    target.protocol='https:';
+    target.hostname=PLATFORM_DOMAIN;
+    window.location.replace(target.toString());
+  },[isLegacyHost,location.pathname,location.search,location.hash]);
+
+  return isLegacyHost?fallback:null;
+}
+
 export default function App() {
-  return <Suspense fallback={fallback}><Routes>
+  return <Suspense fallback={fallback}><LegacyPlatformRedirect/><Routes>
     <Route path="/modulos/eventos/:sellerId" element={<EventsPage />} />
     <Route path="/modulos/eventos/pedido/:eventOrderId" element={<EventsPage />} />
     <Route element={<StoreLayout />}>
