@@ -4,13 +4,16 @@ import { roundMoney } from '../utils/format';
 import { useStore } from './StoreContext';
 
 const cartKeyFor = (storeId: string) => `foodservice_cart_v1:${storeId}`;
+// Mesmo contrato de quantidade da RPC de pedidos, para todas as lojas.
+export const MAX_CART_ITEM_QUANTITY = 99;
+const boundedQuantity = (quantity: number) => Math.max(1, Math.min(MAX_CART_ITEM_QUANTITY, Math.trunc(Number(quantity)) || 1));
 const readCart = (key: string): CartItem[] => {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Array<CartItem & { food_addons?: unknown; variation?: unknown }>;
     // Carrinhos da versão FloriWeb são descartados propositalmente: o contrato de opções mudou.
-    return parsed.filter((item) => Array.isArray(item.options));
+    return parsed.filter((item) => Array.isArray(item.options)).map(item => ({ ...item, quantity: boundedQuantity(item.quantity) }));
   } catch {
     return [];
   }
@@ -42,6 +45,9 @@ const normalizedOptionKey = (options: SelectedOption[], partyPackageWeightGrams?
   .concat(partyPackageWeightGrams ? [`party-weight:${partyPackageWeightGrams}`] : [])
   .join('|');
 
+export const cartItemIdFor = (productId: string, options: SelectedOption[] = [], partyWeight?: number) =>
+  `${productId}|${normalizedOptionKey(options, partyWeight) || 'base'}`;
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const { settings } = useStore();
   const cartKey = cartKeyFor(settings.id || settings.slug || 'default');
@@ -72,13 +78,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const partyConfig = product.partyOrderConfig?.enabled ? product.partyOrderConfig : undefined;
       const partyWeight = partyConfig ? Math.max(1, Math.trunc(Number(metadata.partyPackageWeightGrams || partyConfig.packageWeightGrams))) : undefined;
       const base = partyConfig?.pricePerGram ? partyConfig.pricePerGram * (partyWeight || partyConfig.packageWeightGrams) : (product.promotionalPrice ?? product.price);
-      const id = `${product.id}|${normalizedOptionKey(options, partyWeight) || 'base'}`;
+      const id = cartItemIdFor(product.id, options, partyWeight);
       const normalizedOptions = options
         .map((option) => ({ ...option, quantity: Math.max(1, option.quantity || 1) }))
         .sort((a, b) => a.groupName.localeCompare(b.groupName) || a.itemName.localeCompare(b.itemName));
       setItems((current) => {
         const existing = current.find((item) => item.id === id);
-        if (existing) return current.map((item) => item.id === id ? { ...item, quantity: item.quantity + quantity } : item);
+        if (existing) return current.map((item) => item.id === id ? { ...item, quantity: boundedQuantity(item.quantity + boundedQuantity(quantity)) } : item);
         return [...current, {
           id,
           productId: product.id,
@@ -86,13 +92,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
           imageUrl: product.imageUrl,
           visualEmoji: product.visualEmoji,
           unitPrice: roundMoney(base),
-          quantity,
+          quantity: boundedQuantity(quantity),
           options: normalizedOptions,
            partyPackageWeightGrams: partyWeight,
         }];
       });
     },
-    updateQuantity: (id, quantity) => setItems((current) => current.map((item) => item.id === id ? { ...item, quantity: Math.max(1, quantity) } : item)),
+    updateQuantity: (id, quantity) => setItems((current) => current.map((item) => item.id === id ? { ...item, quantity: boundedQuantity(quantity) } : item)),
     removeItem: (id) => setItems((current) => current.filter((item) => item.id !== id)),
     clear: () => setItems(() => []),
     validateAgainstProducts: (products) => setItems((current) => {
