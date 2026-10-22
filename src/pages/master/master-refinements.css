@@ -1,0 +1,27 @@
+/* Platform operations only: storefront and tenant admin keep their own presentation. */
+.master-shell .admin-topbar>.master-section-context{display:grid;gap:5px;min-width:0}
+.master-shell .master-section-context>strong{font-size:1rem}
+.master-shell .master-section-context>span{display:flex;align-items:center;gap:6px;color:var(--food-admin-muted);font-size:.75rem}
+.master-shell .master-skip-link{position:fixed;top:8px;left:12px;z-index:110;transform:translateY(-160%);padding:12px 18px;background:var(--food-admin-sidebar);color:white;border-radius:8px}
+.master-shell .master-skip-link:focus{transform:none}
+.master-shell #master-main:focus{outline:none}
+.master-shell .master-store-identity{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:12px 0;margin-bottom:16px;border-block:1px solid var(--food-admin-line);font-size:.85rem}
+.master-shell .master-store-identity strong,.master-shell .master-store-identity a{overflow-wrap:anywhere}
+.master-shell .master-store-identity span{color:var(--food-admin-muted)}
+.master-shell .master-store-empty{padding:28px 20px;text-align:center}
+.master-shell .master-store-empty h2{font-size:1.1rem;margin:0 0 8px}
+.master-shell .master-store-empty p{color:var(--food-admin-muted);margin:0 0 16px}
+.master-shell .master-client-filters button:focus-visible,.master-shell .signup-request-filters button:focus-visible{outline:2px solid var(--food-admin-sidebar);outline-offset:3px}
+.master-shell .master-store-table td,.master-shell .stat-card strong{font-variant-numeric:tabular-nums}
+.master-shell .master-store-table .master-url-cell button{min-width:36px;min-height:36px;flex-shrink:0}
+.master-shell .master-modal h2{padding-right:32px;overflow-wrap:anywhere}
+.master-shell .master-modal>p{max-width:72ch;line-height:1.6}
+.master-shell .master-client-toolbar .admin-search{min-width:0}
+.master-shell .master-client-toolbar .admin-search input{min-width:0;width:100%}
+@media(max-width:600px){
+  .master-shell .master-section-context>strong{font-size:.9rem}
+  .master-shell .master-section-context>span{font-size:.68rem}
+  .master-shell .master-client-filters button,.master-shell .signup-request-filters button{min-height:44px}
+  .master-shell .master-store-empty{padding:24px 16px}
+  .master-shell .master-store-identity{display:grid;gap:6px}
+}

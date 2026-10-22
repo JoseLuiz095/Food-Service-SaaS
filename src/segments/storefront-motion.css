@@ -1,0 +1,48 @@
+/* Feedback da vitrine: não altera conteúdo, cores do tenant ou regras de compra. */
+.storefront-motion .storefront-body .product-card--food {
+  transition: border-color 150ms ease, box-shadow 180ms ease, transform 150ms cubic-bezier(.16,1,.3,1);
+}
+.storefront-motion .storefront-body .product-card--food:active {
+  transform: scale(.995);
+}
+.storefront-motion .storefront-body .category-strip button {
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 100ms ease;
+}
+.storefront-motion .storefront-body .category-strip button:not(.active) {
+  color: var(--food-store-ink);
+}
+.storefront-motion .storefront-body .category-strip button:focus-visible {
+  outline: 2px solid var(--food-store-primary);
+  outline-offset: 3px;
+}
+.storefront-motion .storefront-filter-heading {
+  animation: storefront-filter-change 180ms ease-out;
+}
+.storefront-motion .mobile-cart-dock {
+  animation: storefront-dock-enter 220ms cubic-bezier(.16,1,.3,1);
+}
+.store-share-overlay .store-share-card {
+  animation: storefront-panel-enter 180ms cubic-bezier(.16,1,.3,1);
+}
+@media (hover:hover) and (pointer:fine) {
+  .storefront-motion .storefront-body .product-card--food:hover { transform: translateY(-2px); }
+}
+@media (hover:none) {
+  .storefront-motion .storefront-body .product-card--food:hover,
+  .storefront-motion .storefront-body .product-card--food:hover .product-card__image { transform: none; }
+}
+@keyframes storefront-filter-change { from { opacity:.65; } to { opacity:1; } }
+@keyframes storefront-dock-enter { from { opacity:.7;transform:translateY(8px); } to { opacity:1;transform:none; } }
+@keyframes storefront-panel-enter { from { opacity:.7;transform:scale(.985); } to { opacity:1;transform:none; } }
+@media (prefers-reduced-motion:reduce) {
+  .store-layout.storefront-motion .store-route-view,
+  .storefront-motion .storefront-filter-heading,
+  .storefront-motion .mobile-cart-dock,
+  .store-share-overlay .store-share-card { animation:none; }
+  .storefront-motion .storefront-body .product-card--food,
+  .storefront-motion .storefront-body .product-card__image,
+  .storefront-motion .storefront-body .category-strip button { transition:none; }
+  .storefront-motion .storefront-body .product-card--food:is(:hover,:active),
+  .storefront-motion .storefront-body .product-card--food:hover .product-card__image,
+  .storefront-motion .storefront-body .category-strip button:active { transform:none; }
+}

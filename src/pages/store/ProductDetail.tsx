@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ProductMedia, hasProductImage } from '../../components/ProductMedia';
 import { LoadingState } from '../../components/ui/AsyncState';
-import { useCart } from '../../contexts/CartContext';
+import { cartItemIdFor, MAX_CART_ITEM_QUANTITY, useCart } from '../../contexts/CartContext';
 import { useStore } from '../../contexts/StoreContext';
 import type { OptionGroup, PartyOrderConfig, SelectedOption } from '../../types';
 import { currency, roundMoney } from '../../utils/format';
@@ -55,7 +55,7 @@ export default function ProductDetail() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { products, categories, settings, loading, storeBasePath } = useStore();
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
   const { showToast } = useToast();
   const product = products.find((item) => item.slug === slug && item.active);
   const partyConfig = product?.partyOrderConfig?.enabled ? product.partyOrderConfig : product ? readPartyConfig(product.optionGroups) : undefined;
@@ -190,6 +190,11 @@ export default function ProductDetail() {
     if (unavailable || !validateSelections()) return;
     const selectedPartyWeight = partyConfig ? Math.max(1, Math.trunc(Number(partyPackageWeightGrams) || partyConfig.packageWeightGrams)) : undefined;
     if (partyConfig && (!selectedPartyWeight || selectedPartyWeight < 1)) { showToast('Informe a gramatura por pacote.', 'error'); return; }
+    const existingQuantity = items.find(item => item.id === cartItemIdFor(product.id, selectedOptions, selectedPartyWeight))?.quantity || 0;
+    if (quantity + existingQuantity > MAX_CART_ITEM_QUANTITY) {
+      showToast(`Este item tem limite de ${MAX_CART_ITEM_QUANTITY} unidades por combinação de opções. Ajuste a quantidade no carrinho.`, 'error');
+      return;
+    }
     addItem(product, quantity, selectedOptions, partyConfig ? { partyPackageWeightGrams: selectedPartyWeight } : undefined);
     void trackPublicEvent(settings.id, 'add_to_cart', product.id);
     showToast('Produto adicionado ao carrinho.', 'success');
@@ -254,7 +259,7 @@ export default function ProductDetail() {
         })}
 
         <div className="buy-box">
-          <div className="quantity-control"><small>{partyConfig ? 'Pacotes' : 'Quantidade'}</small><button onClick={() => setQuantity((value) => Math.max(partyConfig?.minimumPackages ?? 1, value - 1))} aria-label="Diminuir quantidade"><Minus size={17}/></button><span>{quantity}</span><button onClick={() => setQuantity((value) => value + 1)} aria-label="Aumentar quantidade"><Plus size={17}/></button></div>
+          <div className="quantity-control"><small>{partyConfig ? 'Pacotes' : 'Quantidade'}</small><button onClick={() => setQuantity((value) => Math.max(partyConfig?.minimumPackages ?? 1, value - 1))} disabled={quantity <= (partyConfig?.minimumPackages ?? 1)} aria-label="Diminuir quantidade"><Minus size={17}/></button><span>{quantity}</span><button onClick={() => setQuantity((value) => Math.min(MAX_CART_ITEM_QUANTITY, value + 1))} disabled={quantity >= MAX_CART_ITEM_QUANTITY} aria-label="Aumentar quantidade"><Plus size={17}/></button></div>
           <div className="buy-total"><small>Total</small><strong>{currency.format(total)}</strong></div>
           <button className="primary-button" disabled={unavailable} onClick={add}><ShoppingBag size={18}/>{unavailable ? 'Indisponível' : outOfStock ? 'Adicionar para agendar' : 'Adicionar ao carrinho'}</button>
         </div>

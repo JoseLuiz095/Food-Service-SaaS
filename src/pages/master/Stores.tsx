@@ -1,5 +1,5 @@
 import { CloudCog, Copy, ExternalLink, Eye, EyeOff, KeyRound, Plus, Search, TriangleAlert, X } from 'lucide-react';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import { DEFAULT_PLATFORM_SETTINGS } from '../../data/platformDefaults';
 import { platformApi } from '../../services/platformApi';
@@ -13,6 +13,7 @@ import { getBusinessSegment, type BusinessSegment } from '../../segments/busines
 import { saveNewStorePresentation } from '../../services/businessPresentation';
 import { platformOrigin } from '../../lib/brand';
 import { customStorefrontUrl, publicStorefrontUrl } from '../../utils/storefrontRoute';
+import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 
 const publicUrlFor = (store: PlatformStoreSummary) => customStorefrontUrl(store.customDomain) || publicStorefrontUrl(store.slug, platformOrigin());
 const dateOnly = (value?: string) => value ? value.slice(0,10) : '';
@@ -47,6 +48,7 @@ export default function MasterStores(){
   const[plans,setPlans]=useState<Plan[]>([]);
   const[platformSettings,setPlatformSettings]=useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
   const[loading,setLoading]=useState(true);
+  const[loadError,setLoadError]=useState('');
   const[query,setQuery]=useState('');
   const[filter,setFilter]=useState<StoreFilter>('all');
   const[editing,setEditing]=useState<PlatformStoreSummary|null>(null);
@@ -58,24 +60,27 @@ export default function MasterStores(){
   const[credentialFunctionReady,setCredentialFunctionReady]=useState<boolean|null>(null);
   const[credentialFunctionError,setCredentialFunctionError]=useState('');
   const[credentialSaving,setCredentialSaving]=useState(false);
+  const modalBusy=useRef(false);
+  modalBusy.current=saving||credentialSaving;
   const[showPassword,setShowPassword]=useState(false);
   const[showEditPassword,setShowEditPassword]=useState(false);
   const[confirmTemporaryPassword,setConfirmTemporaryPassword]=useState('');
   const[editAccessForm,setEditAccessForm]=useState({email:'',password:'',confirmPassword:'',forcePasswordChange:true});
   const[createForm,setCreateForm]=useState({
     businessSegment:'food' as BusinessSegment,
-    name:'',slug:'',city:'Linhares',state:'ES',ownerName:'',ownerEmail:'',planId:'',accessStatus:'online' as StoreAccessStatus,
+    name:'',slug:'',city:'',state:'',ownerName:'',ownerEmail:'',planId:'',accessStatus:'online' as StoreAccessStatus,
     dueDay:10,customDomain:'',credentialMode:'invite' as StoreCredentialMode,temporaryPassword:'',forcePasswordChange:true,
   });
 
   const reload=async()=>{
     setLoading(true);
+    setLoadError('');
     try{
       const[p,s,settings]=await Promise.all([platformApi.listPlans(),platformApi.listStores(),platformApi.getPlatformSettings()]);
       setPlans(p);setStores(s);setPlatformSettings(settings);
       const selectablePlans=p.filter((plan)=>plan.active&&(settings.demoEnabled||plan.code!=='DEMO'));
       setCreateForm((f)=>({...f,planId:selectablePlans.some((plan)=>plan.id===f.planId)?f.planId:(selectablePlans.find((x)=>x.code==='ESSENTIAL')?.id||selectablePlans[0]?.id||'')}));
-    }catch(e){showToast(e instanceof Error?e.message:'Falha ao carregar lojas.','error')}
+    }catch(e){setLoadError(e instanceof Error?e.message:'Falha ao carregar lojas.')}
     finally{setLoading(false)}
   };
 
@@ -96,6 +101,23 @@ export default function MasterStores(){
   };
 
   useEffect(()=>{void reload();void checkCreateFunction();void checkCredentialFunction()},[]);
+
+  useEffect(()=>{
+    if(!creating&&!editing)return;
+    const previous=document.activeElement as HTMLElement|null;
+    const dialog=document.querySelector<HTMLElement>('.master-shell [role="dialog"]');
+    const controls=()=>Array.from(dialog?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]')||[]).filter(element=>element.getClientRects().length>0);
+    controls()[0]?.focus();
+    const onKey=(event:KeyboardEvent)=>{
+      if(event.key==='Escape'&&!modalBusy.current){setCreating(false);setEditing(null);return}
+      if(event.key!=='Tab')return;
+      const items=controls();const first=items[0];const last=items[items.length-1];
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus()}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus()}
+    };
+    document.addEventListener('keydown',onKey);
+    return()=>{document.removeEventListener('keydown',onKey);previous?.focus()};
+  },[creating,Boolean(editing)]);
 
   const commercialCounts=useMemo(()=>{
     const counts:Record<StoreFilter,number>={all:stores.length,paying:0,trial:0,onboarding:0,attention:0,suspended:0};
@@ -223,15 +245,15 @@ export default function MasterStores(){
     {createFunctionReady===true&&<div className="master-service-ok"><CloudCog size={16}/> Serviço de criação de lojas disponível</div>}
 
     <section className="admin-card no-padding master-store-table">
-      <div className="master-client-toolbar"><div className="table-toolbar"><div className="admin-search"><Search size={18}/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Buscar loja, responsável, plano ou cidade..."/></div><span>{filtered.length} de {stores.length} lojas</span></div><div className="master-client-filters" aria-label="Filtrar clientes por etapa comercial">{([['all','Todas'],['paying','Pagantes'],['trial','Demos'],['onboarding','Implantação'],['attention','Atenção'],['suspended','Suspensas']] as [StoreFilter,string][]).map(([key,label])=><button type="button" key={key} className={filter===key?'active':''} onClick={()=>setFilter(key)}><span>{label}</span><b>{commercialCounts[key]}</b></button>)}</div></div>
-      {loading?<div className="master-table-loading">Carregando...</div>:<div className="responsive-table"><table><thead><tr><th>Loja</th><th>Plano</th><th>Acesso</th><th>Uso</th><th>Mensalidade</th><th>Vencimento</th><th>URL</th><th></th></tr></thead><tbody>{filtered.map((store)=>{
+      <div className="master-client-toolbar"><div className="table-toolbar"><div className="admin-search"><Search size={18}/><input aria-label="Buscar lojas" value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Buscar loja, responsável, plano ou cidade..."/></div><span aria-live="polite">{loading?'Atualizando lojas…':loadError?'Lista indisponível':`${filtered.length} de ${stores.length} lojas`}</span></div><div className="master-client-filters" role="group" aria-label="Filtrar clientes por etapa comercial">{([['all','Todas'],['paying','Pagantes'],['trial','Demos'],['onboarding','Implantação'],['attention','Atenção'],['suspended','Suspensas']] as [StoreFilter,string][]).map(([key,label])=><button type="button" key={key} aria-pressed={filter===key} className={filter===key?'active':''} onClick={()=>setFilter(key)}><span>{label}</span><b>{commercialCounts[key]}</b></button>)}</div></div>
+      {loading?<div role="status"><LoadingState label="Carregando lojas e assinaturas…"/></div>:loadError?<div role="alert"><ErrorState message={loadError} onRetry={()=>void reload()}/></div>:filtered.length===0?<div className="master-store-empty"><h2>{stores.length?'Nenhuma loja corresponde aos filtros':'Sua primeira loja começa aqui'}</h2><p>{stores.length?'Tente outro nome ou remova os filtros para ver todas as lojas.':'Cadastre o estabelecimento e o acesso de quem vai administrá-lo.'}</p><button className="secondary-button" onClick={()=>{if(stores.length){setQuery('');setFilter('all')}else setCreating(true)}}>{stores.length?'Limpar filtros':'Criar primeira loja'}</button></div>:<div className="responsive-table"><table><thead><tr><th>Loja</th><th>Plano</th><th>Acesso</th><th>Uso</th><th>Mensalidade</th><th>Vencimento</th><th>URL</th><th></th></tr></thead><tbody>{filtered.map((store)=>{
         const warning=trialLabel(store);const isWarning=store.planCode==='DEMO'&&store.subscriptionStatus==='trial'&&!trialExpired(store.expiresAt)&&daysUntil(store.expiresAt)<=platformSettings.demoWarningDays;
         const stage=storeCommercialStage(store,platformSettings.demoWarningDays);
         const paymentOverdue=store.planCode!=='DEMO'&&isPastDate(store.nextDueDate);
         return <tr key={store.id} className={isWarning?'trial-warning-row':''}><td><div className="master-store-cell"><span className={`master-store-dot ${store.accessStatus}`}/><div><strong>{store.name}</strong><small>{getBusinessSegment(store.businessSegment).label}</small><small>{store.city}/{store.state} · {store.ownerEmail||'sem responsável'}</small><span className={`commercial-stage-badge ${stage.tone}`}>{stage.label}</span>{warning&&<span className={`trial-expiry-badge ${isWarning?'warning':''}`}>{warning}</span>}</div></div></td><td><select className="master-inline-select" aria-label={`Plano de ${store.name}`} value={store.planId||''} disabled={rowSaving===store.id} onChange={(e)=>void quickUpdate(store,{planId:e.target.value})}>{plans.filter((p)=>(p.active||p.id===store.planId)&&(platformSettings.demoEnabled||p.code!=='DEMO'||p.id===store.planId)).map((p)=><option value={p.id} key={p.id}>{p.name}</option>)}</select><small>{store.subscriptionStatus==='trial'?'Teste':store.subscriptionStatus||'—'}</small></td><td><select className={`master-inline-select access-select ${store.accessStatus}`} aria-label={`Status de ${store.name}`} value={store.accessStatus} disabled={rowSaving===store.id} onChange={(e)=>void quickUpdate(store,{accessStatus:e.target.value as StoreAccessStatus})}><option value="online">Online</option><option value="suspended">Desativada</option></select></td><td><strong>{store.activeProductCount} ativos</strong><small>{store.productCount} cadastrados · {store.ownerEmail?'acesso principal configurado':'sem acesso principal'}</small></td><td><strong>{store.planCode==='DEMO'?'Grátis':store.billingMode==='complimentary'?'Isenta':currency.format(store.billingAmount||0)}</strong><small>{store.planCode==='DEMO'&&store.expiresAt?`até ${new Date(store.expiresAt).toLocaleDateString('pt-BR')}`:store.billingMode==='complimentary'?'acordo individual':'mensal'}</small></td><td><div className={`master-due-cell-v046 ${paymentOverdue?'is-overdue':''}`}><strong>{store.planCode==='DEMO'||store.billingMode==='complimentary'?'—':store.dueDay?`Dia ${store.dueDay}`:'Não definido'}</strong><small>{store.planCode==='DEMO'?'Demonstração':store.billingMode==='complimentary'?'Sem cobrança recorrente':store.nextDueDate?`${paymentOverdue?'Atrasado desde':'Próximo'} ${dateBr(store.nextDueDate)}`:'Sem próxima data'}</small></div></td><td><div className="master-url-cell"><a href={publicUrlFor(store)} target="_blank" rel="noreferrer"><ExternalLink size={15}/>{store.customDomain?'Domínio próprio':`/${store.slug}`}</a><button onClick={()=>void copyText(publicUrlFor(store)).then(()=>showToast('Link copiado.','success'))} aria-label="Copiar URL"><Copy size={14}/></button></div></td><td><button className="secondary-button compact-button" onClick={()=>openEdit(store)}>Gerenciar</button></td></tr>})}</tbody></table></div>}
     </section>
 
-    {creating&&<div className="modal-overlay"><form className="master-modal master-modal--wide" onSubmit={createStore}><button type="button" className="modal-close" onClick={()=>setCreating(false)}><X/></button><span className="eyebrow">NOVO ESTABELECIMENTO</span><h2>Criar loja e acesso do responsável</h2><p>Produtos e pedidos serão isolados pelo novo <code>store_id</code>. Escolha se o cliente receberá convite ou uma senha temporária cadastrada por você.</p>
+    {creating&&<div className="modal-overlay"><form className="master-modal master-modal--wide" role="dialog" aria-modal="true" aria-labelledby="master-create-title" onSubmit={createStore}><button type="button" className="modal-close" aria-label="Fechar criação de loja" disabled={saving} onClick={()=>setCreating(false)}><X/></button><h2 id="master-create-title">Criar loja e acesso do responsável</h2><p>Escolha como o responsável receberá o acesso. O catálogo, os pedidos e a equipe ficam separados por loja.</p>
       {createFunctionReady===false&&<div className="master-warning"><TriangleAlert size={18}/><span>Não será possível concluir enquanto <code>food-platform-create-store</code> não estiver publicada no Supabase.</span></div>}
       <div className="form-grid">
         <label className="full">Nome da loja<input required value={createForm.name} onChange={(e)=>setCreateForm((f)=>({...f,name:e.target.value,slug:f.slug||slugify(e.target.value)}))}/></label>
@@ -256,7 +278,7 @@ export default function MasterStores(){
       <div className="master-modal-actions"><button type="button" className="secondary-button" onClick={()=>setCreating(false)}>Cancelar</button><button className="primary-button" disabled={saving||createFunctionReady===false||Boolean(emailError)||Boolean(passwordError)}>{saving?'Criando...':createForm.credentialMode==='invite'?'Criar loja e enviar convite':'Criar loja e usuário'}</button></div>
     </form></div>}
 
-    {editing&&<div className="modal-overlay"><div className="master-modal master-modal--wide"><button type="button" className="modal-close" onClick={()=>setEditing(null)}><X/></button><span className="eyebrow">GESTÃO DO CLIENTE</span><h2>{editing.name}</h2><p>Suspender acesso não apaga a loja, produtos, pedidos nem vínculos de usuários. Ao reativar, os acessos anteriores voltam a funcionar.</p>
+    {editing&&<div className="modal-overlay"><div className="master-modal master-modal--wide" role="dialog" aria-modal="true" aria-labelledby="master-edit-title"><button type="button" className="modal-close" aria-label="Fechar gestão da loja" disabled={saving||credentialSaving} onClick={()=>setEditing(null)}><X/></button><h2 id="master-edit-title">{editing.name}</h2><div className="master-store-identity"><strong>Administrando esta loja</strong><a href={publicUrlFor(editing)} target="_blank" rel="noreferrer">/{editing.slug}</a><span>{[editing.city,editing.state].filter(Boolean).join(' / ')||'Localização não informada'}</span></div><p>Suspender acesso não apaga a loja, produtos, pedidos nem vínculos de usuários. Ao reativar, os acessos anteriores voltam a funcionar.</p>
     <div className="credential-setup-card master-credential-edit-v048">
       <div className="master-credential-edit-head-v048"><KeyRound size={21}/><div><span className="eyebrow">ACESSO DO LOJISTA</span><strong>E-mail e senha de acesso</strong><small>Use esta área quando o lojista perder o acesso ou precisar trocar o e-mail. A senha só será alterada se você preencher os dois campos de nova senha.</small></div></div>
       {credentialFunctionReady===false&&<div className="master-warning"><TriangleAlert size={18}/><span>{credentialFunctionError||'Publique food-platform-manage-store-user antes de alterar o acesso.'}</span></div>}

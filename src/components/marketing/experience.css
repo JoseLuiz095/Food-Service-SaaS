@@ -18,7 +18,7 @@
 .business-journey__steps>button[aria-pressed=true]{background:var(--preview-accent);color:#fff}
 .business-journey__steps>button:hover:not([aria-pressed=true]){background:#e7ecdf;color:var(--journey-ink)}
 .business-journey__connector{position:absolute;right:-8px;z-index:1;background:#fff;color:#607053;border-radius:50%;width:15px;height:15px;padding:2px}
-.business-journey__scene{min-height:305px;padding:0 24px 20px;animation:journey-update 320ms cubic-bezier(.16,1,.3,1) both}
+.business-journey__scene{min-height:305px;padding:0 24px 20px;animation:journey-update 220ms cubic-bezier(.16,1,.3,1)}
 .business-journey__scene h2{font-size:23px;line-height:1.2;letter-spacing:-.03em;margin:12px 0;color:var(--journey-ink)}
 .business-journey__scene p{font-size:12px;line-height:1.65;color:var(--journey-muted);margin:8px 0 14px}
 .business-journey__cover{background:color-mix(in srgb,var(--preview-accent) 8%,#fbfbf5);padding:18px;border-radius:8px}
@@ -33,6 +33,8 @@
 .business-journey__product>div>span{font-size:12px;font-weight:700;color:var(--preview-accent)}
 .business-journey__next{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--preview-accent);color:#fff;border:0;border-radius:6px;min-height:44px;padding:10px 13px;cursor:pointer;font:inherit;font-size:11px;font-weight:600}
 .business-journey__next:hover{filter:brightness(.9)}
+.business-journey__next{transition:filter 120ms ease,transform 100ms ease}
+.business-journey__next:active{transform:scale(.995)}
 .business-journey__next>svg{flex-shrink:0;transition:transform 150ms}
 .business-journey__next:hover>svg{transform:translateX(3px)}
 .business-journey__status{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:650;color:var(--preview-accent);padding-top:12px}
@@ -91,9 +93,9 @@
 .self-signup-experience .self-signup-progress svg{color:#526e43}
 .showcase-loading{padding:32px 0;min-height:240px;background:#f3f3e9;color:#25332c;border-radius:12px;display:grid;place-content:center;text-align:center;gap:10px}
 .showcase-loading a{color:#963821;text-underline-offset:4px}
-@keyframes journey-update{from{clip-path:inset(0 0 16% 0);opacity:.65;transform:translateY(5px)}to{clip-path:inset(0);opacity:1;transform:none}}
+@keyframes journey-update{from{opacity:.7;transform:translateX(4px)}to{opacity:1;transform:none}}
 @media(min-width:1000px){.self-signup-experience .self-signup-intro{align-self:start}.self-signup-experience .signup-live-preview{max-width:430px}}
 @media(max-width:900px){.food-sales-page--segments .commercial-experience{width:min(100%,580px);justify-self:center}.self-signup-experience .signup-live-preview{max-width:560px}.self-signup-experience .business-journey--compact .business-journey__scene{min-height:0}}
 @media(max-width:850px){.self-signup-experience .self-signup-mobile-start{display:inline-flex;align-items:center;gap:8px;background:#ba482d;color:#fff;min-height:44px;padding:10px 16px;text-decoration:none;font-size:13px;font-weight:650;border-radius:6px}}
 @media(max-width:600px){.business-journey__identity{padding:16px}.business-journey__identity-label{display:none}.business-journey__steps{padding-inline:12px}.business-journey__scene{padding:0 16px 16px;min-height:335px}.business-journey__identity strong{font-size:14px}.business-journey__cover{padding:16px}.business-journey__cover h2{font-size:23px}.business-journey__disclaimer{padding:12px 16px}.food-sales-page--segments .commercial-experience .commercial-segments__choices button{padding:9px 7px;gap:5px}.food-sales-page--segments .commercial-experience .commercial-segments__choices button>span{font-size:9px}.self-signup-experience .signup-live-preview{margin:24px 0}.self-signup-experience .business-journey--compact .business-journey__cover p{display:none}.self-signup-experience .business-journey--compact .business-journey__scene{min-height:0}.self-signup-experience .self-signup-progress{gap:8px;font-size:10px}}
-@media(prefers-reduced-motion:reduce){.business-journey__scene{animation:none}.business-journey__next>svg{transition:none}.business-journey__next:hover>svg{transform:none}.business-journey__steps>button{transition:background 100ms,color 100ms}}
+@media(prefers-reduced-motion:reduce){.business-journey__scene{animation:none}.business-journey__next,.business-journey__next>svg{transition:none}.business-journey__next:active,.business-journey__next:hover>svg{transform:none}.business-journey__steps>button{transition:background 100ms,color 100ms}}

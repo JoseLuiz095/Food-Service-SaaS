@@ -36,6 +36,8 @@ const vendewebIdentityFiles=new Set([
   'src/utils/storefrontRoute.ts', 'src/services/pwaNotifications.ts',
   'src/contexts/StoreContext.tsx',
   'src/pages/store/ProductDetail.tsx',
+  // Limite genérico 1..99 alinhado à RPC; coberto por cart-behavior.spec.ts.
+  'src/contexts/CartContext.tsx',
 ]);
 const protectedFiles=execFileSync('git',['ls-tree','-r','--name-only',baseline,'src/contexts','src/pages/store','src/services','src/utils','src/styles.css','src/types','src/components/admin','supabase/functions','supabase/migrations'],{encoding:'utf8'}).trim().split(/\r?\n/).filter(file=>file&&!presentationFiles.has(file)&&!vendewebIdentityFiles.has(file));
 const changed=execFileSync('git',['diff','--name-only',baseline,'--',...protectedFiles],{encoding:'utf8'}).trim();
