@@ -63,6 +63,7 @@ export default function Checkout() {
   const { items: allItems, clear, removeItem, updateQuantity } = useCart();
   const [searchParams] = useSearchParams();
   const quickId = searchParams.get('quick');
+  const pickupShortCode = searchParams.get('ponto');
   const quickQuantity = Math.max(1, Math.min(99, Number(searchParams.get('qty')) || 1));
   const items = quickId ? allItems.filter((item) => item.id === quickId).map((item) => ({ ...item, quantity: Math.min(item.quantity, quickQuantity) })) : allItems;
   const subtotal = calculateCartSubtotal(items);
@@ -96,11 +97,11 @@ export default function Checkout() {
     }).then((points) => {
       if (!active) return;
       setPickupPoints(points);
-      const preferred = points.find((point) => point.short_code === searchParams.get('ponto')) || points[0];
+      const preferred = points.find((point) => point.short_code === pickupShortCode) || points[0];
       if (preferred) setForm((current) => ({ ...current, pickupLocationId: current.pickupLocationId && points.some((point) => point.id === current.pickupLocationId) ? current.pickupLocationId : preferred.id }));
     }).catch(() => { if (active) setPickupPoints([]); });
     return () => { active = false; };
-  }, [settings.id, searchParams]);
+  }, [settings.id, pickupShortCode]);
 
   const onTurnstileToken = useCallback((token: string) => setTurnstileToken(token), []);
 
