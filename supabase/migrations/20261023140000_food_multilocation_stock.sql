@@ -18,14 +18,14 @@ create unique index if not exists food_stock_locations_one_default_idx
 
 create or replace function public.food_guard_stock_location_update()
 returns trigger language plpgsql security invoker set search_path=''
-as $
+as $$
 begin
   if new.store_id is distinct from old.store_id or new.is_default is distinct from old.is_default then
     raise exception 'A loja e o local principal não podem ser alterados por edição direta.' using errcode='42501';
   end if;
   return new;
 end;
-$;
+$$;
 revoke all on function public.food_guard_stock_location_update() from public,anon,authenticated;
 drop trigger if exists food_stock_location_update_guard on public.food_stock_locations;
 create trigger food_stock_location_update_guard before update on public.food_stock_locations
@@ -128,7 +128,7 @@ on conflict (product_id,location_id) do nothing;
 
 create or replace function public.food_initialize_location_balances()
 returns trigger language plpgsql security definer set search_path=''
-as $
+as $$
 begin
   insert into public.food_product_location_stock(store_id,product_id,location_id,stock_quantity,stock_reserved_quantity)
   select p.store_id,p.id,new.id,0,0 from public.food_products p
@@ -136,7 +136,7 @@ begin
   on conflict(product_id,location_id) do nothing;
   return new;
 end;
-$;
+$$;
 revoke all on function public.food_initialize_location_balances() from public,anon,authenticated;
 drop trigger if exists food_stock_location_initialize_balances on public.food_stock_locations;
 create trigger food_stock_location_initialize_balances after insert on public.food_stock_locations
