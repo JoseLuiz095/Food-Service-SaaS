@@ -13,3 +13,7 @@
 .stock-location-form label:last-of-type{grid-column:1/-1}
 .stock-location-grid+.stock-location-create{padding-top:4px}
 @media(max-width:720px){.stock-location-actions{grid-template-columns:1fr}.stock-location-create,.stock-location-form{grid-template-columns:1fr}.stock-location-form label:last-of-type{grid-column:auto}.stock-location-create .button,.stock-location-form .button{width:100%}.stock-location-card{padding:13px}}
+
+.stock-location-create .primary-button,.stock-location-form .primary-button{border:0;background:var(--green);color:#fff;border-radius:12px;padding:0 18px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:750;cursor:pointer}
+.stock-location-create .primary-button:disabled,.stock-location-form .primary-button:disabled{opacity:.55;cursor:not-allowed}
+.admin-page>.page-header .secondary-button{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
