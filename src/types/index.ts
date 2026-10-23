@@ -406,6 +406,7 @@ export type CheckoutData = {
   customerPhone: string;
   customerEmail: string;
   fulfillment: 'delivery' | 'pickup';
+  pickupLocationId?: string;
   zipCode: string;
   street: string;
   addressNumber: string;
