@@ -57,7 +57,8 @@ export default function Onboarding() {
   if (error) return <ErrorState message={error} onRetry={() => void reloadAdmin()} />;
 
   const readiness = getStoreReadiness(settings, categories, products, deliveryZones);
-  const hasOrderFlow = orders.length > 0;
+  // Vendas de balcão/manuais não comprovam que o checkout público foi utilizado.
+  const hasOrderFlow = orders.some((order) => order.source === 'site');
 
   const copyStoreUrl = async () => {
     try {

@@ -39,12 +39,18 @@ Deno.serve(async (req) => {
     if (!body.store_id) throw new Error('Loja não informada.');
 
     const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false } });
-    const { data: storeSettings } = await admin
+    const { data: storeSettings, error: preferencesError } = await admin
       .from('food_stores')
       .select('notifications_new_order_enabled,notifications_desktop_enabled')
       .eq('id', body.store_id)
       .maybeSingle();
-    if (storeSettings && (storeSettings.notifications_new_order_enabled === false || storeSettings.notifications_desktop_enabled === false)) {
+    if (preferencesError) {
+      return new Response(JSON.stringify({ error: 'Não foi possível verificar as preferências da loja. Nenhuma notificação foi enviada.' }), { status: 503, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (!storeSettings) {
+      return new Response(JSON.stringify({ error: 'Loja não encontrada. Nenhuma notificação foi enviada.' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }
+    if (storeSettings.notifications_new_order_enabled === false || storeSettings.notifications_desktop_enabled === false) {
       return new Response(JSON.stringify({ ok: true, sent: 0, removed: 0, total: 0, skipped: 'disabled_by_store' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
     const { data: subscriptions, error } = await admin
