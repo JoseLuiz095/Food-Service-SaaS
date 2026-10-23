@@ -1,5 +1,5 @@
 import { AlertTriangle, Bell, Boxes, CheckCircle2, ClipboardList, Download, Edit3, Filter, Layers3, Minus, Package, Plus, RotateCcw, Search, ShoppingCart, Sparkles, Trash2, TrendingDown, X } from 'lucide-react';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { FloatingSaveBar } from '../../components/admin/FloatingSaveBar';
 import { useStore } from '../../contexts/StoreContext';
@@ -9,6 +9,7 @@ import { showPwaNotification } from '../../services/pwaNotifications';
 import type { InventoryItem, InventoryItemType, InventoryMovement, InventoryUnit, Product, ProductRecipe, ProductRecipeItem } from '../../types';
 import { currency } from '../../utils/format';
 import { downloadCsv } from '../../utils/exportCsv';
+import { createId } from '../../utils/id';
 
 type InventoryFilter = 'all' | 'low' | 'zero';
 type InventorySort = 'priority' | 'name' | 'value';
@@ -41,6 +42,15 @@ function ProductStockCard({ product, onAdjust, onSet, busy }: { product: Product
 
 export default function InventoryAdmin() {
   const { settings, products, updateProductStock, loading: storeLoading, error: storeError, reloadAdmin } = useStore(); const { showToast } = useToast();
+  const stockOperationKeys = useRef(new Map<string, string>());
+  const stockOperationKey = (productId: string, mode: 'set' | 'add' | 'remove', quantity: number) => {
+    const intent = `${settings.id}:${productId}:${mode}:${quantity}`;
+    const existing = stockOperationKeys.current.get(intent);
+    if (existing) return { intent, key: existing };
+    const key = createId();
+    stockOperationKeys.current.set(intent, key);
+    return { intent, key };
+  };
   const [items, setItems] = useState<InventoryItem[]>([]); const [recipes, setRecipes] = useState<ProductRecipe[]>([]); const [recipeItems, setRecipeItems] = useState<ProductRecipeItem[]>([]); const [movements, setMovements] = useState<InventoryMovement[]>([]); const [loading, setLoading] = useState(true); const [query, setQuery] = useState(''); const [filter, setFilter] = useState<InventoryFilter>('all'); const [kindFilter, setKindFilter] = useState<'all' | InventoryItemType>('all'); const [sort, setSort] = useState<InventorySort>('priority'); const [showArchived, setShowArchived] = useState(false); const [busyId, setBusyId] = useState(''); const [showNew, setShowNew] = useState(false); const [purchaseId, setPurchaseId] = useState(''); const [purchaseQuantity, setPurchaseQuantity] = useState(''); const [purchaseCost, setPurchaseCost] = useState(''); const [showBatchPurchase, setShowBatchPurchase] = useState(false); const [batchPurchaseLines, setBatchPurchaseLines] = useState<BatchPurchaseLine[]>([]); const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>({}); const [editingItemId, setEditingItemId] = useState(''); const [detailItemId, setDetailItemId] = useState(''); const [editingName, setEditingName] = useState(''); const [editingItemType, setEditingItemType] = useState<InventoryItemType>('ingredient'); const [editingUnit, setEditingUnit] = useState<InventoryUnit>('kg'); const [editingReorderPoint, setEditingReorderPoint] = useState(''); const [editingNotes, setEditingNotes] = useState(''); const [editingAlert, setEditingAlert] = useState(true); const [recipeProductId, setRecipeProductId] = useState(''); const [recipeYield, setRecipeYield] = useState('1'); const [recipeYieldUnit, setRecipeYieldUnit] = useState<InventoryUnit>('un'); const [recipeLines, setRecipeLines] = useState<Array<{ inventoryItemId: string; stage: string; quantity: string; unit: InventoryUnit; wastePercent: string }>>([]);
   const loadItems = async () => { setLoading(true); try { const [loadedItems, loadedRecipes, loadedMovements] = await Promise.all([inventoryApi.listItems(settings.id, true), inventoryApi.listRecipes(settings.id), inventoryApi.listMovements(settings.id, 300)]); const loadedRecipeItems = loadedRecipes.length ? await inventoryApi.listAllRecipeItems(settings.id) : []; setItems(loadedItems); setQuantityDrafts(Object.fromEntries(loadedItems.map((item) => [item.id, String(item.currentQuantity)]))); setRecipes(loadedRecipes); setRecipeItems(loadedRecipeItems); setMovements(loadedMovements); } catch (err) { showToast(err instanceof Error ? err.message : 'Não foi possível carregar o estoque.', 'error'); } finally { setLoading(false); } };
   useEffect(() => { void loadItems(); }, [settings.id]);
@@ -140,8 +150,10 @@ export default function InventoryAdmin() {
       return;
     }
     setBusyId(product.id);
+    const mode = delta < 0 ? 'remove' : 'add'; const quantity = Math.abs(delta); const operation = stockOperationKey(product.id, mode, quantity);
     try {
-      await updateProductStock(product.id, { mode: delta < 0 ? 'remove' : 'add', quantity: Math.abs(delta), reason });
+      await updateProductStock(product.id, { mode, quantity, reason, idempotencyKey: operation.key });
+      stockOperationKeys.current.delete(operation.intent);
       showToast(`Estoque de ${product.name} atualizado.`, 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Não foi possível ajustar o estoque do produto.', 'error');
@@ -152,7 +164,8 @@ export default function InventoryAdmin() {
   const setProductStock = async (product: Product, quantity: number, reason: string) => {
     if (!product.trackStock || !Number.isInteger(quantity) || quantity < Number(product.stockReservedQuantity || 0)) return;
     setBusyId(product.id);
-    try { await updateProductStock(product.id, { mode: 'set', quantity, reason }); showToast(`Estoque físico de ${product.name} definido para ${quantity}.`, 'success'); }
+    const operation = stockOperationKey(product.id, 'set', quantity);
+    try { await updateProductStock(product.id, { mode: 'set', quantity, reason, idempotencyKey: operation.key }); stockOperationKeys.current.delete(operation.intent); showToast(`Estoque físico de ${product.name} definido para ${quantity}.`, 'success'); }
     catch (err) { showToast(err instanceof Error ? err.message : 'Não foi possível definir o estoque do produto.', 'error'); }
     finally { setBusyId(''); }
   };

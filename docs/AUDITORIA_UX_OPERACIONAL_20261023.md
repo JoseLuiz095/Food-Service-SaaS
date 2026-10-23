@@ -42,7 +42,7 @@ Reserva e liberação são transacionais e bloqueiam a linha do produto. Cancela
 ## Validação executada
 
 - `npm run validate`: concluído com sucesso (smoke, critical flows, segmentos, domínios, PWA, notificações, segurança, integrações PostgreSQL/PGlite, plataforma, provisionamento, typecheck e build).
-- `node scripts/product-stock-db-test.mjs`: 15 verificações aprovadas; cobre saldo absoluto 15→50 com reserva 12, disponível 38, adicionar/remover, saldo abaixo da reserva, negativos/frações, motivo obrigatório, repetição idempotente, trilha de auditoria, bloqueio de PATCH direto, isolamento de tenant e sessão anônima.
+- `node scripts/product-stock-db-test.mjs`: 17 verificações aprovadas; cobre contrato de argumentos nomeados frontend↔RPC, saldo zerado 0→17, saldo absoluto 15→50 com reserva 12, disponível 38, adicionar/remover, saldo abaixo da reserva, negativos/frações, motivo obrigatório, repetição idempotente, trilha de auditoria, bloqueio de PATCH direto, isolamento de tenant e sessão anônima.
 - `npm run qa:lite`: 47 casos executados (46 falharam, 1 foi ignorado); falhas de contraste e recursos externos registradas acima. A configuração `qa/qa.config.json` foi restaurada após apontar temporariamente o servidor para loopback permitido pelo ambiente.
 
 ## Arquivos da mudança

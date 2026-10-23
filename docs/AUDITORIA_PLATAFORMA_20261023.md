@@ -24,6 +24,16 @@ Escopo: Admin Master, shell administrativo, dashboards por segmento, navegação
 | Cadastro público | O texto dizia que o usuário confirmaria e-mail antes da ativação. O fluxo real marca a conta criada pela Edge Function como confirmada, inicia a sessão e aguarda revisão do Admin Master antes da publicação. | Texto atualizado para descrever o fluxo de segurança, preparação e aprovação sem prometer uma confirmação por e-mail que não ocorre. |
 | Estoque e pedidos | Diagnóstico, lógica físico/reservado/disponível, ajuste absoluto, trilha auditável e atualização da fila estão detalhados em `AUDITORIA_UX_OPERACIONAL_20261023.md`. | Código e migration de ajuste auditável integram o PR; migration ainda não foi aplicada em Supabase. |
 
+## Diagnóstico da RPC de estoque
+
+O código local declara a função somente em `supabase/migrations/20261023101500_food_product_stock_adjustments.sql`. Ela define `food_adjust_product_stock_v1(p_store_id uuid, p_product_id uuid, p_mode text, p_quantity numeric, p_reason text, p_idempotency_key uuid)`. O frontend envia POST com exatamente os mesmos seis nomes. O teste agora compara nomes do JSON com a assinatura e executa SQL usando argumentos nomeados.
+
+O erro `Could not find the function ... in the schema cache` indica que PostgREST não encontrou a função com esses argumentos nomeados na cache. A ordem dos nomes mostrada no erro é lexicográfica e não representa divergência da ordem SQL. A migration emite `NOTIFY pgrst, 'reload schema'`, limita EXECUTE a `authenticated` e a função valida se a sessão administra o tenant. Não há definição antiga dessa RPC nas migrations locais.
+
+A causa remota exata continua sem confirmação. A migration pode não ter sido aplicada ao projeto que atende o app, o frontend pode apontar a outro projeto ou a função pode existir enquanto o cache esteja desatualizado. O conector lista apenas `banco-financeiro`, projeto inativo não relacionado ao VendeWeb; a consulta read-only do projeto configurado também não foi autorizada pelo conector. Não consultei schema, migrations nem logs de produção e não apliquei DDL remoto. A ausência da migration no projeto correto é a hipótese mais provável, mas falta evidência remota para distinguir essas opções.
+
+Foi adicionada mensagem acionável para PGRST202, sem fallback a PATCH direto. A mesma chave de idempotência é reaproveitada após falha incerta de rede e liberada após sucesso, reduzindo risco de repetição de entrada/saída.
+
 ## Auditoria ampliada e pendências
 
 - A plataforma não possui rota pública de autoagendamento para o cliente contratar um serviço. Agendamentos e serviços encontrados nesta rodada são operações administrativas; a vitrine não completa esse fluxo. Não foi criada uma jornada nova sem regras completas de disponibilidade, duração, pagamento e confirmação.
@@ -43,7 +53,7 @@ O fluxo encontrado é: formulário público → Edge Function `food-public-self-
 
 ## Testes e evidências
 
-- `npm run validate`: passou após as mudanças de dashboard, operação, navegação, timezone e navegação móvel. Inclui smoke (177 checks), fluxos críticos (122), testes de segmentos/domínio, PWA (8), notificações (1), segurança, PostgreSQL/PGlite (94 reparos, 44 guards multi-tenant e 15 de estoque), plataforma (96), provisionamento (7), TypeScript e build.
+- `npm run validate`: passou após as mudanças desta entrega. Inclui smoke (177 checks), fluxos críticos (122), testes de segmentos/domínio, PWA (8), notificações (1), segurança, PostgreSQL/PGlite (94 reparos, 44 guards multi-tenant e 17 de estoque), plataforma (96), provisionamento (7), TypeScript e build.
 - O teste Playwright focado não iniciou: Chromium encerrou com `FATAL ... socket() failed: Operation not permitted`. A instalação do navegador foi tentada, mas a restrição do ambiente impede validar o comportamento visual interativo. Não foram capturadas imagens.
 - O teste anterior `npm run qa:lite` continua registrado no relatório operacional: 46 falhas e 1 ignorado, principalmente violações sérias de contraste preexistentes na página comercial e respostas `ERR_EMPTY_RESPONSE` de recursos externos. Esse resultado não deve ser interpretado como validação visual aprovada.
 - Sem conexão ao banco correto, a migration `20261023101500_food_product_stock_adjustments.sql` está apenas preparada no branch. Não houve alteração de Supabase, Auth ou dados remotos.
@@ -65,6 +75,10 @@ O fluxo encontrado é: formulário público → Edge Function `food-public-self-
 - `scripts/domain-unit-test.mjs`
 
 As mudanças de estoque, testes de banco e migration estão enumerados no relatório operacional referido acima.
+
+## Inventário estático das chamadas Supabase
+
+O inventário do código local encontrou 34 nomes literais de RPC usados pela aplicação e sete RPCs chamadas pelas Edge Functions. Todos correspondem a definições em migrations locais. Há também operações REST em tabelas, Auth, Storage e comandos indiretos por ações de módulos. A coerência entre referências locais e migrations não confirma o estado remoto do banco, policies ou Edge Functions; a execução real de outros fluxos permanece pendente da conexão ao projeto de homologação.
 
 ## Próximas prioridades
 
