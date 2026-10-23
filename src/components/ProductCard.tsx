@@ -1,4 +1,5 @@
-import { Plus } from 'lucide-react';
+import { Plus, Zap } from 'lucide-react';
+import './product-card-quick.css';
 import { Link } from 'react-router-dom';
 import type { Category, Product } from '../types';
 import { currency } from '../utils/format';
@@ -13,7 +14,8 @@ export function ProductCard({product,category}:{product:Product;category?:Catego
   const profile=getBusinessSegment(settings.visualTheme);
   const unavailable=product.stockStatus==='unavailable'||product.availabilityStatus!=='available';
   const outOfStock=product.trackStock&&Number(product.stockQuantity||0)-Number(product.stockReservedQuantity||0)<=0;
-  return <Link to={storefrontPath(storeBasePath,`/produto/${product.slug}`)} className={`product-card product-card--food ${unavailable?'is-unavailable':''}`}>
+  const productUrl=storefrontPath(storeBasePath,`/produto/${product.slug}`);
+  return <div className="product-card-shell"><Link to={productUrl} className={`product-card product-card--food ${unavailable?'is-unavailable':''}`}>
     <div className="product-card__content">
       {product.featured&&<span className="product-card__featured">Mais pedido</span>}
       <span className="product-card__category">{category?.name??profile.catalogLabel}</span>
@@ -26,5 +28,5 @@ export function ProductCard({product,category}:{product:Product;category?:Catego
       <div className="product-card__badges">{product.promotionalPrice!=null&&<Badge tone="rose">Oferta</Badge>}{unavailable&&<Badge tone="amber">Indisponível</Badge>}{!unavailable&&outOfStock&&<Badge tone="amber">Agende para amanhã</Badge>}</div>
       {!unavailable&&<span className="product-card__open" aria-hidden="true"><Plus size={20}/></span>}
     </div>
-  </Link>;
+  </Link>{!unavailable && !outOfStock && <Link className="product-card-quick" to={`${productUrl}?compra=rapida`} aria-label={`Compra relâmpago: ${product.name}`}><Zap size={16} aria-hidden="true"/>Comprar agora</Link>}</div>;
 }
