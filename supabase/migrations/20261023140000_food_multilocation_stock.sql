@@ -181,7 +181,9 @@ begin
   if coalesce(new.track_stock,false) and not coalesce(old.track_stock,false) then
     insert into public.food_product_location_stock(store_id,product_id,location_id,stock_quantity,stock_reserved_quantity)
     values(new.store_id,new.id,v_location_id,greatest(coalesce(new.stock_quantity,0),0),least(greatest(coalesce(new.stock_reserved_quantity,0),0),greatest(coalesce(new.stock_quantity,0),0)))
-    on conflict(product_id,location_id) do nothing;
+    on conflict(product_id,location_id) do update
+      set stock_quantity=excluded.stock_quantity,stock_reserved_quantity=excluded.stock_reserved_quantity,updated_at=now();
+    return new;
   end if;
   v_quantity_delta := coalesce(new.stock_quantity,0)-coalesce(old.stock_quantity,0);
   v_reserved_delta := coalesce(new.stock_reserved_quantity,0)-coalesce(old.stock_reserved_quantity,0);
@@ -229,6 +231,8 @@ begin
   end if;
   select * into v_product from public.food_products where id=p_product_id and store_id=p_store_id and track_stock for update;
   if not found then raise exception 'Produto sem controle de estoque nesta loja.' using errcode='22023'; end if;
+  perform 1 from public.food_stock_locations where id=p_location_id and store_id=p_store_id and active;
+  if not found then raise exception 'Local de estoque inexistente ou inativo.' using errcode='22023'; end if;
   select * into v_existing from public.food_stock_location_movements where store_id=p_store_id and idempotency_key=p_idempotency_key;
   if found then
     if v_existing.product_id<>p_product_id or v_existing.movement_type<>'adjust'
@@ -274,6 +278,8 @@ begin
      or p_reason is null or length(trim(p_reason)) not between 1 and 160 or p_idempotency_key is null then
     raise exception 'Dados de transferência inválidos.' using errcode='22023';
   end if;
+  perform 1 from public.food_products where id=p_product_id and store_id=p_store_id and track_stock for update;
+  if not found then raise exception 'Produto sem controle de estoque nesta loja.' using errcode='22023'; end if;
   select * into v_existing from public.food_stock_location_movements where store_id=p_store_id and idempotency_key=p_idempotency_key;
   if found then
     if v_existing.product_id<>p_product_id or v_existing.movement_type<>'transfer'
@@ -283,8 +289,10 @@ begin
     end if;
     return jsonb_build_object('replayed',true);
   end if;
-  perform 1 from public.food_products where id=p_product_id and store_id=p_store_id and track_stock for update;
-  if not found then raise exception 'Produto sem controle de estoque nesta loja.' using errcode='22023'; end if;
+  if (select count(*) from public.food_stock_locations
+      where store_id=p_store_id and active and id in (p_from_location_id,p_to_location_id))<>2 then
+    raise exception 'Origem ou destino inexistente ou inativo.' using errcode='22023';
+  end if;
   -- Lock both balance rows in a stable order to avoid deadlocks.
   perform 1 from public.food_product_location_stock
    where store_id=p_store_id and product_id=p_product_id and location_id in (p_from_location_id,p_to_location_id)
