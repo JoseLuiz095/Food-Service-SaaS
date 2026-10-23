@@ -222,6 +222,9 @@ begin
       update public.food_order_items set inventory_reserved_quantity = 0 where id = v_item.id;
       continue;
     end if;
+    if exists(select 1 from public.food_order_stock_movements where order_item_id=v_item.id and event_type='sale') then
+      raise exception 'Saída física já registrada para este item; revise a reserva antes de reprocessar.' using errcode='23505';
+    end if;
     if v_item.inventory_reserved_quantity <> v_item.quantity then
       raise exception 'O item precisa estar totalmente reservado antes da saída física.' using errcode='23514';
     end if;
@@ -241,7 +244,7 @@ begin
     update public.food_order_items set inventory_reserved_quantity = 0 where id = v_item.id;
     insert into public.food_order_stock_movements(store_id,order_id,order_item_id,product_id,location_id,event_type,quantity)
     values(v_order.store_id,v_order.id,v_item.id,v_item.product_id,v_location_id,'sale',v_item.quantity)
-    on conflict(order_item_id,event_type) do nothing;
+    ;
     perform set_config('food.order_stock_location',coalesce(v_previous_location,''),true);
   end loop;
 
