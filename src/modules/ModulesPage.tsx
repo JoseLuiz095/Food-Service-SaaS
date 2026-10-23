@@ -11,6 +11,7 @@ import CustomPanel from './components/CustomPanel';
 import RentalsPanel from './components/RentalsPanel';
 import type { ComboItem, ComboVersion, CustomFile, CustomRequest, ModuleOrder, ModuleOrderItem, ModuleSettings, Offer, OrderPart, Receivable, Refund, RentalAsset, RentalReservation } from './types';
 import './modules.css';
+import { useBusinessStatus } from '../platform/useBusinessStatus';
 
 type PanelData = { settings: ModuleSettings; offers: Offer[]; directory: Offer[]; versions: ComboVersion[]; approvals: ComboItem[];
   orders: ModuleOrder[]; parts: OrderPart[]; items: ModuleOrderItem[]; receivables: Receivable[]; refunds: Refund[];
@@ -23,6 +24,7 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
   const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
   const [selected, setSelected] = useState('');
   const store = master ? selected : membership?.storeId || '';
+  const {state:business}=useBusinessStatus(store);
   useEffect(() => {
     if (!master) return;
     let active = true;
@@ -86,7 +88,7 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
     {error && <p className="module-message module-error" role="alert">{error}</p>}{notice && <p className="module-message" role="status">{notice}</p>}
     {loading ? <p role="status">Carregando módulos...</p> : store && <>
       <nav className="module-tabs" aria-label="Seções dos módulos">{tabs.filter(t => t.id === 'orders' || (t.id === 'settings' && canManage) || (t.id === 'offers' && hasModule && canManage) || (t.id === 'combos' && data.settings.combos_enabled && canManage) || (t.id === 'custom' && data.settings.custom_enabled && canManage) || (t.id === 'rentals' && data.settings.rentals_enabled && canManage)).map(t => <button type="button" key={t.id} aria-pressed={tab === t.id} onClick={() => setTab(t.id)}>{t.label}</button>)}</nav>
-      {tab === 'settings' && canManage && <ModuleSettingsForm settings={data.settings} busy={busy} save={value => void command('settings', value)} />}
+      {tab === 'settings' && canManage && <ModuleSettingsForm settings={data.settings} busy={busy} canToggle={master||business?.legacy===true} save={value => void command('settings', value)} />}
       {tab === 'offers' && canManage && <OffersPanel key={store} settings={data.settings} offers={data.offers} command={command} busy={busy} />}
       {tab === 'combos' && canManage && <CombosPanel directory={data.directory} approvals={data.approvals} versions={data.versions} command={command} busy={busy} canApprove={!master || membership?.storeId === store} />}
       {(tab === 'orders' || !canManage) && <ModuleOrdersPanel orders={data.orders} parts={data.parts} items={data.items} receivables={data.receivables} refunds={data.refunds} command={command} busy={busy || !canManage} master={master} storeId={store} onDetail={loadDetail} />}

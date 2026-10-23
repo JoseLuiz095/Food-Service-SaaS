@@ -76,6 +76,7 @@ type PersistedDemo = {
 type InteractiveShowcaseProps = {
   variant: Variant;
   demoHref?: string;
+  sectionId?: string;
 };
 
 const money = (value:number) => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(value);
@@ -178,7 +179,7 @@ function ProductVisual({variant,product}:{variant:Variant;product?:DemoProduct})
 
 const addonSelectionKey=(addons:Record<string,number>|undefined)=>JSON.stringify(Object.entries(addons||{}).filter(([,qty])=>qty>0).sort(([a],[b])=>a.localeCompare(b)));
 
-export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
+export function InteractiveShowcase({variant,sectionId='demonstracao'}:InteractiveShowcaseProps){
   const config=datasets[variant];
   const initial=useMemo(()=>loadPersisted(variant),[variant]);
   const [mode,setMode]=useState<DemoMode>('customer');
@@ -294,7 +295,7 @@ export function InteractiveShowcase({variant}:InteractiveShowcaseProps){
   const extraPaid=Math.max(0,paidLocalTotal-defaultOrders(variant).filter((order)=>order.paymentPaid).reduce((sum,order)=>sum+order.total,0));
   const displayedRevenue=baseRevenue+extraPaid;
 
-  return <section id="demonstracao" className={`interactive-showcase interactive-showcase--${variant}`}>
+  return <section id={sectionId} className={`interactive-showcase interactive-showcase--${variant}`}>
     <div className="interactive-showcase__shell">
       <div className="interactive-showcase__heading">
         <div><span>DEMONSTRAÇÃO INTERATIVA</span><h2>Monte um pedido e acompanhe o mesmo pedido no painel da loja.</h2></div>

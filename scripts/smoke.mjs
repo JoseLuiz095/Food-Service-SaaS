@@ -143,8 +143,8 @@ ok('CSS com chaves balanceadas',(css.match(/\{/g)||[]).length===(css.match(/\}/g
 
 ok('Supabase publico possui fallback de producao', read('src/lib/config.ts').includes('FOODWEB_DEFAULT_SUPABASE_URL'));
 const commercialSegments=read('src/components/marketing/CommercialSegments.tsx');
-ok('Landing comercial multirramos preserva demonstração e recursos',landing.includes('CommercialHero')&&landing.includes('InteractiveShowcase')&&landing.includes('ExistingValueSection')&&commercialSegments.includes('BusinessJourneyPreview'));
-ok('Teste configurável com CTA para criar conta',commercialSegments.includes('Criar conta e testar')&&commercialSegments.includes('{trialDays} dias')&&commercialSegments.includes('/cadastro?plan=DEMO&segment=')&&read('src/data/platformDefaults.ts').includes('demoDurationDays: 14'));
+ok('Landing comercial multirramos preserva demonstração e recursos',landing.includes('CommercialHero')&&landing.includes('InteractiveShowcase')&&landing.includes('ExistingValueSection')&&landing.includes('SegmentShowcase'));
+ok('Teste configurável com CTA para criar conta',commercialSegments.includes('Criar meu negócio')&&commercialSegments.includes('{trialDays} dias')&&read('src/components/marketing/SegmentShowcase.tsx').includes('/cadastro?plan=DEMO&segment=')&&read('src/data/platformDefaults.ts').includes('demoDurationDays: 14'));
 ok('WhatsApp comercial e suporte configuráveis', masterPlans.includes('marketingWhatsapp')&&masterPlans.includes('supportWhatsapp')&&read('src/services/platformApi.ts').includes('support_whatsapp'));
 ok('Suporte flutuante restrito ao Admin',helpButton.includes('loadAdminSupportContact')&&(adminLayout.includes('<PlatformHelpButton/>')||adminLayout.includes('<PlatformHelpButton />'))&&(masterLayout.includes('<PlatformHelpButton/>')||masterLayout.includes('<PlatformHelpButton />'))&&!home.includes('PlatformHelpButton'));
 ok('Previews visuais otimizados incluídos', exists('public/assets/marketing/storefront-preview.webp')&&exists('public/assets/marketing/storefront-products.webp')&&exists('public/assets/marketing/storefront-hero.webp'));
@@ -218,7 +218,7 @@ const valueV058=read('src/components/marketing/ExistingValueSection.tsx');
 const landingV058=read('src/pages/store/Landing.tsx');
 ok('v0.5.8 pedido demo localStorage',interactiveV058.includes('foodweb_interactive_demo_v060')&&interactiveV058.includes('Finalizar pedido demonstrativo')&&interactiveV058.includes('Ver no painel de gestão'));
 ok('v0.5.8 pedido aparece na gestao',interactiveV058.includes('setOrders((current)=>[order,...current])')&&interactiveV058.includes('Confirmar recebimento')&&interactiveV058.includes('foodStatuses'));
-ok('v0.5.9 CTA principal preserva teste',commercialSegments.includes('Criar conta e testar')&&commercialSegments.includes('href="#demonstracao"'));
+ok('v0.5.9 CTA principal preserva teste',commercialSegments.includes('href="/cadastro?plan=DEMO"')&&commercialSegments.includes('href="#demonstracao"'));
 ok('v0.5.9 remove CTA criar conta duplicado',!landingV058.includes('sales-nav-self-service')&&!landingV058.includes('sales-cta-self-service'));
 ok('v0.5.9 planos usam contato comercial',!landingV058.includes('sales-plan-self-service--primary')&&landingV058.includes('sales-plan-contact-v59'));
 ok('v0.5.9 Profissional detalhado',landingV058.includes('Até 120 produtos no catálogo')&&landingV058.includes('Até 30 categorias e 120 adicionais')&&landingV058.includes('Leitura local de boletos, cupons e comprovantes'));

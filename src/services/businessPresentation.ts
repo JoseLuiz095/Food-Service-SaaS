@@ -1,18 +1,21 @@
 import { restFetch } from '../lib/supabaseRest';
-import { selectBusinessSegment, type BusinessSegment } from '../segments/businessSegments';
+import type { BusinessSegment } from '../segments/businessSegments';
 
-/** Uses the existing store UPDATE policy; credentials and operational settings are untouched. */
-export async function saveNewStorePresentation(storeId: string, segment?: BusinessSegment, includeFood = false): Promise<string | undefined> {
-  if (!segment || (segment === 'food' && !includeFood)) return;
+/** Completes server-side onboarding without retrying account creation on failure. */
+export async function saveNewStorePresentation(storeId: string, segment?: BusinessSegment, masterUpdate = false): Promise<string | undefined> {
+  if (!segment) return;
   try {
-    const rows = await restFetch<{id:string;visual_theme:unknown}[]>(`food_stores?id=eq.${encodeURIComponent(storeId)}&select=id,visual_theme`);
-    if (rows.length !== 1) throw new Error('Loja não acessível.');
-    const saved = await restFetch<{id:string}[]>(`food_stores?id=eq.${encodeURIComponent(storeId)}&select=id`, {
-      method:'PATCH', prefer:'return=representation', body:{visual_theme:selectBusinessSegment(rows[0].visual_theme,segment)},
-    });
-    if (saved.length !== 1) throw new Error('Configuração não gravada.');
+    let existing=false;
+    if(masterUpdate){
+      const status=await restFetch<{profile?:{primary_segment:string}}>('rpc/food_business_status',{method:'POST',body:{p_store:storeId}});
+      existing=Boolean(status?.profile);
+    }
+    if(existing)await restFetch('rpc/food_business_master',{method:'POST',body:{p_action:'set_segment',p_store:storeId,p_data:{segment}}});
+    else await restFetch('rpc/food_business_initialize',{method:'POST',body:{p_store:storeId,p_segment:segment}});
+    const verified=await restFetch<{profile?:{primary_segment:string}}>('rpc/food_business_status',{method:'POST',body:{p_store:storeId}});
+    if(verified?.profile?.primary_segment!==segment)throw new Error('Perfil não confirmado pelo servidor.');
   } catch {
     // Account creation already succeeded: do not invite a duplicate registration on a visual failure.
-    return 'O ramo não foi salvo. Selecione o ramo em Configurações para concluir a apresentação da loja.';
+    return 'O segmento ainda não foi configurado no servidor. Sua conta foi preservada. Abra Segmento e permissões no painel ou solicite a atualização do ambiente ao Admin Master.';
   }
 }
