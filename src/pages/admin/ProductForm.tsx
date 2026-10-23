@@ -233,7 +233,7 @@ export default function ProductForm() {
         })),
         partyOrderConfig: partyConfig.enabled ? partyConfig : undefined,
       };
-      await saveProduct(normalized);
+      await saveProduct(normalized, { isNew: !existing });
       if (files.length) { await uploadProductImages(normalized.id, files, normalized.images); setFiles([]); }
       showToast(existing ? 'Produto atualizado.' : 'Produto cadastrado.', 'success');
       navigate('/admin/produtos');
@@ -272,7 +272,7 @@ export default function ProductForm() {
           <label>Status<select value={product.availabilityStatus} onChange={(event) => update('availabilityStatus', event.target.value as Product['availabilityStatus'])}><option value="available">Disponível</option><option value="unavailable">Indisponível temporariamente</option><option value="sold_out">Esgotado</option></select></label>
           <label>Status inicial do pedido<select value={product.defaultOrderStatus || 'received'} onChange={(event) => update('defaultOrderStatus', event.target.value as Product['defaultOrderStatus'])}><option value="received">Recebido</option><option value="confirmed">Confirmado</option><option value="preparing">Em preparo</option><option value="ready">Pronto</option><option value="out_for_delivery">Saiu para entrega</option></select><small>Usado como sugestão em lançamentos deste produto. Pedidos existentes não são alterados.</small></label>
           <label className="switch-row full"><span><strong>Controlar estoque deste produto</strong><small>Pedidos ficam pré-vendidos e só baixam do estoque quando o recebimento for confirmado.</small></span><input type="checkbox" checked={product.trackStock} onChange={(event) => update('trackStock', event.target.checked)} /></label>
-          {product.trackStock && <label>Quantidade disponível<input type="number" min="0" step="1" value={product.stockQuantity ?? 0} onChange={(event) => update('stockQuantity', Math.max(0, Math.trunc(Number(event.target.value) || 0)))}/><small className="muted">Itens sem saldo poderão ser agendados para a partir de amanhã.</small></label>}
+          {product.trackStock && <div className="stock-physical-summary"><label>{existing ? 'Estoque físico atual' : 'Estoque físico inicial'}<input type="number" min="0" step="1" value={product.stockQuantity ?? 0} onChange={(event) => update('stockQuantity', Math.max(0, Math.trunc(Number(event.target.value) || 0)))} readOnly={Boolean(existing)}/></label>{existing ? <small className="muted">{Number(existing.stockReservedQuantity || 0)} reservado(s) · {Math.max(0, Number(existing.stockQuantity || 0) - Number(existing.stockReservedQuantity || 0))} disponível(is). Para ajustar o saldo físico e registrar o motivo, use <Link to="/admin/estoque">Estoque e insumos</Link>.</small> : <small className="muted">O disponível começa igual ao físico. Pedidos pendentes são descontados automaticamente; produtos sem saldo poderão ser agendados conforme as regras da loja.</small>}</div>}
           <div className="party-order-editor full">
             <label className="switch-row"><span><strong>Encomenda para festas</strong><small>Use este produto para pedidos programados de eventos, com cálculo por gramatura e referência de arte.</small></span><input type="checkbox" checked={partyConfig.enabled} onChange={(event) => setPartyConfig((current) => ({ ...current, enabled: event.target.checked }))} /></label>
             {partyConfig.enabled && <div className="form-grid party-order-editor__fields">

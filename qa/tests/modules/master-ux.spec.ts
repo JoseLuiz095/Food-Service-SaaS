@@ -11,6 +11,10 @@ for(const width of [390,1366]) {
     await page.getByLabel('Buscar lojas').fill('busca-sem-resultado');
     await expect(page.getByRole('heading',{name:'Nenhuma loja corresponde aos filtros'})).toBeVisible();
     await page.getByRole('button',{name:'Limpar filtros'}).click();
+    const tableRegion=page.getByRole('region',{name:'Tabela de lojas; use as setas para navegar pelas colunas'});
+    await expect(tableRegion).toBeVisible();
+    await expect(tableRegion).toHaveAttribute('tabindex','0');
+    if(width<=600) await expect(page.getByText('Em telas menores, deslize a tabela na horizontal para ver todas as informações e ações.')).toBeVisible();
     await page.getByRole('button',{name:'Gerenciar',exact:true}).first().click();
     const dialog=page.getByRole('dialog',{name:store.name});
     await expect(dialog.getByText('Administrando esta loja')).toBeVisible();
@@ -25,6 +29,46 @@ for(const width of [390,1366]) {
     expect(errors).toEqual([]);
   });
 }
+
+test('sidebar do Master permanece acessível no desktop e pode ser recolhida',async({page})=>{
+  await page.setViewportSize({width:1366,height:768});
+  await mockBackend(page,{auth:true,master:true});
+  await page.goto('/admin-master/lojas');
+  const sidebar=page.locator('#master-sidebar');
+  await expect(sidebar).toBeVisible();
+  expect(await sidebar.evaluate(element=>getComputedStyle(element).position)).toBe('sticky');
+  expect(await sidebar.evaluate(element=>getComputedStyle(element).overflowY)).toBe('auto');
+  const navigation=page.getByRole('navigation',{name:'Navegação do Admin Master'});
+  await expect(navigation.getByRole('link',{name:'Negócios: Lojas'})).toBeVisible();
+  await expect(navigation.getByText('Configuração',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Recolher menu'}).click();
+  await expect(page.locator('.master-shell')).toHaveClass(/is-sidebar-collapsed/);
+  await expect(navigation.getByRole('link',{name:'Negócios: Lojas'})).toBeVisible();
+  await page.getByRole('button',{name:'Expandir menu'}).click();
+  await expect(page.locator('.master-shell')).not.toHaveClass(/is-sidebar-collapsed/);
+});
+
+test('gaveta móvel do Master bloqueia o fundo e mantém o foco acessível',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await mockBackend(page,{auth:true,master:true});
+  await page.goto('/admin-master');
+  const trigger=page.getByRole('button',{name:'Abrir menu'});
+  const drawer=page.getByRole('dialog',{name:'Menu do Admin Master'});
+  await trigger.click();
+  await expect(trigger).toHaveAttribute('aria-expanded','true');
+  await expect(drawer).toBeVisible();
+  await expect(page.getByRole('button',{name:'Fechar'})).toBeFocused();
+  expect(await page.evaluate(()=>document.body.style.overflow)).toBe('hidden');
+  await page.keyboard.press('Shift+Tab');
+  await expect(drawer.getByRole('button',{name:'Sair'})).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button',{name:'Fechar'})).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(drawer).toHaveCount(0);
+  await expect(trigger).toHaveAttribute('aria-expanded','false');
+  await expect(trigger).toBeFocused();
+  expect(await page.evaluate(()=>document.body.style.overflow)).toBe('');
+});
 
 for(const [path,target] of [
   ['/admin-master','**/rest/v1/food_plans?**'],

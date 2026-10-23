@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { businessApi, moduleIsActive, type BusinessRecord, type ModuleCode } from './api';
 import { useBusinessStatus } from './useBusinessStatus';
@@ -14,12 +14,15 @@ const dateLabel=(value:unknown)=>value?new Date(String(value)).toLocaleString('p
 const localDate=(value:unknown)=>{if(!value)return '';const date=new Date(String(value));if(!Number.isFinite(date.getTime()))return '';return new Date(date.getTime()-date.getTimezoneOffset()*60_000).toISOString().slice(0,16);};
 
 export default function OperationsPage() {
+  const [searchParams]=useSearchParams();
+  const queryTab=searchParams.get('tab');
+  const requestedTab=(['clients','services','appointments','followups','campaigns','links'].includes(queryTab||'')?queryTab:null) as Tab|null;
   const {membership,user}=useAuth();const store=membership?.storeId||'';
   const activeStore=useRef(store);activeStore.current=store;
   const mounted=useRef(true);useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   const isCurrent=()=>mounted.current&&activeStore.current===store;
   const {state,error:statusError,loading:statusLoading,reload:reloadStatus}=useBusinessStatus(store);
-  const [tab,setTab]=useState<Tab>('clients');const [lists,setLists]=useState(emptyLists);
+  const [tab,setTab]=useState<Tab>(requestedTab||'clients');const [lists,setLists]=useState(emptyLists);
   const [values,setValues]=useState<Record<string,string>>({});const [editing,setEditing]=useState('');
   const [loading,setLoading]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
   const [query,setQuery]=useState('');
@@ -34,11 +37,12 @@ export default function OperationsPage() {
   },[store,permissionKey]);
   useEffect(()=>{
     let active=true;setLists(emptyLists());setError('');setNotice('');setValues({});setEditing('');setQuery('');
-    const first=permissionKey.split(',')[0] as Tab|undefined;if(first)setTab(first);
+    const permittedTabs=permissionKey.split(',').filter(Boolean) as Tab[];
+    const first=requestedTab&&permittedTabs.includes(requestedTab)?requestedTab:permittedTabs[0];if(first)setTab(first);
     if(!first||!store){setLoading(false);return;}
     setLoading(true);void load().then(next=>{if(active)setLists(next);}).catch(e=>{if(active)setError((e as Error).message);}).finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
-  },[load,store,permissionKey]);
+  },[load,store,permissionKey,requestedTab]);
   const choices=(key:Tab)=>lists[key].filter(item=>item.active!==false).map(item=>({id:item.id,name:String(item.name||item.title||item.label||item.id)}));
   const fields:Record<Tab,Field[]>={
     clients:[{key:'name',label:'Nome',required:true},{key:'email',label:'E-mail',type:'email'},{key:'phone',label:'Telefone'}],

@@ -40,7 +40,9 @@ import { getBusinessSegment, resolveBusinessTheme, isDefaultStoreImage } from '.
 import { PLATFORM_BRAND } from '../lib/brand';
 import '../segments/segments.css';
 import { useBusinessStatus } from '../platform/useBusinessStatus';
+import { useAdminMobileNavigation } from '../hooks/useAdminMobileNavigation';
 import { moduleIsActive } from '../platform/api';
+import '../components/admin/admin-navigation.css';
 
 const navSections = [
   {
@@ -86,16 +88,17 @@ type BeforeInstallPromptEvent = Event & {
 };
 
 export default function AdminLayout() {
-  const { settings, planUsage, dataMode } = useStore();
+  const { settings, planUsage, dataMode, products } = useStore();
   const { user, signOut, platformAdmin, membership, memberships, selectStore } = useAuth();
   const {state:business}=useBusinessStatus(membership?.storeId||'');
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const { triggerRef, sidebarRef } = useAdminMobileNavigation(open, setOpen);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [billingOverview, setBillingOverview] = useState<StoreBillingOverview | null>(null);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const segment = getBusinessSegment(settings.visualTheme);
+  const segment = getBusinessSegment(business?.profile?.primary_segment || settings.visualTheme);
   const segmentPresentation = segment.id !== 'food' && settings.visualTheme.preset !== 'doce_lua';
   const logoUrl = segmentPresentation && isDefaultStoreImage(settings.logoUrl) ? '/assets/placeholder-catalog.svg' : settings.logoUrl;
   const theme = resolveBusinessTheme(settings.visualTheme);
@@ -117,15 +120,6 @@ export default function AdminLayout() {
   useEffect(() => {
     try { window.localStorage.setItem('foodweb_admin_sidebar_collapsed', sidebarCollapsed ? '1' : '0'); } catch { /* storage indisponível */ }
   }, [sidebarCollapsed]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open]);
 
   const installAdminApp = async () => {
     if (!installPrompt) return;
@@ -178,10 +172,10 @@ export default function AdminLayout() {
 
   return (
     <div data-business-segment={segment.id} data-visual-preset={settings.visualTheme.preset} style={segmentStyle} className={`admin-shell food-admin-parity-v054 ${segmentPresentation ? 'admin-business-theme' : ''} ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
-      <button className="admin-mobile-menu" onClick={() => setOpen(true)} aria-label="Abrir menu"><Menu size={21} /></button>
-      {open && <button className="admin-backdrop" onClick={() => setOpen(false)} aria-label="Fechar menu" />}
+      <button ref={triggerRef} type="button" className="admin-mobile-menu" onClick={() => setOpen(true)} aria-label="Abrir menu" aria-expanded={open} aria-controls="admin-sidebar"><Menu size={21} /></button>
+      {open && <button type="button" className="admin-backdrop" onClick={() => setOpen(false)} aria-label="Fechar menu" tabIndex={-1} aria-hidden="true" />}
 
-      <aside className={`admin-sidebar ${open ? 'is-open' : ''}`}>
+      <aside ref={sidebarRef} id="admin-sidebar" className={`admin-sidebar ${open ? 'is-open' : ''}`} role={open ? 'dialog' : undefined} aria-label={open ? 'Menu do negócio' : undefined} aria-modal={open || undefined}>
         <button className="admin-sidebar-close" onClick={() => setOpen(false)} aria-label="Fechar"><X /></button>
         <button type="button" className="admin-sidebar-collapse" onClick={() => setSidebarCollapsed((current) => !current)} aria-pressed={sidebarCollapsed} aria-label={sidebarCollapsed ? "Expandir menu" : "Recolher menu"} title={sidebarCollapsed ? "Expandir menu" : "Recolher menu"}>{sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}</button>
         <div className="admin-brand">{segmentPresentation?<Store size={24}/>:<img className="platform-brand-icon" src="/assets/vendeweb-mark.svg" alt=""/>}<div><strong>{PLATFORM_BRAND}</strong><span>{segmentPresentation?segment.adminTitle:'Administração'}</span></div></div>
@@ -196,11 +190,15 @@ export default function AdminLayout() {
           </label>
         )}
 
-        <nav className="admin-nav">
+        <nav id="admin-navigation" className="admin-nav" aria-label="Navegação do negócio">
           {business?.profile&&['clients','appointments','creator','training','nutrition'].some(code=>moduleIsActive(business,code as 'clients'|'appointments'|'creator'|'training'|'nutrition'))&&!membership?.limitedAccess&&<div className="admin-nav__group"><span className="admin-nav__label">Rotina do negócio</span><NavLink to="/admin/operacao" onClick={()=>setOpen(false)}><LayoutDashboard size={18}/><span className="admin-nav-text">{getBusinessSegment(business.profile.primary_segment).adminTitle}</span></NavLink></div>}
           {navSections.map((section) => {
             const preparationNavAllowed = new Set(['/admin','/admin/primeiros-passos','/admin/produtos','/admin/estoque','/admin/categorias','/admin/entregas','/admin/configuracoes','/admin/negocio']);
-            const items = section.items.filter((item) => (!item.requiresFeature || planHasFeature(planUsage.plan, item.requiresFeature)) && (!membership?.limitedAccess || preparationNavAllowed.has(item.to)));
+            const deliverySegments = ['food', 'confectionery', 'retail', 'printing3d', 'rentals', 'florist'];
+            const items = section.items.filter((item) => (!item.requiresFeature || planHasFeature(planUsage.plan, item.requiresFeature))
+              && (!membership?.limitedAccess || preparationNavAllowed.has(item.to))
+              && (item.to !== '/admin/entregas' || deliverySegments.includes(segment.id))
+              && (item.to !== '/admin/estoque' || deliverySegments.includes(segment.id) || products.some((product) => product.trackStock)));
             if (!items.length) return null;
             return (
               <div className="admin-nav__group" key={section.label}>

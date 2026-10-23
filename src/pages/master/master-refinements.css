@@ -18,10 +18,28 @@
 .master-shell .master-modal>p{max-width:72ch;line-height:1.6}
 .master-shell .master-client-toolbar .admin-search{min-width:0}
 .master-shell .master-client-toolbar .admin-search input{min-width:0;width:100%}
+.master-shell .admin-sidebar-collapse{top:14px}
+.master-shell .master-admin-mini{margin-inline:4px}
+.master-shell .admin-nav{display:grid;gap:16px;min-height:0}
+.master-shell .admin-nav__group{gap:5px}
+.master-shell .admin-nav__label{color:#a8cab8}
+.master-shell .admin-nav a{min-height:42px}
+.master-shell .admin-sidebar__bottom a,.master-shell .admin-sidebar__bottom button{min-height:42px}
+.master-shell.is-sidebar-collapsed .master-admin-mini{justify-content:center;padding:8px;margin-inline:0}
+.master-shell.is-sidebar-collapsed .master-admin-mini>div,.master-shell.is-sidebar-collapsed .master-nav-text{display:none}
+.master-shell.is-sidebar-collapsed .master-admin-mini>span{flex:0 0 38px}
+.master-shell.is-sidebar-collapsed .admin-nav a{justify-content:center;padding-inline:8px}
+.master-shell.is-sidebar-collapsed .admin-nav__label{display:none}
+.master-shell .master-table-scroll-note{display:none}
+.master-shell .master-store-table .responsive-table:focus-visible,.master-shell .signup-request-table .responsive-table:focus-visible{outline:2px solid #3c7654;outline-offset:2px}
 @media(max-width:600px){
   .master-shell .master-section-context>strong{font-size:.9rem}
   .master-shell .master-section-context>span{font-size:.68rem}
   .master-shell .master-client-filters button,.master-shell .signup-request-filters button{min-height:44px}
   .master-shell .master-store-empty{padding:24px 16px}
   .master-shell .master-store-identity{display:grid;gap:6px}
+}
+@media(max-width:760px){
+  .master-shell .master-table-scroll-note{display:block;margin:0;padding:10px 13px;color:#6a726b;font-size:.68rem;line-height:1.45}
+  .master-shell .master-store-table .responsive-table,.master-shell .signup-request-table .responsive-table{outline-offset:-2px}
 }
