@@ -1,8 +1,8 @@
 import { AlertCircle, ArrowLeft, Banknote, CheckCircle2, CreditCard, LocateFixed, LockKeyhole, LoaderCircle, MapPin, QrCode, ShieldCheck, ShoppingBag, Store, Truck, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { TurnstileWidget } from '../../components/ui/TurnstileWidget';
-import { cartItemUnitTotal, useCart } from '../../contexts/CartContext';
+import { calculateCartSubtotal, cartItemUnitTotal, useCart } from '../../contexts/CartContext';
 import { useStore } from '../../contexts/StoreContext';
 import { PLATFORM_BRAND } from '../../lib/brand';
 import { useToast } from '../../contexts/ToastContext';
@@ -59,8 +59,14 @@ const readPartyConfig = (groups: OptionGroup[]): PartyOrderConfig | undefined =>
 };
 
 export default function Checkout() {
-  const { items, subtotal, clear } = useCart();
+  const { items: allItems, clear, removeItem, updateQuantity } = useCart();
+  const [searchParams] = useSearchParams();
+  const quickId = searchParams.get('quick');
+  const quickQuantity = Math.max(1, Math.min(99, Number(searchParams.get('qty')) || 1));
+  const items = quickId ? allItems.filter((item) => item.id === quickId).map((item) => ({ ...item, quantity: Math.min(item.quantity, quickQuantity) })) : allItems;
+  const subtotal = calculateCartSubtotal(items);
   const { settings, products, deliveryZones, registerOrder, loading, storeBasePath } = useStore();
+  const checkoutRequestKey = `${requestKey(settings.id)}:${quickId || 'cart'}`;
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [form, setForm] = useState<CheckoutData>(initial);
@@ -109,13 +115,13 @@ export default function Checkout() {
     if (profile) setRememberCustomer(true);
     setDraftReadyForStore(settings.id);
     try {
-      const key = requestKey(settings.id);
+      const key = checkoutRequestKey;
       const existing = sessionStorage.getItem(key);
       const value = existing || newRequestId();
       if (!existing) sessionStorage.setItem(key, value);
       setRequestId(value);
     } catch { setRequestId(newRequestId()); }
-  }, [settings.id]);
+  }, [settings.id, checkoutRequestKey]);
 
   useEffect(() => {
     if (!settings.id || draftReadyForStore !== settings.id) return;
@@ -399,9 +405,13 @@ export default function Checkout() {
         deliveryZoneId: form.deliveryZoneId, deliveryCity: form.deliveryCity, deliveryState: form.deliveryState, referencePoint: form.referencePoint,
         customerInstagram: form.customerInstagram, acquisitionSource: form.acquisitionSource,
       });
-      clear();
+      if (quickId) {
+        const original = allItems.find((item) => item.id === quickId);
+        if (original && original.quantity > items[0].quantity) updateQuantity(quickId, original.quantity - items[0].quantity);
+        else removeItem(quickId);
+      } else clear();
       try { localStorage.removeItem(draftKey(settings.id)); } catch { /* sem storage */ }
-      try { sessionStorage.removeItem(requestKey(settings.id)); } catch { /* sem storage */ }
+      try { sessionStorage.removeItem(checkoutRequestKey); } catch { /* sem storage */ }
       navigate(storefrontPath(storeBasePath, `/pedido/${result.orderId}`), { state: confirmation });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Não foi possível registrar o pedido.';
