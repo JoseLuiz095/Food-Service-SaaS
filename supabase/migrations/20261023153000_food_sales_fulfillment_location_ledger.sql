@@ -5,7 +5,8 @@ begin;
 alter table public.food_orders
   add column if not exists stock_location_id uuid,
   add column if not exists pickup_location_id uuid,
-  add column if not exists admin_request_id uuid;
+  add column if not exists admin_request_id uuid,
+  add column if not exists admin_request_fingerprint text;
 create or replace function public.food_guard_order_stock_location()
 returns trigger language plpgsql set search_path to 'public','pg_temp' as $
 begin
@@ -390,7 +391,7 @@ declare
   v_subtotal numeric(12,2) := 0; v_preparation_extra integer := 0; v_order_item_id uuid;
   v_scheduled_for timestamptz; v_allow_future boolean := false; v_timezone text := 'America/Sao_Paulo';
   v_items_calculated jsonb := '[]'::jsonb; v_options_calculated jsonb;
-  v_location_id uuid; v_request_id uuid;
+  v_location_id uuid; v_request_id uuid; v_request_fingerprint text;
 begin
   if auth.uid() is null then raise exception 'Sessão autenticada obrigatória.' using errcode='42501'; end if;
   if payload is null or jsonb_typeof(payload) <> 'object' then raise exception 'Pedido avulso inválido.'; end if;
@@ -400,8 +401,12 @@ begin
   exception when others then raise exception 'Identificador do local ou da tentativa inválido.'; end;
   if v_location_id is not null and not exists(select 1 from public.food_stock_locations where id=v_location_id and store_id=v_store_id and active) then raise exception 'Local de estoque indisponível.'; end if;
   if v_request_id is not null then
+    v_request_fingerprint:=md5(payload::text);
     perform pg_advisory_xact_lock(hashtextextended(v_store_id::text||v_request_id::text,0));
     if exists(select 1 from public.food_orders where store_id=v_store_id and admin_request_id=v_request_id) then
+      if exists(select 1 from public.food_orders where store_id=v_store_id and admin_request_id=v_request_id and admin_request_fingerprint is distinct from v_request_fingerprint) then
+        raise exception 'Esta chave já foi usada para uma venda diferente.' using errcode='23505';
+      end if;
       return query select o.id,o.order_number,o.total from public.food_orders o where o.store_id=v_store_id and o.admin_request_id=v_request_id;
       return;
     end if;
@@ -449,8 +454,8 @@ begin
     v_items_calculated:=v_items_calculated||jsonb_build_array(jsonb_build_object('product_id',v_product.id,'product_name',v_product.name,'quantity',v_quantity,'unit_price',round(v_unit_price,2),'options',v_options_calculated,'item_total',v_item_total));
   end loop;
   v_subtotal:=round(v_subtotal,2);
-  insert into public.food_orders(id,store_id,customer_name,customer_phone,delivery_type,desired_date,scheduled_for,notes,payment_method,review_confirmed,subtotal,total,status,payment_status,payment_received_at,payment_confirmed_by,preparation_estimate_minutes,source,stock_location_id,admin_request_id)
-  values(v_order_id,v_store_id,v_customer_name,v_customer_phone,v_delivery_type,coalesce((v_scheduled_for at time zone v_timezone)::date,current_date),v_scheduled_for,v_notes,v_payment_method,true,v_subtotal,v_subtotal,v_status,case when v_received then 'paid' else 'pending' end,case when v_received then now() else null end,case when v_received then auth.uid() else null end,v_preparation_extra,v_source,v_location_id,v_request_id) returning food_orders.order_number into v_order_number;
+  insert into public.food_orders(id,store_id,customer_name,customer_phone,delivery_type,desired_date,scheduled_for,notes,payment_method,review_confirmed,subtotal,total,status,payment_status,payment_received_at,payment_confirmed_by,preparation_estimate_minutes,source,stock_location_id,admin_request_id,admin_request_fingerprint)
+  values(v_order_id,v_store_id,v_customer_name,v_customer_phone,v_delivery_type,coalesce((v_scheduled_for at time zone v_timezone)::date,current_date),v_scheduled_for,v_notes,v_payment_method,true,v_subtotal,v_subtotal,v_status,case when v_received then 'paid' else 'pending' end,case when v_received then now() else null end,case when v_received then auth.uid() else null end,v_preparation_extra,v_source,v_location_id,v_request_id,v_request_fingerprint) returning food_orders.order_number into v_order_number;
   for v_item in select * from jsonb_array_elements(v_items_calculated) loop
     insert into public.food_order_items(order_id,product_id,product_name,quantity,unit_price,variant_name,variant_price_delta,addons,item_total) values(v_order_id,(v_item->>'product_id')::uuid,v_item->>'product_name',(v_item->>'quantity')::integer,(v_item->>'unit_price')::numeric,null,0,coalesce(v_item->'options','[]'::jsonb),(v_item->>'item_total')::numeric) returning id into v_order_item_id;
     for v_option in select * from jsonb_array_elements(coalesce(v_item->'options','[]'::jsonb)) loop
