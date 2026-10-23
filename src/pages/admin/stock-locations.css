@@ -1,0 +1,19 @@
+.stock-location-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:18px 0}
+.stock-location-card{display:flex;align-items:center;gap:12px;min-width:0;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.stock-location-card__icon{display:grid;place-items:center;width:38px;height:38px;flex:0 0 auto;border-radius:12px;background:var(--green-soft);color:var(--green)}
+.stock-location-card strong{display:block}.stock-location-card p,.stock-location-card span{margin:4px 0 0;color:var(--muted);font-size:.82rem}.stock-location-card span{margin-left:auto;white-space:nowrap}
+.stock-location-create,.stock-location-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:end;margin-top:18px}
+.stock-location-create label,.stock-location-form label{display:grid;gap:6px;font-size:.86rem;font-weight:700;color:var(--ink)}
+.stock-location-create input,.stock-location-create select,.stock-location-form input,.stock-location-form select{width:100%;min-height:42px;border:1px solid var(--line);border-radius:10px;padding:8px 11px;background:var(--surface);color:var(--ink)}
+.stock-location-create .button,.stock-location-form .button{min-height:42px;justify-self:start}
+.stock-location-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.stock-location-actions>.admin-card{min-width:0}
+.stock-location-actions h2{margin-top:0}
+.stock-location-actions p{color:var(--muted);font-size:.9rem}
+.stock-location-form label:last-of-type{grid-column:1/-1}
+.stock-location-grid+.stock-location-create{padding-top:4px}
+@media(max-width:720px){.stock-location-actions{grid-template-columns:1fr}.stock-location-create,.stock-location-form{grid-template-columns:1fr}.stock-location-form label:last-of-type{grid-column:auto}.stock-location-create .button,.stock-location-form .button{width:100%}.stock-location-card{padding:13px}}
+
+.stock-location-create .primary-button,.stock-location-form .primary-button{border:0;background:var(--green);color:#fff;border-radius:12px;padding:0 18px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:750;cursor:pointer}
+.stock-location-create .primary-button:disabled,.stock-location-form .primary-button:disabled{opacity:.55;cursor:not-allowed}
+.admin-page>.page-header .secondary-button{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}

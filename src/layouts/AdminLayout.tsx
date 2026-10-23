@@ -23,6 +23,7 @@ import {
   Truck,
   UtensilsCrossed,
   X,
+  Warehouse,
 } from 'lucide-react';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -59,6 +60,7 @@ const navSections = [
     items: [
       { to: '/admin/produtos', label: 'Produtos', icon: Package },
       { to: '/admin/estoque', label: 'Estoque e insumos', icon: Boxes },
+      { to: '/admin/estoque-locais', label: 'Locais de estoque', icon: Warehouse },
       { to: '/admin/categorias', label: 'Categorias', icon: Tags },
       { to: '/admin/entregas', label: 'Entregas', icon: Truck },
     ],
