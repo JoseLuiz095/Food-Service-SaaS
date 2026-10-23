@@ -1,6 +1,7 @@
 # Auditoria operacional e consistência do VendeWeb
 
-Data: 23/10/2026  
+Data: 23/10/2026
+
 Escopo desta entrega: fluxo de estoque de produtos, telas relacionadas ao catálogo, navegação administrativa por segmento e atualização da fila de pedidos. Revisão de código e validação local; nenhum dado ou banco remoto foi alterado.
 
 ## Diagnóstico priorizado
