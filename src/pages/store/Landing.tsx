@@ -1,4 +1,4 @@
-import { ArrowRight, Check, MessageCircle, ShieldCheck, Store } from 'lucide-react';
+import { ArrowRight, Check, MessageCircle, ShieldCheck, Store, Utensils as UtensilsIcon } from 'lucide-react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { ProtectedContactButton } from '../../components/ProtectedContactButton';
 import { LoadingState } from '../../components/ui/AsyncState';
@@ -10,6 +10,7 @@ import { CommercialHero, CommercialModules, CommercialFinal } from '../../compon
 import { PLATFORM_BRAND } from '../../lib/brand';
 
 const InteractiveShowcase = lazy(() => import('../../components/marketing/InteractiveShowcase').then((module) => ({ default: module.InteractiveShowcase })));
+const SegmentShowcase = lazy(() => import('../../components/marketing/SegmentShowcase').then((module) => ({ default: module.SegmentShowcase })));
 
 type PlanMarketingContent = {
   eyebrow: string;
@@ -124,6 +125,7 @@ const getPlanContent = (plan: LandingPlan, trialDays: number): PlanMarketingCont
 
 export default function Landing() {
   const [data, setData] = useState<PublicLanding | null>(null);
+  const [deepDemoOpen, setDeepDemoOpen] = useState(false);
 
   useEffect(() => {
     void loadPublicLanding().then(setData).catch(() => setData(fallback));
@@ -145,12 +147,13 @@ export default function Landing() {
     <main className="sales-main">
       <CommercialHero trialDays={trialDays} />
 
+      <Suspense fallback={<section id="demonstracao" className="sales-shell showcase-loading" aria-label="Demonstração por segmento"><strong>Sete negócios. Sete jeitos de experimentar.</strong><span>Preparando os exemplos interativos…</span></section>}><SegmentShowcase trialDays={trialDays} /></Suspense>
+
       <ExistingValueSection variant="food" />
 
       <CommercialModules />
 
-      <div className="commercial-demo-context sales-shell"><span className="commercial-eyebrow">EXPERIMENTE NA PRÁTICA</span><p>A demonstração abaixo usa uma loja de alimentação para mostrar a jornada de compra e gestão. Os dados são fictícios e nenhuma cobrança é feita.</p></div>
-      <Suspense fallback={<section id="demonstracao" className="sales-shell showcase-loading" aria-label="Demonstração"><strong>Uma experiência da vitrine ao pedido.</strong><span>Preparando demonstração interativa…</span><a href={demoHref}>Abrir a loja de demonstração</a></section>}><InteractiveShowcase variant="food" demoHref={demoHref} /></Suspense>
+      <details className="commercial-deep-demo sales-shell" onToggle={event => setDeepDemoOpen(event.currentTarget.open)}><summary><span><UtensilsIcon />Quer explorar o fluxo completo de alimentação?</span><strong>Abrir demonstração detalhada <ArrowRight size={17} /></strong></summary><div className="commercial-demo-context"><span className="commercial-eyebrow">DO CARDÁPIO À OPERAÇÃO</span><p>Monte um pedido, experimente o checkout e acompanhe o painel de uma loja fictícia. Nenhuma cobrança é feita.</p></div>{deepDemoOpen && <Suspense fallback={<div className="showcase-loading"><LoadingState label="Preparando demonstração detalhada…" /></div>}><InteractiveShowcase variant="food" demoHref={demoHref} sectionId="demonstracao-alimentacao" /></Suspense>}</details>
 
       <section id="lojas" className="sales-stores sales-stores-v43"><div className="sales-shell"><div className="sales-section-heading split"><div><span>NEGÓCIOS PUBLICADOS</span><h2>Cada loja, uma história. Cada marca, seu espaço.</h2></div><Store size={28} /></div>{view.stores.length ? <div className="sales-store-grid">{view.stores.map((store) => <a key={store.id} className="sales-store-card" href={`/${encodeURIComponent(store.slug)}`}><div className="sales-store-cover" style={store.coverUrl ? { backgroundImage: `url(${store.coverUrl})` } : undefined}></div><div className="sales-store-content"><img src={store.logoUrl || '/assets/marketing/app-splash-v2.png?v=20261015'} alt="" loading="lazy" decoding="async" /><div><h3>{store.name}</h3><p>{store.description}</p><span>{[store.city, store.state].filter(Boolean).join(' · ') || 'Atendimento online'}</span></div></div><div className="sales-store-footer"><span>{store.deliveryEnabled ? 'Delivery' : ''}{store.deliveryEnabled && store.pickupEnabled ? ' + ' : ''}{store.pickupEnabled ? 'Retirada' : ''}</span><strong>Conhecer a loja <ArrowRight size={15} /></strong></div></a>)}</div> : <div className="sales-empty-stores"><Store size={30} /><h3>As lojas publicadas aparecerão aqui automaticamente.</h3></div>}</div></section>
 
@@ -169,7 +172,7 @@ export default function Landing() {
           <ul>{planFeatures(plan, content).map((feature) => <li key={`${plan.id}-${feature}`}><Check size={15} />{feature}</li>)}</ul>
           <ProtectedContactButton className={`sales-plan-contact-v59 ${recommended ? 'sales-plan-contact-v59--featured' : ''}`} intent={content.intent}><MessageCircle size={16} />{content.contactLabel}</ProtectedContactButton>
         </article>;
-      })}<article className="sales-plan-card food-business-sales-v051 sales-plan-card-business-v59"><span className="sales-plan-badge">SOB MEDIDA</span><small>BUSINESS</small><h3>Business</h3><div className="sales-plan-price"><strong>Sob consulta</strong><span>valor definido pelo projeto</span></div><p className="sales-plan-description-v59">Projeto desenhado para operações que precisam de mais integração, automação e acompanhamento técnico no dia a dia.</p><div className="sales-plan-fit-v59 sales-plan-fit-v59--dark"><strong>Indicado para</strong><span>Operações multiunidade, franquias, centrais de produção e negócios com necessidades especiais.</span></div><ul><li><Check size={15} />Presença digital sob medida</li><li><Check size={15} />Multiunidade e fluxos personalizados</li><li><Check size={15} />Integrações com ERP, PDV e APIs</li><li><Check size={15} />Indicadores e automações sob medida</li><li><Check size={15} />Acompanhamento técnico dedicado</li></ul><ProtectedContactButton className="sales-plan-contact-v59 sales-plan-contact-v59--dark" intent="commercial"><MessageCircle size={16} />Quero avaliar um projeto Business</ProtectedContactButton></article></div><div className="commercial-plan-note"><ShieldCheck size={19} /><p><strong>Recursos e limites conforme o plano contratado.</strong> Módulos opcionais são ativados nas configurações da loja. Pagamentos, sinais e repasses que exigem conferência continuam com confirmação manual.</p></div></div></section>
+      })}<article className="sales-plan-card food-business-sales-v051 sales-plan-card-business-v59"><span className="sales-plan-badge">SOB MEDIDA</span><small>BUSINESS</small><h3>Business</h3><div className="sales-plan-price"><strong>Sob consulta</strong><span>valor definido pelo projeto</span></div><p className="sales-plan-description-v59">Projeto desenhado para operações que precisam de mais integração, automação e acompanhamento técnico no dia a dia.</p><div className="sales-plan-fit-v59 sales-plan-fit-v59--dark"><strong>Indicado para</strong><span>Operações multiunidade, franquias, centrais de produção e negócios com necessidades especiais.</span></div><ul><li><Check size={15} />Presença digital sob medida</li><li><Check size={15} />Multiunidade e fluxos personalizados</li><li><Check size={15} />Integrações com ERP, PDV e APIs</li><li><Check size={15} />Indicadores e automações sob medida</li><li><Check size={15} />Acompanhamento técnico dedicado</li></ul><ProtectedContactButton className="sales-plan-contact-v59 sales-plan-contact-v59--dark" intent="commercial"><MessageCircle size={16} />Quero avaliar um projeto Business</ProtectedContactButton></article></div><div className="commercial-plan-note"><ShieldCheck size={19} /><p><strong>Recursos e limites conforme o plano contratado.</strong> Módulos complementares precisam da liberação do Admin Master para cada negócio. Pagamentos, sinais e repasses que exigem conferência continuam com confirmação manual.</p></div></div></section>
 
       <CommercialFinal trialDays={trialDays} />
     </main>

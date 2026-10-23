@@ -121,7 +121,7 @@ export default function SelfSignup(){
 
           <label>Nome do estabelecimento<input required value={form.storeName} onChange={(e)=>setField('storeName',e.target.value)} placeholder="Ex.: Sua loja ou ateliê"/></label>
           <BusinessSegmentPicker value={form.businessSegment || 'food'} onChange={(segment)=>setField('businessSegment',segment)}/>
-          {mode==='existing'&&<p className="business-picker__note">Se sua conta já tem uma loja, a identidade atual será preservada. Para mudar o ramo dela, use Configurações no painel.</p>}
+          {mode==='existing'&&<p className="business-picker__note">Se sua conta já tem uma loja, os dados atuais serão preservados. Consulte Segmento e permissões no painel para configurar seu negócio.</p>}
           <div className="self-signup-grid"><label>Responsável<input required value={form.ownerName} onChange={(e)=>setField('ownerName',e.target.value)} placeholder="Seu nome"/></label><label>Cidade<input value={form.city||''} onChange={(e)=>setField('city',e.target.value)} placeholder="Cidade"/></label></div>
           <div className="self-signup-grid"><label>E-mail<input required type="email" autoComplete="email" value={form.email} onChange={(e)=>setField('email',e.target.value)} placeholder="voce@empresa.com"/></label><label>UF<input maxLength={2} value={form.state||''} onChange={(e)=>setField('state',e.target.value.toUpperCase())} placeholder="ES"/></label></div>
           <div className="self-signup-grid"><label>WhatsApp comercial<input required inputMode="tel" value={form.contactPhone} onChange={(e)=>setField('contactPhone',e.target.value)} placeholder="(27) 99999-9999"/></label><label>CNPJ <small>(opcional)</small><input inputMode="numeric" value={form.businessDocument||''} onChange={(e)=>setField('businessDocument',e.target.value)} placeholder="00.000.000/0001-00"/></label></div>
@@ -135,7 +135,7 @@ export default function SelfSignup(){
           {appConfig.turnstileSiteKey?<TurnstileWidget siteKey={appConfig.turnstileSiteKey} action="signup" onToken={setCaptchaToken} resetSignal={captchaReset}/>:<div className="form-error">Turnstile não configurado neste build. O auto cadastro permanece bloqueado por segurança.</div>}
           {error&&<div className="form-error" role="alert">{error}</div>}
           {success&&<div className="form-success self-signup-success" role="status">{success}</div>}
-          {presentationNeedsReview?<Link className="primary-button self-signup-submit" to="/admin/configuracoes">Abrir configurações da loja</Link>:<button className="primary-button self-signup-submit" disabled={loading||!appConfig.turnstileSiteKey||!captchaToken}>{loading?'Processando...':mode==='new'?'Criar conta e continuar':'Entrar e solicitar acesso'}</button>}
+          {presentationNeedsReview?<Link className="primary-button self-signup-submit" to="/admin/negocio">Concluir segmento e permissões</Link>:<button className="primary-button self-signup-submit" disabled={loading||!appConfig.turnstileSiteKey||!captchaToken}>{loading?'Processando...':mode==='new'?'Criar conta e continuar':'Entrar e solicitar acesso'}</button>}
           <small className="self-signup-footnote">Ao continuar, você solicita a criação de um ambiente {PLATFORM_BRAND}. Cadastros são revisados pelo Admin Master antes da liberação definitiva e o teste gratuito depende de elegibilidade cadastral.</small>
         </form>
       </section>

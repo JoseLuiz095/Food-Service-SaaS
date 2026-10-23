@@ -14,8 +14,7 @@ import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ensureCustomerMessageVariables, ins
 import { DEFAULT_STORE_VISUAL_THEME, getStorefrontThemeStyle, isStoreVisualColor, STORE_VISUAL_THEME_PRESETS } from '../../utils/storeVisualTheme';
 import { pwaPushStatus, requestPwaNotificationPermission, showPwaNotification, subscribeToPwaPush } from '../../services/pwaNotifications';
 import { useAuth } from '../../contexts/AuthContext';
-import { BusinessSegmentPicker } from '../../segments/BusinessSegmentPicker';
-import { getBusinessSegment, resolveBusinessTheme, selectBusinessSegment } from '../../segments/businessSegments';
+import { getBusinessSegment, resolveBusinessTheme } from '../../segments/businessSegments';
 
 const isDoceLuaStore = (store: Pick<StoreSettings, 'slug' | 'name'>) =>
   `${store.slug} ${store.name}`.toLowerCase().replace(/[^a-z0-9]/g, '').includes('docelua');
@@ -232,7 +231,7 @@ export default function SettingsAdmin() {
           <div className="admin-card__header"><div><span className="eyebrow">IDENTIDADE</span><h2>Dados do estabelecimento</h2></div></div>
           <div className="form-grid">
             <label className="full">Nome<input required value={form.name} onChange={(e) => update('name', e.target.value)} /></label>
-            <div className="full"><BusinessSegmentPicker compact value={businessProfile.id} onChange={(segment)=>setForm((current)=>({...current,visualTheme:selectBusinessSegment(current.visualTheme,segment)}))}/></div>
+            <div className="full"><strong>Segmento: {businessProfile.label}</strong><p className="field-help">As regras iniciais e os módulos são gerenciados em <a href="/admin/negocio">Segmento e permissões</a>. A troca do segmento principal exige o Admin Master. As cores e a identidade continuam editáveis aqui.</p></div>
             <label className="full">Frase da loja<input value={form.tagline} onChange={(e) => update('tagline', e.target.value)} /></label>
             <label>Cidade<input value={form.city} onChange={(e) => update('city', e.target.value)} /></label>
             <label>UF<input value={form.state} onChange={(e) => update('state', e.target.value.toUpperCase())} maxLength={2} /></label>

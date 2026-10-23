@@ -17,6 +17,7 @@ export const snapshot={ found:true,status:'online',store,categories:[{id:product
 export const settings={ store_id:STORE,organization_id:ORG,events_enabled:false,combos_enabled:false,custom_enabled:false,rentals_enabled:false,max_quantity:100,lead_hours:24,urgency_bps:2000 };
 
 export async function mockBackend(page: Page, { auth=false, enabled=false, master=false }: {auth?:boolean;enabled?:boolean;master?:boolean}={}) {
+  let businessSegment: string | null = null;
   const writes: {url:string;body:any}[]=[];
   const state={...settings,...(enabled?{events_enabled:true,combos_enabled:true,custom_enabled:true,rentals_enabled:true}:{})};
   await page.addInitScript(() => {
@@ -33,7 +34,10 @@ export async function mockBackend(page: Page, { auth=false, enabled=false, maste
     const body=req.postDataJSON?.();
     if (req.method()!=='GET') writes.push({url:path,body});
     let data:any=[];
-    if(path.endsWith('/food_get_public_storefront_v1')) data=snapshot;
+    if(path.endsWith('/food_business_initialize')) { businessSegment=body.p_segment; data={ok:true}; }
+    else if(path.endsWith('/food_business_status')) data={profile:businessSegment?{store_id:STORE,primary_segment:businessSegment}:null,legacy:!businessSegment,can_initialize:!businessSegment,modules:[],audit:[]};
+    else if(path.endsWith('/food_business_public')) data={services:[],links:[],primary_segment:businessSegment};
+    else if(path.endsWith('/food_get_public_storefront_v1')) data=snapshot;
     else if(path.endsWith('/food_resolve_storefront_status')) data={found:true,id:STORE,name:'Doce Lua',status:'online'};
     else if(path.endsWith('/food_stores')) data=[store];
     else if(path.endsWith('/food_store_users')) data=auth?[{id:USER,user_id:USER,store_id:STORE,role:'owner',active:true,must_change_password:false}]:[];

@@ -41,6 +41,8 @@ const OrderSuccess=lazy(()=>import('./pages/store/OrderSuccess'));
 const NotFound=lazy(()=>import('./pages/NotFound'));
 const ModulesPage=lazy(()=>import('./modules/ModulesPage'));
 const EventsPage=lazy(()=>import('./modules/EventsPage'));
+const BusinessModules=lazy(()=>import('./platform/BusinessModules'));
+const BusinessOperations=lazy(()=>import('./platform/OperationsPage'));
 
 function ProtectedAdmin() {
   const { user, membership, loading } = useAuth();
@@ -52,7 +54,7 @@ function ProtectedAdmin() {
   const preparationRouteAllowed = location.pathname === '/admin'
     || location.pathname === '/admin/primeiros-passos'
     || location.pathname.startsWith('/admin/produtos')
-    || ['/admin/estoque','/admin/categorias','/admin/entregas','/admin/configuracoes'].includes(location.pathname);
+    || ['/admin/estoque','/admin/categorias','/admin/entregas','/admin/configuracoes','/admin/negocio'].includes(location.pathname);
   if (membership.limitedAccess && !preparationRouteAllowed) return <Navigate to="/admin/primeiros-passos" replace />;
   return <AdminLayout />;
 }
@@ -127,6 +129,8 @@ export default function App() {
       <Route path="/admin/configuracoes" element={<SettingsAdmin />} />
       <Route path="/admin/plano" element={<AdminPlan />} />
       <Route path="/admin/modulos" element={<ModulesPage />} />
+      <Route path="/admin/negocio" element={<BusinessModules />} />
+      <Route path="/admin/operacao" element={<BusinessOperations />} />
     </Route>
 
     <Route path="/admin-master/login" element={<MasterLogin />} />
@@ -139,6 +143,7 @@ export default function App() {
       <Route path="/admin-master/pagamentos" element={<MasterPayments />} />
       <Route path="/admin-master/diagnostico" element={<MasterDiagnostics />} />
       <Route path="/admin-master/modulos" element={<ModulesPage master />} />
+      <Route path="/admin-master/segmentos" element={<BusinessModules master />} />
     </Route>
 
     <Route path="/404" element={<NotFound/>}/>

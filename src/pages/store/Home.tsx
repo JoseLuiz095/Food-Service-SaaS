@@ -9,6 +9,7 @@ import { currency } from '../../utils/format';
 import { isFoodWebMarketingRoot } from '../../lib/config';
 import Landing from './Landing';
 import { getBusinessSegment } from '../../segments/businessSegments';
+import { PublicBusinessOffers } from '../../platform/PublicBusinessOffers';
 
 export default function Home(){
   if (typeof window !== 'undefined' && isFoodWebMarketingRoot(window.location.pathname, window.location.hostname)) return <Landing/>;
@@ -40,6 +41,7 @@ function StorefrontHome(){
   return <>
     <StoreHeader/>
     <main id="cardapio" className="container storefront-body food-marketplace-body">
+      <PublicBusinessOffers/>
       {!traditionalPresentation&&<section className="segment-catalog-intro" aria-label={`Catálogo de ${segment.label}`}><div><span className="eyebrow">{segment.heroEyebrow}</span><h2>{segment.heroTitle}</h2><p>{segment.heroDescription}</p></div><a href="#catalogo-produtos" className="segment-catalog-intro__link">Explorar {segment.catalogLabel.toLocaleLowerCase('pt-BR')} <ChevronRight size={17}/></a></section>}
       <section className="food-order-summary"><div><Truck size={17}/><strong>{settings.deliveryEnabled&&settings.pickupEnabled?'Delivery ou retirada':settings.deliveryEnabled?'Delivery':'Retirada'}</strong><span>{settings.minimumOrder>0?`Pedido mínimo ${currency.format(settings.minimumOrder)}`:'Sem pedido mínimo'}</span></div><div><Sparkles size={17}/><strong>{traditionalPresentation?'Peça em poucos minutos':'Escolha com tranquilidade'}</strong><span>{traditionalPresentation?'Personalize e finalize online':'Confira os detalhes de cada item'}</span></div></section>
 

@@ -27,7 +27,7 @@ export const normalizeStoreVisualTheme = (value: unknown): StoreVisualTheme => {
   const radius = Number(input.radius);
   return {
     preset,
-    ...(['food','confectionery','retail','printing3d','rentals','services'].includes(input.businessSegment || '') ? { businessSegment: input.businessSegment } : {}),
+    ...(['food','confectionery','retail','printing3d','rentals','services','florist','personal','nutrition','creator'].includes(input.businessSegment || '') ? { businessSegment: input.businessSegment } : {}),
     primaryColor: safeColor(input.primaryColor, fallback.primaryColor),
     accentColor: safeColor(input.accentColor, fallback.accentColor),
     highlightColor: safeColor(input.highlightColor, fallback.highlightColor),

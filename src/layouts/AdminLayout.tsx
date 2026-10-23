@@ -39,6 +39,8 @@ import { publicStorefrontPath } from '../utils/storefrontRoute';
 import { getBusinessSegment, resolveBusinessTheme, isDefaultStoreImage } from '../segments/businessSegments';
 import { PLATFORM_BRAND } from '../lib/brand';
 import '../segments/segments.css';
+import { useBusinessStatus } from '../platform/useBusinessStatus';
+import { moduleIsActive } from '../platform/api';
 
 const navSections = [
   {
@@ -71,6 +73,7 @@ const navSections = [
       { to: '/admin/plano', label: 'Meu plano', icon: BadgeDollarSign },
       { to: '/admin/configuracoes', label: 'Configurações', icon: Settings },
       { to: '/admin/modulos', label: 'Módulos opcionais', icon: Boxes },
+      { to: '/admin/negocio', label: 'Segmento e permissões', icon: ShieldCheck },
     ],
   },
 ];
@@ -85,6 +88,7 @@ type BeforeInstallPromptEvent = Event & {
 export default function AdminLayout() {
   const { settings, planUsage, dataMode } = useStore();
   const { user, signOut, platformAdmin, membership, memberships, selectStore } = useAuth();
+  const {state:business}=useBusinessStatus(membership?.storeId||'');
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -193,8 +197,9 @@ export default function AdminLayout() {
         )}
 
         <nav className="admin-nav">
+          {business?.profile&&['clients','appointments','creator','training','nutrition'].some(code=>moduleIsActive(business,code as 'clients'|'appointments'|'creator'|'training'|'nutrition'))&&!membership?.limitedAccess&&<div className="admin-nav__group"><span className="admin-nav__label">Rotina do negócio</span><NavLink to="/admin/operacao" onClick={()=>setOpen(false)}><LayoutDashboard size={18}/><span className="admin-nav-text">{getBusinessSegment(business.profile.primary_segment).adminTitle}</span></NavLink></div>}
           {navSections.map((section) => {
-            const preparationNavAllowed = new Set(['/admin','/admin/primeiros-passos','/admin/produtos','/admin/estoque','/admin/categorias','/admin/entregas','/admin/configuracoes']);
+            const preparationNavAllowed = new Set(['/admin','/admin/primeiros-passos','/admin/produtos','/admin/estoque','/admin/categorias','/admin/entregas','/admin/configuracoes','/admin/negocio']);
             const items = section.items.filter((item) => (!item.requiresFeature || planHasFeature(planUsage.plan, item.requiresFeature)) && (!membership?.limitedAccess || preparationNavAllowed.has(item.to)));
             if (!items.length) return null;
             return (

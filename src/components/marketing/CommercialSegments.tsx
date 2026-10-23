@@ -1,50 +1,29 @@
-import { ArrowRight, CakeSlice, CalendarDays, Check, Cuboid, Handshake, MessageCircle, Palette, PartyPopper, Settings2, ShoppingBag, Store, Utensils, Wrench } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowRight, CalendarDays, Check, Flower2, Handshake, LayoutDashboard, Link2, MessageCircle, Package, Palette, Settings2, ShieldCheck, ShoppingBag, Sparkles, Store, Users, Utensils } from 'lucide-react';
 import { ProtectedContactButton } from '../ProtectedContactButton';
-import { BusinessJourneyPreview } from './BusinessJourneyPreview';
-import type { BusinessSegment } from '../../segments/businessSegments';
-
-type CommercialSegment = {
-  id: BusinessSegment;
-  name: string;
-  title: string;
-  description: string;
-  icon: typeof Store;
-};
-
-const segments: CommercialSegment[] = [
-  { id: 'food', name: 'Alimentação', title: 'Do cardápio ao próximo pedido.', description: 'Fotos que abrem o apetite, adicionais, entrega e retirada. Sua rotina de vendas no centro da experiência.', icon: Utensils },
-  { id: 'confectionery', name: 'Confeitaria', title: 'Seu cuidado aparece em cada detalhe.', description: 'Valorize doces, presentes e encomendas com uma vitrine delicada e informações claras sobre seus produtos.', icon: CakeSlice },
-  { id: 'retail', name: 'Produtos e lojas', title: 'Uma vitrine com a sua identidade.', description: 'Organize coleções, destaque produtos e facilite a escolha. Seu catálogo, sua marca e seu canal de venda.', icon: ShoppingBag },
-  { id: 'printing3d', name: 'Impressão 3D', title: 'Transforme ideias em novos pedidos.', description: 'Apresente peças prontas e, com o módulo opcional de personalizados, receba especificações e arquivos para orçamento.', icon: Cuboid },
-  { id: 'rentals', name: 'Aluguel', title: 'O que torna o evento especial.', description: 'Destaque seu catálogo de locação. Ative o módulo opcional para organizar reservas, checklists e sinal manual.', icon: PartyPopper },
-  { id: 'services', name: 'Serviços', title: 'Mostre seu trabalho. Abra novas conversas.', description: 'Uma apresentação clara dos seus serviços, com identidade própria e atendimento que continua pelo WhatsApp.', icon: Wrench },
-];
 
 export function CommercialHero({ trialDays }: { trialDays: number }) {
-  const [selected, setSelected] = useState(segments[0]);
-  const signupHref = `/cadastro?plan=DEMO&segment=${selected.id}`;
-  return <>
-    <section className="commercial-hero"><div className="sales-shell commercial-hero__grid">
-      <div className="commercial-hero__copy"><h1>Um espaço para vender.<br /><em>Do seu jeito.</em></h1><p>Produtos, encomendas ou serviços: aproxime seu negócio de quem compra, com uma vitrine própria e uma operação mais organizada.</p>
-        <div className="sales-hero-actions"><a className="sales-cta-primary sales-cta-trial" href={signupHref}>Criar conta e testar por {trialDays} dias <ArrowRight size={17} /></a><a className="sales-cta-secondary" href="#demonstracao">Conhecer a plataforma</a></div>
-        <div className="sales-proof-row"><span><Check />Sem cartão no teste</span><span><Check />Sem comissão por pedido</span><span><Check />Sua identidade preservada</span></div>
-        <div className="commercial-hero__caption"><span><Store size={18} /></span><p>Do pequeno negócio aos novos projetos.<br /><strong>Uma base simples para crescer com você.</strong></p></div>
-      </div>
-      <div id="ramos" className="commercial-experience"><p>Escolha seu ramo. Explore a experiência da sua loja.</p>
-      <div className="commercial-segments__choices" role="group" aria-label="Explore a apresentação por ramo">{segments.map((segment) => { const Icon = segment.icon; return <button key={segment.id} type="button" aria-pressed={selected.id === segment.id} className={selected.id === segment.id ? 'is-selected' : ''} onClick={() => setSelected(segment)}><Icon size={23} strokeWidth={1.6} /><span>{segment.name}</span><ArrowRight size={15} /></button>; })}</div>
-      <BusinessJourneyPreview segment={selected.id} />
-      <div className="commercial-segments__detail" aria-live="polite"><div><strong>{selected.title}</strong><p>{selected.description}</p></div><a href={signupHref}>Começar com {selected.name.toLocaleLowerCase('pt-BR')} <ArrowRight size={17} /></a></div>
-      </div>
-    </div></section>
-  </>;
+  return <section className="commercial-hero commercial-hero-v2"><div className="sales-shell commercial-hero-v2__grid">
+    <div className="commercial-hero-v2__copy"><span className="commercial-eyebrow"><span />UMA PLATAFORMA. MUITOS JEITOS DE VENDER.</span><h1>Seu negócio tem<br />personalidade.<br /><em>Sua plataforma também.</em></h1><p>Uma vitrine com a sua marca. Uma operação com o seu ritmo. Produtos, serviços e relacionamentos organizados no mesmo lugar.</p><div className="sales-hero-actions"><a className="sales-cta-primary sales-cta-trial" href="/cadastro?plan=DEMO">Criar meu negócio <ArrowRight size={17} /></a><a className="sales-cta-secondary" href="#demonstracao">Explorar os segmentos <ArrowRight size={16} /></a></div><div className="sales-proof-row"><span><Check />{trialDays} dias para experimentar</span><span><Check />Sem cartão no teste</span></div><div className="commercial-hero-v2__signature"><span>V</span><p>O próximo capítulo do seu negócio<br /><strong>começa com um espaço próprio.</strong></p></div></div>
+    <div className="commercial-hero-v2__visual" aria-label="Ilustração de uma vitrine conectada à operação, com dados de exemplo">
+      <div className="commercial-hero-v2__orbit"><span><Utensils size={20} /></span><span><Flower2 size={20} /></span><span><Users size={20} /></span><span><Link2 size={20} /></span></div>
+      <div className="commercial-hero-v2__board"><div className="commercial-hero-v2__browser"><span /><span /><span /><small>seu-negócio.vendeweb</small></div><header><span><Store size={23} /></span><div><strong>Sua marca aqui</strong><small>Um lugar para novas possibilidades</small></div><ShoppingBag size={19} /></header><div className="commercial-hero-v2__shop"><div><small>FEITO DO SEU JEITO</small><strong>Seu trabalho.<br />Seu mundo.<br /><em>Sua vitrine.</em></strong><span>Vender começa com uma boa conexão.</span></div><div className="commercial-hero-v2__art"><Flower2 size={93} strokeWidth={1} /><span /><span /></div></div><div className="commercial-hero-v2__tiles"><div><Utensils /><span>Produtos</span></div><div><CalendarDays /><span>Serviços</span></div><div><Sparkles /><span>Experiências</span></div></div><footer><Check size={14} />Cada segmento, uma jornada própria.<small>Ilustração de exemplo</small></footer></div>
+      <div className="commercial-hero-v2__float"><span><LayoutDashboard size={20} /></span><div><strong>O que vem a seguir?</strong><small>Agenda, clientes e pedidos organizados.</small></div><i><Check size={14} /></i></div>
+      <div className="commercial-hero-v2__stamp">SUA MARCA<br /><strong>no centro.</strong><span>✳</span></div>
+    </div>
+  </div><div className="sales-shell commercial-hero-v2__bottom"><span>Para quem empreende com propósito.</span><p>Do cardápio à consultoria. Do buquê ao conteúdo digital.</p><a href="#demonstracao">Encontre sua experiência <ArrowRight size={15} /></a></div></section>;
 }
 
+const moduleCards = [
+  { icon: CalendarDays, title: 'Agenda e atendimento', copy: 'Serviços, horários e clientes com contexto.', detail: 'Uma floricultura pode adicionar atendimento agendado. Um personal pode organizar sessões. O segmento principal é preservado.' },
+  { icon: Package, title: 'Produtos e locações', copy: 'Uma operação que pode combinar ofertas.', detail: 'Catálogo físico, serviços e reservas podem compor o mesmo negócio, respeitando disponibilidade e permissões de cada módulo.' },
+  { icon: Palette, title: 'Personalizados e eventos', copy: 'Do pedido especial aos detalhes do projeto.', detail: 'Pedidos personalizados, arquivos, orçamento e eventos têm ferramentas próprias. A ativação preserva os dados já cadastrados.' },
+  { icon: Link2, title: 'Conteúdo e campanhas', copy: 'Organização para os próximos movimentos.', detail: 'Links comerciais e planejamento de campanhas ajudam a estruturar a divulgação. Publicação em redes sociais depende de integração oficial específica.' },
+];
+
 export function CommercialModules() {
-  return <section className="commercial-modules"><div className="sales-shell commercial-modules__layout"><div><span className="commercial-eyebrow">NOVAS POSSIBILIDADES, NO SEU TEMPO</span><h2>Comece com o essencial.<br />Ative o próximo passo.</h2><p>Eventos, combos, personalizados e aluguel são módulos opcionais. Todos começam desativados e só aparecem na operação quando a loja escolhe ativar.</p><div className="commercial-modules__principle"><Settings2 size={20} /><span>Escolher o ramo adapta a apresentação.<br /><strong>Ativar um módulo é uma decisão separada.</strong></span></div></div>
-      <div className="commercial-modules__grid"><article><CalendarDays /><h3>Eventos e combos</h3><p>Monte propostas com parceiros aprovados. O cliente tem um pedido; cada loja acompanha sua parte.</p></article><article><Cuboid /><h3>Impressão 3D</h3><p>Peças, brindes e personalizados. Especificações, arquivos e calculadora com preço final editável.</p></article><article><Palette /><h3>Personalizados</h3><p>Organize a solicitação e os detalhes do projeto. A conversa e a aprovação da arte continuam no WhatsApp.</p></article><article><PartyPopper /><h3>Aluguel</h3><p>Prepare orçamentos, reservas, sinal manual e checklists para acompanhar sua operação.</p></article></div>
-    </div></section>;
+  return <section className="commercial-modules commercial-modules-v2"><div className="sales-shell"><div className="commercial-modules-v2__heading"><div><span className="commercial-eyebrow">CRESÇA SEM TROCAR DE IDENTIDADE</span><h2>Seu negócio não cabe numa caixa.<br /><em>A plataforma também não precisa.</em></h2></div><p>Comece com o seu segmento. Combine recursos quando fizer sentido para sua operação, com liberação individual do Admin Master.</p></div><div className="commercial-modules-v2__grid">{moduleCards.map(({ icon: Icon, title, copy, detail }) => <details key={title}><summary><span><Icon size={23} /></span><h3>{title}</h3><p>{copy}</p><b>Entender o recurso <PlusIcon /></b></summary><div>{detail}</div></details>)}</div><div className="commercial-modules__principle"><ShieldCheck size={22} /><span><strong>A sua loja continua sendo a sua loja.</strong> Módulos complementares dependem do plano, das permissões e das dependências do recurso. A liberação é registrada por negócio.</span></div></div></section>;
 }
+function PlusIcon() { return <span className="commercial-modules-v2__plus" aria-hidden="true">+</span>; }
 
 export function CommercialFinal({ trialDays }: { trialDays: number }) {
   return <section className="commercial-final"><div className="sales-shell"><Handshake size={35} strokeWidth={1.3} /><span className="commercial-eyebrow">SEU PRÓXIMO PASSO COMEÇA AQUI</span><h2>Um negócio único merece<br />um espaço com a sua cara.</h2><p>Conheça a plataforma, escolha seu ramo e prepare sua loja.</p><div><a className="sales-cta-primary" href="/cadastro?plan=DEMO">Testar por {trialDays} dias <ArrowRight size={17} /></a><ProtectedContactButton className="sales-cta-secondary" intent="commercial"><MessageCircle size={17} />Conversar com a equipe</ProtectedContactButton></div></div></section>;

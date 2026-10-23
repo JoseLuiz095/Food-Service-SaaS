@@ -15,6 +15,7 @@ const nav = [
   { to: '/admin-master/pagamentos', label: 'Pagamentos', icon: WalletCards },
   { to: '/admin-master/diagnostico', label: 'Diagnóstico', icon: Activity },
   { to: '/admin-master/modulos', label: 'Módulos opcionais', icon: Building2 },
+  { to: '/admin-master/segmentos', label: 'Segmentos e permissões', icon: SlidersHorizontal },
 ];
 
 export default function MasterLayout() {

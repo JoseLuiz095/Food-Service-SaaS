@@ -26,6 +26,27 @@ async function mockSegmentStore(page: Page, segment: string, custom = false, mas
       surfaceColor: '#FFFFFF', textColor: '#18231D', mutedColor: '#6F746F', borderColor: '#E8E3DC', radius: 18 },
   };
   const settingsWrites: Record<string, any>[] = [];
+  const businessWrites: { action: string; body: any }[] = [];
+  let serverSegment = segment;
+  await page.route(/\/rest\/v1\/rpc\/food_business_(?:status|initialize|master)$/, async route => {
+    const action = new URL(route.request().url()).pathname.split('/').at(-1)!;
+    const body = route.request().postDataJSON();
+    if (action === 'food_business_initialize') {
+      businessWrites.push({ action, body });
+      await route.fulfill({ status: 403, json: { code: '42501', message: 'O segmento já foi configurado. Somente o Master pode alterá-lo.' } });
+      return;
+    }
+    if (action === 'food_business_master') {
+      businessWrites.push({ action, body });
+      if (!master || body.p_action !== 'set_segment' || body.p_store !== STORE) {
+        await route.fulfill({ status: 403, json: { code: '42501', message: 'Master com MFA obrigatório.' } });
+        return;
+      }
+      serverSegment = body.p_data.segment;
+      themedStore = { ...themedStore, visual_theme: { ...themedStore.visual_theme, businessSegment: serverSegment } };
+    }
+    await route.fulfill({ json: { profile: { store_id: STORE, primary_segment: serverSegment }, legacy: false, can_initialize: false, modules: [], audit: [] } });
+  });
   await page.route('**/rest/v1/rpc/food_get_public_storefront_v1', route => route.fulfill({ json: { ...snapshot, store: themedStore } }));
   await page.route('**/rest/v1/rpc/food_resolve_storefront_status', route => route.fulfill({ json: { found: true, id: STORE, name: themedStore.name, status: 'online' } }));
   await page.route(/\/rest\/v1\/food_stores(?:\?|$)/, async route => {
@@ -36,11 +57,11 @@ async function mockSegmentStore(page: Page, segment: string, custom = false, mas
     }
     await route.fulfill({ json: [themedStore] });
   });
-  return { ...backend, settingsWrites };
+  return { ...backend, settingsWrites, businessWrites };
 }
 
 for (const width of [390, 768, 1366]) {
-  test(`cadastro herda ramo e permite alterá-lo sem ativar módulos em ${width}px`, async ({ page }) => {
+  test(`cadastro herda ramo legado e permite escolher outro antes de gravar regras em ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
     const { writes } = await mockBackend(page);
     await mockLanding(page);
@@ -54,10 +75,10 @@ for (const width of [390, 768, 1366]) {
     await picker.getByText('Produtos e varejo', { exact: true }).click();
     await expect(picker.getByRole('radio', { name: /Produtos e varejo/ })).toBeChecked();
     await expect(picker.locator('[aria-live]')).toContainText(/Loja e catálogo/);
-    await expect(picker.getByText(/começam desativados/)).toBeVisible();
+    await expect(picker.getByText(/Recursos complementares precisam de autorização do Admin Master/)).toBeVisible();
     await expect(page.getByRole('button', { name: /Criar conta e continuar/ })).toBeVisible();
     await expectNoOverflow(page);
-    expect(writes.filter(call => /food_modules_command|food-modules-public|food-public-self-signup/.test(call.url))).toHaveLength(0);
+    expect(writes.filter(call => /food_modules_command|food-modules-public|food-public-self-signup|food_business_initialize|food_business_master/.test(call.url))).toHaveLength(0);
   });
 
   test(`página comercial seleciona ramo e encaminha ao cadastro em ${width}px`, async ({ page }, testInfo) => {
@@ -65,14 +86,21 @@ for (const width of [390, 768, 1366]) {
     await mockBackend(page);
     await mockLanding(page);
     await page.goto('/');
-    const choices = page.getByRole('group', { name: /apresentação por ramo/ });
-    await choices.getByRole('button', { name: 'Impressão 3D', exact: true }).click();
-    await expect(choices.getByRole('button', { name: 'Impressão 3D', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByRole('link', { name: /Começar com impressão 3d/i })).toHaveAttribute('href', /\/cadastro\?plan=DEMO&segment=printing3d$/);
-    await expect(page.getByRole('link', { name: /Criar conta e testar/ })).toHaveAttribute('href', /segment=printing3d$/);
-    await expect(page.locator('.commercial-preview')).toHaveAttribute('aria-label', /Impressão 3D/);
-    await choices.getByRole('button', { name: 'Aluguel', exact: true }).click();
-    const signup = page.getByRole('link', { name: /Começar com aluguel/ });
+    const choices = page.getByRole('group', { name: 'Escolha o segmento da demonstração', exact: true });
+    await expect(choices.getByRole('button')).toHaveCount(7);
+    for (const label of ['Alimentação', 'Floricultura', 'Comércio geral', 'Serviços e locações', 'Personal trainer', 'Nutricionista', 'Influenciador digital']) {
+      await expect(choices.getByRole('button', { name: label, exact: true })).toBeVisible();
+    }
+    await choices.getByRole('button', { name: 'Personal trainer', exact: true }).click();
+    await expect(choices.getByRole('button', { name: 'Personal trainer', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('link', { name: 'Começar com este segmento', exact: true })).toHaveAttribute('href', /\/cadastro\?plan=DEMO&segment=personal$/);
+    await expect(page.getByText(/Nenhuma conta, reserva, compra, cobrança ou publicação real é criada/)).toBeVisible();
+    await expect(page.locator('.segment-workbench--personal')).toBeVisible();
+    await choices.getByRole('button', { name: 'Influenciador digital', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Começar com este segmento', exact: true })).toHaveAttribute('href', /segment=creator$/);
+    await expect(page.locator('.segment-workbench--creator')).toBeVisible();
+    await choices.getByRole('button', { name: 'Serviços e locações', exact: true }).click();
+    const signup = page.getByRole('link', { name: 'Começar com este segmento', exact: true });
     await expect(signup).toHaveAttribute('href', /segment=rentals$/);
     await expectNoOverflow(page);
     if (width === 1366) await page.screenshot({ path: testInfo.outputPath('comercial-ramos-desktop.png'), fullPage: true });
@@ -113,30 +141,34 @@ for (const width of [390, 768, 1366]) {
   }
 }
 
-test('configurações salvam o ramo preservando cores próprias, Pix e modalidades', async ({ page }, testInfo) => {
+test('configurações preservam segmento protegido, cores próprias, Pix e modalidades', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const { state, writes, settingsWrites } = await mockSegmentStore(page, 'retail', true);
+  const { state, writes, settingsWrites, businessWrites } = await mockSegmentStore(page, 'retail', true);
   await page.goto('/admin/configuracoes');
   await expect(page.getByRole('heading', { name: 'Configurações', exact: true })).toBeVisible();
   await expect(page.getByLabel('Cor principal', { exact: true })).toHaveValue('#123456');
   await expect(page.getByLabel('Cor de apoio', { exact: true })).toHaveValue('#654321');
-  await page.getByText('Impressão 3D e personalizados', { exact: true }).click();
-  await expect(page.getByRole('radio', { name: /Impressão 3D e personalizados/ })).toBeChecked();
+  await expect(page.getByText('Segmento: Produtos e varejo', { exact: true })).toBeVisible();
+  await expect(page.getByRole('group', { name: /Qual é o ramo/ })).toHaveCount(0);
+  await expect(page.locator('#settings-form').getByRole('link', { name: 'Segmento e permissões', exact: true })).toHaveAttribute('href', '/admin/negocio');
+  await expect(page.getByText('A troca do segmento principal exige o Admin Master.', { exact: false })).toBeVisible();
   await expect(page.getByLabel('Cor principal', { exact: true })).toHaveValue('#123456');
   await expect(page.getByLabel('Cor de apoio', { exact: true })).toHaveValue('#654321');
-  await expect(page.locator('.business-picker__preview')).toContainText(/Produção e projetos/);
-  await expect(page.locator('.business-picker__note')).toContainText(/começam desativados/);
+  await page.getByLabel('Frase da loja', { exact: true }).fill('Seleção própria da vitrine de teste');
   await expectNoOverflow(page);
   await page.screenshot({ path: testInfo.outputPath('configuracao-ramo-mobile.png'), fullPage: true });
   await page.getByRole('button', { name: 'Salvar configurações', exact: true }).click();
   await expect.poll(() => settingsWrites.length).toBe(1);
-  expect(settingsWrites[0].visual_theme).toMatchObject({ preset: 'custom', businessSegment: 'printing3d', primaryColor: '#123456', accentColor: '#654321' });
+  expect(settingsWrites[0].visual_theme).toMatchObject({ preset: 'custom', businessSegment: 'retail', primaryColor: '#123456', accentColor: '#654321' });
   expect(settingsWrites[0]).toMatchObject({ pix_enabled: true, pix_key: store.pix_key, delivery_enabled: true, pickup_enabled: true });
-  await expect(page.locator('.admin-shell')).toHaveAttribute('data-business-segment', 'printing3d');
+  expect(settingsWrites[0].description).toBe('Seleção própria da vitrine de teste');
+  await expect(page.locator('.admin-shell')).toHaveAttribute('data-business-segment', 'retail');
+  expect(businessWrites).toHaveLength(0);
   expect(state.events_enabled || state.combos_enabled || state.custom_enabled || state.rentals_enabled).toBe(false);
   expect(writes.filter(call => call.url.endsWith('/food_modules_command'))).toHaveLength(0);
   await page.reload();
-  await expect(page.getByRole('radio', { name: /Impressão 3D e personalizados/ })).toBeChecked();
+  await expect(page.getByText('Segmento: Produtos e varejo', { exact: true })).toBeVisible();
+  await expect(page.getByRole('group', { name: /Qual é o ramo/ })).toHaveCount(0);
   await expect(page.getByLabel('Cor principal', { exact: true })).toHaveValue('#123456');
 });
 
@@ -152,9 +184,23 @@ async function mockSignupPersistence(page: Page, existing: boolean, failPresenta
   const backend = await mockBackend(page);
   await mockLanding(page);
   let signedIn = false;
+  let serverSegment: string | null = existing ? 'retail' : null;
   let savedStore = { ...store, visual_theme: { preset: 'custom', primaryColor: '#123456', accentColor: '#654321', businessSegment: 'retail' } };
   const requests: { method: string; url: string; body?: any }[] = [];
   const completion = { ok: true, existing, storeId: STORE, slug: store.slug, requestStatus: 'pending' };
+  await page.route(/\/rest\/v1\/rpc\/food_business_(?:status|initialize)$/, async route => {
+    const body = route.request().postDataJSON();
+    requests.push({ method: route.request().method(), url: route.request().url(), body });
+    if (route.request().url().endsWith('/food_business_initialize')) {
+      if (!signedIn || existing || body.p_store !== STORE || failPresentation) {
+        await route.fulfill({ status: 403, json: { code: '42501', message: 'Falha simulada ao configurar regras do negócio.' } });
+        return;
+      }
+      serverSegment = body.p_segment;
+      savedStore = { ...savedStore, visual_theme: { ...savedStore.visual_theme, businessSegment: serverSegment! } };
+    }
+    await route.fulfill({ json: { profile: serverSegment ? { store_id: STORE, primary_segment: serverSegment } : null, legacy: !serverSegment, can_initialize: !serverSegment, modules: [], audit: [] } });
+  });
   await page.route('**/functions/v1/food-public-self-signup', async route => {
     requests.push({ method: route.request().method(), url: route.request().url(), body: route.request().postDataJSON() });
     await route.fulfill({ json: { ok: true, completion } });
@@ -189,19 +235,19 @@ async function mockSignupPersistence(page: Page, existing: boolean, failPresenta
   return { ...backend, requests };
 }
 
-test('persistência REST: novo cadastro 3D grava somente a apresentação da loja criada', async ({ page }) => {
+test('onboarding RPC: novo cadastro 3D inicializa regras da loja criada após autenticação', async ({ page }) => {
   const { requests, state } = await mockSignupPersistence(page, false);
   await page.goto('/cadastro?segment=printing3d');
   await fillSignup(page);
   const submit = page.getByRole('button', { name: 'Criar conta e continuar', exact: true });
   await expect(submit).toBeEnabled();
   await submit.click();
-  await expect.poll(() => requests.filter(request => request.method === 'PATCH').length).toBe(1);
-  const patch = requests.find(request => request.method === 'PATCH')!;
-  expect(new URL(patch.url).searchParams.get('id')).toBe(`eq.${STORE}`);
-  expect(Object.keys(patch.body)).toEqual(['visual_theme']);
-  expect(patch.body.visual_theme).toMatchObject({ businessSegment: 'printing3d', preset: 'custom', primaryColor: '#123456', accentColor: '#654321' });
-  expect(requests.some(request => request.method === 'GET' && new URL(request.url).searchParams.get('select') === 'id,visual_theme')).toBe(true);
+  await expect.poll(() => requests.filter(request => request.url.endsWith('/food_business_initialize')).length).toBe(1);
+  const initialized = requests.find(request => request.url.endsWith('/food_business_initialize'))!;
+  expect(initialized.body).toEqual({ p_store: STORE, p_segment: 'printing3d' });
+  await expect.poll(() => requests.filter(request => request.url.endsWith('/food_business_status')).length).toBeGreaterThan(0);
+  expect(requests.findIndex(request => request.url.includes('/auth/v1/token'))).toBeLessThan(requests.indexOf(initialized));
+  expect(requests.filter(request => request.method === 'PATCH')).toHaveLength(0);
   expect(requests.find(request => request.url.includes('/food-public-self-signup'))?.body).toMatchObject({ businessSegment: 'printing3d', captchaToken: 'local-test-captcha' });
   expect(requests.filter(request => request.url.includes('/auth/v1/token'))).toHaveLength(1);
   expect(state.events_enabled || state.combos_enabled || state.custom_enabled || state.rentals_enabled).toBe(false);
@@ -218,6 +264,7 @@ test('persistência REST: conta existente mantém o ramo da loja sem qualquer PA
   expect(requests.filter(request => request.url.includes('/food_complete_self_service_signup_v2'))).toHaveLength(1);
   expect(requests.filter(request => request.url.includes('/food-public-self-signup'))).toHaveLength(0);
   expect(requests.filter(request => request.method === 'PATCH')).toHaveLength(0);
+  expect(requests.filter(request => /food_business_initialize|food_business_master/.test(request.url))).toHaveLength(0);
 });
 
 async function mockMasterStore(page: Page) {
@@ -227,7 +274,7 @@ async function mockMasterStore(page: Page) {
   page.on('request', request => {
     const path = new URL(request.url()).pathname;
     // These RPCs use POST for reads/telemetry; all other writes remain forbidden.
-    const readOrTelemetry = path.endsWith('/food_log_platform_event_v1') || path.endsWith('/food_get_admin_support_contact_v1');
+    const readOrTelemetry = path.endsWith('/food_log_platform_event_v1') || path.endsWith('/food_get_admin_support_contact_v1') || path.endsWith('/food_business_status') || path.endsWith('/food_business_public');
     if (path.startsWith('/rest/v1/') && !['GET', 'HEAD', 'OPTIONS'].includes(request.method()) && !readOrTelemetry) {
       restWrites.push({ path, body: request.postDataJSON() });
     }
@@ -254,25 +301,21 @@ async function mockMasterStore(page: Page) {
   return { ...backend, credentials, modal, restWrites };
 }
 
-test('persistência REST: Master salva ramo ao confirmar alterações da loja', async ({ page }) => {
-  const { settingsWrites, credentials, modal, restWrites } = await mockMasterStore(page);
+test('persistência RPC: Master salva segmento ao confirmar sem alterar preço ou cobrança', async ({ page }) => {
+  const { settingsWrites, credentials, modal, restWrites, businessWrites } = await mockMasterStore(page);
   await modal.getByRole('button', { name: 'Salvar alterações', exact: true }).click();
   await expect(modal).toHaveCount(0);
-  const presentation = settingsWrites.filter(body => Object.hasOwn(body, 'visual_theme'));
-  expect(presentation).toHaveLength(1);
-  expect(Object.keys(presentation[0])).toEqual(['visual_theme']);
-  expect(presentation[0].visual_theme).toMatchObject({ preset: 'custom', businessSegment: 'printing3d', primaryColor: '#123456', accentColor: '#654321' });
-  expect(settingsWrites).toHaveLength(1);
-  expect(settingsWrites[0]).not.toHaveProperty('access_status');
-  expect(settingsWrites[0]).not.toHaveProperty('active');
+  expect(settingsWrites).toHaveLength(0);
+  expect(businessWrites).toEqual([{ action: 'food_business_master', body: { p_action: 'set_segment', p_store: STORE, p_data: { segment: 'printing3d' } } }]);
   expect(restWrites).toHaveLength(1);
-  expect(restWrites[0].path).toBe('/rest/v1/food_stores');
-  expect(Object.keys(restWrites[0].body)).toEqual(['visual_theme']);
+  expect(restWrites[0].path).toBe('/rest/v1/rpc/food_business_master');
+  expect(restWrites[0].body).not.toHaveProperty('plan_id');
+  expect(restWrites[0].body.p_data).not.toHaveProperty('billing_amount');
   expect(credentials).toHaveLength(0);
 });
 
 test('persistência REST: salvar credenciais no Master não publica o ramo ainda não salvo', async ({ page }) => {
-  const { settingsWrites, credentials, modal } = await mockMasterStore(page);
+  const { settingsWrites, credentials, modal, businessWrites } = await mockMasterStore(page);
   await modal.getByRole('textbox', { name: /^E-mail de acesso/ }).fill('lojista.atualizado@gmail.com');
   await modal.getByRole('button', { name: 'Salvar e-mail / senha', exact: true }).click();
   await expect(page.getByText('E-mail de acesso atualizado.', { exact: true })).toBeVisible();
@@ -281,25 +324,27 @@ test('persistência REST: salvar credenciais no Master não publica o ramo ainda
   expect(credentials[0]).toMatchObject({ storeId: STORE, email: 'lojista.atualizado@gmail.com' });
   expect(credentials[0]).not.toHaveProperty('businessSegment');
   expect(settingsWrites).toHaveLength(0);
+  expect(businessWrites).toHaveLength(0);
   await expect(modal.getByRole('radio', { name: /Impressão 3D e personalizados/ })).toBeChecked();
 });
 
-test('falha visual no cadastro mantém a conta criada e o aviso até abrir Configurações', async ({ page }) => {
+test('falha RPC no onboarding mantém conta criada e oferece concluir segmento sem duplicar cadastro', async ({ page }) => {
   const { requests } = await mockSignupPersistence(page, false, true);
   await page.goto('/cadastro?segment=printing3d');
   await fillSignup(page);
   await page.clock.install();
   await page.getByRole('button', { name: 'Criar conta e continuar', exact: true }).click();
   await expect(page.locator('.self-signup-success')).toContainText(/Conta criada/);
-  await expect(page.locator('.self-signup-success')).toContainText(/ramo não foi salvo/);
-  const review = page.getByRole('link', { name: 'Abrir configurações da loja', exact: true });
+  await expect(page.locator('.self-signup-success')).toContainText(/segmento ainda não foi configurado no servidor/);
+  const review = page.getByRole('link', { name: 'Concluir segmento e permissões', exact: true });
   await expect(review).toBeVisible();
-  await expect(review).toHaveAttribute('href', '/admin/configuracoes');
+  await expect(review).toHaveAttribute('href', '/admin/negocio');
   await page.clock.runFor(2000);
   await expect(page).toHaveURL(/\/cadastro\?segment=printing3d$/);
   await expect(review).toBeVisible();
   await expect(page.getByRole('button', { name: 'Criar conta e continuar', exact: true })).toHaveCount(0);
   expect(requests.filter(request => request.url.includes('/food-public-self-signup'))).toHaveLength(1);
   expect(requests.filter(request => request.url.includes('/auth/v1/token'))).toHaveLength(1);
-  expect(requests.filter(request => request.method === 'PATCH')).toHaveLength(1);
+  expect(requests.filter(request => request.method === 'PATCH')).toHaveLength(0);
+  expect(requests.filter(request => request.url.endsWith('/food_business_initialize'))).toHaveLength(1);
 });

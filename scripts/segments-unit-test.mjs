@@ -31,25 +31,35 @@ assert.equal(getBusinessSegment(selectBusinessSegment(custom,'rentals')).id,'ren
 assert.equal('events_enabled' in selectBusinessSegment({},'rentals'),false);
 assert.equal('combos_enabled' in selectBusinessSegment({},'printing3d'),false);
 
-// Exercise the real persistence adapter with a REST boundary, including zero-row RLS denial.
-globalThis.segmentTestState={theme:custom,requests:[],deny:false};
+// Exercise real server onboarding at the REST boundary, including failed grants.
+globalThis.segmentTestState={profile:null,requests:[],deny:false};
 const restUrl=moduleUrl(`export async function restFetch(path,options={}) {
  const state=globalThis.segmentTestState; state.requests.push({path,options});
- if(state.deny)return [];
- return options.method==='PATCH'?[{id:'store-1'}]:[{id:'store-1',visual_theme:state.theme}];
+ if(state.deny)throw new Error('RLS denied');
+ if(path==='rpc/food_business_initialize') {
+   if(state.profile&&state.profile.primary_segment!==options.body.p_segment)throw new Error('Master required');
+   state.profile={primary_segment:options.body.p_segment};return {ok:true};
+ }
+ if(path==='rpc/food_business_master'){state.profile={primary_segment:options.body.p_data.segment};return {ok:true};}
+ if(path==='rpc/food_business_status')return {profile:state.profile};
+ throw new Error('Unexpected REST write');
 }`);
-const persistence=await import(moduleUrl(compile('src/services/businessPresentation.ts').replace('../lib/supabaseRest',restUrl).replace('../segments/businessSegments',segmentUrl)));
-assert.equal(await persistence.saveNewStorePresentation('store-1','printing3d'),undefined);
-assert.deepEqual(Object.keys(globalThis.segmentTestState.requests[1].options.body),['visual_theme']);
-assert.equal(globalThis.segmentTestState.requests[1].options.body.visual_theme.primaryColor,'#112233');
+const persistence=await import(moduleUrl(compile('src/services/businessPresentation.ts').replace('../lib/supabaseRest',restUrl)));
+assert.equal(await persistence.saveNewStorePresentation('store-1','personal'),undefined);
+assert.equal(globalThis.segmentTestState.requests[0].path,'rpc/food_business_initialize');
+assert.equal(globalThis.segmentTestState.profile.primary_segment,'personal');
+assert.equal(globalThis.segmentTestState.requests.some(r=>r.options.method==='PATCH'),false);
+assert.match(await persistence.saveNewStorePresentation('store-1','creator'),/não foi configurado/);
+globalThis.segmentTestState.profile=null;globalThis.segmentTestState.requests=[];
+assert.equal(await persistence.saveNewStorePresentation('store-2','food'),undefined);
+assert.equal(globalThis.segmentTestState.profile.primary_segment,'food');
+assert.equal(globalThis.segmentTestState.requests.length,2);
 globalThis.segmentTestState.requests=[];
-await persistence.saveNewStorePresentation('store-1','food');
-assert.equal(globalThis.segmentTestState.requests.length,0);
-await persistence.saveNewStorePresentation('store-1','food',true);
-assert.equal(globalThis.segmentTestState.requests[1].options.body.visual_theme.businessSegment,'food');
-globalThis.segmentTestState.deny=true;
-globalThis.segmentTestState.requests=[];
-assert.match(await persistence.saveNewStorePresentation('store-2','retail'),/não foi salvo/);
+assert.equal(await persistence.saveNewStorePresentation('store-2','florist',true),undefined);
+assert.equal(globalThis.segmentTestState.requests[1].path,'rpc/food_business_master');
+assert.equal(globalThis.segmentTestState.requests[1].options.body.p_action,'set_segment');
+globalThis.segmentTestState.deny=true;globalThis.segmentTestState.requests=[];
+assert.match(await persistence.saveNewStorePresentation('store-3','nutrition'),/Sua conta foi preservada/);
 assert.equal(globalThis.segmentTestState.requests.length,1);
 delete globalThis.segmentTestState;
-console.log('OK ramos: seis perfis, fallback legado, Doce Lua, cores próprias, módulos independentes, persistência limitada e bloqueio por RLS');
+console.log('OK ramos: dez perfis compatíveis, sete áreas iniciais, tema legado e onboarding no servidor sem autoconcessão.');

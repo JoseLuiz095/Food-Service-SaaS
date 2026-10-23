@@ -22,10 +22,14 @@ import { copyText } from '../../utils/clipboard';
 import { getStoreReadiness } from '../../utils/storeReadiness';
 import { publicStorefrontPath, publicStorefrontUrl } from '../../utils/storefrontRoute';
 import { getBusinessSegment } from '../../segments/businessSegments';
+import { useAuth } from '../../contexts/AuthContext';
+import { useBusinessStatus } from '../../platform/useBusinessStatus';
 
 export default function Onboarding() {
   const { settings, categories, products, deliveryZones, orders, loading, error, reloadAdmin } = useStore();
   const { showToast } = useToast();
+  const {membership}=useAuth();
+  const {state:business,error:businessError}=useBusinessStatus(membership?.storeId||'');
   const [storeQrCode, setStoreQrCode] = useState('');
   const [storeQrCodeError, setStoreQrCodeError] = useState('');
   const publicPath = publicStorefrontPath(settings.slug);
@@ -107,6 +111,7 @@ export default function Onboarding() {
     </section>
 
     <div className="onboarding-layout">
+      <section className="admin-card"><span className="eyebrow">REGRAS DO NEGÓCIO</span><h2>{business?.profile?'Segmento configurado no servidor':'Conclua a configuração do segmento'}</h2><p>{business?.profile?`${getBusinessSegment(business.profile.primary_segment).label}: os módulos e as permissões são verificados no servidor. Abra a operação para cadastrar clientes, serviços e compromissos quando habilitados.`:businessError||'Escolha o segmento principal para aplicar os recursos iniciais e solicitar módulos complementares ao Master.'}</p><div className="onboarding-title__actions"><Link className="secondary-button" to="/admin/negocio">Segmento e permissões</Link>{business?.profile&&!membership?.limitedAccess&&<Link className="primary-button" to="/admin/operacao">Abrir operação</Link>}</div></section>
       <section className="admin-card onboarding-checklist">
         <div className="admin-card__header"><div><span className="eyebrow">ETAPA 1</span><h2>Configuração obrigatória</h2></div><ClipboardCheck size={22}/></div>
         <div className="onboarding-step-list">
