@@ -703,7 +703,7 @@ export const storeApi = {
     const deliveryAddress=form.fulfillment==='delivery'?[`${form.street}${form.addressNumber?`, ${form.addressNumber}`:''}`,form.complement,`${form.neighborhood}${form.deliveryCity?` - ${form.deliveryCity}`:''}${form.deliveryState?`/${form.deliveryState}`:''}`,form.zipCode?`CEP ${form.zipCode}`:'',form.referencePoint?`Referência: ${form.referencePoint}`:''].filter(Boolean).join(' | '):null;
     const payload={
       store_id:store.id,customer_name:form.customerName,customer_phone:form.customerPhone||null,customer_email:form.customerEmail||null,
-      delivery_type:form.fulfillment,delivery_address:deliveryAddress,delivery_zip_code:form.fulfillment==='delivery'?form.zipCode||null:null,
+      delivery_type:form.fulfillment,pickup_location_id:form.fulfillment==='pickup'?form.pickupLocationId||null:null,delivery_address:deliveryAddress,delivery_zip_code:form.fulfillment==='delivery'?form.zipCode||null:null,
       delivery_street:form.fulfillment==='delivery'?form.street||null:null,delivery_number:form.fulfillment==='delivery'?form.addressNumber||null:null,
       delivery_complement:form.fulfillment==='delivery'?form.complement||null:null,delivery_neighborhood:form.fulfillment==='delivery'?form.neighborhood||null:null,
       delivery_zone_id:form.fulfillment==='delivery'?form.deliveryZoneId||null:null,delivery_city:form.fulfillment==='delivery'?form.deliveryCity||null:null,
