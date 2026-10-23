@@ -97,8 +97,9 @@ export default function Checkout() {
     }).then((points) => {
       if (!active) return;
       setPickupPoints(points);
-      const preferred = points.find((point) => point.short_code === pickupShortCode) || points[0];
-      if (preferred) setForm((current) => ({ ...current, pickupLocationId: current.pickupLocationId && points.some((point) => point.id === current.pickupLocationId) ? current.pickupLocationId : preferred.id }));
+      const qrPoint = points.find((point) => point.short_code === pickupShortCode);
+      const preferred = qrPoint || points[0];
+      if (preferred) setForm((current) => ({ ...current, pickupLocationId: qrPoint ? qrPoint.id : current.pickupLocationId && points.some((point) => point.id === current.pickupLocationId) ? current.pickupLocationId : preferred.id }));
     }).catch(() => { if (active) setPickupPoints([]); });
     return () => { active = false; };
   }, [settings.id, pickupShortCode]);
