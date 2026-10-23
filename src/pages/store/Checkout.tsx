@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { TurnstileWidget } from '../../components/ui/TurnstileWidget';
 import { calculateCartSubtotal, cartItemUnitTotal, useCart } from '../../contexts/CartContext';
 import { useStore } from '../../contexts/StoreContext';
+import { restFetch } from '../../lib/supabaseRest';
 import { PLATFORM_BRAND } from '../../lib/brand';
 import { useToast } from '../../contexts/ToastContext';
 import { appConfig } from '../../lib/config';
@@ -70,6 +71,7 @@ export default function Checkout() {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [form, setForm] = useState<CheckoutData>(initial);
+  const [pickupPoints, setPickupPoints] = useState<Array<{ id: string; name: string; short_code: string; address?: string; instructions?: string }>>([]);
   const [saving, setSaving] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -86,6 +88,20 @@ export default function Checkout() {
     setSubmitError('');
     setForm((current) => ({ ...current, [key]: value }));
   };
+  useEffect(() => {
+    if (!settings.id) return;
+    let active = true;
+    void restFetch<Array<{ id: string; name: string; short_code: string; address?: string; instructions?: string }>>('rpc/food_get_public_pickup_locations_v1', {
+      method: 'POST', body: { p_store_id: settings.id },
+    }).then((points) => {
+      if (!active) return;
+      setPickupPoints(points);
+      const preferred = points.find((point) => point.short_code === searchParams.get('ponto')) || points[0];
+      if (preferred) setForm((current) => ({ ...current, pickupLocationId: current.pickupLocationId && points.some((point) => point.id === current.pickupLocationId) ? current.pickupLocationId : preferred.id }));
+    }).catch(() => { if (active) setPickupPoints([]); });
+    return () => { active = false; };
+  }, [settings.id, searchParams]);
+
   const onTurnstileToken = useCallback((token: string) => setTurnstileToken(token), []);
 
   useEffect(() => {
