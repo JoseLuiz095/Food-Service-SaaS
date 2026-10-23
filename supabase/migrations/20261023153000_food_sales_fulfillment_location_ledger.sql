@@ -498,7 +498,9 @@ begin
   begin v_pickup_id := nullif(payload->>'pickup_location_id','')::uuid; exception when others then raise exception 'Ponto de retirada inválido.'; end;
   if v_pickup_id is not null then
     if payload->>'delivery_type'<>'pickup' then raise exception 'Ponto de retirada somente para pedidos de retirada.'; end if;
-    select stock_location_id into v_location_id from public.food_pickup_locations where id=v_pickup_id and store_id=v_store.id and active and is_public;
+    select pickup.stock_location_id into v_location_id from public.food_pickup_locations pickup
+      join public.food_stock_locations location on location.id=pickup.stock_location_id and location.store_id=pickup.store_id and location.active
+      where pickup.id=v_pickup_id and pickup.store_id=v_store.id and pickup.active and pickup.is_public;
     if not found or v_location_id is null then raise exception 'Ponto de retirada sem estoque autorizado.'; end if;
   end if;
   if payload->>'delivery_type'='delivery' and not v_store.delivery_enabled then raise exception 'Delivery indisponível.'; end if;
@@ -616,4 +618,22 @@ begin
 end;
 $function$;
 
+-- Only configured points are displayed to customers.
+create or replace function public.food_get_public_pickup_locations_v1(p_store_id uuid)
+returns jsonb language plpgsql stable security definer set search_path=''
+as $
+begin
+  if not public.food_store_accessible(p_store_id) then return '[]'::jsonb; end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id',p.id,'name',p.name,'short_code',p.short_code,
+      'address',p.address,'instructions',p.instructions
+    ) order by p.sort_order,p.name)
+    from public.food_pickup_locations p
+    join public.food_stock_locations l on l.id=p.stock_location_id and l.store_id=p.store_id and l.active
+    where p.store_id=p_store_id and p.active and p.is_public
+  ),'[]'::jsonb);
+end;
+$;
+notify pgrst,'reload schema';
 commit;
