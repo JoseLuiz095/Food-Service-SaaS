@@ -1,5 +1,5 @@
 import { appConfig, isDemoMode } from '../lib/config';
-import { invokePublicFunction, restFetch, storageDelete, storageUpload } from '../lib/supabaseRest';
+import { invokePublicFunction, restFetch, storageDelete, storageUpload, SupabaseHttpError } from '../lib/supabaseRest';
 import { seedAddons, seedCategories, seedDeliveryZones, seedOrders, seedPlan, seedProducts, seedSettings } from '../data/seed';
 import type {
   Addon, CartItem, Category, CheckoutData, CheckoutSecurityContext, CreateOrderResult, DeliveryZone,
@@ -634,7 +634,7 @@ export const storeApi = {
    * Evita reenviar opções, imagens e configurações de festa quando o admin
    * usa os botões rápidos de estoque.
    */
-  async updateProductStock(storeId: string, productId: string, input: { mode: 'set' | 'add' | 'remove'; quantity: number; reason: string }): Promise<Pick<Product, 'stockQuantity' | 'stockReservedQuantity' | 'stockStatus' | 'availabilityStatus'>> {
+  async updateProductStock(storeId: string, productId: string, input: { mode: 'set' | 'add' | 'remove'; quantity: number; reason: string; idempotencyKey?: string }): Promise<Pick<Product, 'stockQuantity' | 'stockReservedQuantity' | 'stockStatus' | 'availabilityStatus'>> {
     if (!productId || !Number.isSafeInteger(input.quantity) || input.quantity < 0 || !input.reason.trim()) throw new Error('Informe uma quantidade e um motivo válidos.');
     if (isDemoMode) {
       const db = readDemo();
@@ -649,10 +649,20 @@ export const storeApi = {
       writeDemo(db);
       return updated;
     }
-    const result = await restFetch<{ stock_quantity: number; stock_reserved_quantity: number; stock_status: Product['stockStatus']; availability_status: Product['availabilityStatus'] }>('rpc/food_adjust_product_stock_v1', {
-      method: 'POST',
-      body: { p_store_id: storeId, p_product_id: productId, p_mode: input.mode, p_quantity: input.quantity, p_reason: input.reason.trim(), p_idempotency_key: createId() },
-    });
+    let result: { stock_quantity: number; stock_reserved_quantity: number; stock_status: Product['stockStatus']; availability_status: Product['availabilityStatus'] };
+    try {
+      result = await restFetch<typeof result>('rpc/food_adjust_product_stock_v1', {
+        method: 'POST',
+        body: { p_store_id: storeId, p_product_id: productId, p_mode: input.mode, p_quantity: input.quantity, p_reason: input.reason.trim(), p_idempotency_key: input.idempotencyKey || createId() },
+      });
+    } catch (error) {
+      const missingFunction = error instanceof SupabaseHttpError
+        && (error.details === 'PGRST202' || /Could not find the function public\.food_adjust_product_stock_v1/i.test(error.message));
+      if (missingFunction) {
+        throw new Error('O ajuste de estoque ainda não está disponível no banco conectado. A migration 20261023101500_food_product_stock_adjustments precisa estar aplicada e o cache do PostgREST atualizado. Nenhum ajuste foi confirmado.');
+      }
+      throw error;
+    }
     if (!result || !Number.isFinite(result.stock_quantity)) throw new Error('O servidor não retornou o estoque atualizado.');
     return { stockQuantity: result.stock_quantity, stockReservedQuantity: result.stock_reserved_quantity, stockStatus: result.stock_status, availabilityStatus: result.availability_status };
   },
