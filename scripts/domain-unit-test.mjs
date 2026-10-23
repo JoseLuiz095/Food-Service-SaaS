@@ -8,6 +8,7 @@ const brandUrl = moduleUrl(compile('src/lib/brand.ts'));
 const brand = await import(brandUrl);
 const routes = await import(moduleUrl(compile('src/utils/storefrontRoute.ts').replace('../lib/brand', brandUrl)));
 const config = await import(moduleUrl(compile('src/lib/config.ts').replace('./brand', brandUrl).replaceAll('import.meta.env', '({})')));
+const storeHours = await import(moduleUrl(compile('src/utils/storeHours.ts')));
 const { canonicalPlatformRedirect: redirect, PLATFORM_URL } = brand;
 const legacy = brand.LEGACY_PLATFORM_ORIGIN;
 
@@ -61,4 +62,8 @@ assert.equal(config.isFoodWebMarketingRoot('/', 'pedidos.docelua.com.br'), false
 assert.equal(brand.platformOrigin('https://pedidos.docelua.com.br'), PLATFORM_URL);
 assert.equal(brand.platformOrigin('https://vendeweb.com.br'), PLATFORM_URL);
 assert.equal(brand.platformOrigin('http://localhost:5174'), 'http://localhost:5174');
+assert.equal(storeHours.storeDateKey(new Date('2026-10-23T01:30:00.000Z'),'America/Sao_Paulo'),'2026-10-22');
+assert.equal(storeHours.storeDateKey(new Date('2026-10-23T01:30:00.000Z'),'UTC'),'2026-10-23');
+assert.equal(storeHours.storeDateKey(new Date('2026-10-23T01:30:00.000Z'),'invalid/timezone'),'2026-10-22');
+assert.match(storeHours.storeDateLabel(new Date('2026-10-23T01:30:00.000Z'),'America/Sao_Paulo'),/qui/);
 console.log('OK domínio: canônico www, marketing root, links públicos/customizados, convite/recuperação, aliases com query/hash, proteção contra open redirect e preservação de compras na origem antiga.');

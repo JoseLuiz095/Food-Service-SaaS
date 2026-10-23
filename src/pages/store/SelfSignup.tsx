@@ -116,7 +116,7 @@ export default function SelfSignup(){
           <button type="button" aria-pressed={mode==='existing'} className={mode==='existing'?'active':''} onClick={()=>{setMode('existing');setError('')}}>Já tenho conta</button>
         </div>
         <form onSubmit={submit}>
-          <div className="self-signup-heading"><UserPlus size={22}/><div><h2>{mode==='new'?'Novo cadastro':'Usar uma conta existente'}</h2><p>{mode==='new'?'Você poderá confirmar o e-mail antes da ativação.':`Entre com seu usuário Supabase e solicite um novo acesso à ${PLATFORM_BRAND}.`}</p></div></div>
+          <div className="self-signup-heading"><UserPlus size={22}/><div><h2>{mode==='new'?'Novo cadastro':'Usar uma conta existente'}</h2><p>{mode==='new'?'Após a verificação de segurança, sua conta é criada. Você prepara a loja e aguarda a revisão do Admin Master antes da publicação.':`Entre com seu usuário Supabase e solicite um novo acesso à ${PLATFORM_BRAND}.`}</p></div></div>
           <ol className="self-signup-progress" aria-label="Etapas até a publicação"><li><Store size={14} aria-hidden="true"/>Prepare sua loja</li><li><ShieldCheck size={14} aria-hidden="true"/>Aguarde a revisão</li><li><Check size={14} aria-hidden="true"/>Comece após a liberação</li></ol>
 
           <label>Nome do estabelecimento<input required value={form.storeName} onChange={(e)=>setField('storeName',e.target.value)} placeholder="Ex.: Sua loja ou ateliê"/></label>

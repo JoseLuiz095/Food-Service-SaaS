@@ -69,6 +69,28 @@ export const normalizeOpeningSchedule = (value: unknown): OpeningSchedule => {
   };
 };
 
+const validTimeZone = (timezone: string) => {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format(new Date(0));
+    return timezone;
+  } catch {
+    return DEFAULT_OPENING_SCHEDULE.timezone;
+  }
+};
+
+/** Returns a calendar day in the store's configured timezone, not the operator's device timezone. */
+export const storeDateKey = (date: Date, timezone: string) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: validTimeZone(timezone), year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+};
+
+export const storeDateLabel = (date: Date, timezone: string) => new Intl.DateTimeFormat('pt-BR', {
+  timeZone: validTimeZone(timezone), weekday: 'short', day: '2-digit', month: 'short',
+}).format(date);
+
 const minutes = (time: string) => {
   const [h,m] = time.split(':').map(Number);
   return h * 60 + m;
