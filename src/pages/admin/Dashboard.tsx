@@ -31,9 +31,11 @@ export default function Dashboard(){
   const processingOrders=orders.filter((order)=>activeOrder(order)&&order.paymentStatus==='paid');
   const pendingPayments=orders.filter((order)=>activeOrder(order)&&order.paymentStatus!=='paid');
   const scheduledToday=orders.filter((order)=>activeOrder(order)&&order.scheduledFor&&storeDateKey(new Date(order.scheduledFor),timezone)===todayKey);
-  const paidToday=orders.filter((order)=>order.paymentStatus==='paid'&&storeDateKey(new Date(order.createdAt),timezone)===todayKey);
+  const paidToday=orders.filter((order)=>order.status!=='cancelled'&&order.paymentStatus==='paid'&&order.paymentReceivedAt&&storeDateKey(new Date(order.paymentReceivedAt),timezone)===todayKey);
   const revenueToday=paidToday.reduce((total,order)=>total+Number(order.total||0),0);
   const pendingAmount=pendingPayments.reduce((total,order)=>total+Number(order.total||0),0);
+  const soldToday=orders.filter((order)=>order.status!=='cancelled'&&storeDateKey(new Date(order.createdAt),timezone)===todayKey);
+  const soldAmount=soldToday.reduce((total,order)=>total+Number(order.total||0),0);
   const lowStockProducts=products.filter((product)=>{if(!product.trackStock)return false;const available=Math.max(0,Number(product.stockQuantity||0)-Number(product.stockReservedQuantity||0));return product.stockStatus==='low_stock'||available<=3;});
   const cards=[
     {label:'Produtos cadastrados',value:products.length,icon:Boxes},
