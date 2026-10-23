@@ -613,10 +613,10 @@ export const storeApi = {
   },
   async deleteDeliveryZone(id:string){if(isDemoMode){const db=readDemo();db.deliveryZones=db.deliveryZones.filter((zone)=>zone.id!==id);writeDemo(db);return;}await restFetch<unknown>(`food_delivery_zones?id=eq.${encode(id)}`,{method:'DELETE'});},
 
-  async saveProduct(product: Product): Promise<Product> {
+  async saveProduct(product: Product, options: { isNew?: boolean } = {}): Promise<Product> {
     if(isDemoMode){const db=readDemo();const existing=db.products.find((item)=>item.id===product.id);const activeCount=db.products.filter((item)=>item.active&&item.id!==product.id).length;const limit=db.planUsage.plan.productLimit;if(product.active&&limit!=null&&activeCount>=limit)throw new Error(`Seu plano permite até ${limit} produtos ativos.`);db.products=existing?db.products.map((item)=>item.id===product.id?clone(product):item):[clone(product),...db.products];writeDemo(db);return product;}
     const partyConfig = product.partyOrderConfig?.enabled ? product.partyOrderConfig : undefined;
-    const payload={id:product.id,store_id:product.storeId,category_id:product.categoryId,name:product.name,slug:product.slug||slugify(product.name),description:product.description,price:product.price,promotional_price:product.promotionalPrice??null,active:product.active,featured:product.featured,made_to_order:Boolean(partyConfig?.enabled || product.madeToOrder),production_days:partyConfig?.leadTimeDays ?? product.productionDays ?? 0,stock_status:product.availabilityStatus==='available'?(product.trackStock&&Number(product.stockQuantity||0)<=0?'low_stock':product.stockStatus==='unavailable'?'available':product.stockStatus):'unavailable',internal_code:product.internalCode||null,visual_emoji:product.visualEmoji?.trim()||null,availability_status:product.availabilityStatus,track_stock:product.trackStock,stock_quantity:product.trackStock?product.stockQuantity??0:null,preparation_time_minutes:product.preparationTimeMinutes,sort_order:product.sortOrder,party_order_enabled:Boolean(partyConfig?.enabled),party_price_per_gram:partyConfig?.pricePerGram ?? null,party_package_weight_grams:partyConfig?.packageWeightGrams ?? null,party_minimum_packages:partyConfig?.minimumPackages ?? 1,party_lead_time_days:partyConfig?.leadTimeDays ?? 0,party_artwork_instructions:partyConfig?.artworkInstructions?.trim() || null,party_artwork_url:null,default_order_status:product.defaultOrderStatus || 'received'};
+    const payload={id:product.id,store_id:product.storeId,category_id:product.categoryId,name:product.name,slug:product.slug||slugify(product.name),description:product.description,price:product.price,promotional_price:product.promotionalPrice??null,active:product.active,featured:product.featured,made_to_order:Boolean(partyConfig?.enabled || product.madeToOrder),production_days:partyConfig?.leadTimeDays ?? product.productionDays ?? 0,...(options.isNew?{stock_status:product.availabilityStatus==='available'?(product.trackStock&&Number(product.stockQuantity||0)<=0?'low_stock':product.stockStatus==='unavailable'?'available':product.stockStatus):'unavailable',stock_quantity:product.trackStock?product.stockQuantity??0:null}:{}),internal_code:product.internalCode||null,visual_emoji:product.visualEmoji?.trim()||null,availability_status:product.availabilityStatus,track_stock:product.trackStock,preparation_time_minutes:product.preparationTimeMinutes,sort_order:product.sortOrder,party_order_enabled:Boolean(partyConfig?.enabled),party_price_per_gram:partyConfig?.pricePerGram ?? null,party_package_weight_grams:partyConfig?.packageWeightGrams ?? null,party_minimum_packages:partyConfig?.minimumPackages ?? 1,party_lead_time_days:partyConfig?.leadTimeDays ?? 0,party_artwork_instructions:partyConfig?.artworkInstructions?.trim() || null,party_artwork_url:null,default_order_status:product.defaultOrderStatus || 'received'};
     await restFetch<ProductRow[]>('food_products?on_conflict=id&select=*',{method:'POST',body:payload,prefer:'resolution=merge-duplicates,return=representation'});
 
     await restFetch<unknown>(`food_product_option_groups?product_id=eq.${encode(product.id)}`,{method:'DELETE'});
@@ -634,21 +634,27 @@ export const storeApi = {
    * Evita reenviar opções, imagens e configurações de festa quando o admin
    * usa os botões rápidos de estoque.
    */
-  async updateProductStock(storeId: string, productId: string, input: { stockQuantity: number; stockStatus: Product['stockStatus']; availabilityStatus: Product['availabilityStatus'] }): Promise<void> {
-    const stockQuantity = Math.max(0, Math.trunc(Number(input.stockQuantity)));
-    if (!productId || !Number.isFinite(stockQuantity)) throw new Error('Informe um estoque válido.');
+  async updateProductStock(storeId: string, productId: string, input: { mode: 'set' | 'add' | 'remove'; quantity: number; reason: string }): Promise<Pick<Product, 'stockQuantity' | 'stockReservedQuantity' | 'stockStatus' | 'availabilityStatus'>> {
+    if (!productId || !Number.isSafeInteger(input.quantity) || input.quantity < 0 || !input.reason.trim()) throw new Error('Informe uma quantidade e um motivo válidos.');
     if (isDemoMode) {
       const db = readDemo();
-      db.products = db.products.map((product) => product.id === productId ? { ...product, stockQuantity, stockStatus: input.stockStatus, availabilityStatus: input.availabilityStatus } : product);
+      const current = db.products.find((product) => product.id === productId);
+      if (!current?.trackStock) throw new Error('Produto não encontrado ou sem controle de estoque.');
+      const physical = Number(current.stockQuantity || 0); const reserved = Number(current.stockReservedQuantity || 0);
+      const stockQuantity = input.mode === 'set' ? input.quantity : input.mode === 'add' ? physical + input.quantity : physical - input.quantity;
+      if (stockQuantity < reserved) throw new Error(`O estoque físico não pode ficar abaixo das ${reserved} unidade(s) reservadas.`);
+      const available = stockQuantity - reserved;
+      const updated = { stockQuantity, stockReservedQuantity: reserved, stockStatus: (available <= 3 ? 'low_stock' : 'available') as Product['stockStatus'], availabilityStatus: (available === 0 ? 'sold_out' : 'available') as Product['availabilityStatus'] };
+      db.products = db.products.map((product) => product.id === productId ? { ...product, ...updated } : product);
       writeDemo(db);
-      return;
+      return updated;
     }
-    const rows = await restFetch<Array<{ id: string }>>(`food_products?id=eq.${encode(productId)}&store_id=eq.${encode(storeId)}&select=id`, {
-      method: 'PATCH',
-      body: { stock_quantity: stockQuantity, stock_status: input.stockStatus, availability_status: input.availabilityStatus },
-      prefer: 'return=representation',
+    const result = await restFetch<{ stock_quantity: number; stock_reserved_quantity: number; stock_status: Product['stockStatus']; availability_status: Product['availabilityStatus'] }>('rpc/food_adjust_product_stock_v1', {
+      method: 'POST',
+      body: { p_store_id: storeId, p_product_id: productId, p_mode: input.mode, p_quantity: input.quantity, p_reason: input.reason.trim(), p_idempotency_key: createId() },
     });
-    if (!rows[0]) throw new Error('O produto não foi encontrado ou o estoque não pôde ser atualizado.');
+    if (!result || !Number.isFinite(result.stock_quantity)) throw new Error('O servidor não retornou o estoque atualizado.');
+    return { stockQuantity: result.stock_quantity, stockReservedQuantity: result.stock_reserved_quantity, stockStatus: result.stock_status, availabilityStatus: result.availability_status };
   },
 
   async deleteProduct(id:string){

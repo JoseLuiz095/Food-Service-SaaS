@@ -86,7 +86,7 @@ type BeforeInstallPromptEvent = Event & {
 };
 
 export default function AdminLayout() {
-  const { settings, planUsage, dataMode } = useStore();
+  const { settings, planUsage, dataMode, products } = useStore();
   const { user, signOut, platformAdmin, membership, memberships, selectStore } = useAuth();
   const {state:business}=useBusinessStatus(membership?.storeId||'');
   const navigate = useNavigate();
@@ -95,7 +95,7 @@ export default function AdminLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [billingOverview, setBillingOverview] = useState<StoreBillingOverview | null>(null);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const segment = getBusinessSegment(settings.visualTheme);
+  const segment = getBusinessSegment(business?.profile?.primary_segment || settings.visualTheme);
   const segmentPresentation = segment.id !== 'food' && settings.visualTheme.preset !== 'doce_lua';
   const logoUrl = segmentPresentation && isDefaultStoreImage(settings.logoUrl) ? '/assets/placeholder-catalog.svg' : settings.logoUrl;
   const theme = resolveBusinessTheme(settings.visualTheme);
@@ -200,7 +200,11 @@ export default function AdminLayout() {
           {business?.profile&&['clients','appointments','creator','training','nutrition'].some(code=>moduleIsActive(business,code as 'clients'|'appointments'|'creator'|'training'|'nutrition'))&&!membership?.limitedAccess&&<div className="admin-nav__group"><span className="admin-nav__label">Rotina do negócio</span><NavLink to="/admin/operacao" onClick={()=>setOpen(false)}><LayoutDashboard size={18}/><span className="admin-nav-text">{getBusinessSegment(business.profile.primary_segment).adminTitle}</span></NavLink></div>}
           {navSections.map((section) => {
             const preparationNavAllowed = new Set(['/admin','/admin/primeiros-passos','/admin/produtos','/admin/estoque','/admin/categorias','/admin/entregas','/admin/configuracoes','/admin/negocio']);
-            const items = section.items.filter((item) => (!item.requiresFeature || planHasFeature(planUsage.plan, item.requiresFeature)) && (!membership?.limitedAccess || preparationNavAllowed.has(item.to)));
+            const deliverySegments = ['food', 'confectionery', 'retail', 'printing3d', 'rentals', 'florist'];
+            const items = section.items.filter((item) => (!item.requiresFeature || planHasFeature(planUsage.plan, item.requiresFeature))
+              && (!membership?.limitedAccess || preparationNavAllowed.has(item.to))
+              && (item.to !== '/admin/entregas' || deliverySegments.includes(segment.id))
+              && (item.to !== '/admin/estoque' || deliverySegments.includes(segment.id) || products.some((product) => product.trackStock)));
             if (!items.length) return null;
             return (
               <div className="admin-nav__group" key={section.label}>

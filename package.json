@@ -13,7 +13,7 @@
     "preview": "vite preview",
     "validate": "npm run smoke && npm run test:critical && npm run test:segments && npm run test:domains && npm run test:pwa && npm run test:notifications && npm run test:security && npm run test:integrations && npm run test:platform && npm run test:provision && npm run build",
     "test:notifications": "node --test scripts/notification-delivery-test.mjs",
-    "test:integrations": "node scripts/integration-repair-db-test.mjs && node scripts/tenant-write-guards-db-test.mjs",
+    "test:integrations": "node scripts/integration-repair-db-test.mjs && node scripts/tenant-write-guards-db-test.mjs && node scripts/product-stock-db-test.mjs",
     "test:domains": "node scripts/domain-unit-test.mjs",
     "test:pwa": "node scripts/pwa-security.mjs",
     "test:security": "node scripts/security-unit-test.mjs",

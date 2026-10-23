@@ -134,6 +134,7 @@ export default function OrdersAdmin() {
   const [dismissedRecoveryIds, setDismissedRecoveryIds] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+  const [refreshError, setRefreshError] = useState('');
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
@@ -503,8 +504,10 @@ export default function OrdersAdmin() {
     try {
       await reloadOrders({ silent: true });
       setLastUpdatedAt(new Date());
+      setRefreshError('');
     } catch (refreshError) {
       console.error('Não foi possível atualizar os pedidos em segundo plano:', refreshError);
+      setRefreshError('Falha ao atualizar pedidos. Os dados exibidos podem estar desatualizados.');
     } finally {
       refreshingRef.current = false;
       setRefreshing(false);
@@ -908,7 +911,7 @@ export default function OrdersAdmin() {
         </div>
         {showSaveFilter && <form className="orders-save-filter" onSubmit={(event) => { event.preventDefault(); saveCurrentFilter(); }}><input value={saveFilterName} onChange={(event) => setSaveFilterName(event.target.value)} placeholder="Ex.: Pendentes de hoje" aria-label="Nome do filtro" autoFocus/><button type="submit" className="primary-button compact-button">Salvar</button></form>}
         {savedFilters.length > 0 && <div className="orders-saved-filters" aria-label="Filtros salvos">{savedFilters.map((filter) => <span key={filter.id}><button type="button" onClick={() => applySavedFilter(filter)}>{filter.name}</button><button type="button" className="orders-saved-filters__remove" onClick={() => removeSavedFilter(filter.id)} aria-label={`Remover filtro ${filter.name}`}><X size={12}/></button></span>)}</div>}
-        <div className="orders-toolbar__sync" aria-live="polite"><span>{pendingOrders.length} no Financeiro · {processingOrders.length} em processamento · {historyOrders.length} no histórico</span>{scheduledDateFilter && <button type="button" className="orders-active-filter" onClick={clearScheduledFilter}><CalendarDays size={14}/>Agendados: {scheduledFilterLabel}<Slash size={14}/></button>}<small>{lastUpdatedAt ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualização automática ativa'}</small><button type="button" className="secondary-button compact-button" onClick={() => void refreshOrders()} disabled={refreshing} aria-busy={refreshing}><RefreshCw size={15} className={refreshing ? 'spin' : ''}/>{refreshing ? 'Atualizando...' : 'Atualizar'}</button></div>
+        <div className="orders-toolbar__sync" aria-live="polite"><span>{pendingOrders.length} no Financeiro · {processingOrders.length} em processamento · {historyOrders.length} no histórico</span>{scheduledDateFilter && <button type="button" className="orders-active-filter" onClick={clearScheduledFilter}><CalendarDays size={14}/>Agendados: {scheduledFilterLabel}<Slash size={14}/></button>}{refreshError ? <strong className="orders-refresh-error" role="status">{refreshError}</strong> : <small>{lastUpdatedAt ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualização automática ativa'}</small>}<button type="button" className="secondary-button compact-button" onClick={() => void refreshOrders()} disabled={refreshing} aria-busy={refreshing}><RefreshCw size={15} className={refreshing ? 'spin' : ''}/>{refreshing ? 'Atualizando...' : refreshError ? 'Tentar novamente' : 'Atualizar'}</button></div>
       </div>
       {highlightedOrderId && <div className="highlight-order-banner">O pedido relacionado vindo do Financeiro foi destacado abaixo.</div>}
        {filtered.length === 0 ? <div className="admin-empty"><ShoppingBag size={32}/><strong>Nenhum pedido encontrado</strong><span>Ajuste os filtros ou aguarde o próximo pedido.</span></div> : (processingOrders.length === 0 && historyOrders.length === 0) ? <div className="admin-empty"><CircleDollarSign size={32}/><strong>Pedidos pendentes no Financeiro</strong><span>Os pedidos aguardando pagamento ficam exclusivamente no card “A receber do cliente” acima.</span></div> : <>
