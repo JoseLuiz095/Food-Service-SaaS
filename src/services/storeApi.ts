@@ -823,6 +823,8 @@ export const storeApi = {
         body: {
           payload: {
             store_id: store.id,
+            stock_location_id: input.stockLocationId || null,
+            admin_request_id: input.requestId || null,
             customer_name: input.customerName.trim(),
             customer_phone: input.customerPhone?.trim() || null,
             delivery_type: input.fulfillment || 'pickup',
