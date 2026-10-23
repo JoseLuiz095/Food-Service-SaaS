@@ -243,8 +243,7 @@ begin
      where id = v_item.product_id;
     update public.food_order_items set inventory_reserved_quantity = 0 where id = v_item.id;
     insert into public.food_order_stock_movements(store_id,order_id,order_item_id,product_id,location_id,event_type,quantity)
-    values(v_order.store_id,v_order.id,v_item.id,v_item.product_id,v_location_id,'sale',v_item.quantity)
-    ;
+    values(v_order.store_id,v_order.id,v_item.id,v_item.product_id,v_location_id,'sale',v_item.quantity);
     perform set_config('food.order_stock_location',coalesce(v_previous_location,''),true);
   end loop;
 
