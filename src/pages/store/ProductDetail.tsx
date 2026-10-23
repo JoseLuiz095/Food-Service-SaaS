@@ -201,7 +201,9 @@ export default function ProductDetail() {
     addItem(product, quantity, selectedOptions, partyConfig ? { partyPackageWeightGrams: selectedPartyWeight } : undefined);
     void trackPublicEvent(settings.id, 'add_to_cart', product.id);
     if (quick) {
-      navigate(`${storefrontPath(storeBasePath, '/finalizar')}?quick=${encodeURIComponent(cartItemIdFor(product.id, selectedOptions, selectedPartyWeight))}&qty=${quantity}`);
+      const params = new URLSearchParams({ quick: cartItemIdFor(product.id, selectedOptions, selectedPartyWeight), qty: String(quantity) });
+      if (searchParams.get('ponto')) params.set('ponto', searchParams.get('ponto')!);
+      navigate(`${storefrontPath(storeBasePath, '/finalizar')}?${params.toString()}`);
     } else {
       showToast('Produto adicionado ao carrinho.', 'success');
       navigate(storefrontPath(storeBasePath, '/carrinho'));
