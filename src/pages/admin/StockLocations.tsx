@@ -94,7 +94,7 @@ export default function StockLocationsAdmin() {
   if (error && !locations.length) return <ErrorState message={error || "Locais indisponíveis."} onRetry={() => void refresh()} />;
   return <main className="admin-page">
     <header className="page-header"><div><span className="eyebrow">ESTOQUE</span><h1>Locais de estoque</h1><p>Consulte saldos, ajuste quantidades e transfira produtos com registro de operação.</p></div>
-      <button className="button button-secondary" onClick={() => void refresh()} disabled={saving}><RefreshCw size={16}/> Atualizar</button></header>
+      <button className="secondary-button" onClick={() => void refresh()} disabled={saving}><RefreshCw size={16}/> Atualizar</button></header>
     {error && <div className="inline-alert inline-alert-error">{error}</div>}
     <section className="admin-card">
       <div className="section-heading"><div><h2>Locais cadastrados</h2><p>O estoque existente foi preservado no local principal.</p></div><Warehouse size={20}/></div>
@@ -105,7 +105,7 @@ export default function StockLocationsAdmin() {
       <form className="stock-location-create" onSubmit={submitLocation}>
         <label>Nome do local<input value={newName} onChange={(event) => setNewName(event.target.value)} maxLength={80} placeholder="Ex.: Loja Centro, Veículo 1" required/></label>
         <label>Tipo<select value={newType} onChange={(event) => setNewType(event.target.value as StockLocation['location_type'])}><option value="warehouse">Depósito</option><option value="store">Loja</option><option value="vehicle">Carga móvel</option><option value="pickup">Retirada</option></select></label>
-        <button className="button button-primary" disabled={saving || !newName.trim()}><Plus size={16}/> Adicionar local</button>
+        <button className="primary-button" disabled={saving || !newName.trim()}><Plus size={16}/> Adicionar local</button>
       </form>
     </section>
     <section className="admin-card">
@@ -121,7 +121,7 @@ export default function StockLocationsAdmin() {
           <label>Local<select value={locationId} onChange={(event) => setLocationId(event.target.value)}>{locations.filter((item) => item.active).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
           <label>Novo saldo<input type="number" min="0" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} required/></label>
           <label>Motivo<input maxLength={160} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Ex.: Contagem semanal" required/></label>
-          <button className="button button-primary" disabled={saving || !selectedProduct}>{saving ? <LoaderCircle size={16} className="spin"/> : null} Salvar contagem</button>
+          <button className="primary-button" disabled={saving || !selectedProduct}>{saving ? <LoaderCircle size={16} className="spin"/> : null} Salvar contagem</button>
         </form>
       </section>
       <section className="admin-card"><h2>Transferir produtos</h2><p>Quantidade reservada não pode sair da origem.</p>
@@ -131,7 +131,7 @@ export default function StockLocationsAdmin() {
           <label>Destino<select value={toId} onChange={(event) => setToId(event.target.value)}>{locations.filter((item) => item.active && item.id !== fromId).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
           <label>Quantidade<input type="number" min="1" step="1" value={transferQty} onChange={(event) => setTransferQty(event.target.value)} required/></label>
           <label>Motivo<input maxLength={160} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Ex.: Reposição da unidade" required/></label>
-          <button className="button button-primary" disabled={saving || !selectedProduct || !toId || fromId===toId}><ArrowLeftRight size={16}/> Transferir</button>
+          <button className="primary-button" disabled={saving || !selectedProduct || !toId || fromId===toId}><ArrowLeftRight size={16}/> Transferir</button>
         </form>
       </section>
     </div>
