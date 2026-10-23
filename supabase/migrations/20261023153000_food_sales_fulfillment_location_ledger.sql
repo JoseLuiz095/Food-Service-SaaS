@@ -204,6 +204,11 @@ begin
   select * into v_order from public.food_orders where id = p_order_id for update;
   if not found then raise exception 'Pedido não encontrado.'; end if;
   if v_order.status = 'cancelled' or v_order.inventory_status = 'released' then return; end if;
+  if exists (
+    select 1 from public.food_order_items i join public.food_products p on p.id=i.product_id
+    where i.order_id=p_order_id and p.track_stock and i.inventory_reserved_quantity<>i.quantity
+      and not exists(select 1 from public.food_order_stock_movements m where m.order_item_id=i.id and m.event_type='sale')
+  ) then raise exception 'Itens sem reserva integral; revise o pedido antes de entregar.' using errcode='23514'; end if;
 
   for v_item in
     select oi.id, oi.product_id, oi.quantity, oi.inventory_reserved_quantity
@@ -359,9 +364,7 @@ begin
     if new.inventory_status='awaiting_restock' then
       raise exception 'Não é possível concluir a entrega enquanto houver estoque pendente.' using errcode='23514';
     end if;
-    if new.inventory_status not in ('committed','not_tracked') then
-      perform public.food_commit_order_inventory(new.id);
-    end if;
+    perform public.food_commit_order_inventory(new.id);
   end if;
   return new;
 end;
