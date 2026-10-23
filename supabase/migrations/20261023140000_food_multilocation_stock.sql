@@ -51,15 +51,15 @@ create table if not exists public.food_stock_location_movements (
   from_location_id uuid,
   to_location_id uuid,
   movement_type text not null check (movement_type in ('adjust','transfer')),
-  quantity integer not null check (quantity > 0),
+  quantity integer not null check (quantity >= 0),
   request_payload jsonb not null default '{}'::jsonb,
   reason text not null check (length(trim(reason)) between 1 and 160),
   idempotency_key uuid not null,
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   check (
-    (movement_type='adjust' and from_location_id is null and to_location_id is not null)
-    or (movement_type='transfer' and from_location_id is not null and to_location_id is not null and from_location_id <> to_location_id)
+    (movement_type='adjust' and quantity>=0 and from_location_id is null and to_location_id is not null)
+    or (movement_type='transfer' and quantity>0 and from_location_id is not null and to_location_id is not null and from_location_id <> to_location_id)
   ),
   foreign key (from_location_id, store_id) references public.food_stock_locations(id, store_id),
   foreign key (to_location_id, store_id) references public.food_stock_locations(id, store_id),
@@ -242,7 +242,6 @@ begin
     from public.food_product_location_stock where product_id=p_product_id and location_id=p_location_id for update;
   if not found then raise exception 'Local de estoque não encontrado.' using errcode='22023'; end if;
   if p_quantity<v_reserved then raise exception 'O saldo não pode ficar abaixo das unidades reservadas.' using errcode='22023'; end if;
-  if p_quantity=v_before then return jsonb_build_object('stock_quantity',coalesce(v_product.stock_quantity,0),'location_stock',p_quantity,'unchanged',true); end if;
   update public.food_product_location_stock set stock_quantity=p_quantity,updated_at=now()
     where product_id=p_product_id and location_id=p_location_id;
   select sum(stock_quantity)::integer into v_total from public.food_product_location_stock where product_id=p_product_id;
@@ -253,7 +252,7 @@ begin
    where id=p_product_id and store_id=p_store_id;
   perform set_config('food.stock_location_sync','off',true);
   insert into public.food_stock_location_movements(store_id,product_id,to_location_id,movement_type,quantity,request_payload,reason,idempotency_key,created_by)
-    values(p_store_id,p_product_id,p_location_id,'adjust',greatest(abs(p_quantity-v_before),1),jsonb_build_object('quantity',p_quantity,'reason',trim(p_reason)),trim(p_reason),p_idempotency_key,(select auth.uid()));
+    values(p_store_id,p_product_id,p_location_id,'adjust',abs(p_quantity-v_before),jsonb_build_object('quantity',p_quantity,'reason',trim(p_reason)),trim(p_reason),p_idempotency_key,(select auth.uid()));
   return jsonb_build_object('stock_quantity',v_total,'location_stock',p_quantity);
 end;
 $$;
