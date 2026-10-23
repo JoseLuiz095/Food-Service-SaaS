@@ -467,6 +467,8 @@ export type ManualOrderInput = {
   scheduledFor?: string;
   notes?: string;
   items: ManualOrderItemInput[];
+  stockLocationId?: string;
+  requestId?: string;
 };
 
 export type OrderConfirmation = {
