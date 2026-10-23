@@ -118,16 +118,31 @@
 .food-sales-page--segments .sales-section-heading > span { color: #6b7566; font-size: 10px; letter-spacing: .13em; }
 .food-sales-page--segments .sales-section-heading p { color: var(--commercial-muted); }
 .food-sales-page--segments .sales-plans { padding: 70px 0; background: #f4f4ec; border-top: 1px solid var(--commercial-line); }
-.food-sales-page--segments .sales-plan-grid { gap: 14px; }
+.food-sales-page--segments .sales-plan-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px;
+}
+.food-sales-page--segments .sales-plan-grid > .sales-plan-card {
+  flex: 1 1 280px;
+  min-width: 0;
+  max-width: calc((100% - 36px) / 3);
+}
+@media (max-width: 1160px) {
+  .food-sales-page--segments .sales-plan-grid > .sales-plan-card {
+    max-width: calc((100% - 18px) / 2);
+  }
+}
+@media (max-width: 680px) {
+  .food-sales-page--segments .sales-plan-grid > .sales-plan-card {
+    max-width: 100%;
+  }
+}
 .food-sales-page--segments .sales-plan-card { padding: 23px 20px; border-radius: 10px; box-shadow: none; border-color: #dadfd1; }
 .food-sales-page--segments .sales-plan-card.recommended { border-color: #7e8f6c; border-width: 2px; box-shadow: none; }
 .food-sales-page--segments .sales-plan-card.recommended .sales-plan-badge { background: #556847; }
 .food-sales-page--segments .sales-plan-card .sales-plan-badge { border-radius: 5px; }
-.food-sales-page--segments .sales-plan-card-business-v59 { background: #29382c; border-color: #29382c; }
-.food-sales-page--segments .sales-plan-card-business-v59 .sales-plan-price { align-items: flex-start; flex-direction: column; gap: 5px; margin-top: 15px; margin-bottom: 16px; }
-.food-sales-page--segments .sales-plan-card-business-v59 .sales-plan-price strong { font-size: 27px; white-space: nowrap; }
-.food-sales-page--segments .sales-plan-card-business-v59 .sales-plan-price span { font-size: 10px; padding: 0; }
-.food-sales-page--segments .sales-plan-card-business-v59 .sales-plan-description-v59 { margin-bottom: 15px; }
 .food-sales-page--segments .sales-plan-contact-v59 { border-radius: 6px; margin-top: auto; box-shadow: none; }
 .food-sales-page--segments .sales-plan-card .sales-plan-fit-v59 { border-radius: 8px; }
 .food-sales-page--segments .sales-plan-card .sales-plan-contact-v59--featured { background: #556847; border-color: #556847; }
