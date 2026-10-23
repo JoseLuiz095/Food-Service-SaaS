@@ -18,6 +18,12 @@
 .master-shell .master-modal>p{max-width:72ch;line-height:1.6}
 .master-shell .master-client-toolbar .admin-search{min-width:0}
 .master-shell .master-client-toolbar .admin-search input{min-width:0;width:100%}
+.master-shell .master-store-refinements{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:0 20px 16px;flex-wrap:wrap}
+.master-shell .master-store-refinements label{display:grid;gap:6px;font-size:.8rem;font-weight:600;min-width:220px;max-width:100%}
+.master-shell .master-store-refinements select{min-height:42px;max-width:100%;border:1px solid var(--food-admin-line);border-radius:8px;background:white;padding:8px 12px;color:inherit;font:inherit}
+.master-shell .master-store-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;flex-wrap:wrap;border-top:1px solid var(--food-admin-line);font-size:.8rem;color:var(--food-admin-muted)}
+.master-shell .master-store-pagination>div{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.master-shell .master-store-pagination button{min-height:42px}
 .master-shell .admin-sidebar-collapse{top:14px}
 .master-shell .master-admin-mini{margin-inline:4px}
 .master-shell .admin-nav{display:grid;gap:16px;min-height:0}
@@ -38,6 +44,10 @@
   .master-shell .master-client-filters button,.master-shell .signup-request-filters button{min-height:44px}
   .master-shell .master-store-empty{padding:24px 16px}
   .master-shell .master-store-identity{display:grid;gap:6px}
+  .master-shell .master-store-refinements{padding-inline:13px}
+  .master-shell .master-store-refinements label{width:100%;min-width:0}
+  .master-shell .master-store-pagination{padding:16px 13px}
+  .master-shell .master-store-pagination>div{width:100%;justify-content:space-between;gap:8px}
 }
 @media(max-width:760px){
   .master-shell .master-table-scroll-note{display:block;margin:0;padding:10px 13px;color:#6a726b;font-size:.68rem;line-height:1.45}

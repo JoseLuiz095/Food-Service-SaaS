@@ -64,7 +64,9 @@ export default function OperationsPage() {
         data[field.key]=field.type==='datetime-local'?(raw?new Date(raw).toISOString():null):field.type==='number'?Math.round(Number(raw)*(field.key==='price_cents'?100:1)):raw||null;
       }
       if(editing)data.id=editing;
-      if(tab==='appointments')data.professional_id=user?.id;
+      // Edições mantêm o profissional persistido no servidor. Reenviar o
+      // usuário atual transferia silenciosamente a agenda de outro membro.
+      if(tab==='appointments'&&!editing)data.professional_id=user?.id;
       if(tab==='clients'||tab==='services'||tab==='links')data.active=true;
       if(tab==='followups')data.status=editing?lists.followups.find(item=>item.id===editing)?.status||'pending':'pending';
       await businessApi.operate(store,`${tab}.save`,data);const next=await load();if(!isCurrent())return;setLists(next);reset();setNotice(`${labels[tab]}: registro salvo no servidor.`);

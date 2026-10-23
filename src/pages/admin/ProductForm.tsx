@@ -1,6 +1,6 @@
 import { ArrowLeft, ChevronDown, ImagePlus, Plus, Star, Trash2, X } from 'lucide-react';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { LoadingState } from '../../components/ui/AsyncState';
 import { FloatingSaveBar } from '../../components/admin/FloatingSaveBar';
@@ -9,6 +9,7 @@ import { useToast } from '../../contexts/ToastContext';
 import type { OptionGroup, OptionGroupKind, OptionItem, PartyOrderConfig, Product, ProductImage } from '../../types';
 import { currency, roundMoney, slugify } from '../../utils/format';
 import { createId } from '../../utils/id';
+import { createProductCopy } from '../../utils/productCopy';
 import { getBusinessSegment, type BusinessSegment } from '../../segments/businessSegments';
 
 const emptyProduct = (storeId: string, segment: BusinessSegment = 'food'): Product => ({
@@ -91,8 +92,16 @@ const productForEditor = (product: Product): Product => ({
   optionGroups: product.optionGroups.filter((group) => !isPartyConfigGroup(group)),
 });
 
+const mediaFields = (images: ProductImage[]): Pick<Product, 'images' | 'gallery' | 'imageUrl'> => {
+  const primary = images.find((image) => image.isPrimary) || images[0];
+  const ordered = primary ? [primary, ...images.filter((image) => image.id !== primary.id)] : [];
+  return { images: ordered, gallery: ordered.map((image) => image.url), imageUrl: primary?.url || '/assets/placeholder-food.svg' };
+};
+
 export default function ProductForm() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const duplicateId = id ? null : searchParams.get('duplicar');
   const { products, categories, settings, saveProduct, uploadProductImages, deleteProductImage, setPrimaryImage, planUsage, loading } = useStore();
   const businessProfile = getBusinessSegment(settings.visualTheme);
   const foodPresentation = businessProfile.id === 'food' || businessProfile.id === 'confectionery';
@@ -103,25 +112,44 @@ export default function ProductForm() {
   ];
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const existing = products.find((product) => product.id === id);
-  const [product, setProduct] = useState<Product>(() => existing ? productForEditor(existing) : emptyProduct(settings.id,businessProfile.id));
-  const [partyConfig, setPartyConfig] = useState<PartyOrderConfig>(() => existing?.partyOrderConfig || (existing ? readPartyConfig(existing.optionGroups) : defaultPartyConfig()));
+  const existing = products.find((product) => product.id === id && product.storeId === settings.id);
+  const duplicateSource = products.find((product) => product.id === duplicateId && product.storeId === settings.id);
+  const editorKey = `${settings.id}:${id || 'novo'}:${duplicateId || ''}`;
+  const initializedEditorKey = useRef('');
+  const [product, setProduct] = useState<Product>(() => existing ? productForEditor(existing) : duplicateSource ? productForEditor(createProductCopy(duplicateSource, products)) : emptyProduct(settings.id,businessProfile.id));
+  const [partyConfig, setPartyConfig] = useState<PartyOrderConfig>(() => {
+    const source = existing || duplicateSource;
+    return source?.partyOrderConfig || (source ? readPartyConfig(source.optionGroups) : defaultPartyConfig());
+  });
   const [files, setFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    if (id && existing) {
-      setProduct(productForEditor(existing));
-      setPartyConfig(existing.partyOrderConfig || readPartyConfig(existing.optionGroups));
+    // Background catalog refreshes (including image mutations) must not erase
+    // fields that the merchant is editing. Hydrate once per route/store only.
+    if (initializedEditorKey.current === editorKey || (id && !existing) || (duplicateId && !duplicateSource)) return;
+    initializedEditorKey.current = editorKey;
+    const source = existing || duplicateSource;
+    setFiles([]);
+    if (source) {
+      setProduct(productForEditor(existing || createProductCopy(source, products)));
+      setPartyConfig(source.partyOrderConfig || readPartyConfig(source.optionGroups));
       // Comece recolhido para que o cadastro seja escaneável no celular;
       // o lojista abre apenas o grupo que deseja editar.
-      setOpenGroups(Object.fromEntries(existing.optionGroups.filter((group) => !isPartyConfigGroup(group)).map((group) => [group.id, false])));
-    } else if (!id) {
-      setProduct((current) => current.storeId === settings.id ? current : emptyProduct(settings.id,businessProfile.id));
+      setOpenGroups({});
+    } else {
+      setProduct(emptyProduct(settings.id,businessProfile.id));
       setPartyConfig(defaultPartyConfig());
     }
-  }, [id, existing, settings.id]);
+  }, [editorKey, id, existing, duplicateId, duplicateSource, products, settings.id, businessProfile.id]);
+
+  useEffect(() => {
+    if (!existing || initializedEditorKey.current !== editorKey) return;
+    // Images are persisted immediately, unlike the other fields in this form.
+    // Merge their server state without replacing the merchant's unsaved draft.
+    setProduct((current) => current.id === existing.id ? { ...current, ...mediaFields(structuredClone(existing.images)) } : current);
+  }, [existing, editorKey]);
 
   const imageLimit = planUsage.plan.imageLimitPerProduct;
   const totalImages = product.images.length + files.length;
@@ -234,7 +262,7 @@ export default function ProductForm() {
         partyOrderConfig: partyConfig.enabled ? partyConfig : undefined,
       };
       await saveProduct(normalized, { isNew: !existing });
-      if (files.length) { await uploadProductImages(normalized.id, files, normalized.images); setFiles([]); }
+      if (files.length) { const images = await uploadProductImages(normalized.id, files, normalized.images); setProduct((current) => ({ ...current, ...mediaFields(images) })); setFiles([]); }
       showToast(existing ? 'Produto atualizado.' : 'Produto cadastrado.', 'success');
       navigate('/admin/produtos');
     } catch (error) {
@@ -244,20 +272,29 @@ export default function ProductForm() {
 
   const removeImage = async (image: ProductImage) => {
     if (!confirm('Excluir esta imagem?')) return;
-    try { await deleteProductImage(image); setProduct((current) => ({ ...current, images: current.images.filter((item) => item.id !== image.id) })); showToast('Imagem removida.', 'success'); }
+    try {
+      await deleteProductImage(image);
+      setProduct((current) => {
+        let images = current.images.filter((item) => item.id !== image.id);
+        if (image.isPrimary && images.length && !images.some((item) => item.isPrimary)) images = images.map((item, index) => ({ ...item, isPrimary: index === 0 }));
+        return { ...current, ...mediaFields(images) };
+      });
+      showToast('Imagem removida.', 'success');
+    }
     catch (error) { showToast(error instanceof Error ? error.message : 'Erro ao remover imagem.', 'error'); }
   };
 
   const primary = async (image: ProductImage) => {
-    try { await setPrimaryImage(product.id, image.id); setProduct((current) => ({ ...current, images: current.images.map((item) => ({ ...item, isPrimary: item.id === image.id })), imageUrl: image.url })); showToast('Imagem principal atualizada.', 'success'); }
+    try { await setPrimaryImage(product.id, image.id); setProduct((current) => ({ ...current, ...mediaFields(current.images.map((item) => ({ ...item, isPrimary: item.id === image.id }))) })); showToast('Imagem principal atualizada.', 'success'); }
     catch (error) { showToast(error instanceof Error ? error.message : 'Erro ao definir imagem.', 'error'); }
   };
 
   if (loading) return <LoadingState label="Carregando produto..."/>;
   if (id && !existing) return <div className="admin-card"><h2>Produto não encontrado</h2><Link to="/admin/produtos">Voltar</Link></div>;
+  if (duplicateId && !duplicateSource) return <div className="admin-card"><h2>Produto para duplicar não encontrado</h2><p>Abra a cópia a partir do catálogo da loja selecionada.</p><Link to="/admin/produtos">Voltar ao catálogo</Link></div>;
 
   return <>
-    <div className="admin-page-title"><div><Link to="/admin/produtos" className="back-link"><ArrowLeft size={16}/>Produtos</Link><h1>{existing ? 'Editar produto' : 'Novo produto'}</h1><p>Cadastre o item e monte as regras de tamanho, escolhas, adicionais e remoções.</p></div></div>
+    <div className="admin-page-title"><div><Link to="/admin/produtos" className="back-link"><ArrowLeft size={16}/>Produtos</Link><h1>{existing ? 'Editar produto' : duplicateSource ? 'Duplicar produto' : 'Novo produto'}</h1><p>{duplicateSource ? 'Revise a cópia antes de salvar. Ela começa oculta, sem estoque, reservas, imagens ou código interno. As opções são independentes do produto original.' : 'Cadastre o item e monte as regras de tamanho, escolhas, adicionais e remoções.'}</p></div></div>
     <form id="product-form" className="admin-form-layout" onSubmit={submit}>
       <section className="admin-card form-section">
         <div className="admin-card__header"><div><span className="eyebrow">INFORMAÇÕES</span><h2>Dados principais</h2></div></div>
@@ -324,6 +361,6 @@ export default function ProductForm() {
         <div className="product-form-save-hint">{hasUnsavedChanges ? 'Alterações pendentes. Use o botão flutuante para salvar.' : 'Tudo salvo.'}</div>
       </aside>
     </form>
-    {hasUnsavedChanges && <FloatingSaveBar label="Salvar produto" description="O produto tem alterações pendentes." saving={saving} onSave={() => { const form = document.getElementById('product-form'); if (form instanceof HTMLFormElement) form.requestSubmit(); }} onCancel={() => { setFiles([]); setProduct(existing ? productForEditor(existing) : emptyProduct(settings.id,businessProfile.id)); setPartyConfig(existing?.partyOrderConfig || (existing ? readPartyConfig(existing.optionGroups) : defaultPartyConfig())); }} />}
+    {hasUnsavedChanges && <FloatingSaveBar label="Salvar produto" description="O produto tem alterações pendentes." saving={saving} onSave={() => { const form = document.getElementById('product-form'); if (form instanceof HTMLFormElement) form.requestSubmit(); }} onCancel={() => { setFiles([]); setProduct(existing ? productForEditor(existing) : duplicateSource ? productForEditor(createProductCopy(duplicateSource, products)) : emptyProduct(settings.id,businessProfile.id)); const source = existing || duplicateSource; setPartyConfig(source?.partyOrderConfig || (source ? readPartyConfig(source.optionGroups) : defaultPartyConfig())); }} />}
   </>;
 }

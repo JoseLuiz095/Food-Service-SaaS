@@ -96,3 +96,48 @@ test('Master diferencia histórico vazio de solicitações pendentes',async({pag
   await expect(page.getByRole('heading',{name:'Nenhuma solicitação registrada'})).toBeVisible();
   await expect(page.getByRole('button',{name:/Histórico/})).toHaveAttribute('aria-pressed','true');
 });
+
+for(const width of [390,1366]) {
+  test(`Master pagina negócios e combina busca por responsável com segmento em ${width}px`,async({page},testInfo)=>{
+    await page.setViewportSize({width,height:900});
+    await mockBackend(page,{auth:true,master:true});
+    const stores=Array.from({length:45},(_,index)=>({
+      ...store,
+      id:`00000000-0000-4000-8000-${String(index+1).padStart(12,'0')}`,
+      name:`Loja ${String(index+1).padStart(2,'0')}`,
+      slug:`loja-${index+1}`,
+      city:'Vitória',
+      owner_name:index===22?'João das Flores':`Responsável ${index+1}`,
+      owner_email:`owner${index+1}@example.invalid`,
+      visual_theme:{businessSegment:index===22?'florist':'food'},
+    }));
+    await page.route('**/rest/v1/food_stores?**',route=>route.fulfill({json:stores}));
+    await page.goto('/admin-master/lojas');
+    const table=page.getByRole('region',{name:'Tabela de lojas; use as setas para navegar pelas colunas'});
+    const pagination=page.getByRole('navigation',{name:'Paginação de lojas'});
+    await expect(table.locator('tbody tr')).toHaveCount(20);
+    await expect(pagination.getByText('Página 1 de 3')).toBeVisible();
+    await expect(pagination.getByRole('button',{name:'Anterior',exact:true})).toBeDisabled();
+    await pagination.getByRole('button',{name:'Próxima',exact:true}).click();
+    await expect(table.getByText('Loja 21',{exact:true})).toBeVisible();
+    await table.getByRole('button',{name:'Gerenciar',exact:true}).first().click();
+    await expect(page.getByRole('dialog',{name:'Loja 21',exact:true})).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(pagination.getByText('Página 2 de 3')).toBeVisible();
+    await page.getByLabel('Buscar lojas').fill('joao vitoria');
+    await expect(table.locator('tbody tr')).toHaveCount(1);
+    await expect(table.getByText('João das Flores',{exact:false})).toBeVisible();
+    await expect(pagination.getByText('Página 1 de 1')).toBeVisible();
+    await page.getByRole('combobox',{name:'Segmento principal',exact:true}).selectOption('food');
+    await expect(page.getByRole('heading',{name:'Nenhuma loja corresponde aos filtros'})).toBeVisible();
+    await page.getByRole('button',{name:'Limpar filtros',exact:true}).click();
+    await expect(page.getByLabel('Buscar lojas')).toHaveValue('');
+    await expect(page.getByRole('combobox',{name:'Segmento principal',exact:true})).toHaveValue('all');
+    await expect(table.locator('tbody tr')).toHaveCount(20);
+    await page.getByRole('combobox',{name:'Segmento principal',exact:true}).selectOption('florist');
+    await expect(table.locator('tbody tr')).toHaveCount(1);
+    await expect(table.getByText('Loja 23',{exact:true})).toBeVisible();
+    await page.screenshot({path:testInfo.outputPath(`master-segmentos-${width}.png`),fullPage:true});
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  });
+}
