@@ -25,3 +25,4 @@ jobs:
       - run: npm run smoke
       - run: npm run test:critical
       - run: npm run test:integrations
+      - run: node scripts/sales-stock-db-test.mjs
