@@ -406,6 +406,7 @@ export type CheckoutData = {
   customerPhone: string;
   customerEmail: string;
   fulfillment: 'delivery' | 'pickup';
+  pickupLocationId?: string;
   zipCode: string;
   street: string;
   addressNumber: string;
@@ -467,6 +468,8 @@ export type ManualOrderInput = {
   scheduledFor?: string;
   notes?: string;
   items: ManualOrderItemInput[];
+  stockLocationId?: string;
+  requestId?: string;
 };
 
 export type OrderConfirmation = {

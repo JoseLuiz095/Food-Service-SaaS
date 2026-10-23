@@ -1,6 +1,6 @@
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clock3, Minus, Package, Plus, Share2, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clock3, Minus, Package, Plus, Share2, ShoppingBag, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ProductMedia, hasProductImage } from '../../components/ProductMedia';
 import { LoadingState } from '../../components/ui/AsyncState';
 import { cartItemIdFor, MAX_CART_ITEM_QUANTITY, useCart } from '../../contexts/CartContext';
@@ -55,6 +55,8 @@ const InstagramGlyph = ({ size = 15 }: { size?: number }) => <svg aria-hidden="t
 export default function ProductDetail() {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const quickMode = searchParams.get('compra') === 'rapida';
   const { products, categories, settings, loading, storeBasePath } = useStore();
   const { addItem, items } = useCart();
   const { showToast } = useToast();
@@ -187,7 +189,7 @@ export default function ProductDetail() {
     } catch { /* usuário cancelou */ }
   };
 
-  const add = () => {
+  const add = (quick = false) => {
     if (unavailable || !validateSelections()) return;
     const selectedPartyWeight = partyConfig ? Math.max(1, Math.trunc(Number(partyPackageWeightGrams) || partyConfig.packageWeightGrams)) : undefined;
     if (partyConfig && (!selectedPartyWeight || selectedPartyWeight < 1)) { showToast('Informe a gramatura por pacote.', 'error'); return; }
@@ -198,8 +200,14 @@ export default function ProductDetail() {
     }
     addItem(product, quantity, selectedOptions, partyConfig ? { partyPackageWeightGrams: selectedPartyWeight } : undefined);
     void trackPublicEvent(settings.id, 'add_to_cart', product.id);
-    showToast('Produto adicionado ao carrinho.', 'success');
-    navigate(storefrontPath(storeBasePath, '/carrinho'));
+    if (quick) {
+      const params = new URLSearchParams({ quick: cartItemIdFor(product.id, selectedOptions, selectedPartyWeight), qty: String(quantity) });
+      if (searchParams.get('ponto')) params.set('ponto', searchParams.get('ponto')!);
+      navigate(`${storefrontPath(storeBasePath, '/finalizar')}?${params.toString()}`);
+    } else {
+      showToast('Produto adicionado ao carrinho.', 'success');
+      navigate(storefrontPath(storeBasePath, '/carrinho'));
+    }
   };
 
   return <div className="simple-page">
@@ -262,7 +270,9 @@ export default function ProductDetail() {
         <div className="buy-box">
           <div className="quantity-control"><small>{partyConfig ? 'Pacotes' : 'Quantidade'}</small><button onClick={() => setQuantity((value) => Math.max(partyConfig?.minimumPackages ?? 1, value - 1))} disabled={quantity <= (partyConfig?.minimumPackages ?? 1)} aria-label="Diminuir quantidade"><Minus size={17}/></button><span>{quantity}</span><button onClick={() => setQuantity((value) => Math.min(MAX_CART_ITEM_QUANTITY, value + 1))} disabled={quantity >= MAX_CART_ITEM_QUANTITY} aria-label="Aumentar quantidade"><Plus size={17}/></button></div>
           <div className="buy-total"><small>Total</small><strong>{currency.format(total)}</strong></div>
-          <button className="primary-button" disabled={unavailable} onClick={add}><ShoppingBag size={18}/>{unavailable ? 'Indisponível' : outOfStock ? 'Adicionar para agendar' : 'Adicionar ao carrinho'}</button>
+          <button className="primary-button" disabled={unavailable} onClick={() => add()}><ShoppingBag size={18}/>{unavailable ? 'Indisponível' : outOfStock ? 'Adicionar para agendar' : 'Adicionar ao carrinho'}</button>
+          {!unavailable && !outOfStock && <button type="button" className="secondary-button" onClick={() => add(true)}><Zap size={18}/>Comprar agora</button>}
+          {quickMode && <small>Confirme a quantidade e as opções. Você seguirá direto para a finalização deste item.</small>}
         </div>
       </section>
     </div>

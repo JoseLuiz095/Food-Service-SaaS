@@ -7,6 +7,7 @@ import { OrderDetailsModal } from '../../components/admin/OrderDetailsModal';
 import { QuantityControl } from '../../components/QuantityControl';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
+import { stockLocationsApi, type StockLocation, type ProductLocationStock } from '../../services/stockLocationsApi';
 import { trackInteraction } from '../../services/interactionTelemetry';
 import { currency, formatDateTimeBR, roundMoney } from '../../utils/format';
 import type { ManualOrderInput, ManualOrderItemInput, ManualOrderSource, Order, OrderStatus, PaymentMethod } from '../../types';
@@ -140,6 +141,10 @@ export default function OrdersAdmin() {
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
   const [notifyOrderId, setNotifyOrderId] = useState<string | null>(null);
   const [manualOrderOpen, setManualOrderOpen] = useState(false);
+  const [stockLocations, setStockLocations] = useState<StockLocation[]>([]);
+  const [locationBalances, setLocationBalances] = useState<ProductLocationStock[]>([]);
+  const [manualLocationId, setManualLocationId] = useState('');
+  const [manualRequestId, setManualRequestId] = useState(() => crypto.randomUUID());
   const [manualOrderMode, setManualOrderMode] = useState<ManualOrderMode>('quick');
   const [manualOrder, setManualOrder] = useState<Omit<ManualOrderInput, 'items'>>(newManualOrder);
   const [manualItems, setManualItems] = useState<ManualOrderItemInput[]>([]);
@@ -262,6 +267,12 @@ export default function OrdersAdmin() {
   }, [manualPixPreviewPayload]);
 
   const openManualOrder = () => {
+    void stockLocationsApi.list(settings.id).then(([locations, balances]) => {
+      setStockLocations(locations.filter((location) => location.active));
+      setLocationBalances(balances);
+      setManualLocationId((current) => current || locations.find((location) => location.is_default)?.id || locations[0]?.id || '');
+    }).catch(() => reportManualError('Não foi possível carregar os estoques. Atualize a página e tente novamente.'));
+
     setManualOrder(newManualOrder());
     setManualOrderMode('quick');
     setManualItems([]);
@@ -339,6 +350,14 @@ export default function OrdersAdmin() {
     event.preventDefault();
     const customerName = manualOrderMode === 'quick' ? 'Venda anônima' : manualOrder.customerName.trim();
     if (!customerName || !manualItems.length) return;
+    if (!manualLocationId) { reportManualError('Selecione um estoque para registrar esta venda.'); return; }
+    const insufficientAtLocation = manualItems.find((item) => {
+      const product = products.find((candidate) => candidate.id === item.productId);
+      if (!product?.trackStock) return false;
+      const balance = locationBalances.find((row) => row.product_id === item.productId && row.location_id === manualLocationId);
+      return !balance || Number(balance.stock_quantity) - Number(balance.stock_reserved_quantity) < item.quantity;
+    });
+    if (insufficientAtLocation && manualOrderMode === 'quick') { reportManualError('Saldo insuficiente no estoque escolhido. Selecione outro ponto ou registre uma encomenda.'); return; }
     if (manualOrder.status === 'cancelled' && manualOrder.received) return;
     if (manualOrder.fulfillment === 'delivery' && !settings.deliveryEnabled) {
       reportManualError('O delivery está desativado nas configurações da loja. Selecione retirada ou ative o delivery.');
@@ -387,7 +406,7 @@ export default function OrdersAdmin() {
     setManualFormError('');
     setManualSaving(true);
     try {
-      const result = await trackInteraction('manual_order_create', () => createManualOrder({ ...manualOrder, customerName, items: manualItems }), { storeId: settings.id });
+      const result = await trackInteraction('manual_order_create', () => createManualOrder({ ...manualOrder, customerName, items: manualItems, stockLocationId: manualLocationId, requestId: manualRequestId }), { storeId: settings.id });
       setLastUpdatedAt(new Date());
       setManualOrderOpen(false);
       if (manualOrder.paymentMethod === 'pix' && manualPixChargeNow) {
@@ -949,7 +968,9 @@ export default function OrdersAdmin() {
              <label>Agendar pedido <span className="optional-label">opcional</span><input type="datetime-local" min={localDateTimeInputValue(manualOrder.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart())} value={manualOrder.scheduledFor || ''} onChange={(event) => { setManualFormError(''); setManualOrder((current) => ({ ...current, scheduledFor: event.target.value || undefined })); }}/><span className="manual-order-schedule-actions"><button type="button" className="text-button" onClick={scheduleManualRestock}>Amanhã{manualOrder.fulfillment === 'delivery' ? ` às ${settings.deliveryStartTime || '18:00'}` : ''}</button><small>Para encomendas sem estoque, disponível somente a partir de amanhã{manualOrder.fulfillment === 'delivery' && settings.deliveryStartTime ? ` e delivery após ${settings.deliveryStartTime}` : ''}.</small></span></label>
              <details className="manual-order-more-options"><summary>Mais opções <small>telefone, origem e recebimento</small></summary><div className="form-grid manual-order-more-options__grid"><label>Telefone <span className="optional-label">opcional</span><input value={manualOrder.customerPhone || ''} onChange={(event) => setManualOrder((current) => ({ ...current, customerPhone: event.target.value }))} placeholder="(27) 99999-9999"/></label><label>Origem<select value={manualOrder.source} onChange={(event) => setManualOrder((current) => ({ ...current, source: event.target.value as ManualOrderSource }))}>{manualSourceOptions.map((source) => <option key={source.value} value={source.value}>{source.label}</option>)}</select></label><label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label><label>Recebimento<select value={manualOrder.received ? 'paid' : 'pending'} disabled={manualOrder.status === 'cancelled'} onChange={(event) => setManualOrder((current) => ({ ...current, received: event.target.value === 'paid' }))}><option value="pending">A receber do cliente</option><option value="paid">Recebido</option></select><small>Use “A receber” para confirmar depois no painel.</small></label></div></details>
            </>}
+           <label>Estoque de saída<select required value={manualLocationId} onChange={(event) => setManualLocationId(event.target.value)}><option value="">Selecione o ponto</option>{stockLocations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select><small>A venda usa somente o saldo do ponto selecionado.</small></label>
            <label>Pagamento<select value={manualOrder.paymentMethod} onChange={(event) => { const paymentMethod = event.target.value as PaymentMethod; setManualOrder((current) => ({ ...current, paymentMethod })); if (paymentMethod !== 'pix') setManualPixChargeNow(false); else if (manualOrderMode === 'quick') setManualPixChargeNow(true); }}>{Object.entries(paymentLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+           {manualOrderMode === 'quick' && <label>Recebimento<select value={manualOrder.received ? 'paid' : 'pending'} onChange={(event) => { const paid = event.target.value === 'paid'; setManualOrder((current) => ({ ...current, received: paid })); if (paid) setManualPixChargeNow(false); }}><option value="pending">A receber</option><option value="paid">Recebido e conferido</option></select></label>}
            {manualOrderMode === 'quick' && <label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{quickManualStatusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select><small>A venda rápida já começa como “Entregue”. O recebimento do PIX continua separado até a conferência.</small></label>}
         </div>
 
@@ -981,7 +1002,7 @@ export default function OrdersAdmin() {
            {manualOrderMode === 'scheduled' && <label className="manual-pix-charge-toggle"><input type="checkbox" checked={manualPixChargeNow} disabled={manualOrder.status === 'cancelled'} onChange={(event) => { const checked = event.target.checked; setManualPixChargeNow(checked); if (checked) setManualOrder((current) => ({ ...current, received: false })); }}/><span><strong>Cobrar agora via PIX</strong><small>Gera o QR Code e o PIX Copia e Cola com o valor final. O recebimento continua “A receber” até a conferência.</small></span></label>}
           {manualPixChargeNow && <div className="manual-pix-live-preview"><div><QrCode size={18}/><span><strong>Cobrança via PIX</strong><small>O QR Code e o PIX Copia e Cola usam o valor atualizado do pedido.</small></span></div>{manualPixPreviewPayload ? <div className="manual-pix-live-preview__content">{manualPixPreviewQrCode ? <img src={manualPixPreviewQrCode} alt={`QR Code PIX no valor de ${currency.format(manualSubtotal)}`} /> : manualPixPreviewQrCodeError ? <span className="manual-pix-live-preview__error">{manualPixPreviewQrCodeError}</span> : <span className="manual-pix-result-loading">Gerando QR Code…</span>}<div><strong>{currency.format(manualSubtotal)}</strong><button type="button" className="text-button" onClick={() => void copyText(manualPixPreviewPayload).then(() => { setManualPixCopied(true); window.setTimeout(() => setManualPixCopied(false), 1800); })}><Copy size={14}/>{manualPixCopied ? 'Copiado' : 'Copiar PIX'}</button></div></div> : <div className="manual-pix-live-preview__error">{manualPixPreview.error}</div>}</div>}
         </section>}
-         <div className="master-modal-actions"><button type="button" className="secondary-button" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}>Cancelar</button><button className="primary-button" type="submit" disabled={manualSaving || !manualItems.length || (manualOrderMode === 'scheduled' && !manualOrder.customerName.trim())}>{manualSaving ? 'Salvando...' : `Registrar ${manualOrderMode === 'quick' ? 'venda' : 'pedido'} · ${currency.format(manualSubtotal)}`}</button></div>
+         <div className="master-modal-actions"><button type="button" className="secondary-button" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}>Cancelar</button><button className="primary-button" type="submit" disabled={manualSaving || !manualLocationId || !manualItems.length || (manualOrderMode === 'scheduled' && !manualOrder.customerName.trim())}>{manualSaving ? 'Salvando...' : `Registrar ${manualOrderMode === 'quick' ? 'venda' : 'pedido'} · ${currency.format(manualSubtotal)}`}</button></div>
       </form>
     </div>}
     {manualPixView && <div className="modal-overlay" role="presentation">

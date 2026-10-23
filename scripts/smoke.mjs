@@ -200,7 +200,7 @@ const v051Migration=read('supabase/migrations/202609151340_foodweb_v051_plan_ali
 ok('v0.5.1 planos comerciais alinhados',platformApi.includes("name:'Profissional'")&&platformApi.includes('monthlyPrice:89.9')&&platformApi.includes("name:'Premium'")&&platformApi.includes('monthlyPrice:149.9'));
 ok('v0.5.1 nao vende multiusuario',!masterPlans.includes('value={plan.adminUserLimit')&&!planPage.includes('usuarios administrativos')&&!platformApi.includes("'multi_user'"));
 ok('v0.5.1 Business sob medida aparece no painel',planPage.includes('food-business-plan-v051')&&planPage.includes('Sob consulta')&&planPage.includes('Domínio próprio incluído'));
-ok('v0.5.1 Business aparece na landing',landing.includes('food-business-sales-v051')&&landing.includes('Quero avaliar um projeto Business'));
+ok('Business não aparece na landing pública',!landing.includes('food-business-sales-v051')&&!landing.includes('Quero avaliar um projeto Business'));
 ok('v0.5.1 Master explica Business sob medida',masterPlans.includes('master-business-v051')&&masterPlans.includes('Valor sob consulta'));
 ok('v0.5.1 migration alinha planos e desabilita multi_user',v051Migration.includes("name='Profissional'")&&v051Migration.includes('monthly_price=89.90')&&v051Migration.includes("name='Premium'")&&v051Migration.includes('monthly_price=149.90')&&v051Migration.includes("feature_code='multi_user'"));
 ok('v0.5.1 Premium possui dominio proprio',v051Migration.includes('custom_domain=true'));

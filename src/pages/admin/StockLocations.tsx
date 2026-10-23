@@ -3,6 +3,7 @@ import { ArrowLeftRight, Boxes, LoaderCircle, MapPin, Plus, RefreshCw, Warehouse
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
+import { restFetch } from '../../lib/supabaseRest';
 import { stockLocationsApi, type ProductLocationStock, type StockLocation } from '../../services/stockLocationsApi';
 import type { Product } from '../../types';
 import './stock-locations.css';
@@ -26,6 +27,10 @@ export default function StockLocationsAdmin() {
   const [fromId, setFromId] = useState('');
   const [toId, setToId] = useState('');
   const [transferQty, setTransferQty] = useState('');
+  const [pickupPoints, setPickupPoints] = useState<Array<{ id: string; name: string; short_code: string; stock_location_id: string }>>([]);
+  const [pickupName, setPickupName] = useState('');
+  const [pickupCode, setPickupCode] = useState('');
+  const [pickupStockId, setPickupStockId] = useState('');
 
   const trackedProducts = useMemo(() => products.filter((product) => product.trackStock && product.active), [products]);
   const refresh = useCallback(async () => {
@@ -34,6 +39,9 @@ export default function StockLocationsAdmin() {
       const [nextLocations, nextBalances] = await stockLocationsApi.list(settings.id);
       setLocations(nextLocations);
       setBalances(nextBalances);
+      const points = await restFetch<Array<{ id: string; name: string; short_code: string; stock_location_id: string }>>(`food_pickup_locations?store_id=eq.${encodeURIComponent(settings.id)}&select=id,name,short_code,stock_location_id&order=name.asc`);
+      setPickupPoints(points);
+      setPickupStockId((current) => current || nextLocations.find((item) => item.is_default)?.id || '');
       setLocationId((current) => current || nextLocations.find((item) => item.is_default)?.id || nextLocations[0]?.id || '');
       setFromId((current) => current || nextLocations.find((item) => item.is_default)?.id || nextLocations[0]?.id || '');
       setToId((current) => current || nextLocations.find((item) => item.id !== nextLocations[0]?.id)?.id || '');
@@ -90,6 +98,19 @@ export default function StockLocationsAdmin() {
     } finally { setSaving(false); }
   };
 
+  const submitPickupPoint = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!pickupName.trim() || !pickupStockId || !/^[A-Z0-9-]{3,16}$/.test(pickupCode)) return;
+    setSaving(true);
+    try {
+      await restFetch('food_pickup_locations', { method: 'POST', body: { store_id: settings.id, name: pickupName.trim(), short_code: pickupCode, stock_location_id: pickupStockId, active: true, is_public: true } });
+      setPickupName(''); setPickupCode('');
+      showToast('Ponto de retirada publicado.', 'success');
+      await refresh();
+    } catch (cause) { showToast(cause instanceof Error ? cause.message : 'Não foi possível publicar o ponto.', 'error'); }
+    finally { setSaving(false); }
+  };
+
   if (loading) return <LoadingState label="Carregando locais de estoque..." />;
   if (error && !locations.length) return <ErrorState message={error || "Locais indisponíveis."} onRetry={() => void refresh()} />;
   return <main className="admin-page">
@@ -106,6 +127,15 @@ export default function StockLocationsAdmin() {
         <label>Nome do local<input value={newName} onChange={(event) => setNewName(event.target.value)} maxLength={80} placeholder="Ex.: Loja Centro, Veículo 1" required/></label>
         <label>Tipo<select value={newType} onChange={(event) => setNewType(event.target.value as StockLocation['location_type'])}><option value="warehouse">Depósito</option><option value="store">Loja</option><option value="vehicle">Carga móvel</option><option value="pickup">Retirada</option></select></label>
         <button className="primary-button" disabled={saving || !newName.trim()}><Plus size={16}/> Adicionar local</button>
+      </form>
+    </section>
+    <section className="admin-card"><h2>Pontos públicos de retirada</h2><p>Associe cada ponto ao seu estoque. O cliente escolhe este ponto ao finalizar a compra.</p>
+      <div className="stock-location-grid">{pickupPoints.map((point) => <article className="stock-location-card" key={point.id}><MapPin size={18}/><div><strong>{point.name}</strong><p>{point.short_code} · {locations.find((location) => location.id === point.stock_location_id)?.name || 'Sem estoque'}</p></div></article>)}</div>
+      <form className="stock-location-create" onSubmit={submitPickupPoint}>
+        <label>Nome do ponto<input required maxLength={80} value={pickupName} onChange={(event) => setPickupName(event.target.value)} placeholder="Ex.: Vendas com Ana"/></label>
+        <label>Código QR<input required minLength={3} maxLength={16} value={pickupCode} onChange={(event) => setPickupCode(event.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))} placeholder="ANA-01"/></label>
+        <label>Estoque de origem<select required value={pickupStockId} onChange={(event) => setPickupStockId(event.target.value)}>{locations.filter((location) => location.active).map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
+        <button className="primary-button" disabled={saving || !pickupName.trim() || !pickupStockId || pickupCode.length < 3}><Plus size={16}/>Publicar ponto</button>
       </form>
     </section>
     <section className="admin-card">

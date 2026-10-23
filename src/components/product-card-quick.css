@@ -1,0 +1,6 @@
+.product-card-shell{position:relative;min-width:0;height:100%}
+.product-card-shell>.product-card{height:100%;padding-bottom:3.2rem}
+.product-card-quick{position:absolute;bottom:.75rem;left:1rem;right:1rem;z-index:2;display:inline-flex;justify-content:center;align-items:center;gap:.45rem;min-height:2.3rem;padding:.45rem .75rem;border-radius:.7rem;background:var(--color-primary,#206c60);color:#fff;text-decoration:none;font-weight:700;line-height:1.2;transition:transform .18s ease,filter .18s ease}
+.product-card-quick:hover{filter:brightness(1.1);transform:translateY(-2px)}
+.product-card-quick:focus-visible{outline:3px solid #172d67;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.product-card-quick{transition:none}.product-card-quick:hover{transform:none}}
