@@ -40,7 +40,7 @@ try {
       unique(order_item_id,event_type));
     create function food_is_store_admin(uuid) returns boolean language sql stable as $$select true$$;
     create function food_is_platform_admin() returns boolean language sql stable as $$select false$$;
-    create function food_reconcile_order_recipe_consumption(uuid,boolean) returns void language plpgsql as $begin return; end;$;
+    create function food_reconcile_order_recipe_consumption(uuid,boolean) returns void language plpgsql as $$begin return; end;$$;
   `);
   for (const name of ['food_sync_default_location_stock','food_reserve_product_inventory',
     'food_commit_order_inventory','food_release_order_inventory','food_reserve_inventory_on_item_insert',

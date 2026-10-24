@@ -8,7 +8,7 @@ alter table public.food_orders
   add column if not exists admin_request_id uuid,
   add column if not exists admin_request_fingerprint text;
 create or replace function public.food_guard_order_stock_location()
-returns trigger language plpgsql set search_path to 'public','pg_temp' as $
+returns trigger language plpgsql set search_path to 'public','pg_temp' as $$
 begin
   if new.stock_location_id is distinct from old.stock_location_id or new.pickup_location_id is distinct from old.pickup_location_id then
     if exists(select 1 from public.food_order_items where order_id=old.id) then
@@ -17,7 +17,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 drop trigger if exists food_orders_stock_location_guard_trg on public.food_orders;
 create trigger food_orders_stock_location_guard_trg before update of stock_location_id,pickup_location_id on public.food_orders
 for each row execute function public.food_guard_order_stock_location();
@@ -631,7 +631,7 @@ $function$;
 -- Only configured points are displayed to customers.
 create or replace function public.food_get_public_pickup_locations_v1(p_store_id uuid)
 returns jsonb language plpgsql stable security definer set search_path=''
-as $
+as $$
 begin
   if not public.food_store_accessible(p_store_id) then return '[]'::jsonb; end if;
   return coalesce((
@@ -644,6 +644,6 @@ begin
     where p.store_id=p_store_id and p.active and p.is_public
   ),'[]'::jsonb);
 end;
-$;
+$$;
 notify pgrst,'reload schema';
 commit;
