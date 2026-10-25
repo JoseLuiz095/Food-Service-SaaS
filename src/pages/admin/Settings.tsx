@@ -56,6 +56,19 @@ export default function SettingsAdmin() {
   const coverPreview = useMemo(() => coverFile ? URL.createObjectURL(coverFile) : form.heroUrl, [coverFile, form.heroUrl]);
   useEffect(() => () => { if (logoFile) URL.revokeObjectURL(logoPreview); }, [logoFile, logoPreview]);
   useEffect(() => () => { if (coverFile) URL.revokeObjectURL(coverPreview); }, [coverFile, coverPreview]);
+  const selectStoreImage = (file: File | undefined, kind: 'logo' | 'cover') => {
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      showToast('Use uma imagem JPG, PNG ou WEBP.', 'error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('A imagem excede 5 MB. Selecione uma menor.', 'error');
+      return;
+    }
+    if (kind === 'logo') setLogoFile(file);
+    else setCoverFile(file);
+  };
 
   const update = <K extends keyof StoreSettings>(key: K, value: StoreSettings[K]) => setForm((current) => ({ ...current, [key]: value }));
   const updateDeliveryMode = (mode: NonNullable<StoreSettings['deliveryMode']>) => setForm((current) => ({
@@ -263,8 +276,8 @@ export default function SettingsAdmin() {
           </div>
 
           <div className="store-assets-editor">
-            <div><span className="eyebrow">LOGO</span><ImageWithFallback src={logoPreview} alt="Prévia da logo" /><label className="secondary-button"><ImagePlus size={16} />Selecionar logo<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} /></label></div>
-            <div><span className="eyebrow">CAPA</span><ImageWithFallback src={coverPreview} alt="Prévia da capa" />{canCustomBanner?<label className="secondary-button"><ImagePlus size={16} />Selecionar capa<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)} /></label>:<div className="plan-locked-inline"><strong>Banner disponível no Starter</strong><span>Seu banner atual é preservado, mas novas alterações ficam bloqueadas no Essencial.</span></div>}</div>
+            <div><span className="eyebrow">LOGO</span><ImageWithFallback src={logoPreview} alt="Prévia da logo" /><label className="secondary-button"><ImagePlus size={16} />Selecionar logo<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => { selectStoreImage(e.target.files?.[0], 'logo'); e.target.value = ''; }} /></label><small>JPG, PNG ou WEBP, até 5 MB. A prévia só será publicada ao salvar.</small>{logoFile && <button type="button" className="secondary-button compact-button" onClick={() => setLogoFile(null)}>Descartar nova logo</button>}</div>
+            <div><span className="eyebrow">CAPA</span><ImageWithFallback src={coverPreview} alt="Prévia da capa" />{canCustomBanner?<><label className="secondary-button"><ImagePlus size={16} />Selecionar capa<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => { selectStoreImage(e.target.files?.[0], 'cover'); e.target.value = ''; }} /></label><small>JPG, PNG ou WEBP, até 5 MB. A prévia só será publicada ao salvar.</small>{coverFile && <button type="button" className="secondary-button compact-button" onClick={() => setCoverFile(null)}>Descartar nova capa</button>}</>:<div className="plan-locked-inline"><strong>Banner disponível no Starter</strong><span>Seu banner atual é preservado, mas novas alterações ficam bloqueadas no Essencial.</span></div>}</div>
           </div>
 
           <section className="subform-section">
