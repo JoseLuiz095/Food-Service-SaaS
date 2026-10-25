@@ -1,0 +1,10 @@
+# VendeWeb — entrega local e limites
+
+- Fluxo de cadastro em duas etapas: negócio (nome, segmento, responsável, e-mail, WhatsApp); plano/segurança e dados opcionais. Sem alterar Auth, Turnstile, plano ou revisão Master.
+- Estoque de venda aparece primeiro: físico, reservado e disponível, definir valor absoluto ou adicionar/remover. Insumos e ficha técnica existentes continuam em "Ferramentas avançadas". Motivo inicial de conferência preenche o ajuste manual.
+- Configurações de estoque oferecem ativação de múltiplos locais; o menu aparece quando a preferência efetiva é verdadeira. Modo simples não remove locais, histórico ou saldos. Em caso de ausência da nova RPC, a navegação antiga permanece acessível com erro explícito.
+- Primeiros passos de Personal/Nutrição/Creator/Serviços mostram serviços e operação, sem declarar checkout de produto como requisito para atendimento.
+- Admin Master ganha tela de provisionamento em lote (1–3 por segmento, sete segmentos), prévia, status por item, retry e link de ativação exibido temporariamente. Backend Edge exige staging/development, ref/origem exatos, MFA AAL2, Master ativo, fixture identificada e RPC de teste habilitada. Não publica nem provisiona nada nesta conta.
+- A migration nova é aditiva e depende das migrations recentes de estoque já existentes. O projeto Supabase correto não concedeu permissão ao conector; nenhum SQL foi aplicado remotamente, nenhuma loja criada e nenhum login real validado nesta execução.
+- O PR anterior #78 foi integrado em main antes desta branch. O trabalho Fit/PWA/3D que estava em um workspace temporário não estava em main no início desta entrega; nenhum modelo 3D verificado ou portal do aluno foi implantado aqui.
+- Validação: `node scripts/stock-simple-mode-db-test.mjs` executa SQL real em PostgreSQL descartável (12 verificações); `node --test scripts/demo-provisioning-handler-test.mjs` exercita a Edge com limites Auth/DB simulados (5 testes). Outras suítes e build são registrados no PR. Não representam validação remota.

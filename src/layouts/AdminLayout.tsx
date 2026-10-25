@@ -24,6 +24,7 @@ import {
   UtensilsCrossed,
   X,
   Warehouse,
+  type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -41,41 +42,47 @@ import { getBusinessSegment, resolveBusinessTheme, isDefaultStoreImage } from '.
 import { PLATFORM_BRAND } from '../lib/brand';
 import '../segments/segments.css';
 import { useBusinessStatus } from '../platform/useBusinessStatus';
+import { useStockMode } from '../hooks/useStockMode';
 import { useAdminMobileNavigation } from '../hooks/useAdminMobileNavigation';
 import { moduleIsActive } from '../platform/api';
 import '../components/admin/admin-navigation.css';
 
-const navSections = [
+const navSections: Array<{ label: string; items: Array<{ to: string; label: string; icon: LucideIcon; end?: boolean; requiresFeature?: string }> }> = [
   {
-    label: 'Operação',
+    label: 'Início',
     items: [
       { to: '/admin', label: 'Visão geral', icon: LayoutDashboard, end: true },
       { to: '/admin/primeiros-passos', label: 'Primeiros passos', icon: Rocket },
-      { to: '/admin/analytics', label: 'Análises', icon: BarChart3, requiresFeature: 'analytics' },
+    ],
+  },
+  {
+    label: 'Vendas',
+    items: [
       { to: '/admin/pedidos', label: 'Pedidos', icon: ShoppingBag },
+      { to: '/admin/analytics', label: 'Análises', icon: BarChart3, requiresFeature: 'analytics' },
     ],
   },
   {
     label: 'Catálogo',
     items: [
       { to: '/admin/produtos', label: 'Produtos', icon: Package },
-      { to: '/admin/estoque', label: 'Estoque e insumos', icon: Boxes },
+      { to: '/admin/estoque', label: 'Estoque', icon: Boxes },
       { to: '/admin/estoque-locais', label: 'Locais de estoque', icon: Warehouse },
       { to: '/admin/categorias', label: 'Categorias', icon: Tags },
       { to: '/admin/entregas', label: 'Entregas', icon: Truck },
     ],
   },
   {
-    label: 'Gestão',
+    label: 'Loja',
     items: [
-      { to: '/admin/financeiro', label: 'Financeiro', icon: Landmark, requiresFeature: 'finance' },
+      { to: '/admin/configuracoes', label: 'Configurações', icon: Settings },
     ],
   },
   {
-    label: 'Conta',
+    label: 'Administração',
     items: [
+      { to: '/admin/financeiro', label: 'Financeiro', icon: Landmark, requiresFeature: 'finance' },
       { to: '/admin/plano', label: 'Meu plano', icon: BadgeDollarSign },
-      { to: '/admin/configuracoes', label: 'Configurações', icon: Settings },
       { to: '/admin/modulos', label: 'Módulos opcionais', icon: Boxes },
       { to: '/admin/negocio', label: 'Segmento e permissões', icon: ShieldCheck },
     ],
@@ -93,6 +100,7 @@ export default function AdminLayout() {
   const { settings, planUsage, dataMode, products } = useStore();
   const { user, signOut, platformAdmin, membership, memberships, selectStore } = useAuth();
   const {state:business}=useBusinessStatus(membership?.storeId||'');
+  const {enabled:multiLocation}=useStockMode(membership?.storeId||'');
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -199,6 +207,7 @@ export default function AdminLayout() {
             const deliverySegments = ['food', 'confectionery', 'retail', 'printing3d', 'rentals', 'florist'];
             const items = section.items.filter((item) => (!item.requiresFeature || planHasFeature(planUsage.plan, item.requiresFeature))
               && (!membership?.limitedAccess || preparationNavAllowed.has(item.to))
+              && (item.to !== '/admin/estoque-locais' || multiLocation !== false)
               && (item.to !== '/admin/entregas' || deliverySegments.includes(segment.id))
               && (item.to !== '/admin/estoque' || deliverySegments.includes(segment.id) || products.some((product) => product.trackStock)));
             if (!items.length) return null;

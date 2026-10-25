@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "build": "npm run check:env && npm run typecheck && vite build",
     "preview": "vite preview",
-    "validate": "npm run smoke && npm run test:critical && npm run test:segments && npm run test:domains && npm run test:pwa && npm run test:notifications && npm run test:security && npm run test:integrations && npm run test:platform && npm run test:provision && npm run build",
+    "validate": "npm run smoke && npm run test:critical && npm run test:segments && npm run test:domains && npm run test:pwa && npm run test:notifications && npm run test:security && npm run test:simple-stock && npm run test:demo-provision && npm run test:integrations && npm run test:platform && npm run test:provision && npm run build",
     "test:notifications": "node --test scripts/notification-delivery-test.mjs scripts/push-preferences-test.mjs",
     "test:integrations": "node scripts/integration-repair-db-test.mjs && node scripts/tenant-write-guards-db-test.mjs && node scripts/product-stock-db-test.mjs",
     "test:domains": "node scripts/domain-unit-test.mjs",
@@ -48,7 +48,9 @@
     "qa:core": "npm --prefix qa run test:core",
     "qa:publish": "node scripts/publish-qa-release.mjs",
     "test:platform": "node scripts/segment-platform-db-test.mjs",
-    "test:provision": "node --test scripts/provision-test-tenants.test.mjs"
+    "test:provision": "node --test scripts/provision-test-tenants.test.mjs",
+    "test:simple-stock": "node scripts/stock-simple-mode-db-test.mjs",
+    "test:demo-provision": "node --test scripts/demo-provisioning-handler-test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.112.4",

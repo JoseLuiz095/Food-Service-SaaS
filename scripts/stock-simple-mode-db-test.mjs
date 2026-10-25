@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { PGlite } from '@electric-sql/pglite';
+
+// PostgreSQL descartável: executa a migration real. Não usa Supabase remoto.
+const db=new PGlite();
+const q=(sql,params=[])=>db.query(sql,params);
+const only=async(sql,params=[]) => (await q(sql,params)).rows[0];
+const a=randomUUID(),b=randomUUID(),admin=randomUUID(),other=randomUUID(),al=randomUUID(),bl=randomUUID(),secondary=randomUUID(),product=randomUUID();
+try{
+ await db.exec(`create role authenticated;create role anon;create schema auth;
+ create table auth.users(id uuid primary key);
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.user_id',true),'')::uuid$$;
+ create table public.food_stores(id uuid primary key);
+ create table public.food_store_users(store_id uuid,user_id uuid,active boolean,role text);
+ create function public.food_is_store_admin(store uuid) returns boolean language sql stable security definer set search_path='' as $$select exists(select 1 from public.food_store_users where store_id=store and user_id=auth.uid() and active and role in ('owner','admin','manager'))$$;
+ create table public.food_stock_locations(id uuid primary key,store_id uuid,is_default boolean,active boolean);
+ create table public.food_product_location_stock(location_id uuid,store_id uuid,stock_quantity integer,stock_reserved_quantity integer);
+ create table public.food_pickup_locations(store_id uuid,stock_location_id uuid,active boolean);`);
+ for(const id of [admin,other])await q('insert into auth.users values($1)',[id]);
+ for(const id of [a,b])await q('insert into food_stores values($1)',[id]);
+ await q("insert into food_store_users values($1,$2,true,'owner')",[a,admin]);
+ await q("insert into food_store_users values($1,$2,true,'owner')",[b,other]);
+ await q('insert into food_stock_locations values($1,$2,true,true)',[al,a]);
+ await q('insert into food_stock_locations values($1,$2,true,true)',[bl,b]);
+ await q('insert into food_stock_locations values($1,$2,false,true)',[secondary,b]);
+ await db.exec(readFileSync('supabase/migrations/20261025090000_food_stock_simple_mode.sql','utf8'));
+ assert.equal((await only('select multi_location_enabled from food_stock_preferences where store_id=$1',[a])).multi_location_enabled,false,'Loja de um local inicia simples');
+ assert.equal((await only('select multi_location_enabled from food_stock_preferences where store_id=$1',[b])).multi_location_enabled,true,'Loja multi-local existente preservada');
+ await db.exec("select set_config('request.user_id','"+admin+"',false)");
+ await db.exec('set role authenticated');
+ let mode=await only('select food_stock_mode_v1($1,null) mode',[a]);assert.equal(mode.mode.multi_location_enabled,false);
+ await assert.rejects(q('select food_stock_mode_v1($1,true)',[b]),/Sem permissão/,'sem acesso a outro tenant');
+ mode=await only('select food_stock_mode_v1($1,true) mode',[a]);assert.equal(mode.mode.multi_location_enabled,true);
+ await db.exec('reset role');await q('insert into food_product_location_stock values($1,$2,8,2)',[al,a]);await db.exec('set role authenticated');
+ mode=await only('select food_stock_mode_v1($1,false) mode',[a]);assert.equal(mode.mode.multi_location_enabled,false);
+ await db.exec('reset role');assert.equal((await only('select stock_quantity from food_product_location_stock where store_id=$1',[a])).stock_quantity,8,'modo preserva saldo');await db.exec('set role authenticated');
+ await db.exec('reset role');
+ await db.exec("select set_config('request.user_id','"+other+"',false)");
+ await db.exec('set role authenticated');
+ await db.exec('reset role');await q('insert into food_product_location_stock values($1,$2,1,0)',[secondary,b]);await db.exec('set role authenticated');
+ await assert.rejects(q('select food_stock_mode_v1($1,false)',[b]),/Transfira os saldos/,'saldo secundário não some');
+ await db.exec('reset role');await q('update food_product_location_stock set stock_quantity=0 where location_id=$1',[secondary]);await db.exec('set role authenticated');
+ await db.exec('reset role');await q('insert into food_pickup_locations values($1,$2,true)',[b,secondary]);await db.exec('set role authenticated');
+ await assert.rejects(q('select food_stock_mode_v1($1,false)',[b]),/pontos de retirada/,'ponto ativo impede esconder local');
+ await db.exec('reset role');await q('update food_pickup_locations set active=false where store_id=$1',[b]);await db.exec('set role authenticated');
+ mode=await only('select food_stock_mode_v1($1,false) mode',[b]);assert.equal(mode.mode.multi_location_enabled,false);
+ await db.exec('reset role');await q('insert into food_product_location_stock values($1,$2,2,0)',[secondary,b]);await db.exec('set role authenticated');
+ mode=await only('select food_stock_mode_v1($1,null) mode',[b]);assert.equal(mode.mode.multi_location_enabled,true,'saldo posterior volta a mostrar controles avançados');
+ await db.exec('reset role');
+ await db.exec("select set_config('request.user_id','',false)");
+ await db.exec('set role anon');
+ await assert.rejects(q('select food_stock_mode_v1($1,true)',[a]),/permission denied|Sem permissão/,'anônimo não configura');
+ console.log('OK 12 verificações PostgreSQL locais: modo simples, legado, isolamento, saldo, retirada e anon.');
+}finally{await db.close();}

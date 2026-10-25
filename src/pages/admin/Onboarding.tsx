@@ -36,6 +36,7 @@ export default function Onboarding() {
   const publicUrl = publicStorefrontUrl(settings.slug);
   const segment = getBusinessSegment(settings.visualTheme);
   const segmentPresentation = segment.id !== 'food' && settings.visualTheme.preset !== 'doce_lua';
+  const serviceFirst = ['personal','nutrition','services','rentals','creator'].includes(business?.profile?.primary_segment||segment.id);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,8 +88,8 @@ export default function Onboarding() {
     <div className="admin-page-title onboarding-title">
       <div>
         <span className="eyebrow">PRIMEIROS PASSOS</span>
-        <h1>{segmentPresentation?'Deixe seu catálogo pronto para vender':'Coloque sua loja pronta para receber pedidos'}</h1>
-        <p>{segmentPresentation?'Configure a identidade e os itens do catálogo. Confira como o cliente compra antes de compartilhar a vitrine.':'Finalize a configuração essencial, simule um pedido e só depois divulgue o catálogo aos clientes.'}</p>
+        <h1>{serviceFirst?'Prepare seu atendimento em poucos passos':segmentPresentation?'Deixe seu catálogo pronto para vender':'Coloque sua loja pronta para receber pedidos'}</h1>
+        <p>{serviceFirst?'Informe seus serviços e sua agenda. A vitrine só ficará pública após a aprovação.':segmentPresentation?'Configure a identidade e os itens do catálogo. Confira como o cliente compra antes de compartilhar a vitrine.':'Finalize a configuração essencial, simule um pedido e só depois divulgue o catálogo aos clientes.'}</p>
       </div>
       <div className="onboarding-title__actions">
         <button type="button" className="secondary-button" onClick={() => void copyStoreUrl()}><Copy size={17}/>Copiar link</button>
@@ -96,6 +97,8 @@ export default function Onboarding() {
       </div>
     </div>
 
+    {serviceFirst&&<section className="admin-card onboarding-service-start" aria-label="Comece pelo seu serviço"><span className="eyebrow">CONFIGURAÇÃO RÁPIDA</span><h2>O essencial para começar</h2><div className="onboarding-step-list"><Link to="/admin/configuracoes"><Circle size={20}/><span>1. Nome, contato e aparência</span><ArrowUpRight size={17}/></Link><Link to="/admin/negocio"><Circle size={20}/><span>2. Conferir segmento e módulos</span><ArrowUpRight size={17}/></Link>{!membership?.limitedAccess&&<Link to="/admin/operacao"><Circle size={20}/><span>3. Cadastrar serviço, cliente ou campanha</span><ArrowUpRight size={17}/></Link>}</div><p>{membership?.approvalStatus==='pending'?'Sua solicitação aguarda aprovação do Admin Master. Você pode ajustar dados e aparência enquanto isso.':'Abra a vitrine para conferir a apresentação. Os atendimentos continuam sob as regras do seu segmento.'}</p></section>}
+    {!serviceFirst&&<>
     <section className={`admin-card onboarding-hero ${readiness.launchReady ? 'is-ready' : ''}`}>
       <div className="onboarding-hero__main">
         <span className="onboarding-hero__icon"><Rocket size={25}/></span>
@@ -156,5 +159,6 @@ export default function Onboarding() {
         </section>
       </aside>
     </div>
+    </>}
   </>;
 }
