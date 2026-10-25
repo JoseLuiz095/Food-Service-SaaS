@@ -1,0 +1,3 @@
+.dashboard-metrics-actions{display:flex;align-items:flex-end;flex-direction:column;gap:8px;flex-shrink:0}
+.dashboard-metrics-actions .secondary-button{white-space:nowrap;min-height:36px}
+@media(max-width:760px){.dashboard-metrics-actions{align-items:flex-start;flex-direction:row;flex-wrap:wrap;min-width:0;max-width:100%}.dashboard-metrics-actions .dashboard-today-card__date{white-space:normal}}

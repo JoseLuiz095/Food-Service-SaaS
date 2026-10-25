@@ -41,11 +41,6 @@ export const inventoryUnitLabels: Record<InventoryUnit, string> = {
   pack: 'pacote',
 };
 
-const inventoryUnitFamily = (unit: InventoryUnit) => unit === 'g' || unit === 'kg' ? 'mass' : unit === 'ml' || unit === 'l' ? 'volume' : unit;
-const inventoryToBase = (quantity: number, unit: InventoryUnit) => unit === 'g' || unit === 'ml' ? quantity / 1000 : quantity;
-const inventoryFromBase = (quantity: number, unit: InventoryUnit) => unit === 'g' || unit === 'ml' ? quantity * 1000 : quantity;
-const convertInventoryQuantity = (quantity: number, from: InventoryUnit, to: InventoryUnit) => inventoryUnitFamily(from) === inventoryUnitFamily(to) ? inventoryFromBase(inventoryToBase(quantity, from), to) : null;
-
 type InventoryItemRow = {
   id: string;
   store_id: string;
@@ -268,6 +263,24 @@ export const inventoryApi = {
     return mapItem(payload.item as InventoryItemRow);
   },
 
+  /** A unidade e os detalhes são persistidos juntos; o mínimo informado já usa a unidade final. */
+  async saveDetails(storeId: string, itemId: string, input: { name: string; itemType: InventoryItemType; unit: InventoryUnit; reorderPoint: number; lowStockAlertEnabled: boolean; notes: string; active: boolean }): Promise<InventoryItem> {
+    if (isDemoMode) throw new Error('A edição de insumos exige o modo conectado ao Supabase.');
+    if (!input.name.trim() || !Number.isFinite(input.reorderPoint) || input.reorderPoint < 0 || Math.abs(input.reorderPoint * 1000 - Math.round(input.reorderPoint * 1000)) > 1e-7) {
+      throw new Error('Informe nome e estoque mínimo válido, com até três casas decimais.');
+    }
+    const result = await restFetch<{ item: InventoryItemRow }>('rpc/food_update_inventory_item_v1', {
+      method: 'POST',
+      body: { p_store_id: storeId, p_inventory_item_id: itemId, p_data: {
+        name: input.name.trim(), item_type: input.itemType, unit: input.unit,
+        reorder_point: input.reorderPoint, low_stock_alert_enabled: input.lowStockAlertEnabled,
+        notes: input.notes.trim() || null, active: input.active,
+      } },
+    });
+    if (!result?.item || result.item.store_id !== storeId || result.item.id !== itemId) throw new Error('A atualização do insumo não foi confirmada pelo servidor.');
+    return mapItem(result.item);
+  },
+
   /** Arquiva o cadastro sem apagar movimentos, compras ou fichas técnicas históricas. */
   async archiveItem(storeId: string, itemId: string): Promise<InventoryItem> {
     return this.updateItem(storeId, itemId, { active: false });
@@ -331,14 +344,14 @@ export const inventoryApi = {
 
   async listRecipeItems(storeId: string, recipeId: string): Promise<ProductRecipeItem[]> {
     if (isDemoMode) return [];
-    const rows = await restFetch<RecipeItemRow[]>(`food_product_recipe_items?select=${RECIPE_ITEM_SELECT}&store_id=eq.${encodeURIComponent(storeId)}&recipe_id=eq.${encodeURIComponent(recipeId)}&order=sort_order.asc`);
+    const rows = await restFetch<RecipeItemRow[]>(`food_product_recipe_items?select=${RECIPE_ITEM_SELECT}&store_id=eq.${encodeURIComponent(storeId)}&recipe_id=eq.${encodeURIComponent(recipeId)}&active=eq.true&order=sort_order.asc`);
     return rows.map(mapRecipeItem);
   },
 
   /** Carrega as linhas de todas as fichas em uma única consulta para os indicadores operacionais. */
   async listAllRecipeItems(storeId: string): Promise<ProductRecipeItem[]> {
     if (isDemoMode) return [];
-    const rows = await restFetch<RecipeItemRow[]>(`food_product_recipe_items?select=${RECIPE_ITEM_SELECT}&store_id=eq.${encodeURIComponent(storeId)}&order=recipe_id.asc,sort_order.asc`);
+    const rows = await restFetch<RecipeItemRow[]>(`food_product_recipe_items?select=${RECIPE_ITEM_SELECT}&store_id=eq.${encodeURIComponent(storeId)}&active=eq.true&order=recipe_id.asc,sort_order.asc`);
     return rows.map(mapRecipeItem);
   },
 
@@ -350,52 +363,31 @@ export const inventoryApi = {
     yieldUnit: InventoryUnit;
     notes?: string;
     items: Array<{ inventoryItemId: string; stage?: string; quantity: number; unit: InventoryUnit; wastePercent?: number; sortOrder?: number }>;
-  }): Promise<ProductRecipe> {
+  }): Promise<{ recipe: ProductRecipe; items: ProductRecipeItem[] }> {
     if (isDemoMode) throw new Error('A ficha técnica exige o modo conectado ao Supabase.');
     if (!Number.isFinite(input.yieldQuantity) || input.yieldQuantity <= 0) throw new Error('Informe um rendimento válido.');
     if (!input.items.length) throw new Error('Adicione pelo menos um insumo à ficha técnica.');
     if (input.items.some((item) => !item.inventoryItemId || !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.wastePercent ?? 0) || (item.wastePercent ?? 0) < 0 || (item.wastePercent ?? 0) > 100)) {
       throw new Error('Revise os insumos, quantidades e perdas da ficha técnica.');
     }
-    // Normaliza a ficha para a unidade do saldo. Assim, uma receita em
-    // gramas para um item comprado em quilos debita o valor correto.
-    const inventoryItems = await this.listItems(input.storeId, true);
-    const normalizedItems = input.items.map((item) => {
-      const inventoryItem = inventoryItems.find((entry) => entry.id === item.inventoryItemId);
-      if (!inventoryItem) throw new Error('Um dos insumos selecionados não foi encontrado.');
-      const quantity = convertInventoryQuantity(item.quantity, item.unit, inventoryItem.unit);
-      if (quantity == null) throw new Error(`A unidade ${inventoryUnitLabels[item.unit]} não pode ser convertida para ${inventoryUnitLabels[inventoryItem.unit]} em “${inventoryItem.name}”.`);
-      return { ...item, quantity, unit: inventoryItem.unit };
+    // O servidor valida unidade, insumo ativo e tenant sob lock, e aplica tudo em uma transação.
+    const result = await restFetch<{ recipe: RecipeRow; items: RecipeItemRow[] }>('rpc/food_save_product_recipe_v1', {
+      method: 'POST',
+      body: {
+        p_store_id: input.storeId, p_product_id: input.productId,
+        p_name: (input.name || 'Receita principal').trim(), p_yield_quantity: input.yieldQuantity,
+        p_yield_unit: input.yieldUnit, p_notes: input.notes?.trim() || null,
+        p_items: input.items.map((item, index) => ({
+          inventory_item_id: item.inventoryItemId, stage: item.stage?.trim() || 'Geral',
+          quantity: item.quantity, unit: item.unit, waste_percent: item.wastePercent ?? 0,
+          sort_order: item.sortOrder ?? index,
+        })),
+      },
     });
-    const existing = (await restFetch<RecipeRow[]>(`food_product_recipes?select=${RECIPE_SELECT}&store_id=eq.${encodeURIComponent(input.storeId)}&product_id=eq.${encodeURIComponent(input.productId)}`))[0];
-    let recipe: RecipeRow;
-    if (existing) {
-      const updated = await restFetch<RecipeRow[]>(`food_product_recipes?select=${RECIPE_SELECT}&id=eq.${encodeURIComponent(existing.id)}&store_id=eq.${encodeURIComponent(input.storeId)}`, {
-        method: 'PATCH', prefer: 'return=representation', body: {
-          name: (input.name || 'Receita principal').trim(), yield_quantity: input.yieldQuantity, yield_unit: input.yieldUnit, notes: input.notes?.trim() || null, active: true,
-        },
-      });
-      if (!updated[0]) throw new Error('A ficha técnica não pôde ser atualizada.');
-      recipe = updated[0];
-      await restFetch(`food_product_recipe_items?recipe_id=eq.${encodeURIComponent(recipe.id)}&store_id=eq.${encodeURIComponent(input.storeId)}`, { method: 'DELETE' });
-    } else {
-      const created = await restFetch<RecipeRow[]>(`food_product_recipes?select=${RECIPE_SELECT}`, {
-        method: 'POST', prefer: 'return=representation', body: {
-          store_id: input.storeId, product_id: input.productId, name: (input.name || 'Receita principal').trim(), yield_quantity: input.yieldQuantity, yield_unit: input.yieldUnit, notes: input.notes?.trim() || null, active: true,
-        },
-      });
-      if (!created[0]) throw new Error('A ficha técnica não pôde ser criada.');
-      recipe = created[0];
+    if (!result?.recipe || result.recipe.store_id !== input.storeId || result.recipe.product_id !== input.productId || result.items?.length !== input.items.length) {
+      throw new Error('O salvamento da ficha não foi confirmado pelo servidor.');
     }
-    const rows = await restFetch<RecipeItemRow[]>(`food_product_recipe_items?select=${RECIPE_ITEM_SELECT}`, {
-      method: 'POST', prefer: 'return=representation', body: normalizedItems.map((item, index) => ({
-        store_id: input.storeId, recipe_id: recipe.id, inventory_item_id: item.inventoryItemId,
-        stage: item.stage?.trim() || 'Geral', quantity: item.quantity, unit: item.unit,
-        waste_percent: item.wastePercent || 0, sort_order: item.sortOrder ?? index,
-      })),
-    });
-    if (rows.length !== normalizedItems.length) throw new Error('A ficha técnica foi salva, mas alguns insumos não puderam ser vinculados.');
-    return mapRecipe(recipe);
+    return { recipe: mapRecipe(result.recipe), items: result.items.map(mapRecipeItem) };
   },
 
   async recordPurchase(input: InventoryPurchaseInput): Promise<InventoryPurchaseResult> {
