@@ -259,7 +259,7 @@ console.log(`\nSmoke FoodWeb v0.6.2 concluído: ${checks.length} verificações 
 
 
 // FoodWeb v0.5.4 - paridade visual com FloriWeb no Admin/Admin Master
-ok('v0.5.4 Admin usa agrupamento visual do FloriWeb',adminLayout.includes("label: 'Operação'")&&adminLayout.includes("label: 'Catálogo'")&&adminLayout.includes("label: 'Gestão'")&&adminLayout.includes("label: 'Conta'"));
+ok('v0.6.5 Admin organiza navegação por tarefas', ['Início','Vendas','Catálogo','Loja','Administração'].every((label)=>adminLayout.includes(`label: '${label}'`))&&['/admin/pedidos','/admin/produtos','/admin/estoque','/admin/configuracoes','/admin/financeiro'].every((route)=>adminLayout.includes(`to: '${route}'`)));
 ok('v0.5.4 Admin preserva regras Food por feature',adminLayout.includes('requiresFeature')&&adminLayout.includes('planHasFeature'));
 ok('v0.5.4 Admin preserva navegacao para Admin Master',adminLayout.includes('platformAdmin')&&adminLayout.includes('/admin-master'));
 ok('v0.5.4 visual possui marcador de paridade',css.includes('FoodWeb v0.5.4 — paridade visual com FloriWeb'));
