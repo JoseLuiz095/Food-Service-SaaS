@@ -14,6 +14,8 @@ import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ensureCustomerMessageVariables, ins
 import { DEFAULT_STORE_VISUAL_THEME, getStorefrontThemeStyle, isStoreVisualColor, STORE_VISUAL_THEME_PRESETS } from '../../utils/storeVisualTheme';
 import { pwaPushStatus, requestPwaNotificationPermission, showPwaNotification, subscribeToPwaPush } from '../../services/pwaNotifications';
 import { useAuth } from '../../contexts/AuthContext';
+import { useStockMode } from '../../hooks/useStockMode';
+import { stockModeApi } from '../../services/stockModeApi';
 import { getBusinessSegment, resolveBusinessTheme } from '../../segments/businessSegments';
 
 const isDoceLuaStore = (store: Pick<StoreSettings, 'slug' | 'name'>) =>
@@ -30,6 +32,8 @@ export default function SettingsAdmin() {
   const { settings, saveSettings, resetDemo, uploadStoreAsset, dataMode, loading, error, reloadAdmin, planUsage } = useStore();
   const { user, membership } = useAuth();
   const { showToast } = useToast();
+  const {enabled:multiLocation,error:stockModeError,loading:stockModeLoading,reload:reloadStockMode}=useStockMode(membership?.storeId||'');
+  const [changingStockMode,setChangingStockMode]=useState(false);
   const [form, setForm] = useState<StoreSettings>(() => cloneSettingsForForm(settings));
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -225,6 +229,7 @@ export default function SettingsAdmin() {
         )}
       </div>
 
+      {['food','confectionery','retail','florist','rentals','printing3d'].includes(businessProfile.id)&&<section className="admin-card settings-stock-mode" aria-label="Preferência de estoque"><h2>Estoque</h2><p>Um único saldo é suficiente para começar. Seu estoque físico e reservado continuam disponíveis na tela Estoque.</p>{stockModeLoading?<p role="status">Consultando configuração...</p>:stockModeError?<p role="alert">Configuração de múltiplos locais indisponível neste ambiente. {stockModeError}</p>:<><label className="switch-row"><span><strong>Ativar múltiplos locais</strong><small>Para depósitos, pontos de retirada e transferências; dados existentes são preservados.</small></span><input type="checkbox" checked={multiLocation===true} disabled={changingStockMode} onChange={event=>void (async()=>{const target=event.target.checked;if(!target&&!window.confirm('Usar estoque simples? Saldos em locais secundários precisam ter sido transferidos para o principal.'))return;setChangingStockMode(true);try{await stockModeApi.set(settings.id,target);await reloadStockMode();showToast(target?'Múltiplos locais ativados.':'Estoque simples ativado.','success');}catch(cause){showToast(cause instanceof Error?cause.message:'Não foi possível alterar o modo.','error');}finally{setChangingStockMode(false);}})()}/></label>{multiLocation===true&&<a className="secondary-button" href="/admin/estoque-locais">Gerenciar locais</a>}</>}</section>}
       <form id="settings-form" className="admin-form-layout" onSubmit={submit}>
         <section className={`admin-card form-section settings-collapsible ${collapsedSections.identity ? 'is-collapsed' : ''}`}>
           {sectionToggle('identity', 'Dados do estabelecimento')}

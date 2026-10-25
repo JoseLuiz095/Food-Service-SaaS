@@ -21,3 +21,6 @@ verify_jwt = false
 
 [functions.food-modules-public]
 verify_jwt = false
+
+[functions.food-provision-demo]
+verify_jwt = true

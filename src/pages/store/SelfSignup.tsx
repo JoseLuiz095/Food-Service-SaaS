@@ -13,6 +13,7 @@ import { currency } from '../../utils/format';
 import { BusinessSegmentPicker } from '../../segments/BusinessSegmentPicker';
 import { normalizeBusinessSegment } from '../../segments/businessSegments';
 import { PLATFORM_BRAND } from '../../lib/brand';
+import './self-signup.css';
 import { BusinessJourneyPreview } from '../../components/marketing/BusinessJourneyPreview';
 
 const DEMO_PLAN: LandingPlan = { id:'demo-self-service', code:'DEMO', name:'Demo 30 dias', monthlyPrice:0, featureCodes:[], marketingBenefits:[] };
@@ -27,6 +28,7 @@ export default function SelfSignup(){
   const[demoEnabled,setDemoEnabled]=useState(true);
   const[mode,setMode]=useState<'new'|'existing'>('new');
   const[showPassword,setShowPassword]=useState(false);
+  const[stage,setStage]=useState<1|2>(1);
   const[loading,setLoading]=useState(false);
   const[error,setError]=useState('');
   const[success,setSuccess]=useState('');
@@ -55,8 +57,17 @@ export default function SelfSignup(){
   const isDemo=form.planCode==='DEMO';
   const setField=<K extends keyof SelfServiceSignupInput>(key:K,value:SelfServiceSignupInput[K])=>setForm((current)=>({...current,[key]:value}));
 
+  const advance=()=>{
+    if(form.storeName.trim().length<2){setError('Informe o nome do estabelecimento.');return;}
+    if(form.ownerName.trim().length<2){setError('Informe o nome do responsável.');return;}
+    if(!/^\S+@\S+\.\S+$/.test(form.email.trim())){setError('Informe um e-mail válido.');return;}
+    const digits=form.contactPhone.replace(/\D/g,'');
+    if(digits.length<10||digits.length>13){setError('Informe um WhatsApp comercial válido.');return;}
+    setError('');setStage(2);
+  };
   const submit=async(event:FormEvent)=>{
     event.preventDefault();
+    if(stage===1){advance();return;}
     if(loading)return;
     setError('');setSuccess('');setPresentationNeedsReview(false);
     if(form.storeName.trim().length<2){setError('Informe o nome do estabelecimento.');return;}
@@ -119,12 +130,16 @@ export default function SelfSignup(){
           <div className="self-signup-heading"><UserPlus size={22}/><div><h2>{mode==='new'?'Novo cadastro':'Usar uma conta existente'}</h2><p>{mode==='new'?'Após a verificação de segurança, sua conta é criada. Você prepara a loja e aguarda a revisão do Admin Master antes da publicação.':`Entre com seu usuário Supabase e solicite um novo acesso à ${PLATFORM_BRAND}.`}</p></div></div>
           <ol className="self-signup-progress" aria-label="Etapas até a publicação"><li><Store size={14} aria-hidden="true"/>Prepare sua loja</li><li><ShieldCheck size={14} aria-hidden="true"/>Aguarde a revisão</li><li><Check size={14} aria-hidden="true"/>Comece após a liberação</li></ol>
 
-          <label>Nome do estabelecimento<input required value={form.storeName} onChange={(e)=>setField('storeName',e.target.value)} placeholder="Ex.: Sua loja ou ateliê"/></label>
-          <BusinessSegmentPicker value={form.businessSegment || 'food'} onChange={(segment)=>setField('businessSegment',segment)}/>
-          {mode==='existing'&&<p className="business-picker__note">Se sua conta já tem uma loja, os dados atuais serão preservados. Consulte Segmento e permissões no painel para configurar seu negócio.</p>}
-          <div className="self-signup-grid"><label>Responsável<input required value={form.ownerName} onChange={(e)=>setField('ownerName',e.target.value)} placeholder="Seu nome"/></label><label>Cidade<input value={form.city||''} onChange={(e)=>setField('city',e.target.value)} placeholder="Cidade"/></label></div>
-          <div className="self-signup-grid"><label>E-mail<input required type="email" autoComplete="email" value={form.email} onChange={(e)=>setField('email',e.target.value)} placeholder="voce@empresa.com"/></label><label>UF<input maxLength={2} value={form.state||''} onChange={(e)=>setField('state',e.target.value.toUpperCase())} placeholder="ES"/></label></div>
-          <div className="self-signup-grid"><label>WhatsApp comercial<input required inputMode="tel" value={form.contactPhone} onChange={(e)=>setField('contactPhone',e.target.value)} placeholder="(27) 99999-9999"/></label><label>CNPJ <small>(opcional)</small><input inputMode="numeric" value={form.businessDocument||''} onChange={(e)=>setField('businessDocument',e.target.value)} placeholder="00.000.000/0001-00"/></label></div>
+          <fieldset className="self-signup-step" hidden={stage!==1} disabled={stage!==1}><legend>1. Seu negócio</legend>
+            <label>Nome do estabelecimento<input required value={form.storeName} onChange={e=>setField('storeName',e.target.value)} placeholder="Ex.: Sua loja ou ateliê"/></label>
+            <BusinessSegmentPicker value={form.businessSegment || 'food'} onChange={segment=>setField('businessSegment',segment)}/>
+            {mode==='existing'&&<p className="business-picker__note">Se sua conta já tem uma loja, os dados atuais serão preservados.</p>}
+            <div className="self-signup-grid"><label>Responsável<input required value={form.ownerName} onChange={e=>setField('ownerName',e.target.value)} placeholder="Seu nome"/></label><label>E-mail<input required type="email" autoComplete="email" value={form.email} onChange={e=>setField('email',e.target.value)} placeholder="voce@empresa.com"/></label></div>
+            <label>WhatsApp comercial<input required inputMode="tel" value={form.contactPhone} onChange={e=>setField('contactPhone',e.target.value)} placeholder="(27) 99999-9999"/></label>
+          </fieldset>
+          <fieldset className="self-signup-step" hidden={stage!==2} disabled={stage!==2}><legend>2. Plano e segurança</legend>
+            <p>{form.storeName} · {form.businessSegment}. O Admin Master revisará seu cadastro antes da publicação.</p>
+            <details className="self-signup-optional"><summary>Adicionar cidade, UF ou CNPJ (opcional)</summary><div className="self-signup-grid"><label>Cidade<input value={form.city||''} onChange={e=>setField('city',e.target.value)} placeholder="Cidade"/></label><label>UF<input maxLength={2} value={form.state||''} onChange={e=>setField('state',e.target.value.toUpperCase())} placeholder="ES"/></label></div><label>CNPJ<input inputMode="numeric" value={form.businessDocument||''} onChange={e=>setField('businessDocument',e.target.value)} placeholder="00.000.000/0001-00"/></label></details>
           <label>Senha<div className="self-signup-password"><input required minLength={8} type={showPassword?'text':'password'} autoComplete={mode==='new'?'new-password':'current-password'} value={form.password} onChange={(e)=>setField('password',e.target.value)} placeholder="Mínimo de 8 caracteres"/><button type="button" onClick={()=>setShowPassword((value)=>!value)} aria-label="Mostrar ou ocultar senha">{showPassword?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
 
           <fieldset className="self-signup-plans"><legend>Escolha seu plano</legend>{plans.map((plan)=><label key={plan.code} className={form.planCode===plan.code?'selected':''}><input type="radio" name="plan" value={plan.code} checked={form.planCode===plan.code} onChange={()=>setField('planCode',plan.code)}/><div><strong>{plan.name}</strong><span>{plan.code==='DEMO'?`${demoDays} dias gratuitos`:`${currency.format(plan.monthlyPrice)} / mês`}</span></div>{form.planCode===plan.code&&<Check size={18}/>}</label>)}</fieldset>
@@ -133,9 +148,11 @@ export default function SelfSignup(){
           {!isDemo&&<div className="self-signup-notice"><ShieldCheck size={17}/><span>Você poderá preparar o sistema, mas a vitrine permanecerá indisponível até o Admin Master liberar o cadastro.</span></div>}
 
           {appConfig.turnstileSiteKey?<TurnstileWidget siteKey={appConfig.turnstileSiteKey} action="signup" onToken={setCaptchaToken} resetSignal={captchaReset}/>:<div className="form-error">Turnstile não configurado neste build. O auto cadastro permanece bloqueado por segurança.</div>}
-          {error&&<div className="form-error" role="alert">{error}</div>}
           {success&&<div className="form-success self-signup-success" role="status">{success}</div>}
           {presentationNeedsReview?<Link className="primary-button self-signup-submit" to="/admin/negocio">Concluir segmento e permissões</Link>:<button className="primary-button self-signup-submit" disabled={loading||!appConfig.turnstileSiteKey||!captchaToken}>{loading?'Processando...':mode==='new'?'Criar conta e continuar':'Entrar e solicitar acesso'}</button>}
+          </fieldset>
+          {error&&<div className="form-error" role="alert">{error}</div>}
+          {stage===1?<button type="button" className="primary-button self-signup-submit" onClick={advance}>Continuar para plano e segurança</button>:<button type="button" className="secondary-button" onClick={()=>{setStage(1);setCaptchaToken('');setCaptchaReset(v=>v+1);}}>Voltar aos dados do negócio</button>}
           <small className="self-signup-footnote">Ao continuar, você solicita a criação de um ambiente {PLATFORM_BRAND}. Cadastros são revisados pelo Admin Master antes da liberação definitiva e o teste gratuito depende de elegibilidade cadastral.</small>
         </form>
       </section>

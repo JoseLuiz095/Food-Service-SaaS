@@ -41,6 +41,7 @@ import { getBusinessSegment, resolveBusinessTheme, isDefaultStoreImage } from '.
 import { PLATFORM_BRAND } from '../lib/brand';
 import '../segments/segments.css';
 import { useBusinessStatus } from '../platform/useBusinessStatus';
+import { useStockMode } from '../hooks/useStockMode';
 import { useAdminMobileNavigation } from '../hooks/useAdminMobileNavigation';
 import { moduleIsActive } from '../platform/api';
 import '../components/admin/admin-navigation.css';
@@ -93,6 +94,7 @@ export default function AdminLayout() {
   const { settings, planUsage, dataMode, products } = useStore();
   const { user, signOut, platformAdmin, membership, memberships, selectStore } = useAuth();
   const {state:business}=useBusinessStatus(membership?.storeId||'');
+  const {enabled:multiLocation}=useStockMode(membership?.storeId||'');
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -199,6 +201,7 @@ export default function AdminLayout() {
             const deliverySegments = ['food', 'confectionery', 'retail', 'printing3d', 'rentals', 'florist'];
             const items = section.items.filter((item) => (!item.requiresFeature || planHasFeature(planUsage.plan, item.requiresFeature))
               && (!membership?.limitedAccess || preparationNavAllowed.has(item.to))
+              && (item.to !== '/admin/estoque-locais' || multiLocation !== false)
               && (item.to !== '/admin/entregas' || deliverySegments.includes(segment.id))
               && (item.to !== '/admin/estoque' || deliverySegments.includes(segment.id) || products.some((product) => product.trackStock)));
             if (!items.length) return null;

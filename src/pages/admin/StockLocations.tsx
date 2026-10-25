@@ -4,6 +4,8 @@ import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import { restFetch } from '../../lib/supabaseRest';
+import { useStockMode } from '../../hooks/useStockMode';
+import { stockModeApi } from '../../services/stockModeApi';
 import { stockLocationsApi, type ProductLocationStock, type StockLocation } from '../../services/stockLocationsApi';
 import type { Product } from '../../types';
 import './stock-locations.css';
@@ -13,6 +15,8 @@ const operationId = () => crypto.randomUUID();
 export default function StockLocationsAdmin() {
   const { settings, products } = useStore();
   const { showToast } = useToast();
+  const {enabled:multiLocation,loading:modeLoading,error:modeError,reload:reloadMode}=useStockMode(settings.id);
+  const [changingMode,setChangingMode]=useState(false);
   const [locations, setLocations] = useState<StockLocation[]>([]);
   const [balances, setBalances] = useState<ProductLocationStock[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +55,12 @@ export default function StockLocationsAdmin() {
       setError(message);
     } finally { setLoading(false); }
   }, [settings.id, trackedProducts]);
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    if (multiLocation === false) { setLoading(false); return; }
+    if (modeLoading) return;
+    setLoading(true);
+    void refresh();
+  }, [refresh, multiLocation, modeLoading]);
 
   const balanceFor = (product: Product, location: StockLocation) =>
     balances.find((item) => item.product_id === product.id && item.location_id === location.id);
@@ -111,12 +120,16 @@ export default function StockLocationsAdmin() {
     finally { setSaving(false); }
   };
 
-  if (loading) return <LoadingState label="Carregando locais de estoque..." />;
+  if (modeLoading || (multiLocation !== false && loading)) return <LoadingState label="Carregando locais de estoque..." />;
+  if(multiLocation === false) return <main className="admin-page"><header className="page-header"><div><span className="eyebrow">ESTOQUE OPCIONAL</span><h1>Múltiplos locais</h1><p>Sua loja começa com um estoque principal. Use a tela Estoque para adicionar, remover ou definir quantidades.</p></div></header><section className="admin-card"><h2>Precisa separar estoques?</h2><p>Ative quando quiser controlar depósitos, pontos de retirada e transferências. Os saldos atuais continuam no local principal.</p><button type="button" className="primary-button" disabled={changingMode} onClick={()=>void (async()=>{setChangingMode(true);try{await stockModeApi.set(settings.id,true);await reloadMode();showToast('Múltiplos locais ativados.','success');}catch(cause){showToast(cause instanceof Error?cause.message:'Não foi possível ativar.','error');}finally{setChangingMode(false);}})()}>{changingMode?'Ativando...':'Ativar múltiplos locais'}</button></section></main>;
   if (error && !locations.length) return <ErrorState message={error || "Locais indisponíveis."} onRetry={() => void refresh()} />;
   return <main className="admin-page">
+    {modeError&&<div role="alert" className="inline-alert inline-alert-error">A configuração opcional ainda não foi implantada neste ambiente. {modeError}</div>}
+
     <header className="page-header"><div><span className="eyebrow">ESTOQUE</span><h1>Locais de estoque</h1><p>Consulte saldos, ajuste quantidades e transfira produtos com registro de operação.</p></div>
       <button className="secondary-button" onClick={() => void refresh()} disabled={saving}><RefreshCw size={16}/> Atualizar</button></header>
     {error && <div className="inline-alert inline-alert-error">{error}</div>}
+    {multiLocation===true&&<section className="admin-card"><h2>Voltar ao estoque simples</h2><p>Você pode ocultar estes controles quando não houver saldo ou reservas em locais secundários e nenhum ponto ativo associado a eles. Nenhum local ou histórico será excluído.</p><button type="button" className="secondary-button" disabled={changingMode||saving} onClick={()=>void (async()=>{setChangingMode(true);try{await stockModeApi.set(settings.id,false);await reloadMode();showToast('Estoque simples ativado.','success');}catch(cause){showToast(cause instanceof Error?cause.message:'Transfira os saldos antes de simplificar.','error');}finally{setChangingMode(false);}})()}>Usar estoque simples</button></section>}
     <section className="admin-card">
       <div className="section-heading"><div><h2>Locais cadastrados</h2><p>O estoque existente foi preservado no local principal.</p></div><Warehouse size={20}/></div>
       <div className="stock-location-grid">{locations.map((location) => <article className="stock-location-card" key={location.id}>
