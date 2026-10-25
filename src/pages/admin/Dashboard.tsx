@@ -1,5 +1,6 @@
 import { ArrowUpRight, Boxes, CalendarDays, CheckCircle2, Circle, CircleDollarSign, Clock3, Eye, Link2, Megaphone, PackageCheck, PackageOpen, PackageX, Rocket, ShoppingBag, Tags, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { useStore } from '../../contexts/StoreContext';
@@ -7,14 +8,34 @@ import { getStoreReadiness } from '../../utils/storeReadiness';
 import { publicStorefrontPath } from '../../utils/storefrontRoute';
 import { currency } from '../../utils/format';
 import { getBusinessSegment, isDefaultStoreImage } from '../../segments/businessSegments';
-import { storeDateKey, storeDateLabel } from '../../utils/storeHours';
+import { storeDateLabel } from '../../utils/storeHours';
+import { dashboardApi, type DashboardMetrics } from '../../services/dashboardApi';
+import './dashboard-metrics.css';
 
 export default function Dashboard(){
   const {products,categories,deliveryZones,orders,settings,planUsage,loading,error,reloadAdmin}=useStore();
+  const [metricState,setMetricState]=useState<{storeId:string;data:DashboardMetrics|null;error:string;loading:boolean}|null>(null);
+  const [metricRetry,setMetricRetry]=useState(0);
+  useEffect(()=>{
+    let current=true;
+    if (!settings.id) return ()=>{current=false;};
+    setMetricState({storeId:settings.id,data:null,error:'',loading:true});
+    void dashboardApi.getMetrics(settings.id).then((data)=>{
+      if(current)setMetricState({storeId:settings.id,data,error:'',loading:false});
+    }).catch((cause)=>{
+      if(current)setMetricState({storeId:settings.id,data:null,error:cause instanceof Error?cause.message:'Indicadores indisponíveis.',loading:false});
+    });
+    return ()=>{current=false;};
+  },[settings.id,metricRetry]);
+  const metrics=metricState?.storeId===settings.id?metricState.data:null;
+  const metricsLoading=metricState?.storeId!==settings.id||metricState.loading;
+  const metricsError=metricState?.storeId===settings.id?metricState.error:'';
+  const count=(value:number|undefined)=>value==null?'—':value;
+  const amount=(value:number|undefined)=>value==null?'—':currency.format(value);
   const segment=getBusinessSegment(settings.visualTheme);
   const segmentPresentation=segment.id!=='food'&&settings.visualTheme.preset!=='doce_lua';
   const serviceFirst=['personal','nutrition','creator'].includes(segment.id);
-  const hasCommerceActivity=products.length>0||categories.length>0||orders.length>0;
+  const hasCommerceActivity=products.length>0||categories.length>0||orders.length>0||(metrics?.ordersTotal??0)>0;
   const showCommerce= !serviceFirst||hasCommerceActivity;
   const logoUrl=segmentPresentation&&isDefaultStoreImage(settings.logoUrl)?'/assets/placeholder-catalog.svg':settings.logoUrl;
   if(loading)return <LoadingState label="Carregando painel..."/>;
@@ -24,18 +45,7 @@ export default function Dashboard(){
   const inactive=products.length-active;
   const limit=planUsage.plan.productLimit;
   const usage=limit?Math.min(100,(active/limit)*100):0;
-  const timezone=settings.openingSchedule.timezone;
-  const todayKey=storeDateKey(new Date(),timezone);
-  const activeOrder=(order:typeof orders[number])=>order.status!=='cancelled'&&order.status!=='delivered';
-  const newOrdersToday=orders.filter((order)=>activeOrder(order)&&storeDateKey(new Date(order.createdAt),timezone)===todayKey);
-  const processingOrders=orders.filter((order)=>activeOrder(order)&&order.paymentStatus==='paid');
-  const pendingPayments=orders.filter((order)=>activeOrder(order)&&order.paymentStatus!=='paid');
-  const scheduledToday=orders.filter((order)=>activeOrder(order)&&order.scheduledFor&&storeDateKey(new Date(order.scheduledFor),timezone)===todayKey);
-  const paidToday=orders.filter((order)=>order.status!=='cancelled'&&order.paymentStatus==='paid'&&order.paymentReceivedAt&&storeDateKey(new Date(order.paymentReceivedAt),timezone)===todayKey);
-  const revenueToday=paidToday.reduce((total,order)=>total+Number(order.total||0),0);
-  const pendingAmount=pendingPayments.reduce((total,order)=>total+Number(order.total||0),0);
-  const soldToday=orders.filter((order)=>order.status!=='cancelled'&&storeDateKey(new Date(order.createdAt),timezone)===todayKey);
-  const soldAmount=soldToday.reduce((total,order)=>total+Number(order.total||0),0);
+  const timezone=metrics?.timezone||settings.openingSchedule.timezone;
   const lowStockProducts=products.filter((product)=>{if(!product.trackStock)return false;const available=Math.max(0,Number(product.stockQuantity||0)-Number(product.stockReservedQuantity||0));return product.stockStatus==='low_stock'||available<=3;});
   const physicalUnits=products.reduce((total,product)=>total+(product.trackStock?Number(product.stockQuantity||0):0),0);
   const reservedUnits=products.reduce((total,product)=>total+(product.trackStock?Number(product.stockReservedQuantity||0):0),0);
@@ -44,7 +54,7 @@ export default function Dashboard(){
     {label:'Produtos ativos',value:active,icon:PackageCheck},
     {label:'Produtos ocultos',value:inactive,icon:PackageX},
     {label:'Categorias',value:categories.length,icon:Tags},
-    {label:'Pedidos registrados',value:orders.length,icon:ShoppingBag},
+    {label:'Pedidos registrados',value:count(metrics?.ordersTotal),icon:ShoppingBag},
     {label:'Estoque físico',value:physicalUnits,icon:Boxes},
     {label:'Reservado',value:reservedUnits,icon:PackageOpen},
     {label:'Disponível',value:physicalUnits-reservedUnits,icon:PackageCheck},
@@ -61,12 +71,14 @@ export default function Dashboard(){
     {showCommerce&&<div className="stat-grid">{cards.map(({label,value,icon:Icon})=><article className="stat-card" key={label}><div className="stat-icon"><Icon size={20}/></div><span>{label}</span><strong>{value}</strong></article>)}</div>}
 
     {showCommerce&&<section className="admin-card dashboard-today-card" aria-labelledby="dashboard-today-title">
-      <div className="dashboard-today-card__header"><div><span className="eyebrow">CAIXA E OPERAÇÃO</span><h2 id="dashboard-today-title">O que importa hoje</h2><p>Comece pelo faturamento, recebimentos e pendências antes de entrar no catálogo.</p></div><span className="dashboard-today-card__date"><CalendarDays size={15}/>{storeDateLabel(new Date(),timezone)} · horário da loja</span></div>
-      <div className="dashboard-today-grid">
-        <Link to="/admin/financeiro" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-green"><CircleDollarSign size={17}/></span><span><small>Recebido hoje</small><strong>{currency.format(revenueToday)}</strong><em>{paidToday.length} pedido(s) confirmado(s)</em></span><ArrowUpRight size={15}/></Link>
-        <Link to="/admin/pedidos" className={`dashboard-today-metric ${pendingPayments.length?'is-attention':''}`}><span className="dashboard-today-metric__icon is-yellow"><CircleDollarSign size={17}/></span><span><small>A receber</small><strong>{currency.format(pendingAmount)}</strong><em>{pendingPayments.length} aguardando conferência</em></span><ArrowUpRight size={15}/></Link>
-        <Link to="/admin/pedidos" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-orange"><ShoppingBag size={17}/></span><span><small>Pedidos novos</small><strong>{newOrdersToday.length}</strong><em>{processingOrders.length} em processamento</em></span><ArrowUpRight size={15}/></Link>
-        <Link to="/admin/pedidos" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-purple"><CalendarDays size={17}/></span><span><small>Agendados hoje</small><strong>{scheduledToday.length}</strong><em>encomendas programadas</em></span><ArrowUpRight size={15}/></Link>
+      <div className="dashboard-today-card__header"><div><span className="eyebrow">CAIXA E OPERAÇÃO</span><h2 id="dashboard-today-title">O que importa hoje</h2><p>Comece pelo faturamento, recebimentos e pendências antes de entrar no catálogo.</p></div><div className="dashboard-metrics-actions"><span className="dashboard-today-card__date"><CalendarDays size={15}/>{storeDateLabel(new Date(),timezone)} · horário da loja</span><button type="button" className="secondary-button compact-button" disabled={metricsLoading} onClick={()=>setMetricRetry((value)=>value+1)}>Atualizar indicadores</button></div></div>
+      {metricsError&&<div role="alert" className="inline-alert inline-alert-error">Indicadores do servidor indisponíveis: {metricsError} <button type="button" onClick={()=>setMetricRetry((value)=>value+1)}>Tentar novamente</button></div>}
+      {metricsLoading&&<p role="status">Consultando indicadores do servidor…</p>}
+      <div className="dashboard-today-grid" aria-busy={metricsLoading}>
+        <Link to="/admin/financeiro" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-green"><CircleDollarSign size={17}/></span><span><small>Recebido hoje</small><strong>{amount(metrics?.receivedToday)}</strong><em>{metrics?`${metrics.receivedTodayCount} pedido(s) recebido(s)`:'Aguardando dados do servidor'}</em></span><ArrowUpRight size={15}/></Link>
+        <Link to="/admin/pedidos" className={`dashboard-today-metric ${metrics?.pendingPayments?'is-attention':''}`}><span className="dashboard-today-metric__icon is-yellow"><CircleDollarSign size={17}/></span><span><small>A receber</small><strong>{amount(metrics?.pendingAmount)}</strong><em>{metrics?`${metrics.pendingPayments} aguardando conferência`:'Aguardando dados do servidor'}</em></span><ArrowUpRight size={15}/></Link>
+        <Link to="/admin/pedidos" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-orange"><ShoppingBag size={17}/></span><span><small>Pedidos novos</small><strong>{count(metrics?.ordersToday)}</strong><em>{metrics?`${metrics.processingOrders} em processamento`:'Aguardando dados do servidor'}</em></span><ArrowUpRight size={15}/></Link>
+        <Link to="/admin/pedidos" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-purple"><CalendarDays size={17}/></span><span><small>Agendados hoje</small><strong>{count(metrics?.scheduledToday)}</strong><em>encomendas programadas</em></span><ArrowUpRight size={15}/></Link>
         <Link to="/admin/estoque" className={`dashboard-today-metric ${lowStockProducts.length?'is-attention':''}`}><span className="dashboard-today-metric__icon is-red"><PackageOpen size={17}/></span><span><small>Estoque baixo</small><strong>{lowStockProducts.length}</strong><em>{lowStockProducts.length?'itens para revisar':'tudo sob controle'}</em></span><ArrowUpRight size={15}/></Link>
       </div>
     </section>}

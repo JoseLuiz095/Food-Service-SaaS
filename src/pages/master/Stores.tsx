@@ -251,7 +251,7 @@ export default function MasterStores(){
   };
 
   return <>
-    <div className="admin-page-title"><div><span className="eyebrow">CLIENTES</span><h1>Lojas e assinaturas</h1><p>Crie estabelecimentos, escolha o plano e suspenda o acesso sem apagar nenhum dado.</p></div><button className="primary-button" onClick={()=>setCreating(true)}><Plus size={18}/>Nova loja</button></div>
+    <div className="admin-page-title master-store-page-title"><div><span className="eyebrow">CLIENTES</span><h1>Lojas e assinaturas</h1><p>Crie estabelecimentos, escolha o plano e suspenda o acesso sem apagar nenhum dado.</p></div><button type="button" className="primary-button" onClick={()=>setCreating(true)}><Plus size={18}/>Nova loja</button></div>
 
     {createFunctionReady===false&&<section className="admin-card master-service-alert"><TriangleAlert size={22}/><div><strong>Criação automática de lojas indisponível</strong><p>{createFunctionError}</p><small>O frontend está publicado, mas a Edge Function do Supabase não está disponível. Vá em <b>Diagnóstico</b> para ver o comando de deploy.</small></div></section>}
     {createFunctionReady===true&&<div className="master-service-ok"><CloudCog size={16}/> Serviço de criação de lojas disponível</div>}

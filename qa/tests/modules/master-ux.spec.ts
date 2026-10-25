@@ -30,6 +30,31 @@ for(const width of [390,1366]) {
   });
 }
 
+for(const width of [390,768,1024,1440]) {
+  test(`tabela do Master mantém Uso e ações acessíveis em ${width}px`,async({page})=>{
+    await page.setViewportSize({width,height:844});
+    await mockBackend(page,{auth:true,master:true});
+    await page.goto('/admin-master/lojas');
+    const create=page.getByRole('button',{name:'Nova loja',exact:true});
+    await expect(create).toBeVisible();
+    expect(await create.evaluate(element=>getComputedStyle(element).whiteSpace)).toBe('nowrap');
+    const region=page.getByRole('region',{name:'Tabela de lojas; use as setas para navegar pelas colunas'});
+    const usage=region.getByRole('columnheader',{name:'Uso'});
+    await usage.scrollIntoViewIfNeeded();
+    const bounds=await usage.boundingBox(), container=await region.boundingBox();
+    expect(bounds).not.toBeNull();expect(container).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(container!.x-2);
+    expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(container!.x+container!.width+2);
+    expect(bounds!.width).toBeGreaterThanOrEqual(210);
+    if(width<=1024) expect(await region.evaluate(element=>element.scrollWidth>element.clientWidth)).toBe(true);
+    const action=region.getByRole('button',{name:'Gerenciar',exact:true}).first();
+    await action.scrollIntoViewIfNeeded();
+    await action.click();
+    await expect(page.getByRole('dialog',{name:store.name})).toBeVisible();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  });
+}
+
 test('sidebar do Master permanece acessível no desktop e pode ser recolhida',async({page})=>{
   await page.setViewportSize({width:1366,height:768});
   await mockBackend(page,{auth:true,master:true});
