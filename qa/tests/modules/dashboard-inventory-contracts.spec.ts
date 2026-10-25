@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
-import { mockBackend, STORE } from './fixtures';
+import { mockBackend, product, PRODUCT, STORE } from './fixtures';
 
 const ITEM='a0000000-0000-4000-8000-000000000099';
 const now='2026-10-25T12:00:00.000Z';
@@ -123,4 +123,43 @@ test('CSV de estoque neutraliza fórmula de nome controlado pelo usuário',async
   expect(csv).toContain("'=1+1");
   expect(csv).not.toMatch(/(?:^|\r\n|;)=1\+1/);
   expect(csv.charCodeAt(0)).toBe(0xfeff);
+});
+
+test('resposta atrasada de outra ficha não troca os insumos do produto selecionado',async({page})=>{
+  const secondProduct='20000000-0000-4000-8000-000000000002';
+  const firstRecipe='c0000000-0000-4000-8000-000000000001';
+  const secondRecipe='c0000000-0000-4000-8000-000000000002';
+  await mockBackend(page,{auth:true});
+  await page.route('**/rest/v1/food_products?**',route=>route.fulfill({json:[product,{...product,id:secondProduct,name:'Bolo teste',slug:'bolo-teste'}]}));
+  await page.route('**/rest/v1/food_inventory_items?**',route=>route.fulfill({json:[inventoryItem()]}));
+  await page.route('**/rest/v1/food_product_recipes?**',route=>route.fulfill({json:[
+    {id:firstRecipe,store_id:STORE,product_id:PRODUCT,name:'Receita A',yield_quantity:1,yield_unit:'un',active:true,notes:null,created_at:now,updated_at:now},
+    {id:secondRecipe,store_id:STORE,product_id:secondProduct,name:'Receita B',yield_quantity:1,yield_unit:'un',active:true,notes:null,created_at:now,updated_at:now},
+  ]}));
+  let releaseFirst:()=>void=()=>{};
+  const firstGate=new Promise<void>(resolve=>{releaseFirst=resolve});
+  let firstPending=0;
+  await page.route('**/rest/v1/food_product_recipe_items?**',async route=>{
+    const recipeId=new URL(route.request().url()).searchParams.get('recipe_id');
+    if(!recipeId)return route.fulfill({json:[]});
+    if(recipeId===`eq.${firstRecipe}`){firstPending++;await firstGate;}
+    return route.fulfill({json:[{
+      id:recipeId===`eq.${firstRecipe}`?'d0000000-0000-4000-8000-000000000001':'d0000000-0000-4000-8000-000000000002',
+      store_id:STORE,recipe_id:recipeId?.slice(3),inventory_item_id:ITEM,stage:'Base',
+      quantity:recipeId===`eq.${firstRecipe}`?11:22,unit:'kg',waste_percent:0,sort_order:0,created_at:now,updated_at:now,
+    }]});
+  });
+  await page.goto('/admin/estoque');
+  await page.getByRole('button',{name:'Abrir ferramentas avançadas'}).click();
+  const recipe=page.locator('.inventory-recipe-card');
+  const selector=recipe.getByLabel('Produto');
+  await selector.selectOption(PRODUCT);
+  await expect.poll(()=>firstPending).toBe(1);
+  await expect(recipe.getByRole('status')).toContainText('Carregando ficha técnica');
+  await selector.selectOption(secondProduct);
+  const quantity=recipe.getByPlaceholder('Quantidade');
+  await expect(quantity).toHaveValue('22');
+  releaseFirst();
+  await expect(quantity).toHaveValue('22');
+  await expect(selector).toHaveValue(secondProduct);
 });
