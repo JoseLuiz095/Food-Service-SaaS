@@ -10,10 +10,21 @@ import { currency } from '../../utils/format';
 import { loadRecentOrder } from '../../utils/customerSales';
 import { storefrontPath } from '../../utils/storefrontRoute';
 import type { SelectedOption } from '../../types';
+import { PickupPointSelector, PointStockNotice } from './PickupPointSelector';
+import { pointStock, usePickupAvailability } from './usePickupAvailability';
 
 export default function Cart() {
   const { items, subtotal, addItem, updateQuantity, removeItem, validateAgainstProducts } = useCart();
   const { products, settings, loading, storeBasePath } = useStore();
+  const pickup = usePickupAvailability();
+  const insufficient = pickup.selectedPoint && pickup.availability ? items.filter((item) => {
+    const product = products.find((candidate) => candidate.id === item.productId);
+    if (!product?.trackStock) return false;
+    const totalQuantity = items.filter((candidate) => candidate.productId === item.productId).reduce((sum, candidate) => sum + candidate.quantity, 0);
+    const row = pointStock(pickup.availability, item.productId);
+    return row && Number(row.available) < totalQuantity;
+  }) : [];
+  const pickupOnlyShortage = insufficient.length > 0 && !settings.deliveryEnabled;
 
   useEffect(() => { if (!loading) validateAgainstProducts(products); }, [products, loading, validateAgainstProducts]);
 
@@ -21,10 +32,11 @@ export default function Cart() {
   const suggestions = useMemo(() => {
     const inCart = new Set(items.map((item) => item.productId));
     return products
-      .filter((product) => product.active && product.stockStatus !== 'unavailable' && product.availabilityStatus === 'available' && !inCart.has(product.id))
+      .filter((product) => product.active && product.stockStatus !== 'unavailable' && product.availabilityStatus === 'available' && !inCart.has(product.id)
+        && (settings.deliveryEnabled || !pickup.selectedPoint || !product.trackStock || Number(pointStock(pickup.availability, product.id)?.available || 0) > 0))
       .sort((a, b) => Number(b.featured) - Number(a.featured) || a.price - b.price)
       .slice(0, settings.upsellEnabled ? settings.upsellLimit : 0);
-  }, [items, products, settings.upsellEnabled, settings.upsellLimit]);
+  }, [items, products, settings.upsellEnabled, settings.upsellLimit, settings.deliveryEnabled, pickup.selectedPoint, pickup.availability]);
 
   const restoreRecentOrder = () => {
     if (!recentOrder) return;
@@ -59,6 +71,8 @@ export default function Cart() {
     <div className="container cart-layout">
       <section>
         <div className="page-title"><span className="eyebrow">SEU PEDIDO</span><h1>Revise os itens</h1><p>Confira tamanhos, escolhas, adicionais e remoções antes de avançar.</p></div>
+        {settings.pickupEnabled && <PickupPointSelector points={pickup.points} value={pickup.pickupLocationId} onChange={pickup.setPickupLocationId} loading={pickup.pointsLoading} error={pickup.pointsError} invalidQr={pickup.invalidQr}/>}
+        {pickup.selectedPoint && pickup.availabilityError && <p className="store-point-stock store-point-stock--warning" role="status">{pickup.availabilityError}</p>}
         <div className="cart-list">{items.map((item) => <article key={item.id} className="cart-item">
           <ProductMedia src={item.imageUrl} emoji={item.visualEmoji} alt={item.productName} emojiClassName="cart-item__emoji-v060"/>
           <div className="cart-item__main"><strong>{item.productName}</strong>
@@ -67,6 +81,7 @@ export default function Cart() {
               return <span key={groupId}><b>{groupOptions[0].groupName}:</b> {groupOptions.map((option) => `${option.itemName}${option.quantity > 1 ? ` ×${option.quantity}` : ''}`).join(', ')}</span>;
             })}</div>}
             <b>{currency.format(cartItemUnitTotal(item))} / un.</b>
+            {pickup.selectedPoint && products.find((product) => product.id === item.productId) && <PointStockNotice product={products.find((product) => product.id === item.productId)!} pointName={pickup.selectedPoint.name} row={pointStock(pickup.availability,item.productId)} quantity={items.filter((candidate) => candidate.productId === item.productId).reduce((sum, candidate) => sum + candidate.quantity, 0)}/>}
           </div>
           <QuantityControl value={item.quantity} onChange={(value) => updateQuantity(item.id, value)}/>
           <strong className="cart-item__total">{currency.format(cartItemUnitTotal(item) * item.quantity)}</strong>
@@ -84,7 +99,8 @@ export default function Cart() {
         <div className="summary-total"><span>Subtotal</span><strong>{currency.format(subtotal)}</strong></div>
         {settings.minimumOrder > 0 && <div className={`minimum-order ${minimumMissing > 0 ? 'warning' : ''}`}><span>Pedido mínimo: {currency.format(settings.minimumOrder)}</span>{minimumMissing > 0 && <strong>Faltam {currency.format(minimumMissing)}</strong>}</div>}
         <p>Taxa de entrega será calculada conforme o bairro selecionado.</p>
-        {minimumMissing > 0 ? <button type="button" className="primary-button cart-continue-button" disabled><AlertCircle size={18}/>Complete o pedido</button> : <Link className="primary-button cart-continue-button" to={storefrontPath(storeBasePath, '/finalizar')}>Continuar <ArrowRight size={18}/></Link>}
+        {insufficient.length > 0 && <p className="store-point-stock store-point-stock--warning" role="alert">Há itens sem saldo suficiente no ponto escolhido. {settings.deliveryEnabled ? 'No checkout, escolha delivery ou altere o ponto de retirada.' : 'Ajuste as quantidades ou selecione outro ponto.'}</p>}
+        {minimumMissing > 0 || pickupOnlyShortage ? <button type="button" className="primary-button cart-continue-button" disabled><AlertCircle size={18}/>{pickupOnlyShortage ? 'Ajuste o estoque do ponto' : 'Complete o pedido'}</button> : <Link className="primary-button cart-continue-button" to={storefrontPath(storeBasePath, '/finalizar')}>{insufficient.length ? 'Escolher delivery' : 'Continuar'} <ArrowRight size={18}/></Link>}
       </aside>
     </div>
   </div>;

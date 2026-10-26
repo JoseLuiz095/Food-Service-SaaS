@@ -1,3 +1,11 @@
+## Em desenvolvimento — estoque por local
+
+- Transferência rápida e em lote com saldos por ponto, ações de ajuste e QR Code de retirada no painel.
+- Vitrine, produto, carrinho e checkout mostram e revalidam a disponibilidade do ponto público selecionado.
+- Triggers impedem pedidos de retirada no ponto errado, inclusive quando agendados; lote e ajustes usam RPCs transacionais e idempotentes.
+- Reconciliação de ficha técnica serializada com conversão g↔kg e ml↔l, sem falsos abastecimentos e com restauração dos flags da transação.
+- Migrations `20261025200720_food_recipe_reconciliation_lock_safety.sql` e `20261026014407_food_location_stock_fast_flow.sql` preparadas e testadas localmente; pendem validação em homologação, sem implantação em produção.
+
 ## 0.6.5 - QA Lite publico e baseline controlada
 
 - Simplifica a automacao para `qa:lite`, sem login, Turnstile ou MFA obrigatorios.
