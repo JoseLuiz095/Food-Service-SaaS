@@ -480,6 +480,9 @@ export type OrderConfirmation = {
   customerName: string;
   fulfillment: 'delivery' | 'pickup';
   storeName: string;
+  /** Nome público do ponto escolhido, exibido apenas após o pedido ser aceito. */
+  pickupPointName?: string;
+  pickupPointAddress?: string;
   storeWhatsapp: string;
   pixEnabled: boolean;
   pixReceiptMode: 'copy_paste' | 'key';

@@ -11,19 +11,24 @@ type Props = {
   loading?: boolean;
   error?: string;
   invalidQr?: boolean;
+  identifiedByQr?: boolean;
   compact?: boolean;
 };
 
-export function PickupPointSelector({ points, value, onChange, loading, error, invalidQr, compact }: Props) {
-  if (!loading && !error && !points.length) return null;
-  const selected = points.find((point) => point.id === value);
+export function PickupPointSelector({ points, value, onChange, loading, error, invalidQr, identifiedByQr, compact }: Props) {
+  if (!loading && !error && !invalidQr && !points.length) return null;
+  const selected = loading ? undefined : points.find((point) => point.id === value);
+  const selection = <label><MapPin size={18} aria-hidden="true"/><span>Ponto de retirada</span>
+    <select value={selected?.id || ''} onChange={(event) => onChange(event.target.value)} disabled={loading || Boolean(error)}>
+      <option value="">Selecione um ponto</option>
+      {points.map((point) => <option key={point.id} value={point.id}>{point.name}{point.address ? ` · ${point.address}` : ''}</option>)}
+    </select>
+  </label>;
   return <div className={`store-point-selector${compact ? ' store-point-selector--compact' : ''}`}>
-    <label><MapPin size={18} aria-hidden="true"/><span>Ponto de retirada</span>
-      <select value={selected?.id || ''} onChange={(event) => onChange(event.target.value)} disabled={loading || Boolean(error)}>
-        <option value="">Selecione um ponto</option>
-        {points.map((point) => <option key={point.id} value={point.id}>{point.name}{point.address ? ` · ${point.address}` : ''}</option>)}
-      </select>
-    </label>
+    {selected ? <>
+      <div className="store-point-context" role="status"><MapPin size={18} aria-hidden="true"/><span><strong>{identifiedByQr ? 'Local identificado' : 'Ponto escolhido'}: {selected.name}</strong>{selected.address && <small>{selected.address}</small>}</span></div>
+      {points.length > 1 && <details className="store-point-change" key={selected.id}><summary>Trocar ponto</summary>{selection}</details>}
+    </> : !loading && !error && points.length ? selection : null}
     {loading && <small role="status">Consultando pontos de retirada…</small>}
     {error && <small role="alert">{error}</small>}
     {invalidQr && <small role="alert">O QR Code deste ponto não está mais válido. Escolha um ponto da lista.</small>}
