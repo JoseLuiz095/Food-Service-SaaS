@@ -1,8 +1,14 @@
-# Food Service SaaS — instruções para agentes/Codex
+# VendeWeb — instruções para agentes/Codex
+
+## Produto e continuidade
+
+VendeWeb é uma plataforma multissetorial; Food é uma de suas áreas. O nome histórico do repositório e os identificadores técnicos `food_*`, `food-*` e `foodweb` não limitam o produto ao segmento de alimentação. Não renomeie namespaces, buckets, funções ou infraestrutura por causa da marca.
+
+Antes de continuar, consulte [o inventário de continuidade](docs/CONTINUIDADE_20261026.md). Compare o estado remoto atual antes de republicar commits ou reaplicar migrations. Renomear o nome visível do projeto Supabase não autoriza alteração de schema, RLS, dados, URLs ou project ref.
 
 ## Supabase compartilhado
 
-Este produto usa o mesmo projeto Supabase do FloriWeb, porém apenas `auth.users` é compartilhado intencionalmente. Todo dado e permissão do Food Service deve usar namespace `food_*`; Edge Functions usam `food-*`; Storage usa buckets `food-*`.
+Este produto usa o projeto Supabase `elttryavkeartoxgdgse`, compartilhado com o FloriWeb, porém apenas `auth.users` é compartilhado intencionalmente. Todo dado e permissão do Food Service deve usar namespace `food_*`; Edge Functions usam `food-*`; Storage usa buckets `food-*`.
 
 Nunca grave dados Food em `stores`, `store_users`, `products`, `orders`, `plans`, `store_subscriptions` ou outras tabelas operacionais do FloriWeb.
 
