@@ -36,5 +36,5 @@ export function PointStockNotice({ product, pointName, row, quantity = 1 }: { pr
   if (!row) return <p className="store-point-stock">Estoque em {pointName}: consulte ao finalizar.</p>;
   const available = Math.max(0, Number(row.available) || 0);
   if (available >= quantity) return <p className="store-point-stock">{available} un. em {pointName}. Sujeito à confirmação do pedido.</p>;
-  return <p className="store-point-stock store-point-stock--warning" role="status">{available ? `Só ${available} un. em ${pointName}.` : `Sem estoque em ${pointName}.`}{row.available_elsewhere ? ' Há estoque em outro ponto; altere o ponto para consultar.' : ' Escolha outro item ou ajuste a quantidade.'}</p>;
+  return <p className="store-point-stock store-point-stock--warning" role="status">{available ? `Só ${available} un. em ${pointName}.` : `Sem estoque em ${pointName}.`}{row.available_elsewhere ? ' Há unidades em outro local. Consulte as opções de atendimento.' : ' Escolha outro item ou ajuste a quantidade.'}</p>;
 }
