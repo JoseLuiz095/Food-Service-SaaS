@@ -37,6 +37,8 @@
 .master-shell.is-sidebar-collapsed .admin-nav a{justify-content:center;padding-inline:8px}
 .master-shell.is-sidebar-collapsed .admin-nav__label{display:none}
 .master-shell .master-table-scroll-note{display:none}
+.master-shell .master-store-table .master-store-card-note{display:none}
+.master-shell .master-store-table .master-store-wide-note{display:none}
 .master-shell .master-store-table .responsive-table:focus-visible,.master-shell .signup-request-table .responsive-table:focus-visible{outline:2px solid #3c7654;outline-offset:2px}
 .master-shell .master-store-page-title{align-items:center;flex-wrap:wrap;min-width:0}
 .master-shell .master-store-page-title>div{min-width:0;flex:1 1 320px}
@@ -46,6 +48,10 @@
 .master-shell .master-store-table .responsive-table table{min-width:1160px}
 .master-shell .master-store-table th:nth-child(4),.master-shell .master-store-table td:nth-child(4){min-width:210px}
 .master-shell .master-store-table td:last-child .secondary-button{white-space:nowrap;min-height:40px}
+.master-shell .master-store-row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.master-shell .master-mobile-details{display:none}
+.master-shell .master-store-table .master-store-row-actions button:focus-visible,
+.master-shell .master-store-table .master-url-cell button:focus-visible{outline:2px solid #3c7654;outline-offset:2px}
 @media(max-width:600px){
   .master-shell .master-section-context>strong{font-size:.9rem}
   .master-shell .master-section-context>span{font-size:.68rem}
@@ -62,3 +68,42 @@
   .master-shell .master-store-table .responsive-table,.master-shell .signup-request-table .responsive-table{outline-offset:-2px}
 }
 @media(max-width:600px){.master-shell .master-store-page-title>.primary-button{width:100%}}
+@media(min-width:901px) and (max-width:1500px){
+  .master-shell .master-store-table .master-store-wide-note{display:block;margin:0;padding:10px 16px;color:var(--food-admin-muted);font-size:.72rem;line-height:1.45}
+}
+@media(max-width:900px){
+  .master-shell .master-store-table .master-store-card-note{display:block;margin:0;padding:10px 16px 0;color:var(--food-admin-muted);font-size:.72rem;line-height:1.45}
+  .master-shell .master-store-table .master-store-wide-note{display:none}
+  .master-shell .master-store-table .responsive-table{overflow:visible;scrollbar-gutter:auto;margin:0}
+  .master-shell .master-store-table .responsive-table table,
+  .master-shell .master-store-table .responsive-table tbody{display:block;width:100%;min-width:0}
+  .master-shell .master-store-table .responsive-table thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+  .master-shell .master-store-table .responsive-table tbody{display:grid;gap:12px;padding:12px;box-sizing:border-box}
+  .master-shell .master-store-table .responsive-table tbody tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;padding:16px;border:1px solid var(--food-admin-line);border-radius:12px;background:#fff;min-width:0}
+  .master-shell .master-store-table .responsive-table tbody tr:hover{background:#fffaf7}
+  .master-shell .master-store-table .responsive-table tbody td{display:block;min-width:0;padding:0;border:0;white-space:normal;overflow-wrap:anywhere}
+  .master-shell .master-store-table .responsive-table tbody td::before{content:attr(data-label);display:block;margin-bottom:5px;color:var(--food-admin-muted);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.045em}
+  .master-shell .master-store-table .responsive-table tbody td:not([data-label])::before{display:none}
+  .master-shell .master-store-table .responsive-table tbody td:first-child,
+  .master-shell .master-store-table .responsive-table tbody td:last-child{grid-column:1/-1}
+  .master-shell .master-store-table .responsive-table tbody td:nth-child(2),
+  .master-shell .master-store-table .responsive-table tbody td:nth-child(5),
+  .master-shell .master-store-table .responsive-table tbody td:nth-child(6),
+  .master-shell .master-store-table .responsive-table tbody td:nth-child(7){display:none}
+  .master-shell .master-store-table .responsive-table tbody tr.is-expanded td:nth-child(2),
+  .master-shell .master-store-table .responsive-table tbody tr.is-expanded td:nth-child(5),
+  .master-shell .master-store-table .responsive-table tbody tr.is-expanded td:nth-child(6),
+  .master-shell .master-store-table .responsive-table tbody tr.is-expanded td:nth-child(7){display:block;grid-column:1/-1}
+  .master-shell .master-store-table .master-store-cell{min-width:0;align-items:flex-start}
+  .master-shell .master-store-table .master-store-cell>div{min-width:0}
+  .master-shell .master-store-table .master-inline-select{width:100%;max-width:100%;min-width:0;min-height:44px}
+  .master-shell .master-store-table .master-url-cell{white-space:normal;overflow-wrap:anywhere}
+  .master-shell .master-store-table .master-url-cell a{min-width:0;overflow-wrap:anywhere}
+  .master-shell .master-store-table .master-mobile-details{display:inline-flex}
+  .master-shell .master-store-table .master-store-row-actions button{min-height:44px!important}
+}
+@media(max-width:520px){
+  .master-shell .master-store-table .responsive-table tbody tr{grid-template-columns:minmax(0,1fr);gap:14px}
+  .master-shell .master-store-table .responsive-table tbody td{grid-column:1/-1}
+  .master-shell .master-store-table .master-store-row-actions button{flex:1 1 auto;justify-content:center}
+}

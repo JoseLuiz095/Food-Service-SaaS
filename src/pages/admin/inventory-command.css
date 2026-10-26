@@ -1,0 +1,64 @@
+.inventory-command { padding: clamp(16px, 2vw, 26px); margin-bottom: 16px; min-width: 0; }
+.inventory-command__header, .inventory-command__toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.inventory-command__header { align-items: flex-start; margin-bottom: 18px; }
+.inventory-command__header h1 { margin: 5px 0 7px; font-size: clamp(1.5rem, 2.5vw, 2rem); letter-spacing: -.035em; }
+.inventory-command__context { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: 0; color: var(--muted); font-size: .78rem; }
+.inventory-command__context a { color: var(--green); font-weight: 750; }
+.inventory-command__dot { width: 8px; height: 8px; border-radius: 50%; background: #408d63; flex: 0 0 auto; }
+.inventory-command__dot.is-pending { background: #d49a39; }
+.inventory-command__dot.is-unavailable { background: #b94e47; }
+.inventory-command__sync { max-width: 225px; color: var(--muted); text-align: right; font-size: .72rem; line-height: 1.35; }
+.inventory-command__notice { margin: -3px 0 14px; padding: 9px 12px; background: #fff8e9; border: 1px solid #f0dfb8; border-radius: 9px; color: #775b24; font-size: .75rem; }
+.inventory-command__notice a { color: inherit; font-weight: 800; text-decoration: underline; }
+.inventory-command__toolbar { justify-content: flex-start; margin-bottom: 13px; }
+.inventory-command__toolbar .primary-button, .inventory-command__toolbar .secondary-button { white-space: nowrap; flex: 0 0 auto; min-height: 42px; }
+.inventory-command__search { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 240px; max-width: 560px; padding: 0 12px; border: 1px solid #d8ded7; border-radius: 11px; color: var(--muted); background: #fff; }
+.inventory-command__search:focus-within { border-color: var(--green); box-shadow: 0 0 0 3px rgba(23,99,61,.12); }
+.inventory-command__search input { width: 100%; min-width: 0; height: 42px; border: 0; outline: 0; background: transparent; font: inherit; color: var(--ink); }
+.inventory-command__filters { display: flex; gap: 6px; overflow-x: auto; padding: 1px 1px 8px; scrollbar-width: thin; }
+.inventory-command__filters button { flex: 0 0 auto; min-height: 36px; padding: 6px 11px; border: 1px solid #e0e5df; border-radius: 999px; background: #fff; color: var(--muted); font: inherit; font-size: .72rem; font-weight: 750; cursor: pointer; }
+.inventory-command__filters button.is-active { background: var(--green-soft); border-color: #a7c9b5; color: var(--green); }
+.inventory-command__filters button:focus-visible, .inventory-command-row button:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
+.inventory-command__count { margin: 5px 0 10px; color: var(--muted); font-size: .7rem; }
+.inventory-command__list { gap: 0; border-top: 1px solid #e9ede8; }
+.inventory-command-row.inventory-product-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(110px, auto) minmax(90px, auto) auto; gap: 12px; align-items: center; padding: 11px 3px; border: 0; border-bottom: 1px solid #e9ede8; border-radius: 0; min-width: 0; }
+.inventory-command-row__name { display: grid; gap: 3px; min-width: 0; }
+.inventory-command-row__name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .84rem; }
+.inventory-command-row__name small, .inventory-command-row__reserved span { color: var(--muted); font-size: .67rem; }
+.inventory-command-row__availability { display: flex; gap: 5px; align-items: baseline; flex-wrap: wrap; }
+.inventory-command-row__availability strong { color: var(--green); font-size: 1.05rem; }
+.inventory-command-row__availability strong.is-low { color: #a26c15; }
+.inventory-command-row__availability strong.is-zero { color: #ae4138; }
+.inventory-command-row__availability span { color: var(--muted); font-size: .67rem; }
+.inventory-command-row__availability em { width: 100%; color: #98592a; font-size: .64rem; font-style: normal; font-weight: 800; }
+.inventory-command-row__reserved { display: flex; gap: 7px; align-items: baseline; justify-content: flex-end; }
+.inventory-command-row__reserved strong { font-size: .82rem; }
+.inventory-command-row__action { justify-self: end; min-width: 75px; min-height: 38px; white-space: nowrap; }
+.inventory-command-row__details { grid-column: 1 / -1; padding: 12px 14px; background: #f8faf8; border-radius: 10px; }
+.inventory-command-row__details p { margin: 0 0 10px; color: var(--muted); font-size: .72rem; }
+.inventory-command-row__details a { color: var(--green); font-weight: 800; }
+.inventory-command-row__details .inventory-product-stock-actions { min-width: 0; width: 100%; }
+.inventory-command__footer { display: flex; justify-content: flex-end; padding-top: 13px; }
+@media (max-width: 760px) {
+  .inventory-command__header { flex-direction: column; gap: 8px; }
+  .inventory-command__sync { max-width: none; text-align: left; }
+  .inventory-command__toolbar { flex-wrap: wrap; gap: 8px; }
+  .inventory-command__search { max-width: none; flex-basis: 100%; }
+  .inventory-command__toolbar .primary-button, .inventory-command__toolbar .secondary-button { flex: 1 1 auto; justify-content: center; }
+  .inventory-command-row.inventory-product-card { grid-template-columns: minmax(0,1fr) auto; gap: 7px 12px; }
+  .inventory-command-row__name { grid-column: 1; }
+  .inventory-command-row__availability { grid-column: 1; }
+  .inventory-command-row__reserved { grid-column: 2; grid-row: 1; }
+  .inventory-command-row__action { grid-column: 2; grid-row: 2; }
+  .inventory-command-row__details { grid-row: 3; }
+}
+@media (max-width: 430px) {
+  .inventory-command__toolbar .primary-button, .inventory-command__toolbar .secondary-button { flex: 1 1 100%; }
+  .inventory-command-row__reserved { align-self: end; }
+  .inventory-command-row__details .inventory-product-count-form { grid-template-columns: 1fr; }
+  .inventory-command-row__details .inventory-product-count-form button { width: 100%; justify-content: center; }
+  .inventory-command-row__details .inventory-product-stock-actions { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inventory-command *, .inventory-command *::before, .inventory-command *::after { scroll-behavior: auto; transition-duration: .01ms; animation-duration: .01ms; }
+}

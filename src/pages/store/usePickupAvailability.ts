@@ -35,6 +35,7 @@ export function usePickupAvailability() {
       const qrPoint = pointCode ? valid.find((point) => point.short_code === pointCode) : undefined;
       setInvalidQr(Boolean(pointCode && !qrPoint));
       if (qrPoint) setPickupLocationId(qrPoint.id);
+      else if (pointCode) setPickupLocationId('');
       else if (pickupLocationId && !valid.some((point) => point.id === pickupLocationId)) setPickupLocationId('');
     }).catch(() => {
       if (active) { setPoints([]); setPointsError('Não foi possível consultar os pontos de retirada. Tente recarregar a página.'); }
@@ -87,7 +88,8 @@ export function usePickupAvailability() {
   };
 
   const selectPoint = (id: string) => { setInvalidQr(false); setPickupLocationId(id); };
-  return { points, pointsLoading, pointsError, pickupLocationId, setPickupLocationId: selectPoint, selectedPoint: points.find((point) => point.id === pickupLocationId), availability: availabilityPointId === pickupLocationId ? availability : null, availabilityLoading, availabilityError, invalidQr, revalidate };
+  const selectedPoint = points.find((point) => point.id === pickupLocationId);
+  return { points, pointsLoading, pointsError, pickupLocationId, setPickupLocationId: selectPoint, selectedPoint, identifiedByQr: Boolean(pointCode && selectedPoint?.short_code === pointCode && !invalidQr), availability: availabilityPointId === pickupLocationId ? availability : null, availabilityLoading, availabilityError, invalidQr, revalidate };
 }
 
 export const pointStock = (rows: PointAvailability[] | null, productId: string): PointAvailability | undefined =>
