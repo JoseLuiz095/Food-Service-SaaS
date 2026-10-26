@@ -37,9 +37,9 @@ export function PickupPointSelector({ points, value, onChange, loading, error, i
 }
 
 export function PointStockNotice({ product, pointName, row, quantity = 1 }: { product: Product; pointName: string; row?: PointAvailability; quantity?: number }) {
-  if (!product.trackStock) return null;
-  if (!row) return <p className="store-point-stock">Estoque em {pointName}: consulte ao finalizar.</p>;
+  if (!product.trackStock || !row) return null;
   const available = Math.max(0, Number(row.available) || 0);
-  if (available >= quantity) return <p className="store-point-stock">{available} un. em {pointName}. Sujeito à confirmação do pedido.</p>;
-  return <p className="store-point-stock store-point-stock--warning" role="status">{available ? `Só ${available} un. em ${pointName}.` : `Sem estoque em ${pointName}.`}{row.available_elsewhere ? ' Há unidades em outro local. Consulte as opções de atendimento.' : ' Escolha outro item ou ajuste a quantidade.'}</p>;
+  const label = `${available} ${available === 1 ? 'disponível' : 'disponíveis'}`;
+  const insufficient = available < quantity;
+  return <p className={`store-point-stock${insufficient ? ' store-point-stock--warning' : ''}`} role="status" aria-label={`Disponibilidade em ${pointName}: ${label}`}>{label}</p>;
 }

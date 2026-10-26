@@ -9,13 +9,19 @@ import { useStore } from '../contexts/StoreContext';
 import { storefrontPath } from '../utils/storefrontRoute';
 import { getBusinessSegment } from '../segments/businessSegments';
 
-export function ProductCard({product,category}:{product:Product;category?:Category}){
+type ProductCardProps = { product: Product; category?: Category; pointAvailable?: number | null };
+
+export function ProductCard({product,category,pointAvailable}:ProductCardProps){
   const {storeBasePath,settings}=useStore();
   const [searchParams] = useSearchParams();
   const pointCode = searchParams.get('ponto');
   const profile=getBusinessSegment(settings.visualTheme);
   const unavailable=product.stockStatus==='unavailable'||product.availabilityStatus!=='available';
-  const outOfStock=product.trackStock&&Number(product.stockQuantity||0)-Number(product.stockReservedQuantity||0)<=0;
+  const hasPointContext = pointAvailable !== undefined;
+  const checkingPointStock = product.trackStock && hasPointContext && pointAvailable === null;
+  const outOfStock = product.trackStock && (hasPointContext
+    ? pointAvailable !== null && Number(pointAvailable) <= 0
+    : Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) <= 0);
   const productUrl=storefrontPath(storeBasePath,`/produto/${product.slug}`);
   const quickParams = new URLSearchParams({ compra: 'rapida' });
   if (pointCode) quickParams.set('ponto', pointCode);
@@ -29,8 +35,8 @@ export function ProductCard({product,category}:{product:Product;category?:Catego
     </div>
     <div className="product-card__image-wrap">
       <ProductMedia src={product.imageUrl} emoji={product.visualEmoji} imageCount={product.images.length} alt={product.name} className="product-card__image" emojiClassName="product-card__emoji-v060"/>
-      <div className="product-card__badges">{product.promotionalPrice!=null&&<Badge tone="rose">Oferta</Badge>}{unavailable&&<Badge tone="amber">Indisponível</Badge>}{!unavailable&&outOfStock&&<Badge tone="amber">Agende para amanhã</Badge>}</div>
+      <div className="product-card__badges">{product.promotionalPrice!=null&&<Badge tone="rose">Oferta</Badge>}{unavailable&&<Badge tone="amber">Indisponível</Badge>}{!unavailable&&outOfStock&&!hasPointContext&&<Badge tone="amber">Sob encomenda</Badge>}</div>
       {!unavailable&&<span className="product-card__open" aria-hidden="true"><Plus size={20}/></span>}
     </div>
-  </Link>{!unavailable && !outOfStock && <Link className="product-card-quick" to={`${productUrl}?${quickParams.toString()}`} aria-label={`Compra relâmpago: ${product.name}`}><Zap size={16} aria-hidden="true"/>Comprar agora</Link>}</div>;
+  </Link>{!unavailable && !outOfStock && !checkingPointStock && <Link className="product-card-quick" to={`${productUrl}?${quickParams.toString()}`} aria-label={`Compra relâmpago: ${product.name}`}><Zap size={16} aria-hidden="true"/>Comprar agora</Link>}</div>;
 }
