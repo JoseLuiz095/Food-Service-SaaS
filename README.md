@@ -4,6 +4,12 @@ Endereço oficial: **https://www.vendeweb.com.br**. Links de loja, produto e QR 
 
 Publicação e testes de 22/10/2026: [relatório de validação, segurança e pendências](docs/VALIDACAO_VENDEWEB_20261022.md).
 
+## Estoque por local em desenvolvimento
+
+O painel permite selecionar um local, adicionar/remover/definir saldo, transferir um ou vários produtos e baixar o QR Code de um ponto público. A vitrine consulta apenas o saldo disponível no ponto escolhido; o servidor exige que o pedido de retirada use esse mesmo estoque. Migrations novas e ordem de implantação estão em [handoff Supabase](docs/SUPABASE_PENDING_HANDOFF.md). **Nenhuma dessas migrations foi aplicada em produção.** Implante o frontend somente após validar as RPCs em homologação e aplicar as migrations no ambiente correspondente. A opção de encomenda futura com reserva na origem ainda depende de contrato próprio; não há promessa automática de reposição.
+
+Validação local: `npm run smoke`, `npm run test:critical`, `npm run test:integrations`, `node scripts/sales-stock-db-test.mjs`, `npm run typecheck` e `npm run build`. O workflow `Vendas e estoque` também instala um PostgreSQL isolado para `node scripts/recipe-concurrency-db-test.mjs` e testa locks, idempotência, isolamento e transferências concorrentes.
+
 Correção da edição de pedidos e revisão posterior: [auditoria operacional, integrações, Master e animações](docs/AUDITORIA_OPERACIONAL_20261022.md).
 
 ## Vitrines e painel por ramo

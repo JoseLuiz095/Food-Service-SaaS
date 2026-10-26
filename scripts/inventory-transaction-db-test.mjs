@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
 
-const db = new PGlite();
+export async function runInventoryTransactionTests(db, afterTests) {
 const q = async (sql, args = []) => (await db.query(sql, args)).rows;
 const one = async (sql, args = []) => (await q(sql, args))[0];
 let checks = 0;
@@ -54,6 +55,7 @@ try {
   assert.ok(unitFunction, 'unit converter migration source');
   await db.exec(unitFunction);
   await db.exec(readFileSync('supabase/migrations/20261025143142_food_inventory_recipe_dashboard_transactions.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261025200720_food_recipe_reconciliation_lock_safety.sql', 'utf8'));
   await db.exec(`create trigger test_inventory_archive_guard before update of active on public.food_inventory_items
     for each row execute function public.food_inventory_guard_archive_in_use();
     create function public.test_false_reconcile() returns trigger language plpgsql as $$begin
@@ -170,5 +172,11 @@ try {
   await session(null,'anon');
   await rejects(()=>one('select public.food_update_inventory_item_v1($1,$2,$3)',[storeA,item,{name:'Oops'}]),'anonymous inventory update denied');
   await db.exec('reset role');
+  if (afterTests) await afterTests({ db, q, one, check, rejects, owner, outsider, storeA, storeB, product, item, recipe, session });
   console.log(`Inventory transactional DB test: ${checks} checks passed.`);
 } finally { await db.close(); }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await runInventoryTransactionTests(new PGlite());
+}

@@ -4,6 +4,9 @@ import { roundMoney } from '../utils/format';
 import { useStore } from './StoreContext';
 
 const cartKeyFor = (storeId: string) => `foodservice_cart_v1:${storeId}`;
+const readPickupPoint = (key: string) => {
+  try { return localStorage.getItem(key) || ''; } catch { return ''; }
+};
 // Mesmo contrato de quantidade da RPC de pedidos, para todas as lojas.
 export const MAX_CART_ITEM_QUANTITY = 99;
 const boundedQuantity = (quantity: number) => Math.max(1, Math.min(MAX_CART_ITEM_QUANTITY, Math.trunc(Number(quantity)) || 1));
@@ -21,6 +24,8 @@ const readCart = (key: string): CartItem[] => {
 
 type CartContextValue = {
   items: CartItem[];
+  pickupLocationId: string;
+  setPickupLocationId: (id: string) => void;
   totalItems: number;
   subtotal: number;
   addItem: (product: Product, quantity: number, options?: SelectedOption[], metadata?: { partyPackageWeightGrams?: number }) => void;
@@ -53,6 +58,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const cartKey = cartKeyFor(settings.id || settings.slug || 'default');
   const [state, setState] = useState<{ key: string; items: CartItem[] }>(() => ({ key: cartKey, items: readCart(cartKey) }));
   const items = state.key === cartKey ? state.items : readCart(cartKey);
+  const pointKey = `foodservice_pickup_point_v1:${settings.id || settings.slug || 'default'}`;
+  const [pointState, setPointState] = useState<{ key: string; id: string }>(() => ({ key: pointKey, id: readPickupPoint(pointKey) }));
+  const pickupLocationId = pointState.key === pointKey ? pointState.id : readPickupPoint(pointKey);
 
   useEffect(() => {
     if (state.key !== cartKey) setState({ key: cartKey, items: readCart(cartKey) });
@@ -62,6 +70,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (state.key !== cartKey) return;
     try { localStorage.setItem(cartKey, JSON.stringify(state.items)); } catch { /* armazenamento indisponível */ }
   }, [state, cartKey]);
+  useEffect(() => {
+    if (pointState.key !== pointKey) setPointState({ key: pointKey, id: readPickupPoint(pointKey) });
+  }, [pointKey, pointState.key]);
 
   const setItems = (updater: (current: CartItem[]) => CartItem[]) => setState((current) => {
     const base = current.key === cartKey ? current.items : readCart(cartKey);
@@ -72,6 +83,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<CartContextValue>(() => ({
     items,
+    pickupLocationId,
+    setPickupLocationId: (id) => {
+      try { if (id) localStorage.setItem(pointKey, id); else localStorage.removeItem(pointKey); } catch { /* armazenamento indisponível */ }
+      setPointState({ key: pointKey, id });
+    },
     totalItems: items.reduce((sum, item) => sum + item.quantity, 0),
     subtotal: calculateCartSubtotal(items),
     addItem: (product, quantity, options = [], metadata = {}) => {
@@ -133,7 +149,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       });
       return next.length === current.length && next.every((item, index) => item === current[index]) ? current : next;
     }),
-  }), [items]);
+  }), [items, pickupLocationId, pointKey]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

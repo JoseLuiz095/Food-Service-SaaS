@@ -4,7 +4,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { TurnstileWidget } from '../../components/ui/TurnstileWidget';
 import { calculateCartSubtotal, cartItemUnitTotal, useCart } from '../../contexts/CartContext';
 import { useStore } from '../../contexts/StoreContext';
-import { restFetch } from '../../lib/supabaseRest';
 import { PLATFORM_BRAND } from '../../lib/brand';
 import { useToast } from '../../contexts/ToastContext';
 import { appConfig } from '../../lib/config';
@@ -21,6 +20,8 @@ import { normalizeText } from '../../utils/text';
 import { getStoreOpenStatus } from '../../utils/storeHours';
 import { loadCustomerCheckoutProfile, saveCustomerCheckoutProfile, saveRecentOrder } from '../../utils/customerSales';
 import { loadFulfillmentPreference } from '../../utils/fulfillmentPreference';
+import { PickupPointSelector } from './PickupPointSelector';
+import { pointStock, usePickupAvailability } from './usePickupAvailability';
 import '../../components/checkout/checkout-refinements.css';
 
 const initial: CheckoutData = {
@@ -63,7 +64,6 @@ export default function Checkout() {
   const { items: allItems, clear, removeItem, updateQuantity } = useCart();
   const [searchParams] = useSearchParams();
   const quickId = searchParams.get('quick');
-  const pickupShortCode = searchParams.get('ponto');
   const quickQuantity = Math.max(1, Math.min(99, Number(searchParams.get('qty')) || 1));
   const items = quickId ? allItems.filter((item) => item.id === quickId).map((item) => ({ ...item, quantity: Math.min(item.quantity, quickQuantity) })) : allItems;
   const subtotal = calculateCartSubtotal(items);
@@ -72,7 +72,7 @@ export default function Checkout() {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [form, setForm] = useState<CheckoutData>(initial);
-  const [pickupPoints, setPickupPoints] = useState<Array<{ id: string; name: string; short_code: string; address?: string; instructions?: string }>>([]);
+  const pickup = usePickupAvailability();
   const [saving, setSaving] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -90,19 +90,8 @@ export default function Checkout() {
     setForm((current) => ({ ...current, [key]: value }));
   };
   useEffect(() => {
-    if (!settings.id) return;
-    let active = true;
-    void restFetch<Array<{ id: string; name: string; short_code: string; address?: string; instructions?: string }>>('rpc/food_get_public_pickup_locations_v1', {
-      method: 'POST', body: { p_store_id: settings.id },
-    }).then((points) => {
-      if (!active) return;
-      setPickupPoints(points);
-      const qrPoint = points.find((point) => point.short_code === pickupShortCode);
-      const preferred = qrPoint || points[0];
-      if (preferred) setForm((current) => ({ ...current, pickupLocationId: qrPoint ? qrPoint.id : current.pickupLocationId && points.some((point) => point.id === current.pickupLocationId) ? current.pickupLocationId : preferred.id }));
-    }).catch(() => { if (active) setPickupPoints([]); });
-    return () => { active = false; };
-  }, [settings.id, pickupShortCode]);
+    setForm((current) => current.pickupLocationId === pickup.pickupLocationId ? current : { ...current, pickupLocationId: pickup.pickupLocationId });
+  }, [pickup.pickupLocationId]);
 
   const onTurnstileToken = useCallback((token: string) => setTurnstileToken(token), []);
 
@@ -128,8 +117,9 @@ export default function Checkout() {
       normalizedDraft.scheduledForExplicit = false;
       normalizedDraft.flexibleTimingConfirmed = false;
     }
+    if (!pickup.pickupLocationId && normalizedDraft.pickupLocationId && !searchParams.get('ponto')) pickup.setPickupLocationId(normalizedDraft.pickupLocationId);
     setDraftReadyForStore('');
-    setForm({ ...initial, ...(profile || {}), ...normalizedDraft, ...(preferredFulfillment ? { fulfillment: preferredFulfillment } : {}), deliveryFee: 0 });
+    setForm({ ...initial, ...(profile || {}), ...normalizedDraft, pickupLocationId: pickup.pickupLocationId, ...(preferredFulfillment ? { fulfillment: preferredFulfillment } : {}), deliveryFee: 0 });
     if (profile) setRememberCustomer(true);
     setDraftReadyForStore(settings.id);
     try {
@@ -187,8 +177,15 @@ export default function Checkout() {
   const additionalPrep = items.reduce((max, item) => Math.max(max, products.find((product) => product.id === item.productId)?.preparationTimeMinutes || 0), 0);
   const stockUnavailableItems = items.filter((item) => {
     const product = products.find((candidate) => candidate.id === item.productId);
-    return Boolean(product?.trackStock && Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) < item.quantity);
+    return Boolean(form.fulfillment !== 'pickup' && product?.trackStock && Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) < item.quantity);
   });
+  const pointInsufficientItems = form.fulfillment === 'pickup' && pickup.selectedPoint && pickup.availability ? items.filter((item) => {
+    const product = products.find((candidate) => candidate.id === item.productId);
+    if (!product?.trackStock) return false;
+    const row = pointStock(pickup.availability, item.productId);
+    const requested = items.filter((candidate) => candidate.productId === item.productId).reduce((sum, candidate) => sum + candidate.quantity, 0);
+    return Boolean(row && Number(row.available) < requested);
+  }) : [];
   const stockSchedulingRequired = stockUnavailableItems.length > 0;
   const partyOrderItems = items.map((item) => {
     const product = products.find((candidate) => candidate.id === item.productId);
@@ -323,6 +320,10 @@ export default function Checkout() {
 
   const validate = () => {
     if (!items.length) return 'Seu carrinho está vazio.';
+    if (form.fulfillment === 'pickup' && pickup.pointsLoading) return 'Aguarde a consulta dos pontos de retirada.';
+    if (form.fulfillment === 'pickup' && pickup.pointsError) return pickup.pointsError;
+    if (form.fulfillment === 'pickup' && pickup.points.length && !pickup.selectedPoint) return 'Selecione um ponto de retirada disponível.';
+    if (pointInsufficientItems.length) return `Estoque insuficiente em ${pickup.selectedPoint?.name}. Ajuste as quantidades ou escolha outro ponto.`;
     if (form.customerName.trim().length < 2) return 'Informe seu nome.';
     const phoneDigits = form.customerPhone.replace(/\D/g, '');
     if (phoneDigits.length < 10 || phoneDigits.length > 15) return 'Informe um telefone válido.';
@@ -362,9 +363,20 @@ export default function Checkout() {
     setSubmitError('');
     setSaving(true);
     try {
+      if (form.fulfillment === 'pickup' && pickup.selectedPoint) {
+        const fresh = await pickup.revalidate(pickup.selectedPoint.id);
+        const unavailable = items.find((item) => {
+          const product = products.find((candidate) => candidate.id === item.productId);
+          if (!product?.trackStock) return false;
+          const row = pointStock(fresh, item.productId);
+          const requested = items.filter((candidate) => candidate.productId === item.productId).reduce((sum, candidate) => sum + candidate.quantity, 0);
+          return row && Number(row.available) < requested;
+        });
+        if (unavailable) throw new Error(`${unavailable.productName} está sem quantidade suficiente em ${pickup.selectedPoint.name}. Ajuste o carrinho ou escolha outro ponto.`);
+      }
       // A Doce Lua não exibe o checkbox de revisão no piloto, mas o registro
       // continua marcado como revisado para manter compatibilidade com o demo.
-      const payloadForm: CheckoutData = { ...form, deliveryFee, reviewConfirmed: form.reviewConfirmed || isDoceLuaPilot };
+      const payloadForm: CheckoutData = { ...form, pickupLocationId: form.fulfillment === 'pickup' ? pickup.selectedPoint?.id : undefined, deliveryFee, reviewConfirmed: form.reviewConfirmed || isDoceLuaPilot };
       const result = await registerOrder(settings, items, payloadForm, subtotal, {
         turnstileToken,
         analyticsSessionId: getAnalyticsSessionId(settings.id),
@@ -457,8 +469,10 @@ export default function Checkout() {
 
         <section className="checkout-card"><div className="checkout-card__title"><Truck size={20}/><div><strong>Como quer receber?</strong><span>Escolha delivery ou retirada.</span></div></div><div className="fulfillment-options">{settings.deliveryEnabled && <button type="button" className={form.fulfillment === 'delivery' ? 'selected' : ''} onClick={() => selectFulfillment('delivery')}><Truck size={20}/><span><strong>Delivery</strong><small>Receber no endereço</small></span></button>}{settings.pickupEnabled && <button type="button" className={form.fulfillment === 'pickup' ? 'selected' : ''} onClick={() => selectFulfillment('pickup')}><Store size={20}/><span><strong>Retirada</strong><small>Buscar na loja</small></span></button>}</div>
            {form.fulfillment === 'delivery' && <><div className="checkout-location-action"><div><strong>Preencher com minha localização</strong><small>Opcional. Usaremos sua localização uma única vez para sugerir o endereço; número e área continuam sob sua conferência.</small></div><button type="button" className="secondary-button" onClick={() => void useCurrentLocation()} disabled={locationLoading}>{locationLoading ? <LoaderCircle className="spin" size={16}/> : <LocateFixed size={16}/>}Usar localização</button></div>{locationHint && <div className="checkout-location-hint" role="status"><MapPin size={16}/><span>{locationHint} <small>Dados de endereço sugeridos por <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>.</small></span></div>}<div className="form-grid address-grid"><label>CEP<div className="field-with-button"><input value={form.zipCode} onChange={(event) => update('zipCode', event.target.value)} placeholder="00000-000"/><button type="button" onClick={() => void searchCep()} disabled={cepLoading}>{cepLoading ? <LoaderCircle className="spin" size={16}/> : <MapPin size={16}/>}Buscar</button></div></label><label>Bairro / área<select required value={form.deliveryZoneId} onChange={(event) => { const zone = deliveryZones.find((item) => item.id === event.target.value); setForm((current) => ({ ...current, deliveryZoneId: zone?.id || '', neighborhood: zone?.name || '', deliveryFee: zone?.fee || 0, deliveryCity: zone?.city || current.deliveryCity, deliveryState: zone?.state || current.deliveryState })); }}><option value="">Selecione</option>{deliveryZones.filter((zone) => zone.active).map((zone) => <option key={zone.id} value={zone.id}>{zone.name} · {zone.fee === 0 ? 'Grátis' : currency.format(zone.fee)}</option>)}</select></label><label className="full">Rua<input required value={form.street} onChange={(event) => update('street', event.target.value)}/></label><label>Número<input required value={form.addressNumber} onChange={(event) => update('addressNumber', event.target.value)}/></label><details className="checkout-extra-fields checkout-address-extra"><summary>Complemento e referência <small>opcionais</small></summary><div className="form-grid"><label>Complemento<input value={form.complement} onChange={(event) => update('complement', event.target.value)}/></label><label>Ponto de referência<input value={form.referencePoint} onChange={(event) => update('referencePoint', event.target.value)}/></label></div></details></div></>}
-          {form.fulfillment === 'pickup' && pickupPoints.length > 0 && <label className="full">Ponto de retirada<select required value={form.pickupLocationId || ''} onChange={(event) => update('pickupLocationId', event.target.value)}>{pickupPoints.map((point) => <option key={point.id} value={point.id}>{point.name}{point.address ? ` · ${point.address}` : ''}</option>)}</select></label>}
-          {form.fulfillment === 'pickup' && <div className="pickup-info"><MapPin size={18}/><div><strong>{settings.hidePublicAddress ? 'Local de retirada combinado com a loja' : settings.address || settings.name}</strong><span>{settings.hidePublicAddress ? settings.pickupInstructions || 'Após registrar o pedido, confirme o local diretamente com a loja.' : `${settings.city}${settings.state ? `/${settings.state}` : ''}`}</span></div></div>}
+          {form.fulfillment === 'pickup' && <PickupPointSelector points={pickup.points} value={pickup.pickupLocationId} onChange={(id) => { pickup.setPickupLocationId(id); update('pickupLocationId', id); }} loading={pickup.pointsLoading} error={pickup.pointsError} invalidQr={pickup.invalidQr}/>}
+          {form.fulfillment === 'pickup' && pickup.selectedPoint && <div className="pickup-info"><MapPin size={18}/><div><strong>{pickup.selectedPoint.name}</strong><span>{pickup.selectedPoint.address || pickup.selectedPoint.instructions || 'Confira os detalhes de retirada com a loja.'}</span></div></div>}
+          {form.fulfillment === 'pickup' && !pickup.points.length && !pickup.pointsLoading && !pickup.pointsError && <div className="pickup-info"><MapPin size={18}/><div><strong>{settings.hidePublicAddress ? 'Local de retirada combinado com a loja' : settings.address || settings.name}</strong><span>{settings.hidePublicAddress ? settings.pickupInstructions || 'Após registrar o pedido, confirme o local diretamente com a loja.' : `${settings.city}${settings.state ? `/${settings.state}` : ''}`}</span></div></div>}
+          {form.fulfillment === 'pickup' && pickup.selectedPoint && <p className="store-point-stock" role="status">{pickup.availabilityLoading ? 'Consultando estoque deste ponto…' : pickup.availabilityError || (pointInsufficientItems.length ? `Há itens sem saldo suficiente em ${pickup.selectedPoint.name}. Ajuste o carrinho ou escolha outro ponto.` : 'O estoque deste ponto será consultado novamente antes de registrar o pedido.')}</p>}
         </section>
 
         <section className="checkout-card"><div className="checkout-card__title"><CreditCard size={20}/><div><strong>Pagamento</strong><span>Escolha como deseja pagar.</span></div></div><div className="payment-options" role="group" aria-label="Forma de pagamento">{enabledPayments.map((method) => <button type="button" key={method} aria-pressed={form.paymentMethod === method} className={form.paymentMethod === method ? 'selected' : ''} onClick={() => update('paymentMethod', method)}>{method === 'pix' ? <QrCode size={20}/> : method === 'cash' ? <Banknote size={20}/> : <CreditCard size={20}/>}<span><strong>{method === 'pix' ? 'PIX' : method === 'cash' ? 'Dinheiro' : method === 'card' ? (form.fulfillment === 'delivery' ? 'Cartão na entrega' : 'Cartão na retirada') : 'Confirmar com a loja'}</strong><small>{method === 'pix' ? 'Dados para pagar na confirmação' : method === 'cash' ? 'Informe se precisa de troco' : method === 'card' ? 'Pagamento presencial com a loja' : 'Combine o pagamento no atendimento'}</small></span>{form.paymentMethod === method && <CheckCircle2 size={17} className="payment-option-check" aria-hidden="true"/>}</button>)}</div>

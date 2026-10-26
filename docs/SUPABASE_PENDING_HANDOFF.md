@@ -1,8 +1,30 @@
-# SOLICITAÇÃO SUPABASE — VENDEWEB
+# SOLICITAÇÃO SUPABASE — VENDEWEB: ESTOQUE POR LOCAL E DISPONIBILIDADE
 
 Este handoff é para o operador de uma homologação identificada. **A migration `20261025143142` não está aplicada no projeto consultado**. Não executar em produção sem revisão do histórico, backup e autorização específica.
 
 Leitura remota em 25/10/2026 pelo conector Supabase: o projeto `elttryavkeartoxgdgse` aparece como `floriweb01`, ativo, com apenas a branch padrão `main`; não foi identificada homologação separada. O histórico remoto termina em `20261024005608_food_location_initial_balance_upsert`, enquanto os arquivos locais usam versões diferentes para parte do estoque multilocal. `food_adjust_product_stock_v1(uuid,uuid,text,numeric,text,uuid)` e `food_convert_inventory_unit(uuid,uuid,text)` existem; `food_update_inventory_item_v1`, `food_save_product_recipe_v1` e `food_dashboard_metrics_v1` não existem. Também não existem `food_stock_mode_v1(uuid,boolean)` e `food_stock_preferences`, definidos na migration local anterior `20261025090000_food_stock_simple_mode.sql`. A consulta às colunas confirma `food_orders.payment_received_at`, mas não `food_product_recipe_items.active`, `food_inventory_order_consumptions.order_quantity_at_target` ou `food_product_stock_movements.requested_quantity`. Essas consultas foram somente leitura; **nenhum dado ou esquema remoto foi alterado**.
+## Atualização de 25/10/2026
+
+O projeto publicado confirmado pelo conector é **`elttryavkeartoxgdgse` / `floriweb01`**, branch `main` de produção. A lista de projetos conectados contém somente esse projeto e `Academia` (não relacionado); **nenhuma homologação VendeWeb está conectada**. Esta mudança não foi aplicada remotamente. O histórico remoto termina em `20261024005608_food_location_initial_balance_upsert`; os arquivos locais posteriores ainda não constam na lista de migrations remotas. Os nomes/versões das migrations multilocal já executadas no remoto diferem dos nomes dos arquivos locais; antes de qualquer deploy, compare o SQL efetivo e o schema, não apenas o nome da versão.
+
+Ordem adicional no PR: `20261025200720_food_recipe_reconciliation_lock_safety.sql` após a migration transacional abaixo; depois `20261026014407_food_location_stock_fast_flow.sql`. A primeira serializa conversão de unidade e reconciliação de consumo sem falsos abastecimentos e restaura os flags da transação. A segunda cria os contratos a seguir sem alterar saldos históricos:
+
+| Contrato | Entrada | Retorno/efeito |
+| --- | --- | --- |
+| `food_get_public_location_availability_v1` | `p_store_id uuid,p_pickup_location_id uuid` | Array `{product_id,available,available_elsewhere}` somente de produtos físicos ativos. `available = físico − reservado` do ponto público selecionado; nenhum ID/endereço de estoque privado. |
+| `food_get_location_sales_today_v1` | `p_store_id uuid,p_location_id uuid` | Array `{product_id,sold_quantity,returned_quantity,net_sold}` do dia na timezone da loja, apenas para administrador do tenant. |
+| `food_change_location_stock_v1` | `p_store_id,p_product_id,p_location_id uuid,p_mode add\|remove\|set,p_quantity integer,p_idempotency_key uuid` | Ajuste relativo ou absoluto sob lock do produto e do saldo, com ledger e retry seguro. |
+| `food_transfer_location_stock_batch_v1` | `p_store_id,p_from_location_id,p_to_location_id uuid,p_items jsonb [{product_id,quantity}],p_idempotency_key uuid` | `{items:[{product_id,from_stock,to_stock}],replayed}`; todos os produtos em uma transação, na ordem estável, sem aumento do total. |
+
+Triggers novos em `food_orders` e `food_order_items` exigem ponto público válido para pedidos de retirada do site quando há pontos publicados; conferem o estoque associado e bloqueiam inclusive pedidos agendados que tentem usar saldo de outro local. Outro trigger impede desativar um estoque com saldo, reserva, ponto de retirada ativo ou pedido pendente. Lojas sem ponto público mantêm o comportamento de estoque principal legado. O futuro pedido para retirada sem saldo local **não é prometido automaticamente**: o lojista deve transferir/repor o local primeiro. Agendamento com reposição antecipada confirmada e reserva na origem continua pendente de contrato próprio.
+
+`food_stock_transfer_batches` é um ledger interno com RLS habilitada e DML revogado de clientes; só a RPC autenticada escreve. A RPC pública verifica loja acessível e ponto ativo/publicado. Teste local executado em PostgreSQL 17.9 com 89 verificações, duas conexões simultâneas, rollback integral de lote, replay idempotente, isolamento por loja, restrições de pedido e conversões g↔kg/ml↔l. O workflow `Vendas e estoque` repete esse teste em PR. **Testes locais não substituem validação no projeto de homologação.**
+
+Sequência segura: conectar uma homologação VendeWeb; comparar `supabase_migrations.schema_migrations` e definições de funções/tabelas/triggers/policies com os arquivos locais; fazer snapshot; aplicar apenas as migrations realmente ausentes em ordem; testar JWT de dois tenants, `anon`, PostgREST, checkout e saldos; publicar frontend somente após as RPCs estarem disponíveis. Em falha antes do commit, rollback da transação. Após uso, corrigir aditivamente com backup, sem apagar saldos ou ledger. Nenhuma migration de produção está autorizada neste handoff.
+
+Risco operacional restante: pedidos que reservam vários produtos e uma transferência em lote podem disputar locks em ordens diferentes. O PostgreSQL aborta uma transação ao detectar deadlock, preservando a integridade; a operação deve ser repetida com a mesma chave idempotente. Reposição simultânea de insumos distintos também pode exigir retry. O agendamento futuro com estoque de origem reservado não foi ativado neste PR; não apresentar previsão automática de reposição.
+
+**Nenhuma migration deste PR foi aplicada remotamente.** Não use outro projeto por conveniência nem execute em produção sem revisão do histórico, backup e autorização específica.
 
 ## Objetivo e contrato da aplicação
 

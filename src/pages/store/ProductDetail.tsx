@@ -11,6 +11,8 @@ import { useToast } from '../../contexts/ToastContext';
 import { publicProductUrl, storefrontPath } from '../../utils/storefrontRoute';
 import { trackPublicEvent } from '../../services/analyticsApi';
 import '../../segments/product-detail-mobile.css';
+import { PickupPointSelector, PointStockNotice } from './PickupPointSelector';
+import { pointStock, usePickupAvailability } from './usePickupAvailability';
 
 const groupInstruction = (group: OptionGroup) => {
   if (group.minChoices === group.maxChoices && group.maxChoices === 1) return 'Escolha 1 opção';
@@ -59,6 +61,7 @@ export default function ProductDetail() {
   const quickMode = searchParams.get('compra') === 'rapida';
   const { products, categories, settings, loading, storeBasePath } = useStore();
   const { addItem, items } = useCart();
+  const pickup = usePickupAvailability();
   const { showToast } = useToast();
   const product = products.find((item) => item.slug === slug && item.active);
   const partyConfig = product?.partyOrderConfig?.enabled ? product.partyOrderConfig : product ? readPartyConfig(product.optionGroups) : undefined;
@@ -127,7 +130,9 @@ export default function ProductDetail() {
     setImageIndex((current) => (current + direction + gallery.length) % gallery.length);
   };
   const unavailable = product.stockStatus === 'unavailable' || product.availabilityStatus !== 'available';
-  const outOfStock = product.trackStock && Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) <= 0;
+  const localStock = pickup.selectedPoint && product.trackStock ? pointStock(pickup.availability, product.id) : undefined;
+  const outOfStock = pickup.selectedPoint ? Boolean(localStock && Number(localStock.available) <= 0) : product.trackStock && Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) <= 0;
+  const insufficientAtPoint = Boolean(localStock && Number(localStock.available) < quantity);
 
   const toggleOption = (group: OptionGroup, itemId: string) => {
     setSelections((current) => {
@@ -191,6 +196,10 @@ export default function ProductDetail() {
 
   const add = (quick = false) => {
     if (unavailable || !validateSelections()) return;
+    if (!settings.deliveryEnabled && (insufficientAtPoint || (localStock && Number(localStock.available) < quantity + (items.filter((item) => item.productId === product.id).reduce((sum, item) => sum + item.quantity, 0))))) {
+      showToast(`Quantidade indisponível em ${pickup.selectedPoint?.name}. Ajuste o pedido ou escolha outro ponto.`, 'error');
+      return;
+    }
     const selectedPartyWeight = partyConfig ? Math.max(1, Math.trunc(Number(partyPackageWeightGrams) || partyConfig.packageWeightGrams)) : undefined;
     if (partyConfig && (!selectedPartyWeight || selectedPartyWeight < 1)) { showToast('Informe a gramatura por pacote.', 'error'); return; }
     const existingQuantity = items.find(item => item.id === cartItemIdFor(product.id, selectedOptions, selectedPartyWeight))?.quantity || 0;
@@ -232,9 +241,12 @@ export default function ProductDetail() {
         <span className="eyebrow">{category?.name ?? 'PRODUTO'}</span>
         <h1>{product.name}</h1>
         <p className="product-long-description">{product.description}</p>
+        {settings.pickupEnabled && <PickupPointSelector points={pickup.points} value={pickup.pickupLocationId} onChange={pickup.setPickupLocationId} loading={pickup.pointsLoading} error={pickup.pointsError} invalidQr={pickup.invalidQr} compact/>}
+        {pickup.selectedPoint && <PointStockNotice product={product} pointName={pickup.selectedPoint.name} row={localStock} quantity={quantity}/>}
+        {pickup.selectedPoint && pickup.availabilityError && <p className="store-point-stock store-point-stock--warning" role="status">{pickup.availabilityError}</p>}
         {partyConfig && <div className="made-to-order party-order-note"><Package size={19}/><div><strong>Encomenda para festas</strong><span>Produção sob agendamento, com mínimo de {partyConfig.minimumPackages} pacote(s) de {partyConfig.packageWeightGrams} g{partyConfig.leadTimeDays > 0 ? ` e antecedência de ${partyConfig.leadTimeDays} dia${partyConfig.leadTimeDays === 1 ? '' : 's'}` : ''}.</span>{partyConfig.pricePerGram > 0 && <small>Preço de referência: {currency.format(partyConfig.pricePerGram)} por grama · {currency.format(partyConfig.pricePerGram * partyConfig.packageWeightGrams)} por pacote.</small>}{partyConfig.artworkInstructions && <small>{partyConfig.artworkInstructions}</small>}{storeInstagramHref && <a href={storeInstagramHref} target="_blank" rel="noreferrer"><InstagramGlyph/>Fale com a loja pelo Instagram {instagramLabel(settings.instagram)}</a>}</div></div>}
          {partyConfig && <label className="party-order-weight-field">Gramas por pacote <span>(opcional · padrão {partyConfig.packageWeightGrams} g)</span><input type="number" min="1" max="10000" step="1" value={partyPackageWeightGrams} onChange={(event) => setPartyPackageWeightGrams(Math.max(1, Math.min(10000, Number(event.target.value) || partyConfig.packageWeightGrams)))} /><small>Se você não alterar, usamos o padrão cadastrado pela loja. A quantidade abaixo representa o número de pacotes.</small></label>}
-        {outOfStock && !unavailable && <div className="stock-schedule-note"><Clock3 size={18}/><div><strong>Sem disponibilidade para hoje</strong><span>Você pode adicionar ao pedido e agendar a partir de amanhã.</span></div></div>}
+        {outOfStock && !unavailable && !pickup.selectedPoint && <div className="stock-schedule-note"><Clock3 size={18}/><div><strong>Sem disponibilidade imediata</strong><span>O prazo e a disponibilidade serão verificados ao finalizar o pedido.</span></div></div>}
         {product.preparationTimeMinutes > 0 && <div className="made-to-order"><Clock3 size={19}/><div><strong>Tempo adicional de preparo</strong><span>Este item pode acrescentar cerca de {product.preparationTimeMinutes} minutos ao prazo do pedido.</span></div></div>}
 
         {product.optionGroups.filter((group) => group.active).map((group) => {
@@ -270,8 +282,8 @@ export default function ProductDetail() {
         <div className="buy-box">
           <div className="quantity-control"><small>{partyConfig ? 'Pacotes' : 'Quantidade'}</small><button onClick={() => setQuantity((value) => Math.max(partyConfig?.minimumPackages ?? 1, value - 1))} disabled={quantity <= (partyConfig?.minimumPackages ?? 1)} aria-label="Diminuir quantidade"><Minus size={17}/></button><span>{quantity}</span><button onClick={() => setQuantity((value) => Math.min(MAX_CART_ITEM_QUANTITY, value + 1))} disabled={quantity >= MAX_CART_ITEM_QUANTITY} aria-label="Aumentar quantidade"><Plus size={17}/></button></div>
           <div className="buy-total"><small>Total</small><strong>{currency.format(total)}</strong></div>
-          <button className="primary-button" disabled={unavailable} onClick={() => add()}><ShoppingBag size={18}/>{unavailable ? 'Indisponível' : outOfStock ? 'Adicionar para agendar' : 'Adicionar ao carrinho'}</button>
-          {!unavailable && !outOfStock && <button type="button" className="secondary-button" onClick={() => add(true)}><Zap size={18}/>Comprar agora</button>}
+          <button className="primary-button" disabled={unavailable || (insufficientAtPoint && !settings.deliveryEnabled)} onClick={() => add()}><ShoppingBag size={18}/>{unavailable || (insufficientAtPoint && !settings.deliveryEnabled) ? 'Indisponível neste ponto' : insufficientAtPoint ? 'Adicionar para delivery' : 'Adicionar ao carrinho'}</button>
+          {!unavailable && !outOfStock && !insufficientAtPoint && <button type="button" className="secondary-button" onClick={() => add(true)}><Zap size={18}/>Comprar agora</button>}
           {quickMode && <small>Confirme a quantidade e as opções. Você seguirá direto para a finalização deste item.</small>}
         </div>
       </section>
