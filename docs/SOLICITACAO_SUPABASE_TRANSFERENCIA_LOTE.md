@@ -12,9 +12,10 @@ Diagnóstico em 26/10/2026. **Este documento não autoriza aplicação em produ�
 ## Migrations locais a revisar
 
 1. [`20261025090000_food_stock_simple_mode.sql`](../supabase/migrations/20261025090000_food_stock_simple_mode.sql) cria `food_stock_preferences` e `food_stock_mode_v1`, usados pelo controle de modo simples/múltiplos locais. Depende das migrations já presentes de múltiplos locais e saldo inicial.
-2. [`20261026014407_food_location_stock_fast_flow.sql`](../supabase/migrations/20261026014407_food_location_stock_fast_flow.sql) cria a função de lote, tabela de recibos de idempotência e guardas de local/retirada. Depende das tabelas e da função individual já existentes, além das colunas de pedido e retirada verificadas no schema remoto. Não depende da migration de receitas.
+2. [`20261026014407_food_location_stock_fast_flow.sql`](../supabase/migrations/20261026014407_food_location_stock_fast_flow.sql) cria a função de lote, tabela de recibos de idempotência, ajustes rápidos e guardas de locais. Depende das tabelas e da função individual já existentes. Não depende da migration de receitas.
+3. [`20261026014408_food_public_pickup_order_guards.sql`](../supabase/migrations/20261026014408_food_public_pickup_order_guards.sql) contém apenas os guardas novos do checkout de retirada. Foi separado porque a Doce Lua possui pontos públicos ativos e pedidos de retirada legados; **não faz parte da correção da transferência** e não deve ser aplicado nesta implantação.
 
-Também estão pendentes localmente `20261025143142_food_inventory_recipe_dashboard_transactions.sql` e `20261025200720_food_recipe_reconciliation_lock_safety.sql`. A segunda depende da primeira; são assuntos separados. **Não usar `supabase db push` nem aplicar a cadeia inteira sem revisão própria.** Se a entrega incluir o seletor de modo simples, revisar e aplicar primeiro `20261025090000`; para resolver apenas a RPC de lote, aplicar somente `20261026014407` após aprovação específica e teste de compatibilidade no ambiente alvo.
+Também estão pendentes localmente `20261025143142_food_inventory_recipe_dashboard_transactions.sql` e `20261025200720_food_recipe_reconciliation_lock_safety.sql`. A segunda depende da primeira; são assuntos separados. **Não usar `supabase db push` nem aplicar a cadeia inteira sem revisão própria.** Para esta tela, aplicar somente `20261025090000` e depois `20261026014407`; preservar `20261026014408` e as duas migrations de receitas para revisão própria.
 
 A RPC nova tem a assinatura nomeada exata esperada pelo frontend:
 
