@@ -2,7 +2,7 @@ import { Box, CakeSlice, CalendarDays, Check, Handshake, ShoppingBag, UtensilsCr
 import { BUSINESS_SEGMENTS, PRIMARY_BUSINESS_SEGMENTS, getBusinessSegment, type BusinessSegment } from './businessSegments';
 import './picker.css';
 
-const icons = {food:UtensilsCrossed,confectionery:CakeSlice,retail:ShoppingBag,printing3d:Box,rentals:CalendarDays,services:Handshake,florist:Flower2,personal:Dumbbell,nutrition:Leaf,creator:Megaphone};
+const icons = {food:UtensilsCrossed,confectionery:CakeSlice,retail:ShoppingBag,printing3d:Box,rentals:CalendarDays,services:Handshake,florist:Flower2,personal:Dumbbell,fitness:Dumbbell,nutrition:Leaf,creator:Megaphone};
 
 export function BusinessSegmentPicker({value,onChange,compact=false}:{value:BusinessSegment;onChange:(segment:BusinessSegment)=>void;compact?:boolean}) {
   const profile = getBusinessSegment(value);

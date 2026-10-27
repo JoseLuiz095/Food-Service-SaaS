@@ -10,6 +10,7 @@ import { isFoodWebMarketingRoot } from '../../lib/config';
 import Landing from './Landing';
 import { getBusinessSegment } from '../../segments/businessSegments';
 import { PublicBusinessOffers } from '../../platform/PublicBusinessOffers';
+import { FitnessBookingOffers } from '../../platform/FitnessBookingOffers';
 import { PickupPointSelector, PointStockNotice } from './PickupPointSelector';
 import { pointStock, usePickupAvailability } from './usePickupAvailability';
 
@@ -24,7 +25,7 @@ function StorefrontHome(){
   const traditionalPresentation=segment.id==='food'||settings.visualTheme.preset==='doce_lua';
   const [selectedCategory,setSelectedCategory]=useState('all');
   const [query,setQuery]=useState('');
-  const pickup = usePickupAvailability();
+  const pickup = usePickupAvailability(segment.id!=='fitness');
   const productCard = (product: typeof products[number], category?: typeof categories[number]) => {
     const row = pointStock(pickup.availability, product.id);
     const hasPointContext = Boolean(pickup.selectedPoint);
@@ -50,6 +51,10 @@ function StorefrontHome(){
 
   if(loading)return <div className="page-center"><LoadingState label={traditionalPresentation?'Carregando cardápio...':'Carregando catálogo...'}/></div>;
   if(error)return <div className="container page-center"><ErrorState message={error} onRetry={()=>void reloadPublic()}/></div>;
+  if(segment.id==='fitness')return <>
+    <header className="container fitness-store-header"><span className="eyebrow">VENDEWEB · FITNESS/ACADEMIA</span><h1>{settings.name}</h1><p>{[settings.city,settings.state].filter(Boolean).join(' · ')}</p></header>
+    <main id="cardapio" className="container storefront-body"><FitnessBookingOffers/></main>
+  </>;
 
   return <>
     <StoreHeader/>

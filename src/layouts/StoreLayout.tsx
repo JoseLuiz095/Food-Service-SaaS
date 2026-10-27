@@ -1,6 +1,6 @@
 import { ArrowRight, Clock3, Store, ShoppingBag } from 'lucide-react';
 import { useEffect } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
 import { useStore } from '../contexts/StoreContext';
 import { currency } from '../utils/format';
@@ -25,6 +25,10 @@ export default function StoreLayout(){
   const storefrontThemeStyle=getStorefrontThemeStyle(resolveBusinessTheme(settings.visualTheme));
   const useSegmentPresentation=segment.id!=='food'&&settings.visualTheme.preset!=='doce_lua';
 
+  if(segment.id==='fitness' && /\/(produto|carrinho|finalizar)(\/|$)/.test(location.pathname)){
+    return <Navigate to={storefrontPath(storeBasePath)} replace/>;
+  }
+
   if(storeUnavailable){
     return <main className="store-layout food-storefront-theme storefront-unavailable-page" style={storefrontThemeStyle}>
       <section className="storefront-unavailable-card">
@@ -40,7 +44,7 @@ export default function StoreLayout(){
 
   const path=location.pathname;
   const hideDock=path.includes('/carrinho')||path.includes('/finalizar')||path.includes('/pedido/');
-  const showDock=totalItems>0&&!hideDock;
+  const showDock=segment.id!=='fitness'&&totalItems>0&&!hideDock;
 
   return <main data-business-segment={segment.id} data-visual-preset={settings.visualTheme.preset} className={`store-layout food-storefront-theme storefront-motion ${useSegmentPresentation?'storefront-business-theme':''} ${showDock?'has-mobile-cart-dock':''}`} style={storefrontThemeStyle}><div key={location.pathname} className="store-route-view"><Outlet/></div><StorePlatformFooter/>{showDock&&<Link className="mobile-cart-dock" to={storefrontPath(storeBasePath,'/carrinho')} aria-label={`Abrir carrinho com ${totalItems} item(ns)`}><span className="mobile-cart-dock__icon"><ShoppingBag size={19}/><b>{totalItems}</b></span><span className="mobile-cart-dock__copy"><small>Seu carrinho</small><strong>{currency.format(subtotal)}</strong></span><span className="mobile-cart-dock__action">Ver carrinho <ArrowRight size={17}/></span></Link>}</main>;
 }

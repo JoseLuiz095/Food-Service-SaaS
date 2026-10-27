@@ -46,6 +46,7 @@ const ModulesPage=lazy(()=>import('./modules/ModulesPage'));
 const EventsPage=lazy(()=>import('./modules/EventsPage'));
 const BusinessModules=lazy(()=>import('./platform/BusinessModules'));
 const BusinessOperations=lazy(()=>import('./platform/OperationsPage'));
+const FitnessAdmin=lazy(()=>import('./platform/FitnessAdminPage'));
 
 function ProtectedAdmin() {
   const { user, membership, loading } = useAuth();
@@ -95,7 +96,7 @@ export function CanonicalPlatformBoundary({ children }: { children: ReactNode })
 
 export default function App() {
   return <Suspense fallback={fallback}><Routes>
-    <Route path="/fitness/:storeId" element={<FitnessAccess />} />
+    <Route path="/fitness/:storeId" element={import.meta.env.DEV?<FitnessAccess/>:<Navigate to="/" replace/>} />
     <Route path="/modulos/eventos/:sellerId" element={<EventsPage />} />
     <Route path="/modulos/eventos/pedido/:eventOrderId" element={<EventsPage />} />
     <Route element={<StoreLayout />}>
@@ -136,6 +137,7 @@ export default function App() {
       <Route path="/admin/modulos" element={<ModulesPage />} />
       <Route path="/admin/negocio" element={<BusinessModules />} />
       <Route path="/admin/operacao" element={<BusinessOperations />} />
+      <Route path="/admin/fitness" element={<FitnessAdmin />} />
     </Route>
 
     <Route path="/admin-master/login" element={<MasterLogin />} />
