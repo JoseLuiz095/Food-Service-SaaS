@@ -1,6 +1,7 @@
 import { CreditCard, MapPin, Pencil, Save, Store, Truck, X, Minus, Plus, Trash2, Ban } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { Order, OrderDetailsUpdate, StoreSettings } from '../../types';
+import './order-details-mobile.css';
 import { currency, formatDateTimeBR } from '../../utils/format';
 import { formatOrderNumber } from '../../utils/orderConfirmation';
 

@@ -1,0 +1,9 @@
+/* Identificar o produto e tocar nas ações sem depender do desktop. */
+@media(max-width:760px){
+  .admin-shell .products-mobile-card__top{grid-template-columns:48px minmax(0,1fr);align-items:start}
+  .admin-shell .products-mobile-card__top strong{overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere;line-height:1.45;font-size:.94rem}
+  .admin-shell .products-mobile-card__top small{font-size:.8rem;line-height:1.4}
+  .admin-shell .products-mobile-card__state{grid-column:2;justify-self:start}
+  .admin-shell .products-mobile-card__actions .status-toggle,.admin-shell .products-mobile-card__actions a{min-height:44px}
+  .admin-shell .products-mobile-card__actions .icon-button{width:44px;height:44px;flex-basis:44px}
+}
