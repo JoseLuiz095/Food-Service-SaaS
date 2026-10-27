@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({
         ok: Boolean(url && anon && service),
         function: 'food-platform-create-store',
-        version: 'foodweb-0.4.0',
+        version: 'foodweb-fitness-1',
         configured: Boolean(url && anon && service),
       }), { status:200, headers:{...corsHeaders,'Content-Type':'application/json'} });
     }
@@ -120,6 +120,8 @@ Deno.serve(async (req) => {
     const ownerName = String(body.ownerName||'').trim();
     const ownerEmail = validateEmail(String(body.ownerEmail||''));
     await validateMailDomain(ownerEmail);
+    const businessSegment = String(body.businessSegment||'').trim();
+    const billingExempt = body.billingExempt === true;
     const planId = String(body.planId||'').trim();
     const accessStatus = body.accessStatus === 'suspended' ? 'suspended' : 'online';
     const dueDay = Math.min(28,Math.max(1,Number(body.dueDay)||10));
@@ -130,9 +132,16 @@ Deno.serve(async (req) => {
     const forcePasswordChange = body.forcePasswordChange !== false;
     if (!name || !slug || !city || state.length!==2 || !ownerName || !ownerEmail || !planId) throw new Error('Preencha nome, slug, cidade, UF, responsável, e-mail e plano.');
     if (credentialMode === 'temporary_password') validateTemporaryPassword(temporaryPassword);
+    if (businessSegment === 'fitness' && credentialMode !== 'invite') throw new Error('Fitness/Academia exige convite seguro para o primeiro acesso.');
+    if (billingExempt && businessSegment !== 'fitness') throw new Error('A isenção deste fluxo exige o segmento Fitness/Academia.');
 
     const { data: plan, error: planError } = await adminClient.from('food_plans').select('id,code,monthly_price,custom_domain').eq('id',planId).eq('active',true).single();
     if (planError || !plan) throw new Error('Plano inválido ou inativo.');
+    if (billingExempt && plan.code === 'DEMO') throw new Error('Selecione um plano comercial para aplicar a isenção.');
+    if (businessSegment === 'fitness') {
+      const { data: ready, error: readyError } = await adminClient.rpc('food_fitness_pilot_contract');
+      if (readyError || ready !== true) throw new Error('A configuração segura do piloto Fitness ainda não está instalada. Nenhuma loja foi criada.');
+    }
     if (customDomain && !plan.custom_domain) throw new Error('O plano selecionado não inclui domínio próprio.');
 
     const isDemoPlan = plan.code === 'DEMO';
@@ -158,7 +167,9 @@ Deno.serve(async (req) => {
       access_status:accessStatus,
       suspended_at:accessStatus==='suspended'?new Date().toISOString():null,
       suspension_reason:accessStatus==='suspended'?'Criada inicialmente com acesso suspenso':null,
-      delivery_enabled:true, pickup_enabled:true,
+      delivery_enabled:businessSegment!=='fitness', pickup_enabled:businessSegment!=='fitness',
+      confirmation_payment_enabled:businessSegment!=='fitness', pix_enabled:false,
+      ...(businessSegment==='fitness' ? { visual_theme:{businessSegment:'fitness'} } : {}),
     }).select('id,slug').single();
     if (storeError || !store) throw new Error(storeError?.message || 'Não foi possível criar a loja.');
 
@@ -171,15 +182,24 @@ Deno.serve(async (req) => {
         plan_id:planId,
         status:subscriptionStatus,
         status_before_suspension:previousStatus,
-        billing_amount:isDemoPlan ? 0 : plan.monthly_price,
-        due_day:isDemoPlan ? null : dueDay,
-        next_due_date:isDemoPlan ? null : nextDueDate,
+        billing_amount:isDemoPlan || billingExempt ? 0 : plan.monthly_price,
+        due_day:isDemoPlan || billingExempt ? null : dueDay,
+        next_due_date:isDemoPlan || billingExempt ? null : nextDueDate,
         expires_at:expiresAt,
+        notes:billingExempt ? 'FITNESS_PILOT_WAIVER: isenção integral autorizada pelo Admin Master; sem cobrança' : null,
       });
       if (subError) throw subError;
 
       const { error: seedError } = await adminClient.rpc('food_platform_seed_new_store',{p_store_id:store.id,p_city:city,p_state:state});
       if (seedError) throw seedError;
+      if (businessSegment === 'fitness') {
+        const { error: segmentError } = await userClient.rpc('food_business_master', {
+          p_action:'set_segment', p_store:store.id, p_data:{segment:'fitness'},
+        });
+        if (segmentError) throw new Error(`Não foi possível inicializar Fitness/Academia: ${segmentError.message}`);
+        const { error: workoutError } = await userClient.rpc('food_fitness_seed_workouts',{p_store:store.id});
+        if (workoutError) throw new Error(`Não foi possível preparar as fichas em rascunho: ${workoutError.message}`);
+      }
       if (customDomain && plan.custom_domain) {
         const { error: domainError } = await adminClient.from('food_store_domains').insert({store_id:store.id,domain:customDomain,is_primary:true,active:true});
         if (domainError) throw domainError;
@@ -221,6 +241,10 @@ Deno.serve(async (req) => {
       if (!existingUser) memberPayload.must_change_password = Boolean(createdWithPassword && forcePasswordChange);
       const { error: memberError } = await adminClient.from('food_store_users').upsert(memberPayload,{onConflict:'store_id,user_id'});
       if (memberError) throw memberError;
+      if (businessSegment === 'fitness') {
+        const { error: professionalError } = await adminClient.from('food_fitness_professionals').insert({store_id:store.id,user_id:ownerUser.id,active:true});
+        if (professionalError) throw new Error(`Não foi possível vincular o Personal Trainer: ${professionalError.message}`);
+      }
 
       return new Response(JSON.stringify({
         storeId:store.id,
@@ -228,13 +252,31 @@ Deno.serve(async (req) => {
         invited,
         createdWithPassword,
         existingUser:Boolean(existingUser),
+        businessSegmentConfigured:businessSegment==='fitness',
+        billingExempt,
         warning:warning || undefined,
         expiresAt:expiresAt || undefined,
       }), { status:200, headers:{...corsHeaders,'Content-Type':'application/json'} });
     } catch (inner) {
-      await adminClient.from('food_stores').delete().eq('id',store.id);
+      let cleanupError = '';
+      if (businessSegment === 'fitness') {
+        // O seed Fitness cria referências sem cascade. Remova somente os dados da
+        // loja recém-criada, em ordem de dependência, antes do rollback usual.
+        for (const table of ['food_fitness_exercises','food_fitness_workouts','food_fitness_professionals','food_business_audit','food_business_entitlements','food_business_profiles'] as const) {
+          const { error } = await adminClient.from(table).delete().eq('store_id',store.id);
+          if (error) { cleanupError = `${table}: ${error.message}`; break; }
+        }
+      }
+      if (!cleanupError) {
+        const { error } = await adminClient.from('food_stores').delete().eq('id',store.id);
+        if (error) cleanupError = `food_stores: ${error.message}`;
+      }
+      if (cleanupError) {
+        await adminClient.from('food_stores').update({active:false,access_status:'suspended',suspended_at:new Date().toISOString(),suspension_reason:'Falha no provisionamento Fitness; revisão manual necessária'}).eq('id',store.id);
+        throw new Error(`A criação falhou e a loja ${store.id} foi bloqueada para revisão; rollback incompleto em ${cleanupError}. Erro original: ${inner instanceof Error ? inner.message : 'desconhecido'}`);
+      }
       if (createdAuthUserId && !existingUser) {
-        try { await adminClient.auth.admin.deleteUser(createdAuthUserId); } catch { /* melhor esforço */ }
+        try { await adminClient.auth.admin.deleteUser(createdAuthUserId); } catch { /* revisão manual do Auth pode ser necessária */ }
       }
       throw inner;
     }

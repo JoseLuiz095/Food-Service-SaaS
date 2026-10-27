@@ -11,6 +11,7 @@ const examples: Record<BusinessSegment, { name: string; product: string; detail:
   rentals: { name: 'Dia de Festa', product: 'Pula-pula para festas', detail: 'Consulte datas, condições e disponibilidade.', price: 'Sob consulta' },
   florist: { name: 'Jardim Encantado', product: 'Buquê Afeto', detail: 'Flores, cartão e uma data especial.', price: 'R$ 89,00' },
   personal: { name: 'Movimento Ativo', product: 'Consultoria individual', detail: 'Serviços, clientes e sessões organizados.', price: 'R$ 120,00' },
+  fitness: { name: 'Academia de exemplo', product: 'Acompanhamento de treino', detail: 'Exemplo visual, sem oferta ou reserva real.', price: 'Sob consulta' },
   nutrition: { name: 'Equilíbrio Nutri', product: 'Consulta inicial', detail: 'Serviços e agenda administrativa.', price: 'R$ 180,00' },
   creator: { name: 'Studio Prisma', product: 'Guia de conteúdo', detail: 'Produtos digitais, links e campanhas.', price: 'R$ 49,00' },
   services: { name: 'Oficina Criativa', product: 'Projeto sob medida', detail: 'Conte à loja o que você precisa.', price: 'Sob consulta' },
@@ -28,7 +29,7 @@ export function BusinessJourneyPreview({ segment, storeName, compact = false }: 
   const profile = getBusinessSegment(segment);
   const example = examples[segment];
   const name = storeName?.trim() || example.name;
-  const consultation = ['rentals', 'services', 'personal', 'nutrition'].includes(segment);
+  const consultation = ['rentals', 'services', 'personal', 'fitness', 'nutrition'].includes(segment);
 
   return <div className={`commercial-preview business-journey ${compact ? 'business-journey--compact' : ''}`} style={{ '--preview-accent': profile.primaryColor } as CSSProperties} aria-label={`Exemplo de apresentação para ${profile.label}`}>
     <div className="business-journey__browser"><span /><span /><span /><small>Prévia ilustrativa · sua marca aqui</small></div>

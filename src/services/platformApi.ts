@@ -96,6 +96,7 @@ export type CreatePlatformStoreInput = {
   credentialMode:StoreCredentialMode;
   temporaryPassword?:string;
   forcePasswordChange?:boolean;
+  billingExempt?:boolean;
 };
 
 const demoPlans: Plan[] = [
@@ -273,9 +274,19 @@ export const platformApi = {
     else if (domain) await restFetch<unknown>('food_store_domains', {method:'POST',body:{store_id:input.storeId,domain,is_primary:true,active:true}});
   },
 
-  async createStore(input: CreatePlatformStoreInput): Promise<{storeId:string;slug:string;invited:boolean;existingUser?:boolean;createdWithPassword?:boolean;warning?:string;expiresAt?:string}> {
+  async createStore(input: CreatePlatformStoreInput): Promise<{storeId:string;slug:string;invited:boolean;existingUser?:boolean;createdWithPassword?:boolean;warning?:string;expiresAt?:string;businessSegmentConfigured?:boolean;billingExempt?:boolean}> {
+    if (input.businessSegment === 'fitness' && isDemoMode) throw new Error('O modo de demonstração não provisiona lojas Fitness/Academia. Nenhuma operação foi executada.');
     if (isDemoMode) return {storeId:'demo-new-store',slug:input.slug,invited:false,createdWithPassword:input.credentialMode==='temporary_password'};
-    const result = await invokeFunction<{storeId:string;slug:string;invited:boolean;existingUser?:boolean;createdWithPassword?:boolean;warning?:string;expiresAt?:string}>('food-platform-create-store', input);
+    if (input.businessSegment === 'fitness') {
+      const health = await edgeFunctionHealth('food-platform-create-store');
+      if (health.version !== 'foodweb-fitness-1') throw new Error('A criação de Fitness/Academia aguarda a atualização segura do provisionamento. Nenhuma loja foi criada.');
+    }
+    const result = await invokeFunction<{storeId:string;slug:string;invited:boolean;existingUser?:boolean;createdWithPassword?:boolean;warning?:string;expiresAt?:string;businessSegmentConfigured?:boolean;billingExempt?:boolean}>('food-platform-create-store', input);
+    if (input.businessSegment === 'fitness') {
+      if (!result.businessSegmentConfigured) throw new Error('A loja foi criada, mas o segmento Fitness/Academia não foi confirmado. Revise esta loja no Admin Master antes de continuar.');
+      if (input.billingExempt && !result.billingExempt) throw new Error('A loja foi criada, mas a isenção não foi confirmada. Revise a assinatura antes de continuar.');
+      return result;
+    }
     const {saveNewStorePresentation} = await import('./businessPresentation');
     const warning = await saveNewStorePresentation(result.storeId,input.businessSegment);
     return {...result, warning:[result.warning,warning].filter(Boolean).join(' ') || undefined};

@@ -7,7 +7,7 @@ import { restFetch } from '../../lib/supabaseRest';
 export type PickupPoint = { id: string; name: string; short_code: string; address?: string; instructions?: string };
 export type PointAvailability = { product_id: string; available: number; available_elsewhere: boolean | number };
 
-export function usePickupAvailability() {
+export function usePickupAvailability(enabled = true) {
   const { settings, dataMode } = useStore();
   const { pickupLocationId, setPickupLocationId } = useCart();
   const [searchParams] = useSearchParams();
@@ -22,7 +22,7 @@ export function usePickupAvailability() {
   const [invalidQr, setInvalidQr] = useState(false);
 
   useEffect(() => {
-    if (!settings.id || dataMode === 'demo') { setPoints([]); setPointsLoading(false); return; }
+    if (!enabled || !settings.id || dataMode === 'demo') { setPoints([]); setPointsLoading(false); return; }
     let active = true;
     setPointsLoading(true);
     setPointsError('');
@@ -41,10 +41,10 @@ export function usePickupAvailability() {
       if (active) { setPoints([]); setPointsError('Não foi possível consultar os pontos de retirada. Tente recarregar a página.'); }
     }).finally(() => { if (active) setPointsLoading(false); });
     return () => { active = false; };
-  }, [settings.id, dataMode, pointCode]);
+  }, [enabled, settings.id, dataMode, pointCode]);
 
   useEffect(() => {
-    if (!settings.id || !pickupLocationId || !points.some((point) => point.id === pickupLocationId) || dataMode === 'demo') {
+    if (!enabled || !settings.id || !pickupLocationId || !points.some((point) => point.id === pickupLocationId) || dataMode === 'demo') {
       setAvailability(null);
       setAvailabilityPointId('');
       setAvailabilityLoading(false);
@@ -61,7 +61,7 @@ export function usePickupAvailability() {
       .catch(() => { if (active) setAvailabilityError('Não foi possível consultar o estoque deste ponto. A confirmação dependerá da validação no servidor.'); })
       .finally(() => { if (active) setAvailabilityLoading(false); });
     return () => { active = false; };
-  }, [settings.id, pickupLocationId, points, dataMode]);
+  }, [enabled, settings.id, pickupLocationId, points, dataMode]);
 
   const revalidate = async (id: string) => {
     let currentPoints: PickupPoint[];
