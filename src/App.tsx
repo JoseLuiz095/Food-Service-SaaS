@@ -14,6 +14,7 @@ const Dashboard=lazy(()=>import('./pages/admin/Dashboard'));
 const AdminLogin=lazy(()=>import('./pages/admin/Login'));
 const ForgotPassword=lazy(()=>import('./pages/admin/ForgotPassword'));
 const ResetPassword=lazy(()=>import('./pages/admin/ResetPassword'));
+const FitnessAccess=lazy(()=>import('./pages/fitness/FitnessAccess'));
 const FirstAccessPassword=lazy(()=>import('./pages/admin/FirstAccessPassword'));
 const OrdersAdmin=lazy(()=>import('./pages/admin/Orders'));
 const Onboarding=lazy(()=>import('./pages/admin/Onboarding'));
@@ -94,6 +95,7 @@ export function CanonicalPlatformBoundary({ children }: { children: ReactNode })
 
 export default function App() {
   return <Suspense fallback={fallback}><Routes>
+    <Route path="/fitness/:storeId" element={<FitnessAccess />} />
     <Route path="/modulos/eventos/:sellerId" element={<EventsPage />} />
     <Route path="/modulos/eventos/pedido/:eventOrderId" element={<EventsPage />} />
     <Route element={<StoreLayout />}>

@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "test:fitness": "playwright test --config fitness.config.ts",
     "test:modules": "playwright test --config modules.config.ts",
     "browser:install": "playwright install chromium",
     "browser:install:all": "playwright install chromium firefox webkit",
