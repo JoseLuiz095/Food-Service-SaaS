@@ -17,6 +17,7 @@ type Balance = { product_id: string; location_id: string; stock_quantity: number
 type TransferPayload = { p_store_id: string; p_from_location_id: string; p_to_location_id: string; p_items: Array<{ product_id: string; quantity: number }>; p_idempotency_key: string };
 
 async function openTransfer(page: Page, options: { failFirst?: boolean } = {}) {
+  page.on('dialog', dialog => dialog.accept());
   await mockBackend(page, { auth: true });
   await page.route('**/rest/v1/food_products?**', route => route.fulfill({ json: products }));
   await page.route('**/rest/v1/rpc/food_stock_mode_v1', route => route.fulfill({ json: { multi_location_enabled: true } }));
@@ -53,6 +54,7 @@ async function openTransfer(page: Page, options: { failFirst?: boolean } = {}) {
   await page.goto('/admin/estoque-locais');
   const transfer = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Transferir estoque' }) }).last();
   await expect(transfer).toBeVisible();
+  await transfer.locator('summary').first().click();
   return { transfer, calls, balances, getOldTransferCalls: () => oldTransferCalls };
 }
 
@@ -84,6 +86,7 @@ test('quatro produtos usam uma chamada atômica e atualizam os saldos locais', a
   await expect(screen.transfer.getByText('Transferência concluída', { exact: true })).toBeVisible();
   expect(screen.balances.filter(row => row.location_id === HOME).map(row => row.stock_quantity)).toEqual([8, 7, 2, 6]);
   await page.reload();
+  await page.locator('.stock-transfer-panel summary').first().click();
   await expect(page.getByRole('spinbutton', { name: /Quantidade de Creme de Avelã/ })).toHaveAttribute('max', '7');
   expect(pageErrors).toEqual([]);
   expect(consoleErrors).toEqual([]);

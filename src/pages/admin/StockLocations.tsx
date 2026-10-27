@@ -40,6 +40,9 @@ export default function StockLocationsAdmin() {
   const [onlySelected, setOnlySelected] = useState(false);
   const [transferResult, setTransferResult] = useState<{ products: number; units: number; from: string; to: string } | null>(null);
   const [transferError, setTransferError] = useState('');
+  const [productQuery, setProductQuery] = useState('');
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
   const [locationView, setLocationView] = useState<'all' | 'vehicle'>('all');
   const [selectedLocationId, setSelectedLocationId] = useState('');
   const [salesToday, setSalesToday] = useState<Array<{ product_id: string; net_sold: number }> | null>(null);
@@ -47,6 +50,8 @@ export default function StockLocationsAdmin() {
   const balanceSectionRef = useRef<HTMLElement>(null);
   const fromIdRef = useRef('');
   const previousStoreId = useRef(settings.id);
+  const activeStoreId = useRef(settings.id);
+  activeStoreId.current = settings.id;
   const adjustSectionRef = useRef<HTMLElement>(null);
   const adjustmentKeys = useRef(new Map<string, string>());
   const batchKeys = useRef(new Map<string, string>());
@@ -57,6 +62,9 @@ export default function StockLocationsAdmin() {
       previousStoreId.current = settings.id;
       fromIdRef.current = '';
       setFromId(''); setToId(''); setLocations([]); setBalances([]); setLoading(true);
+      setSelectedLocationId(''); setProductId(''); setLocationId(''); setPickupStockId(''); setPickupPoints([]);
+      setProductQuery(''); setTransferOpen(false); setAdjustOpen(false); setQuantity('');
+      adjustmentKeys.current.clear();
     }
     setBatchQuantities({});
     setTransferResult(null);
@@ -125,6 +133,7 @@ export default function StockLocationsAdmin() {
     setError('');
     try {
       const [nextLocations, nextBalances] = await stockLocationsApi.list(settings.id);
+      if (activeStoreId.current !== settings.id) return;
       setLocations(nextLocations);
       setBalances(nextBalances);
       setSelectedLocationId((current) => {
@@ -136,6 +145,7 @@ export default function StockLocationsAdmin() {
         return nextLocations.find((item) => item.is_default && item.active)?.id || nextLocations.find((item) => item.active)?.id || '';
       });
       const points = await restFetch<Array<{ id: string; name: string; short_code: string; stock_location_id: string }>>(`food_pickup_locations?store_id=eq.${encodeURIComponent(settings.id)}&select=id,name,short_code,stock_location_id&order=name.asc`);
+      if (activeStoreId.current !== settings.id) return;
       setPickupPoints(points);
       setPickupStockId((current) => current || nextLocations.find((item) => item.is_default)?.id || '');
       setLocationId((current) => current || nextLocations.find((item) => item.is_default)?.id || nextLocations[0]?.id || '');
@@ -148,9 +158,10 @@ export default function StockLocationsAdmin() {
       setToId((current) => active.some((item) => item.id === current) && current !== nextFrom ? current : active.some((item) => item.id === lastPair.to) && lastPair.to !== nextFrom ? lastPair.to || '' : active.find((item) => item.id !== nextFrom)?.id || '');
       setProductId((current) => current || trackedProducts[0]?.id || '');
     } catch (cause) {
+      if (activeStoreId.current !== settings.id) return;
       const message = cause instanceof Error ? cause.message : 'Não foi possível carregar os locais de estoque.';
       setError(message);
-    } finally { setLoading(false); }
+    } finally { if (activeStoreId.current === settings.id) setLoading(false); }
   }, [settings.id, trackedProducts]);
   useEffect(() => {
     if (multiLocation === false) { setLoading(false); return; }
@@ -163,6 +174,7 @@ export default function StockLocationsAdmin() {
     balances.find((item) => item.product_id === product.id && item.location_id === location.id);
   const selectedProduct = trackedProducts.find((product) => product.id === productId);
   const startQuickTransfer = (product: Product, location: StockLocation, destinationId?: string) => {
+    setTransferOpen(true);
     setFromId(location.id);
     setToId((current) => destinationId && destinationId !== location.id ? destinationId : current && current !== location.id && activeLocations.some((item) => item.id === current) ? current : activeLocations.find((item) => item.id !== location.id)?.id || '');
     setBatchQuantities((current) => ({ ...current, [product.id]: current[product.id] || '' }));
@@ -170,15 +182,16 @@ export default function StockLocationsAdmin() {
     setTransferError('');
     setOnlySelected(false);
     setTransferSearch('');
-    transferSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    requestAnimationFrame(() => transferSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     requestAnimationFrame(() => document.getElementById(`stock-transfer-${product.id}`)?.focus({ preventScroll: true }));
   };
   const startQuickAdjust = (product: Product, location: StockLocation, mode: 'add' | 'remove' | 'set') => {
+    setAdjustOpen(true);
     setProductId(product.id);
     setLocationId(location.id);
     setAdjustMode(mode);
     setQuantity('');
-    adjustSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    requestAnimationFrame(() => adjustSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
   const submitLocation = async (event: FormEvent) => {
     event.preventDefault();
@@ -210,6 +223,14 @@ export default function StockLocationsAdmin() {
     event.preventDefault();
     const value = Number(quantity);
     if (!productId || !locationId || !Number.isInteger(value) || value < 0 || (adjustMode !== 'set' && value === 0)) return;
+    const product = trackedProducts.find((item) => item.id === productId);
+    const location = activeLocations.find((item) => item.id === locationId);
+    if (!product || !location || saving) return;
+    const balance = balances.find((item) => item.product_id === productId && item.location_id === locationId);
+    const before = balance?.stock_quantity || 0;
+    const after = adjustMode === 'set' ? value : before + (adjustMode === 'add' ? value : -value);
+    if (after < (balance?.stock_reserved_quantity || 0)) { showToast('O saldo físico não pode ficar abaixo da quantidade reservada. Confira as reservas antes de ajustar.', 'error'); return; }
+    if (!window.confirm(`Confirmar ajuste de estoque?\nLocal: ${location.name}\nProduto: ${product.name}\n${adjustMode === 'set' ? 'Definir físico' : adjustMode === 'add' ? 'Adicionar' : 'Remover'}: ${value} unidade(s)\nFísico: ${before} → ${after}\nReservado: ${balance?.stock_reserved_quantity || 0} (preservado)\nO servidor revalida o saldo antes de salvar.`)) return;
     const intent = [settings.id, productId, locationId, adjustMode, value].join(':');
     const key = adjustmentKeys.current.get(intent) || operationId();
     adjustmentKeys.current.set(intent, key);
@@ -230,6 +251,7 @@ export default function StockLocationsAdmin() {
   const submitBatchTransfer = async (event: FormEvent) => {
     event.preventDefault();
     if (!canBatchTransfer || batchInFlight.current) return;
+    if (!window.confirm(`Confirmar transferência?\nOrigem: ${activeLocations.find((item) => item.id === fromId)?.name}\nDestino: ${activeLocations.find((item) => item.id === toId)?.name}\n${batchItems.map((item) => `${trackedProducts.find((product) => product.id === item.product_id)?.name}: ${item.quantity} unidade(s)`).join('\n')}\nTotal: ${unitsToTransfer} unidade(s). As reservas permanecem na origem.`)) return;
     batchInFlight.current = true;
     setTransferError('');
     const intent = JSON.stringify({ storeId: settings.id, fromId, toId, items: batchItems });
@@ -279,14 +301,46 @@ export default function StockLocationsAdmin() {
   if (modeLoading || (multiLocation !== false && loading)) return <LoadingState label="Carregando locais de estoque..." />;
   if(multiLocation === false) return <main className="admin-page"><header className="page-header"><div><span className="eyebrow">ESTOQUE OPCIONAL</span><h1>Múltiplos locais</h1><p>Sua loja começa com um estoque principal. Use a tela Estoque para adicionar, remover ou definir quantidades.</p></div></header><section className="admin-card"><h2>Precisa separar estoques?</h2><p>Ative quando quiser controlar depósitos, pontos de retirada e transferências. Os saldos atuais continuam no local principal.</p><button type="button" className="primary-button" disabled={changingMode} onClick={()=>void (async()=>{setChangingMode(true);try{await stockModeApi.set(settings.id,true);await reloadMode();showToast('Múltiplos locais ativados.','success');}catch(cause){showToast(cause instanceof Error?cause.message:'Não foi possível ativar.','error');}finally{setChangingMode(false);}})()}>{changingMode?'Ativando...':'Ativar múltiplos locais'}</button></section></main>;
   if (error && !locations.length) return <ErrorState message={error || "Locais indisponíveis."} onRetry={() => void refresh()} />;
-  return <main className="admin-page">
+  return <main className="admin-page stock-locations-page">
     {modeError&&<div role="alert" className="inline-alert inline-alert-error">A configuração opcional ainda não foi implantada neste ambiente. {modeError}</div>}
 
     <header className="page-header"><div><span className="eyebrow">ESTOQUE</span><h1>Locais de estoque</h1><p>Consulte saldos, ajuste quantidades e transfira produtos com registro de operação.</p></div>
       <button className="secondary-button" onClick={() => void refresh()} disabled={saving}><RefreshCw size={16}/> Atualizar</button></header>
     {error && <div className="inline-alert inline-alert-error">{error}</div>}
+    <section className="admin-card stock-location-workspace" ref={balanceSectionRef} aria-label="Visão dos locais">
+      <div className="stock-location-tabs" role="group" aria-label="Tipo de local">
+        <button type="button" className={locationView === 'all' ? 'is-active' : ''} aria-pressed={locationView === 'all'} onClick={() => { setLocationView('all'); setSelectedLocationId(''); }}>Meus locais</button>
+        <button type="button" className={locationView === 'vehicle' ? 'is-active' : ''} aria-pressed={locationView === 'vehicle'} onClick={() => { setLocationView('vehicle'); setSelectedLocationId(''); }}>Minha carga</button>
+      </div>
+      <div className="stock-location-workspace__heading"><div><h2>{locationView === 'vehicle' ? 'Carga móvel' : 'Estoque por local'}</h2><p>{locationView === 'vehicle' ? 'Selecione uma carga móvel para consultar os saldos. Os locais ainda não são vinculados a usuários.' : 'Escolha o local antes de consultar ou movimentar produtos.'}</p></div>
+        {visibleLocations.length > 0 && <label>Local<select className="stock-location-picker" value={selectedLocation?.id || ''} onChange={(event) => setSelectedLocationId(event.target.value)}>{visibleLocations.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}</div>
+      {!selectedLocation ? <p className="stock-location-empty">{locationView === 'vehicle' ? 'Nenhuma carga móvel ativa cadastrada.' : 'Nenhum local ativo cadastrado.'}</p> : <>
+        <div className="stock-location-current" role="status"><MapPin size={18}/><div><strong>{selectedLocation.name}</strong><small>{pickupPoints.filter((point) => point.stock_location_id === selectedLocation.id).map((point) => point.name).join(' · ') || (selectedLocation.is_default ? 'Estoque principal da loja' : 'Local de estoque')}{!selectedLocation.active ? ' · Inativo' : ''}</small></div></div>
+        <div className="stock-location-summary"><span><strong>{selectedBalances.reduce((sum, item) => sum + Math.max(0, item.stock_quantity - item.stock_reserved_quantity), 0)}</strong> disponíveis</span><span><strong>{selectedBalances.reduce((sum, item) => sum + item.stock_reserved_quantity, 0)}</strong> reservadas</span><span><strong>{selectedBalances.reduce((sum, item) => sum + item.stock_quantity, 0)}</strong> total físico</span></div>
+        <label className="stock-location-search">Buscar no local<input type="search" value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Nome do produto"/></label>
+        <div className="stock-location-list">{trackedProducts.filter((product) => product.name.toLocaleLowerCase('pt-BR').includes(productQuery.trim().toLocaleLowerCase('pt-BR'))).map((product) => {
+          const balance = balanceFor(product, selectedLocation);
+          const physical = balance?.stock_quantity || 0;
+          const reserved = balance?.stock_reserved_quantity || 0;
+          const available = Math.max(0, physical - reserved);
+          const home = activeLocations.find((item) => item.is_default);
+          return <article key={product.id} className="stock-location-product">
+            <div className="stock-location-product__overview"><strong>{product.name}</strong><span className={available === 0 ? 'stock-location-unavailable' : ''}>{available} {available === 1 ? 'disponível' : 'disponíveis'}</span></div>
+            {reserved > physical && <p className="stock-location-inconsistency" role="alert">Reservas maiores que o físico. Confira os pedidos antes de ajustar.</p>}
+            <details className="stock-location-product__details"><summary>Detalhes e ações</summary><p>{physical} total físico · {reserved} reservado(s)</p>
+              {locationView === 'vehicle' && <p>{salesToday === null ? 'Vendas de hoje: consultando ou indisponíveis' : `Vendido hoje: ${salesToday.find((row) => row.product_id === product.id)?.net_sold || 0}`}</p>}
+              <div className="stock-location-product__action"><button type="button" className="secondary-button" disabled={saving} onClick={() => startQuickAdjust(product, selectedLocation, 'add')}>Adicionar</button><button type="button" className="secondary-button" disabled={saving || available < 1} onClick={() => startQuickAdjust(product, selectedLocation, 'remove')}>Remover</button><button type="button" className="secondary-button" disabled={saving} onClick={() => startQuickAdjust(product, selectedLocation, 'set')}>Definir</button>{locationView === 'vehicle' && home && home.id !== selectedLocation.id && <button type="button" className="secondary-button" disabled={saving} onClick={() => startQuickTransfer(product, home, selectedLocation.id)}>Repor</button>}<button type="button" className="secondary-button" disabled={saving || available < 1 || activeLocations.length < 2} onClick={() => startQuickTransfer(product, selectedLocation, home?.id)}>{locationView === 'vehicle' && home && home.id !== selectedLocation.id ? 'Devolver' : 'Transferir'}</button></div>
+              <details className="stock-location-product__other"><summary>Este produto em outros locais</summary><ul>{locations.filter((location) => location.id !== selectedLocation.id).map((location) => { const other = balanceFor(product, location); return <li key={location.id}><strong>{location.name}{!location.active ? ' (inativo)' : ''}</strong><span>{Math.max(0, (other?.stock_quantity || 0) - (other?.stock_reserved_quantity || 0))} disponíveis · {other?.stock_reserved_quantity || 0} reservado(s) · {other?.stock_quantity || 0} físico</span></li>; })}</ul></details>
+            </details>
+          </article>;
+        })}</div>
+        {trackedProducts.length > 0 && !trackedProducts.some((product) => product.name.toLocaleLowerCase('pt-BR').includes(productQuery.trim().toLocaleLowerCase('pt-BR'))) && <p className="stock-location-empty">Nenhum produto encontrado. Tente outro nome.</p>}
+        {!trackedProducts.length && <p className="stock-location-empty">Ative o controle de estoque em um produto para ver os saldos.</p>}
+      </>}
+    </section>
     {trackedProducts.length > 0 && <section className="admin-card stock-transfer-panel" ref={transferSectionRef} aria-labelledby="stock-transfer-heading">
-      <div className="stock-transfer-panel__heading"><div><span className="eyebrow">MOVIMENTAÇÃO</span><h2 id="stock-transfer-heading">Transferir estoque</h2><p>{activeLocations.find((item) => item.id === fromId)?.name || 'Origem'} → {activeLocations.find((item) => item.id === toId)?.name || 'Destino'}</p></div></div>
+      <details open={transferOpen} onToggle={(event) => setTransferOpen(event.currentTarget.open)}><summary className="stock-operation-heading"><div className="stock-transfer-panel__heading"><div><span className="eyebrow">MOVIMENTAÇÃO</span><h2 id="stock-transfer-heading">Transferir estoque</h2><p>{activeLocations.find((item) => item.id === fromId)?.name || 'Origem'} → {activeLocations.find((item) => item.id === toId)?.name || 'Destino'}</p></div></div>
+      </summary>
       {transferResult && <div className="stock-transfer-success" role="status"><strong>Transferência concluída</strong><span>{transferResult.units} {transferResult.units === 1 ? 'unidade transferida' : 'unidades transferidas'} em {transferResult.products} {transferResult.products === 1 ? 'produto' : 'produtos'}, de {transferResult.from} para {transferResult.to}.</span><button type="button" onClick={() => balanceSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Ver saldos atualizados</button><button type="button" onClick={() => { setTransferResult(null); transferSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>Realizar outra transferência</button></div>}
       <form className="stock-transfer-form" onSubmit={submitBatchTransfer}>
         <div className="stock-transfer-route">
@@ -311,21 +365,9 @@ export default function StockLocationsAdmin() {
         {transferError && <p className="stock-transfer-error" role="alert">{transferError}</p>}
         <div className="stock-transfer-footer"><p role="status"><strong>{batchItems.length} {batchItems.length === 1 ? 'produto' : 'produtos'}</strong> · {unitsToTransfer} {unitsToTransfer === 1 ? 'unidade' : 'unidades'}</p>{invalidTransferRows.length > 0 && <small role="alert">Revise {invalidTransferRows.length} {invalidTransferRows.length === 1 ? 'quantidade' : 'quantidades'} antes de transferir.</small>}{batchItems.length > 50 && <small role="alert">Selecione até 50 produtos por transferência.</small>}<button className="primary-button" disabled={saving || !canBatchTransfer}><ArrowLeftRight size={17}/> {saving ? 'Transferindo…' : `Transferir ${unitsToTransfer} ${unitsToTransfer === 1 ? 'unidade' : 'unidades'}`}</button></div>
       </form>
+      </details>
     </section>}
-    {multiLocation===true&&<section className="admin-card"><h2>Voltar ao estoque simples</h2><p>Você pode ocultar estes controles quando não houver saldo ou reservas em locais secundários e nenhum ponto ativo associado a eles. Nenhum local ou histórico será excluído.</p><button type="button" className="secondary-button" disabled={changingMode||saving} onClick={()=>void (async()=>{setChangingMode(true);try{await stockModeApi.set(settings.id,false);await reloadMode();showToast('Estoque simples ativado.','success');}catch(cause){showToast(cause instanceof Error?cause.message:'Transfira os saldos antes de simplificar.','error');}finally{setChangingMode(false);}})()}>Usar estoque simples</button></section>}
-    <section className="admin-card stock-location-workspace" ref={balanceSectionRef} aria-label="Visão dos locais">
-      <div className="stock-location-tabs" role="group" aria-label="Tipo de local">
-        <button type="button" className={locationView === 'all' ? 'is-active' : ''} aria-pressed={locationView === 'all'} onClick={() => { setLocationView('all'); setSelectedLocationId(''); }}>Meus locais</button>
-        <button type="button" className={locationView === 'vehicle' ? 'is-active' : ''} aria-pressed={locationView === 'vehicle'} onClick={() => { setLocationView('vehicle'); setSelectedLocationId(''); }}>Minha carga</button>
-      </div>
-      <div className="stock-location-workspace__heading"><div><h2>{locationView === 'vehicle' ? 'Carga móvel' : 'Estoque por local'}</h2><p>{locationView === 'vehicle' ? 'Selecione uma carga móvel para consultar os saldos. Os locais ainda não são vinculados a usuários.' : 'Escolha um local para ver os saldos e iniciar uma transferência.'}</p></div>
-        {visibleLocations.length > 0 && <label>Local<select value={selectedLocation?.id || ''} onChange={(event) => setSelectedLocationId(event.target.value)}>{visibleLocations.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}</div>
-      {!selectedLocation ? <p className="stock-location-empty">{locationView === 'vehicle' ? 'Nenhuma carga móvel ativa cadastrada.' : 'Nenhum local ativo cadastrado.'}</p> : <>
-        <div className="stock-location-summary"><span><strong>{selectedBalances.reduce((sum, item) => sum + item.stock_quantity, 0)}</strong> unidades físicas</span><span><strong>{selectedBalances.reduce((sum, item) => sum + Math.max(0, item.stock_quantity - item.stock_reserved_quantity), 0)}</strong> disponíveis</span><span><strong>{selectedBalances.filter((item) => item.stock_quantity > 0).length}</strong> produtos com saldo</span></div>
-        <div className="stock-location-list">{trackedProducts.map((product) => { const balance = balanceFor(product, selectedLocation); const available = Math.max(0, (balance?.stock_quantity || 0) - (balance?.stock_reserved_quantity || 0)); const home = activeLocations.find((item) => item.is_default); return <article key={product.id} className="stock-location-product"><div><strong>{product.name}</strong><small>{balance?.stock_quantity || 0} físico · {balance?.stock_reserved_quantity || 0} reservado</small>{locationView === 'vehicle' && <small>{salesToday === null ? 'Vendas de hoje: consultando ou indisponíveis' : `Vendido hoje: ${salesToday.find((row) => row.product_id === product.id)?.net_sold || 0}`}</small>}</div><div className="stock-location-product__action"><span>{available} {available === 1 ? 'disponível' : 'disponíveis'}</span><button type="button" className="secondary-button" disabled={saving} onClick={() => startQuickAdjust(product, selectedLocation, 'add')}>Adicionar</button><button type="button" className="secondary-button" disabled={saving || available < 1} onClick={() => startQuickAdjust(product, selectedLocation, 'remove')}>Remover</button><button type="button" className="secondary-button" disabled={saving} onClick={() => startQuickAdjust(product, selectedLocation, 'set')}>Definir</button>{locationView === 'vehicle' && home && <button type="button" className="secondary-button" disabled={saving} onClick={() => startQuickTransfer(product, home, selectedLocation.id)}>Repor</button>}<button type="button" className="secondary-button" disabled={saving || available < 1 || activeLocations.length < 2} onClick={() => startQuickTransfer(product, selectedLocation, home?.id)}>{locationView === 'vehicle' && home ? 'Devolver' : 'Transferir'}</button></div></article>; })}</div>
-        {!trackedProducts.length && <p className="stock-location-empty">Ative o controle de estoque em um produto para ver os saldos.</p>}
-      </>}
-    </section>
+    <details className="stock-location-settings"><summary className="admin-card stock-operation-heading"><strong>Gerenciar locais e pontos de retirada</strong><small>Cadastro, links, QR Codes e preferência de estoque</small></summary>
     <section className="admin-card">
       <div className="section-heading"><div><h2>Locais cadastrados</h2><p>O estoque existente foi preservado no local principal.</p></div><Warehouse size={20}/></div>
       <div className="stock-location-grid">{locations.map((location) => <article className="stock-location-card stock-location-card--manage" key={location.id}>
@@ -347,22 +389,24 @@ export default function StockLocationsAdmin() {
         <button className="primary-button" disabled={saving || !pickupName.trim() || !pickupStockId || pickupCode.length < 3}><Plus size={16}/>Publicar ponto</button>
       </form>
     </section>
-    <section className="admin-card">
+    {multiLocation===true&&<section className="admin-card"><h2>Voltar ao estoque simples</h2><p>Você pode ocultar estes controles quando não houver saldo ou reservas em locais secundários e nenhum ponto ativo associado a eles. Nenhum local ou histórico será excluído.</p><button type="button" className="secondary-button" disabled={changingMode||saving} onClick={()=>void (async()=>{setChangingMode(true);try{await stockModeApi.set(settings.id,false);await reloadMode();showToast('Estoque simples ativado.','success');}catch(cause){showToast(cause instanceof Error?cause.message:'Transfira os saldos antes de simplificar.','error');}finally{setChangingMode(false);}})()}>Usar estoque simples</button></section>}
+    </details>
+    <details className="admin-card stock-location-matrix"><summary className="stock-operation-heading"><strong>Comparar todos os locais</strong><small>Visão detalhada por produto e local</small></summary>
       <div className="section-heading"><div><h2>Saldo por produto e local</h2><p>O saldo geral continua sincronizado com a soma dos locais.</p></div><Boxes size={20}/></div>
       {!trackedProducts.length ? <p className="empty-state">Ative o controle de estoque em um produto para começar.</p> : <div className="table-scroll"><table className="data-table"><thead><tr><th>Produto</th>{locations.map((location) => <th key={location.id}>{location.name}</th>)}</tr></thead><tbody>
         {trackedProducts.map((product) => <tr key={product.id}><td><strong>{product.name}</strong><small>Geral: {balances.filter((item) => item.product_id === product.id).reduce((sum, item) => sum + item.stock_quantity, 0)}</small></td>{locations.map((location) => { const balance = balanceFor(product, location); return <td key={location.id}>{balance ? <><strong>{balance.stock_quantity}</strong><small>Disponível: {Math.max(0,balance.stock_quantity-balance.stock_reserved_quantity)}</small></> : <span>0</span>}</td>; })}</tr>)}
       </tbody></table></div>}
-    </section>
+    </details>
     <div className="stock-location-actions">
-      <section className="admin-card" ref={adjustSectionRef}><h2>Ajustar saldo</h2><p>Escolha a ação e o local. O histórico é registrado automaticamente.</p>
+      <section className="admin-card" ref={adjustSectionRef}><details open={adjustOpen} onToggle={(event) => setAdjustOpen(event.currentTarget.open)}><summary className="stock-operation-heading"><strong>Ajustar saldo</strong><small>Adicionar, remover ou definir a quantidade em um local</small></summary><p>Escolha a ação e o local. O histórico é registrado automaticamente.</p>
         <form className="stock-location-form" onSubmit={submitAdjustment}>
           <label>Produto<select value={productId} onChange={(event) => setProductId(event.target.value)}>{trackedProducts.map((product) => <option value={product.id} key={product.id}>{product.name}</option>)}</select></label>
           <label>Local<select value={locationId} onChange={(event) => setLocationId(event.target.value)}>{locations.filter((item) => item.active).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
           <label>Ação<select value={adjustMode} onChange={(event) => { setAdjustMode(event.target.value as 'add' | 'remove' | 'set'); setQuantity(''); }}><option value="add">Adicionar</option><option value="remove">Remover</option><option value="set">Definir quantidade física</option></select></label>
-          <label>Quantidade<input type="number" min={adjustMode === 'set' ? 0 : 1} step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} required/></label>
+          <label>Quantidade<input inputMode="numeric" type="number" min={adjustMode === 'set' ? 0 : 1} step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} required/></label>
           <button className="primary-button" disabled={saving || !selectedProduct || !quantity.trim()}>{saving ? <LoaderCircle size={16} className="spin"/> : null} Salvar no local selecionado</button>
         </form>
-      </section>
+      </details></section>
     </div>
   </main>;
 }
