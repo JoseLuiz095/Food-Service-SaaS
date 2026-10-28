@@ -14,11 +14,19 @@ for(const width of [390,1366]) {
     const tableRegion=page.getByRole('region',{name:'Lojas e uso'});
     await expect(tableRegion).toBeVisible();
     await expect(tableRegion).toHaveAttribute('tabindex','0');
-    if(width<=600) await expect(page.getByText('Em telas menores, abra os detalhes de uma loja para ver plano, cobrança e endereço.')).toBeVisible();
+    if(width<=600) {
+      await expect(tableRegion.locator('tbody tr').first()).toHaveCSS('display','grid');
+      expect(await tableRegion.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
+      await expect(page.getByText('Em telas menores, abra os detalhes de uma loja para ver plano, cobrança e endereço.')).toBeVisible();
+    }
     await page.getByRole('button',{name:'Gerenciar',exact:true}).first().click();
     const dialog=page.getByRole('dialog',{name:store.name});
     await expect(dialog.getByText('Administrando esta loja')).toBeVisible();
     await expect(dialog.getByRole('link',{name:`/${store.slug}`,exact:true})).toBeVisible();
+    const accessOptions=dialog.locator('details.master-access-details');
+    expect(await accessOptions.evaluate(element=>element.hasAttribute('open'))).toBe(false);
+    await accessOptions.locator('summary').click();
+    await expect(dialog.getByLabel('E-mail de acesso')).toBeVisible();
     await page.screenshot({path:testInfo.outputPath(`master-edicao-${width}.png`),fullPage:true});
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
@@ -29,6 +37,21 @@ for(const width of [390,1366]) {
     expect(errors).toEqual([]);
   });
 }
+
+test('Master mostra limites do plano sob demanda',async({page})=>{
+  await mockBackend(page,{auth:true,master:true});
+  await page.route('**/rest/v1/food_plans?**',route=>route.fulfill({json:[{
+    id:'plan-essencial',code:'ESSENTIAL',name:'Essencial',product_limit:40,image_limit_per_product:1,
+    custom_domain:false,reports:false,priority_support:false,monthly_price:49.9,setup_price:0,
+    category_limit:12,addon_limit:40,admin_user_limit:1,sort_order:1,active:true,marketing_benefits:[]
+  }]}));
+  await page.goto('/admin-master/planos');
+  const options=page.locator('details.master-plan-advanced').first();
+  await expect(options.locator('summary')).toBeVisible();
+  expect(await options.evaluate(element=>element.hasAttribute('open'))).toBe(false);
+  await options.locator('summary').click();
+  await expect(options.getByText('Produtos ativos')).toBeVisible();
+});
 
 for(const width of [390,768,1024,1440]) {
   test(`tabela do Master mantém Uso e ações acessíveis em ${width}px`,async({page})=>{
@@ -41,6 +64,7 @@ for(const width of [390,768,1024,1440]) {
     const region=page.getByRole('region',{name:'Lojas e uso'});
     if(width<=900){
       const firstRow=region.locator('tbody tr').first();
+      if(width<=600) await expect(firstRow).toHaveCSS('display','grid');
       await expect(firstRow.locator('td').nth(3)).toBeVisible();
       await expect(firstRow.locator('td').nth(3)).toContainText(/\d+ ativos/);
       expect(await region.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
@@ -53,7 +77,7 @@ for(const width of [390,768,1024,1440]) {
       await details.click();
       await expect(firstRow.locator('td').nth(1)).toBeHidden();
     }else{
-      const usage=region.getByRole('columnheader',{name:'Uso'});
+      const usage=region.locator('thead th').filter({hasText:'Uso'});
       await usage.scrollIntoViewIfNeeded();
       const bounds=await usage.boundingBox(), container=await region.boundingBox();
       expect(bounds).not.toBeNull();expect(container).not.toBeNull();

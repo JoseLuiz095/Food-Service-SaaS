@@ -63,10 +63,29 @@
   .master-shell .master-store-pagination{padding:16px 13px}
   .master-shell .master-store-pagination>div{width:100%;justify-content:space-between;gap:8px}
 }
-@media(max-width:760px){
-  .master-shell .master-table-scroll-note{display:block;margin:0;padding:10px 13px;color:#6a726b;font-size:.68rem;line-height:1.45}
-  .master-shell .master-store-table .responsive-table,.master-shell .signup-request-table .responsive-table{outline-offset:-2px}
+/* Signup requests use cards on narrow screens; store cards are styled below. */
+@media(max-width:600px){
+  .master-shell .signup-request-table .responsive-table{overflow-x:visible;scrollbar-gutter:auto}
+  .master-shell .signup-request-table table{display:block;width:100%;min-width:0!important}
+  .master-shell .signup-request-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+  .master-shell .signup-request-table tbody{display:grid;gap:12px;padding:12px}
+  .master-shell .signup-request-table tbody tr{display:grid;gap:0;border:1px solid var(--food-admin-line);border-radius:12px;background:#fff;overflow:hidden;box-shadow:0 2px 12px rgba(20,45,31,.05)}
+  .master-shell .signup-request-table tbody td{display:grid;gap:4px;min-width:0!important;width:100%;padding:10px 14px;border:0;overflow-wrap:anywhere}
+  .master-shell .signup-request-table tbody td+td{border-top:1px solid var(--food-admin-line)}
+  .master-shell .signup-request-table tbody td:not(:first-child):not(:last-child)::before{font-size:.69rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--food-admin-muted)}
+  .master-shell .signup-request-table tbody td:nth-child(2)::before{content:'Plano solicitado'}
+  .master-shell .signup-request-table tbody td:nth-child(3)::before{content:'Acesso atual'}
+  .master-shell .signup-request-table tbody td:nth-child(4)::before{content:'Cadastro'}
+  .master-shell .signup-request-table tbody td:nth-child(5)::before{content:'Status'}
+  .master-shell .signup-request-table tbody td:last-child button{min-height:44px}
+  .master-shell .signup-request-table .signup-request-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 }
+.master-shell .master-advanced-options{border:1px solid var(--food-admin-line);border-radius:10px;background:#fafcfb;margin-block:12px}
+.master-shell .master-advanced-options>summary{cursor:pointer;padding:13px 16px;font-weight:700;list-style-position:inside}
+.master-shell .master-advanced-options>summary:focus-visible{outline:2px solid var(--food-admin-sidebar);outline-offset:2px}
+.master-shell .master-advanced-options[open]>summary{border-bottom:1px solid var(--food-admin-line)}
+.master-shell .master-advanced-options>.form-grid,
+.master-shell .master-advanced-options>.master-advanced-content{padding:16px}
 @media(max-width:600px){.master-shell .master-store-page-title>.primary-button{width:100%}}
 @media(min-width:901px) and (max-width:1500px){
   .master-shell .master-store-table .master-store-wide-note{display:block;margin:0;padding:10px 16px;color:var(--food-admin-muted);font-size:.72rem;line-height:1.45}

@@ -70,6 +70,7 @@ for (const width of [390, 1366]) {
     await expect(page.getByRole('heading', { name: 'Duplicar produto', exact: true })).toBeVisible();
     await expect(page.getByLabel('Nome do produto', { exact: true })).toHaveValue('Brigadeiro teste (cópia)');
     await expect(page.getByLabel('Estoque físico inicial', { exact: true })).toHaveValue('0');
+    await page.locator('.catalog-disclosure summary').click();
     await expect(page.getByLabel('Código interno', { exact: true })).toHaveValue('');
     await expect(page.getByRole('checkbox', { name: /Produto ativo/ })).not.toBeChecked();
     await expect(page.locator('.image-admin-grid')).toHaveCount(0);
