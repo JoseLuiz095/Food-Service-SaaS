@@ -14,6 +14,8 @@ import '../../segments/product-detail-mobile.css';
 import { PickupPointSelector, PointStockNotice } from './PickupPointSelector';
 import { pointStock, usePickupAvailability } from './usePickupAvailability';
 import { cartLineLimit } from '../../utils/cartAvailability';
+import { getBusinessSegment } from '../../segments/businessSegments';
+import { FitnessProductDetail } from '../../platform/FitnessCatalog';
 
 const groupInstruction = (group: OptionGroup) => {
   if (group.minChoices === group.maxChoices && group.maxChoices === 1) return 'Escolha 1 opção';
@@ -56,6 +58,12 @@ const instagramLabel = (value: string) => {
 const InstagramGlyph = ({ size = 15 }: { size?: number }) => <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".7" fill="currentColor" stroke="none"/></svg>;
 
 export default function ProductDetail() {
+  const { settings } = useStore();
+  if (getBusinessSegment(settings.visualTheme).id === 'fitness') return <FitnessProductDetail/>;
+  return <CommerceProductDetail/>;
+}
+
+function CommerceProductDetail() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

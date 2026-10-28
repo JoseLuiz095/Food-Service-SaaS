@@ -66,6 +66,8 @@ export function decryptCredentialEnvelope(envelope, passphrase) {
 }
 
 export function createEncryptedCredentialSink(outputPath, passphrase) {
+  // POSIX mode bits do not describe Windows ACLs; fail closed until an ACL-backed sink exists.
+  if (process.platform === 'win32') fail('WINDOWS_PRIVATE_DIRECTORY_NOT_SUPPORTED');
   if (typeof passphrase !== 'string' || passphrase.length < 20) fail('PRIVATE_PASSPHRASE_MINIMUM_20_CHARACTERS');
   if (!outputPath || !resolve(outputPath).endsWith('.enc.json')) fail('ENCRYPTED_CREDENTIAL_FILE_REQUIRED');
   let parent;

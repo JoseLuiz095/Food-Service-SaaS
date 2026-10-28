@@ -1,5 +1,17 @@
 # Piloto Fitness/Academia — entrega local e transição ao Chat 2
 
+## Continuação em 28/10/2026 — catálogo e prontidão
+
+Na branch `codex/fitness-catalog-readiness`, a vitrine Fitness ganhou catálogo de produtos publicados com busca por nome/descrição, filtro por categoria e detalhe de consulta. Serviços gerais com descrição, preço e duração preenchidos aparecem em consulta, sem botão de reserva; acompanhamento permanece na agenda existente. Produtos inativos não aparecem para o público, e carrinho e checkout Fitness seguem bloqueados. O Admin pode preparar categorias e produtos em rascunho pelos formulários existentes. Não foram criados produtos ou regras comerciais fictícios.
+
+Consulta de leitura ao Supabase ativo em 28/10 confirmou **zero** lojas FabricioFITNESS, **zero** usuários Auth do e-mail do piloto e **zero** fichas Fitness. As cinco migrations Fitness constam no histórico remoto. Nenhuma migration, Edge Function, dado ou permissão foi alterado nesta continuação. A página Admin Master abriu na tela de login; o provisionamento oficial ainda exige uma sessão autenticada com MFA/AAL2.
+
+Validação local: `npm run build`, `npm run smoke` (177 verificações), `npm run test:fitness-pilot-db`, `npm run test:provision` (7 testes) e `npm run test:fitness:ui` (8 cenários em Chromium, incluindo catálogo em 375 e 1280 px, rascunho não público e serviço geral sem reserva). Esses testes usam dados isolados ou respostas simuladas; não validam um fluxo completo na loja remota. No Windows, o utilitário de credenciais de teste agora falha explicitamente: sua proteção `0700/0600` depende de permissões POSIX e não deve ser substituída por uma verificação superficial de ACL.
+
+Roteiro manual após o provisionamento: (1) entrar como proprietário e confirmar a loja, o plano isento e as três fichas em rascunho; (2) criar categorias e itens com dados reais, confirmar que rascunhos não aparecem na vitrine; (3) após revisão e publicação permitida pelo backend, buscar um item em celular e desktop e abrir o detalhe, sem carrinho; (4) publicar horários e regras reais de acompanhamento, reservar com conta de aluno separada e confirmar histórico; (5) testar indisponibilidade, falha de rede, dois alunos no mesmo horário e isolamento de outra loja. Resultado esperado: apenas dados publicados do tenant, erro visível quando a consulta falha, nenhuma cobrança e nenhum horário duplicado.
+
+Para executar no Windows (PowerShell, Node >=22.18): `npm ci`, `npm run dev`, `npm run build`, `npm run smoke`, `npm run test:fitness-pilot-db`, `npm run test:provision`; para UI: `npm --prefix qa ci`, `npm --prefix qa run browser:install`, `npm run test:fitness:ui`. O provisionamento de contas de teste com arquivo criptografado permanece indisponível no Windows até haver uma implementação que verifique ACLs corretamente.
+
 Data da verificação: 27/10/2026. Status: **esquema e função Fitness instalados no Supabase ativo; tenant e conta ainda não provisionados; frontend implementado e validado nesta branch, publicação pendente; não pronto para produção**.
 
 ## Identidade e ambiente
@@ -12,7 +24,7 @@ Data da verificação: 27/10/2026. Status: **esquema e função Fitness instalad
 - O projeto ativo está `ACTIVE_HEALTHY` e, na listagem de branches Supabase, há apenas `main`; as migrations foram aplicadas nessa branch após revisão de esquema e teste local. Não houve teste prévio em branch Supabase de homologação.
 - A migration já existente `20261027135906_food_fitness_access_sandbox.sql` não está aplicada no remoto e pertence ao fluxo de cobrança de alunos do Chat 2. Não executar `supabase db push`; manter cobrança inacessível em produção até a etapa futura.
 - O banco antigo da Academia não é fonte obrigatória para o piloto; nenhuma migração de seus dados foi planejada. A loja Fitness deve seguir as regras multiempresa já existentes no VendeWeb.
-- E-mail que o usuário pediu para manter como Admin Master: `contatojoluizacma@gmail.com`. A leitura do Supabase retornou outra conta Master ativa (`contatojoseluizacma@gmail.com`); a diferença permanece sem resolução. Nenhuma conta, papel ou configuração do Admin Master foi alterada. A criação exige sessão do Admin Master real com MFA/AAL2.
+- Admin Master confirmado na conversa de referência: `contatojoseluizacma@gmail.com`. A grafia diferente citada antes foi esclarecida pelo usuário. Nenhuma conta, papel ou configuração do Admin Master foi alterada. A criação exige sessão dessa conta com MFA/AAL2.
 - Consulta remota após implantação: **0** usuários Auth com o e-mail, **0** lojas com o e-mail/slug, plano Premium ativo. As 10 tabelas `food_fitness_*` estão instaladas com RLS e 10 políticas; `food_fitness_pilot_contract()` retorna `true`. Nenhuma loja, convite ou pagamento foi criado.
 - O histórico remoto de migrations tem `food_business_segments` como versão `20261024003848`, enquanto o arquivo local correspondente é `20261022215432`. Foram comparadas em leitura as definições remotas de `segment_defaults`, `set_segment`, `public_offers`, `food_platform_seed_new_store` e a restrição de segmento: o conteúdo funcional de base corresponde ao esperado para o acréscimo Fitness. A validação de aplicação e do runtime completo ainda está pendente.
 
@@ -53,7 +65,7 @@ Integração futura com Nutrição: o segmento Fitness pode conceder o módulo `
 ## Bloqueios e sequência segura
 
 1. Publicar o frontend correspondente a partir da branch limpa `codex/fitness-pilot`. A compilação local passou; publicação do Worker `foodweb` ainda pendente de aprovação. A conta Cloudflare autenticada é a esperada no painel do usuário.
-2. Com sessão **Admin Master MFA/AAL2**, chamar a função oficial para criar FabricioFITNESS em Linhares/ES com segmento Fitness, plano Premium isento, proprietário Fabricio e convite por e-mail. O ambiente de execução não tem sessão Auth Master, e a identidade Master observada no remoto diverge do endereço indicado pelo usuário. Não contornar a validação com INSERT administrativo.
+2. Com sessão **Admin Master MFA/AAL2**, chamar a função oficial para criar FabricioFITNESS em Linhares/ES com segmento Fitness, plano Premium isento, proprietário Fabricio e convite por e-mail. O ambiente de execução não tem sessão Auth Master. Não contornar a validação com INSERT administrativo.
 3. Registrar IDs retornados; verificar loja, assinatura zerada, `food_business_profiles`, módulos, `food_store_users`, `food_fitness_professionals` e as três fichas ainda em rascunho. O convite oficial é disparado durante o fluxo; validar entrega, Auth/SMTP/Redirect URLs e rollback em falha.
 4. Testar com duas contas distintas: proprietário/profissional e aluno. Confirmar recuperação de conta, RLS, horários sem dupla venda concorrente, histórico de cancelamento e ausência de dados de outras lojas. Não usar conta Master nem dados Food como aluno.
 5. Solicitar os dados comerciais listados acima. Criar serviços e produtos via interface/RPCs normais; deixar todos os itens sem dados confirmados como rascunho. Sem cobranças reais nesta etapa.

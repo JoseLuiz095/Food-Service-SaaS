@@ -19,6 +19,7 @@ export function FitnessBookingOffers(){
   const {user,memberships}=useAuth();
   const store=settings.id;
   const [offers,setOffers]=useState<OfferWithSlots[]>([]);
+  const [otherServices,setOtherServices]=useState<Offer[]>([]);
   const [published,setPublished]=useState<OfferWithSlots[]>([]);
   const [appointments,setAppointments]=useState<FitnessAppointment[]>([]);
   const [appointmentsError,setAppointmentsError]=useState('');
@@ -39,7 +40,7 @@ export function FitnessBookingOffers(){
 
   useEffect(()=>{
     let active=true;
-    setOffers([]);setPublished([]);setSelected('');setSlot(null);setAccepted(false);setError('');setLoading(true);
+    setOffers([]);setPublished([]);setOtherServices([]);setSelected('');setSlot(null);setAccepted(false);setError('');setLoading(true);
     if(!store){setLoading(false);return;}
     // Inclui o dia local em fusos a oeste de UTC; o servidor descarta horários passados.
     const from=new Date(Date.now()-86_400_000).toISOString().slice(0,10);
@@ -54,7 +55,7 @@ export function FitnessBookingOffers(){
           if(!Array.isArray(availability?.slots)||typeof availability.cancel_policy!=='string'||!availability.cancel_policy.trim()||typeof availability.reschedule_policy!=='string'||!availability.reschedule_policy.trim())throw new Error('O servidor retornou regras ou horários inválidos.');
           return result.value;
         });
-        if(active){setPublished(valid);setOffers(valid.filter(item=>item.availability.slots.length>0));}
+        if(active){setPublished(valid);setOffers(valid.filter(item=>item.availability.slots.length>0));setOtherServices(data.services.filter(service=>service.kind==='general'&&service.price_cents>0&&service.duration_minutes>0&&Boolean(service.description?.trim())));}
       })
       .catch(cause=>{if(active)setError((cause as Error).message);})
       .finally(()=>{if(active)setLoading(false);});
@@ -131,6 +132,7 @@ export function FitnessBookingOffers(){
           :<form className="fitness-access-form" onSubmit={book}><p>Conta conectada: {user.email}</p><label>Seu nome<input required minLength={2} maxLength={120} value={studentName} onChange={e=>setStudentName(e.target.value)}/></label><label>Telefone<input required type="tel" maxLength={30} value={studentPhone} onChange={e=>setStudentPhone(e.target.value)}/></label><label className="fitness-check"><input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)}/><span>Li e aceito as regras de cancelamento e reagendamento exibidas acima.</span></label><button className="primary-button" disabled={busy||!slot||!accepted}>{busy?'Confirmando no servidor…':'Confirmar reserva'}</button></form>}
       </div>}
     </>}
+    {otherServices.length>0&&<div className="fitness-other-services"><h3>Outros serviços</h3><div className="business-public-grid">{otherServices.map(service=><article className="business-card" key={service.id}><span className="business-badge">{service.duration_minutes} min</span><h4>{service.name}</h4><p>{service.description}</p><strong>{money(service.price_cents)}</strong><small>Agendamento online ainda não disponível para este serviço.</small></article>)}</div></div>}
     {user&&!isStoreStaff&&<div className="business-card fitness-my-appointments"><h3>Meus agendamentos</h3>{appointmentsError?<p role="alert">Não foi possível consultar seus agendamentos: {appointmentsError}</p>:appointments.length===0?<p>Nenhum agendamento encontrado para esta conta e loja.</p>:<ul className="fitness-records">{appointments.map(item=>{
       const service=published.find(offer=>offer.service.id===item.service_id);
       const open=['scheduled','confirmed'].includes(item.status);

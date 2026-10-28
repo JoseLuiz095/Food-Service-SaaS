@@ -13,6 +13,7 @@ import Landing from './Landing';
 import { getBusinessSegment } from '../../segments/businessSegments';
 import { PublicBusinessOffers } from '../../platform/PublicBusinessOffers';
 import { FitnessBookingOffers } from '../../platform/FitnessBookingOffers';
+import { FitnessCatalog } from '../../platform/FitnessCatalog';
 import { PickupPointSelector, PointStockNotice } from './PickupPointSelector';
 import { pointStock, usePickupAvailability } from './usePickupAvailability';
 
@@ -57,7 +58,7 @@ function StorefrontHome(){
   if(error)return <div className="container page-center"><ErrorState message={error} onRetry={()=>void reloadPublic()}/></div>;
   if(segment.id==='fitness')return <>
     <header className="container fitness-store-header"><span className="eyebrow">VENDEWEB · FITNESS/ACADEMIA</span><h1>{settings.name}</h1><p>{[settings.city,settings.state].filter(Boolean).join(' · ')}</p></header>
-    <section id="cardapio" className="container storefront-body"><FitnessBookingOffers/></section>
+    <section id="cardapio" className="container storefront-body"><FitnessBookingOffers/><FitnessCatalog products={activeProducts} categories={categories}/></section>
   </>;
 
   return <>

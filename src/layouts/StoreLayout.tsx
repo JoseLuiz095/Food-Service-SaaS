@@ -25,7 +25,7 @@ export default function StoreLayout(){
   const storefrontThemeStyle=getStorefrontThemeStyle(resolveBusinessTheme(settings.visualTheme));
   const useSegmentPresentation=segment.id!=='food'&&settings.visualTheme.preset!=='doce_lua';
 
-  if(segment.id==='fitness' && /\/(produto|carrinho|finalizar)(\/|$)/.test(location.pathname)){
+  if(segment.id==='fitness' && /\/(carrinho|finalizar)(\/|$)/.test(location.pathname)){
     return <Navigate to={storefrontPath(storeBasePath)} replace/>;
   }
 
