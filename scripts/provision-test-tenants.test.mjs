@@ -88,6 +88,10 @@ test('existing unrelated Auth is not adopted; partial errors preserve new passwo
 });
 
 test('credential sink encrypts at 0600, refuses overwrite and any Git checkout', async () => {
+  if (process.platform === 'win32') {
+    assert.throws(() => createEncryptedCredentialSink('accounts.enc.json', 'a'.repeat(32)), error => error.code === 'WINDOWS_PRIVATE_DIRECTORY_NOT_SUPPORTED');
+    return;
+  }
   const folder = mkdtempSync(join(tmpdir(), 'vendeweb-private-test-'));
   chmodSync(folder, 0o700);
   try {
