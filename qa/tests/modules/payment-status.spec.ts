@@ -1,0 +1,10 @@
+import {test,expect} from '@playwright/test';import{mockBackend,STORE,ORDER,PRODUCT}from './fixtures';
+for(const width of [320,390,1366])for(const fail of [false,true])test(`confirmar recebimento não conclui pedido nem envia PATCH ${width}px ${fail?'erro':'sucesso'}`,async({page})=>{
+ await page.setViewportSize({width,height:900});await mockBackend(page,{auth:true});let confirms=0,patches=0;let paid=false;
+ const order=()=>({id:ORDER,store_id:STORE,order_number:42,customer_name:'Pessoa sintética',delivery_type:'pickup',payment_method:'pix',payment_status:paid?'paid':'pending',status:'received',subtotal:12.5,total:12.5,created_at:new Date().toISOString()});
+ await page.route(/\/rest\/v1\/food_orders(?:\?|$)/,r=>{if(r.request().method()==='PATCH')patches++;return r.fulfill({json:[order()]})});
+ await page.route(/\/rest\/v1\/food_order_items(?:\?|$)/,r=>r.fulfill({json:[{id:PRODUCT,order_id:ORDER,product_id:PRODUCT,product_name:'Produto sintético',quantity:1,unit_price:12.5,item_total:12.5}]}));
+ await page.route('**/rest/v1/rpc/food_confirm_order_payment_v1',r=>{confirms++;expect(r.request().postDataJSON()).toEqual({p_order_id:ORDER});paid=true;return r.fulfill(fail?{status:503,json:{message:'Falha sintética após gravação'}}:{json:{ok:true}})});
+ await page.goto('/admin/pedidos');const button=page.getByRole('button',{name:'Confirmar recebimento',exact:true});await expect(button).toHaveCount(1);
+ page.once('dialog',async d=>{expect(d.message()).toContain('somente o recebimento financeiro');expect(d.message()).not.toContain('baixará agora');await d.accept()});await button.click();await expect(page.getByText(fail?'Não foi possível confirmar o resultado do recebimento. Atualize os pedidos antes de tentar novamente. O status operacional não foi alterado por esta ação.':'Recebimento confirmado. Entrega ou retirada deve ser concluída separadamente no pedido.',{exact:true})).toBeVisible();expect(confirms).toBe(1);expect(patches).toBe(0);await expect(button).toHaveCount(fail?1:0);await expect(page.getByLabel('Status após recebimento do pedido 42')).toHaveCount(0);
+});
