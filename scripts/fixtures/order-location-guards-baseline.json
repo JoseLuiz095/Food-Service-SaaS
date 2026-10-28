@@ -1,0 +1,138 @@
+{
+  "authorization": [
+    {
+      "name": "food_is_platform_admin",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_is_platform_admin()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n  select coalesce(auth.jwt()->>'aal', '') = 'aal2' and exists (\n    select 1 from public.food_platform_admins a\n    where a.user_id = auth.uid() and a.active\n  );\n$function$\n"
+    },
+    {
+      "name": "food_is_store_admin",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_is_store_admin(p_store_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\n  select public.food_is_platform_admin() or exists(\r\n    select 1\r\n    from public.food_store_users su\r\n    join public.food_stores s on s.id=su.store_id\r\n    where su.store_id=p_store_id\r\n      and su.user_id=auth.uid()\r\n      and su.active\r\n      and su.role in ('owner','admin','manager')\r\n      and s.active\r\n      and s.archived_at is null\r\n      and s.approval_status in ('pending','approved')\r\n  );\r\n$function$\n"
+    }
+  ],
+  "guards": [
+    {
+      "proname": "food_guard_order_stock_location",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_guard_order_stock_location()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nbegin\n  if new.stock_location_id is distinct from old.stock_location_id or new.pickup_location_id is distinct from old.pickup_location_id then\n    if exists(select 1 from public.food_order_items where order_id=old.id) then\n      raise exception 'O local de estoque não pode mudar depois de reservar os itens.' using errcode='23514';\n    end if;\n  end if;\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "proname": "food_guard_product_stock_mutation",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_guard_product_stock_mutation()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nbegin\n  if current_user in ('anon','authenticated')\n     and (new.stock_quantity is distinct from old.stock_quantity\n       or new.stock_reserved_quantity is distinct from old.stock_reserved_quantity) then\n    raise exception 'O saldo de produtos só pode ser alterado por uma operação transacional de estoque.' using errcode = '42501';\n  end if;\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "proname": "food_release_inventory_on_cancel",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_release_inventory_on_cancel()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nbegin\n  if new.status = 'cancelled' and old.status <> 'cancelled' then\n    if new.inventory_status in ('reserved','awaiting_restock') then\n      perform public.food_release_order_inventory(new.id);\n    end if;\n    perform public.food_reconcile_order_recipe_consumption(new.id, true);\n  end if;\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "proname": "food_require_pickup_item_stock",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_require_pickup_item_stock()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare\n  v_order public.food_orders%rowtype;\n  v_product public.food_products%rowtype;\n  v_available integer;\nbegin\n  if new.product_id is null then return new; end if;\n  select * into v_order from public.food_orders where id = new.order_id;\n  if not found or v_order.source is distinct from 'site'\n     or v_order.delivery_type is distinct from 'pickup'\n     or v_order.pickup_location_id is null then return new; end if;\n  select * into v_product from public.food_products\n   where id = new.product_id and store_id = v_order.store_id for update;\n  if not found then raise exception 'Produto fora da loja.' using errcode = '22023'; end if;\n  if not v_product.track_stock then return new; end if;\n  select greatest(stock_quantity - stock_reserved_quantity, 0) into v_available\n    from public.food_product_location_stock\n   where store_id = v_order.store_id and product_id = new.product_id\n     and location_id = v_order.stock_location_id for update;\n  if coalesce(v_available, 0) < new.quantity then\n    raise exception 'Neste ponto, restam % unidades de %.', coalesce(v_available, 0), v_product.name\n      using errcode = '22023';\n  end if;\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "proname": "food_require_public_pickup_stock",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_require_public_pickup_stock()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare v_location uuid;\nbegin\n  if new.source is distinct from 'site' then return new; end if;\n  if new.delivery_type = 'pickup' then\n    if new.pickup_location_id is null then\n      if exists (select 1 from public.food_pickup_locations p\n                 join public.food_stock_locations l\n                   on l.id = p.stock_location_id and l.store_id = p.store_id and l.active\n                 where p.store_id = new.store_id and p.active and p.is_public) then\n        raise exception 'Selecione um ponto de retirada antes de confirmar o pedido.' using errcode = '22023';\n      end if;\n      return new; -- Legacy stores with only the internal default stock.\n    end if;\n    select p.stock_location_id into v_location\n      from public.food_pickup_locations p\n      join public.food_stock_locations l\n        on l.id = p.stock_location_id and l.store_id = p.store_id and l.active\n     where p.id = new.pickup_location_id and p.store_id = new.store_id\n       and p.active and p.is_public\n     for share of p, l;\n    if v_location is null then\n      raise exception 'O ponto de retirada está indisponível. Escolha outro ponto.' using errcode = '22023';\n    end if;\n    if new.stock_location_id is distinct from v_location then\n      raise exception 'O estoque do pedido não corresponde ao ponto de retirada.' using errcode = '22023';\n    end if;\n  elsif new.pickup_location_id is not null then\n    raise exception 'Ponto de retirada somente para pedidos de retirada.' using errcode = '22023';\n  end if;\n  return new;\nend;\n$function$\n"
+    }
+  ],
+  "triggers": [
+    {
+      "name": "food_order_items_inventory_reserve_trg",
+      "table": "food_order_items",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_order_items_inventory_reserve_trg AFTER INSERT ON public.food_order_items FOR EACH ROW EXECUTE FUNCTION food_reserve_inventory_on_item_insert()"
+    },
+    {
+      "name": "food_order_items_party_guard_trg",
+      "table": "food_order_items",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_order_items_party_guard_trg BEFORE INSERT OR UPDATE ON public.food_order_items FOR EACH ROW EXECUTE FUNCTION food_validate_party_order_item()"
+    },
+    {
+      "name": "food_order_items_product_default_status_trg",
+      "table": "food_order_items",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_order_items_product_default_status_trg AFTER INSERT ON public.food_order_items FOR EACH ROW EXECUTE FUNCTION food_apply_product_default_order_status()"
+    },
+    {
+      "name": "food_order_items_recipe_reconcile_trg",
+      "table": "food_order_items",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_order_items_recipe_reconcile_trg AFTER INSERT OR DELETE OR UPDATE OF quantity, product_id ON public.food_order_items FOR EACH ROW EXECUTE FUNCTION food_reconcile_recipe_after_order_item_change()"
+    },
+    {
+      "name": "food_order_items_require_pickup_stock_trg",
+      "table": "food_order_items",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_order_items_require_pickup_stock_trg BEFORE INSERT ON public.food_order_items FOR EACH ROW EXECUTE FUNCTION food_require_pickup_item_stock()"
+    },
+    {
+      "name": "food_orders_commit_inventory_on_fulfillment_trg",
+      "table": "food_orders",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_orders_commit_inventory_on_fulfillment_trg AFTER UPDATE OF status ON public.food_orders FOR EACH ROW EXECUTE FUNCTION food_commit_inventory_on_fulfillment()"
+    },
+    {
+      "name": "food_orders_delivery_start_time_trg",
+      "table": "food_orders",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_orders_delivery_start_time_trg BEFORE INSERT ON public.food_orders FOR EACH ROW EXECUTE FUNCTION food_validate_delivery_start_time()"
+    },
+    {
+      "name": "food_orders_financial_sync_trg",
+      "table": "food_orders",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_orders_financial_sync_trg AFTER INSERT OR UPDATE OF status, total, payment_status, payment_received_at, payment_method ON public.food_orders FOR EACH ROW EXECUTE FUNCTION food_sync_order_financial_entry()"
+    },
+    {
+      "name": "food_orders_financial_tenant_guard_trg",
+      "table": "food_orders",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_orders_financial_tenant_guard_trg BEFORE UPDATE OF store_id ON public.food_orders FOR EACH ROW EXECUTE FUNCTION food_guard_financial_parent_tenant()"
+    },
+    {
+      "name": "food_orders_release_inventory_trg",
+      "table": "food_orders",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_orders_release_inventory_trg AFTER UPDATE OF status ON public.food_orders FOR EACH ROW EXECUTE FUNCTION food_release_inventory_on_cancel()"
+    },
+    {
+      "name": "food_orders_require_public_pickup_stock_trg",
+      "table": "food_orders",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_orders_require_public_pickup_stock_trg BEFORE INSERT ON public.food_orders FOR EACH ROW EXECUTE FUNCTION food_require_public_pickup_stock()"
+    },
+    {
+      "name": "food_orders_stock_location_guard_trg",
+      "table": "food_orders",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_orders_stock_location_guard_trg BEFORE UPDATE OF stock_location_id, pickup_location_id ON public.food_orders FOR EACH ROW EXECUTE FUNCTION food_guard_order_stock_location()"
+    },
+    {
+      "name": "food_fitness_guard_product_publication",
+      "table": "food_products",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_fitness_guard_product_publication BEFORE INSERT OR UPDATE OF active, store_id ON public.food_products FOR EACH ROW EXECUTE FUNCTION food_fitness_private.guard_product_publication()"
+    },
+    {
+      "name": "food_products_initialize_location_balances",
+      "table": "food_products",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_products_initialize_location_balances AFTER INSERT OR UPDATE OF track_stock ON public.food_products FOR EACH ROW WHEN (new.track_stock) EXECUTE FUNCTION food_initialize_product_location_balances()"
+    },
+    {
+      "name": "food_products_stock_initial_movement",
+      "table": "food_products",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_products_stock_initial_movement AFTER INSERT ON public.food_products FOR EACH ROW EXECUTE FUNCTION food_log_initial_product_stock()"
+    },
+    {
+      "name": "food_products_stock_mutation_guard",
+      "table": "food_products",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_products_stock_mutation_guard BEFORE UPDATE OF stock_quantity, stock_reserved_quantity ON public.food_products FOR EACH ROW EXECUTE FUNCTION food_guard_product_stock_mutation()"
+    },
+    {
+      "name": "food_products_sync_default_location_stock",
+      "table": "food_products",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER food_products_sync_default_location_stock AFTER INSERT OR UPDATE OF stock_quantity, stock_reserved_quantity, track_stock ON public.food_products FOR EACH ROW EXECUTE FUNCTION food_sync_default_location_stock()"
+    }
+  ]
+}

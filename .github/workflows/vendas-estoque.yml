@@ -29,9 +29,14 @@ jobs:
       - run: npm run test:critical
       - run: npm run test:integrations
       - run: node scripts/sales-stock-db-test.mjs
+      - run: node scripts/order-item-location-db-test.mjs
       - name: PostgreSQL isolado para concorrência
         run: npm install --prefix "$RUNNER_TEMP/food-db-runtime" --no-save --no-audit --no-fund embedded-postgres@17.9.0-beta.17 pg@8.16.3
       - name: Reservas e transferências concorrentes
         env:
           FOOD_DB_TEST_RUNTIME: ${{ runner.temp }}/food-db-runtime/node_modules
         run: node scripts/recipe-concurrency-db-test.mjs
+      - name: Edição de pedidos conserva local e reserva em duas sessões
+        env:
+          FOOD_DB_TEST_RUNTIME: ${{ runner.temp }}/food-db-runtime/node_modules
+        run: node scripts/order-item-location-postgres-test.mjs

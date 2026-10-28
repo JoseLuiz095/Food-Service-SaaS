@@ -1,0 +1,280 @@
+{
+  "functions": [
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "args": "",
+      "name": "food_commit_inventory_on_fulfillment",
+      "owner": "postgres",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_commit_inventory_on_fulfillment()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nbegin\n  if new.status in ('delivered','picked_up') and old.status is distinct from new.status then\n    if new.inventory_status='awaiting_restock' then\n      raise exception 'Não é possível concluir a entrega enquanto houver estoque pendente.' using errcode='23514';\n    end if;\n    perform public.food_commit_order_inventory(new.id);\n  end if;\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "args": "p_order_id uuid",
+      "name": "food_commit_order_inventory",
+      "owner": "postgres",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_commit_order_inventory(p_order_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\ndeclare\n  v_order public.food_orders%rowtype;\n  v_item record;\n  v_product public.food_products%rowtype;\n  v_location_id uuid;\n  v_previous_location text;\nbegin\n  select * into v_order from public.food_orders where id = p_order_id for update;\n  if not found then raise exception 'Pedido não encontrado.'; end if;\n  if v_order.status = 'cancelled' or v_order.inventory_status = 'released' then return; end if;\n  if exists (\n    select 1 from public.food_order_items i join public.food_products p on p.id=i.product_id\n    where i.order_id=p_order_id and p.track_stock and i.inventory_reserved_quantity<>i.quantity\n      and not exists(select 1 from public.food_order_stock_movements m where m.order_item_id=i.id and m.event_type='sale')\n  ) then raise exception 'Itens sem reserva integral; revise o pedido antes de entregar.' using errcode='23514'; end if;\n\n  for v_item in\n    select oi.id, oi.product_id, oi.quantity, oi.inventory_reserved_quantity\n      from public.food_order_items oi\n     where oi.order_id = p_order_id and oi.inventory_reserved_quantity > 0\n     order by oi.created_at, oi.id\n     for update\n  loop\n    select * into v_product from public.food_products where id = v_item.product_id for update;\n    if not found or not v_product.track_stock then\n      update public.food_order_items set inventory_reserved_quantity = 0 where id = v_item.id;\n      continue;\n    end if;\n    if exists(select 1 from public.food_order_stock_movements where order_item_id=v_item.id and event_type='sale') then\n      raise exception 'Saída física já registrada para este item; revise a reserva antes de reprocessar.' using errcode='23505';\n    end if;\n    if v_item.inventory_reserved_quantity <> v_item.quantity then\n      raise exception 'O item precisa estar totalmente reservado antes da saída física.' using errcode='23514';\n    end if;\n    select id into v_location_id from public.food_stock_locations where store_id=v_order.store_id and id=coalesce(v_order.stock_location_id,(select id from public.food_stock_locations where store_id=v_order.store_id and is_default)) and active;\n    if v_location_id is null then raise exception 'Local de estoque indisponível.'; end if;\n    v_previous_location := current_setting('food.order_stock_location',true);\n    perform set_config('food.order_stock_location',v_location_id::text,true);\n    if coalesce(v_product.stock_quantity, 0) < v_item.quantity then\n      raise exception 'Estoque insuficiente para confirmar %.', v_product.name;\n    end if;\n    update public.food_products\n       set stock_quantity = coalesce(stock_quantity, 0) - v_item.quantity,\n           stock_reserved_quantity = greatest(coalesce(stock_reserved_quantity, 0) - coalesce(v_item.inventory_reserved_quantity, 0), 0),\n           stock_status = case when coalesce(stock_quantity, 0) - v_item.quantity <= 0 then 'low_stock' else stock_status end,\n           updated_at = now()\n     where id = v_item.product_id;\n    update public.food_order_items set inventory_reserved_quantity = 0 where id = v_item.id;\n    insert into public.food_order_stock_movements(store_id,order_id,order_item_id,product_id,location_id,event_type,quantity)\n    values(v_order.store_id,v_order.id,v_item.id,v_item.product_id,v_location_id,'sale',v_item.quantity);\n    perform set_config('food.order_stock_location',coalesce(v_previous_location,''),true);\n  end loop;\n\n  update public.food_orders set inventory_status = case\n    when exists (select 1 from public.food_inventory_order_consumptions c where c.order_id = p_order_id and c.target_quantity > c.consumed_quantity) then 'awaiting_restock'\n    else 'committed' end, updated_at = now() where id = p_order_id;\n  perform public.food_reconcile_order_recipe_consumption(p_order_id, true);\nend;\n$function$\n"
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "args": "p_order_id uuid",
+      "name": "food_release_order_inventory",
+      "owner": "postgres",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_release_order_inventory(p_order_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\ndeclare\n  v_order public.food_orders%rowtype;\n  v_item record;\n  v_location_id uuid; v_previous_location text;\nbegin\n  select * into v_order from public.food_orders where id = p_order_id for update;\n  if not found then return; end if;\n  if v_order.inventory_status in ('committed','released','not_tracked') then return; end if;\n\n  for v_item in\n    select oi.id, oi.product_id, oi.inventory_reserved_quantity\n      from public.food_order_items oi\n     where oi.order_id = p_order_id\n       and oi.inventory_reserved_quantity > 0\n     for update\n  loop\n    select id into v_location_id from public.food_stock_locations where store_id=v_order.store_id and id=coalesce(v_order.stock_location_id,(select id from public.food_stock_locations where store_id=v_order.store_id and is_default)) and active;\n    if v_location_id is null then raise exception 'Local de estoque indisponível.'; end if;\n    v_previous_location := current_setting('food.order_stock_location',true);\n    perform set_config('food.order_stock_location',v_location_id::text,true);\n    update public.food_products\n       set stock_reserved_quantity = greatest(coalesce(stock_reserved_quantity, 0) - v_item.inventory_reserved_quantity, 0),\n           updated_at = now()\n     where id = v_item.product_id;\n    perform set_config('food.order_stock_location',coalesce(v_previous_location,''),true);\n    update public.food_order_items\n       set inventory_reserved_quantity = 0\n     where id = v_item.id;\n  end loop;\n\n  update public.food_orders set inventory_status = 'released', updated_at = now() where id = p_order_id;\nend;\n$function$\n"
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "args": "",
+      "name": "food_reserve_inventory_on_item_insert",
+      "owner": "postgres",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_reserve_inventory_on_item_insert()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\ndeclare\n  v_order public.food_orders%rowtype; v_product public.food_products%rowtype; v_store public.food_stores%rowtype;\n  v_reserved integer; v_awaiting boolean; v_allow_future boolean := false; v_timezone text;\n  v_local_scheduled_date date; v_local_today date; v_inventory_status text;\n  v_location_id uuid; v_previous_location text;\nbegin\n  select * into v_order from public.food_orders where id=new.order_id for update;\n  if not found or new.product_id is null or v_order.inventory_status='released' then return new; end if;\n  select * into v_product from public.food_products where id=new.product_id for update;\n  if not found or not v_product.track_stock then return new; end if;\n  select * into v_store from public.food_stores where id=v_order.store_id;\n  v_timezone:=coalesce(v_store.opening_hours->>'timezone','America/Sao_Paulo');\n  v_local_today:=(now() at time zone v_timezone)::date;\n  if v_order.scheduled_for is not null then v_local_scheduled_date:=(v_order.scheduled_for at time zone v_timezone)::date; end if;\n  v_allow_future:=v_order.scheduled_for is not null and (v_local_scheduled_date>=v_local_today+1 or coalesce(v_order.desired_date,date '1900-01-01')>=v_local_today+1);\n  if to_regprocedure('public.food_reserve_product_inventory(uuid,integer,boolean)') is null then return new; end if;\n  select id into v_location_id from public.food_stock_locations where store_id=v_order.store_id and id=coalesce(v_order.stock_location_id,(select id from public.food_stock_locations where store_id=v_order.store_id and is_default)) and active;\n  if v_location_id is null then raise exception 'Local de estoque indisponível.'; end if;\n  v_previous_location := current_setting('food.order_stock_location',true);\n  perform set_config('food.order_stock_location',v_location_id::text,true);\n  select r.reserved_quantity,r.awaiting_restock into v_reserved,v_awaiting from public.food_reserve_product_inventory(new.product_id,new.quantity,v_allow_future) r;\n  perform set_config('food.order_stock_location',coalesce(v_previous_location,''),true);\n  update public.food_order_items set inventory_reserved_quantity=coalesce(v_reserved,0) where id=new.id;\n  select case\n    when exists (select 1 from public.food_order_items oi join public.food_products p on p.id=oi.product_id where oi.order_id=new.order_id and p.track_stock and coalesce(oi.inventory_reserved_quantity,0)<oi.quantity) then 'awaiting_restock'\n    when exists (select 1 from public.food_order_items oi join public.food_products p on p.id=oi.product_id where oi.order_id=new.order_id and p.track_stock and coalesce(oi.inventory_reserved_quantity,0)>0) then 'reserved'\n    else coalesce(v_order.inventory_status,'not_tracked') end into v_inventory_status;\n  update public.food_orders set inventory_status=v_inventory_status,updated_at=now() where id=new.order_id;\n  if v_order.status in ('delivered','picked_up') then\n    if v_inventory_status='awaiting_restock' then raise exception 'Não é possível entregar um item sem saldo integral reservado.' using errcode='23514'; end if;\n    perform public.food_commit_order_inventory(new.order_id);\n  end if;\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "args": "p_product_id uuid, p_quantity integer, p_allow_future boolean",
+      "name": "food_reserve_product_inventory",
+      "owner": "postgres",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_reserve_product_inventory(p_product_id uuid, p_quantity integer, p_allow_future boolean DEFAULT false)\n RETURNS TABLE(reserved_quantity integer, awaiting_restock boolean)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\ndeclare\n  v_product public.food_products%rowtype;\n  v_available integer;\n  v_reserved integer;\n  v_location_id uuid;\n  v_local_available integer;\nbegin\n  if p_quantity is null or p_quantity < 1 then\n    raise exception 'Quantidade de estoque inválida.';\n  end if;\n\n  select * into v_product\n    from public.food_products\n   where id = p_product_id\n   for update;\n  if not found then raise exception 'Produto não encontrado.'; end if;\n\n  if not v_product.track_stock then\n    return query select 0, false;\n    return;\n  end if;\n\n  begin v_location_id := nullif(current_setting('food.order_stock_location',true),'')::uuid; exception when others then raise exception 'Local de estoque inválido.'; end;\n  if v_location_id is null then select id into v_location_id from public.food_stock_locations where store_id=v_product.store_id and is_default; end if;\n  select greatest(stock_quantity-stock_reserved_quantity,0) into v_local_available from public.food_product_location_stock where product_id=p_product_id and location_id=v_location_id and store_id=v_product.store_id for update;\n  if not found then raise exception 'Produto sem saldo no local selecionado.'; end if;\n  v_available := least(greatest(coalesce(v_product.stock_quantity, 0) - coalesce(v_product.stock_reserved_quantity, 0), 0),v_local_available);\n  if v_available >= p_quantity then\n    v_reserved := p_quantity;\n    update public.food_products\n       set stock_reserved_quantity = coalesce(stock_reserved_quantity, 0) + v_reserved,\n           updated_at = now()\n     where id = p_product_id;\n    return query select v_reserved, false;\n    return;\n  end if;\n\n  if not p_allow_future then\n    raise exception 'Estoque insuficiente para %.', v_product.name;\n  end if;\n\n  v_reserved := v_available;\n  if v_reserved > 0 then\n    update public.food_products\n       set stock_reserved_quantity = coalesce(stock_reserved_quantity, 0) + v_reserved,\n           updated_at = now()\n     where id = p_product_id;\n  end if;\n  return query select v_reserved, true;\nend;\n$function$\n"
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "args": "",
+      "name": "food_sync_default_location_stock",
+      "owner": "postgres",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_sync_default_location_stock()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare\n  v_location_id uuid;\n  v_quantity_delta integer;\n  v_reserved_delta integer;\n  v_quantity integer;\n  v_reserved integer;\n  v_routed_location uuid;\nbegin\n  if current_setting('food.stock_location_sync', true) = 'on' then return new; end if;\n  if tg_op = 'UPDATE' and not coalesce(new.track_stock,false) then return new; end if;\n  select id into v_location_id from public.food_stock_locations\n   where store_id=new.store_id and is_default and active limit 1;\n  if v_location_id is null then\n    insert into public.food_stock_locations(store_id,name,location_type,is_default)\n    values(new.store_id,'Estoque principal','warehouse',true)\n    returning id into v_location_id;\n  end if;\n  if tg_op = 'INSERT' then\n    v_quantity := case when coalesce(new.track_stock,false) then greatest(coalesce(new.stock_quantity,0),0) else 0 end;\n    v_reserved := case when coalesce(new.track_stock,false) then least(greatest(coalesce(new.stock_reserved_quantity,0),0),v_quantity) else 0 end;\n    insert into public.food_product_location_stock(store_id,product_id,location_id,stock_quantity,stock_reserved_quantity)\n    values(new.store_id,new.id,v_location_id,v_quantity,v_reserved)\n    on conflict(product_id,location_id) do update\n      set stock_quantity=excluded.stock_quantity,\n          stock_reserved_quantity=excluded.stock_reserved_quantity,\n          updated_at=now();\n    return new;\n  end if;\n  if new.store_id is distinct from old.store_id then\n    raise exception 'A loja do produto não pode mudar depois de criar saldos por local.' using errcode='23514';\n  end if;\n  if new.track_stock is distinct from old.track_stock and not coalesce(new.track_stock,false) then\n    raise exception 'Desative o controle por local antes de desativar o estoque do produto.' using errcode='23514';\n  end if;\n  if coalesce(new.track_stock,false) and not coalesce(old.track_stock,false) then\n    insert into public.food_product_location_stock(store_id,product_id,location_id,stock_quantity,stock_reserved_quantity)\n    values(new.store_id,new.id,v_location_id,greatest(coalesce(new.stock_quantity,0),0),least(greatest(coalesce(new.stock_reserved_quantity,0),0),greatest(coalesce(new.stock_quantity,0),0)))\n    on conflict(product_id,location_id) do update\n      set stock_quantity=excluded.stock_quantity,stock_reserved_quantity=excluded.stock_reserved_quantity,updated_at=now();\n    return new;\n  end if;\n  begin v_routed_location := nullif(current_setting('food.order_stock_location',true),'')::uuid; exception when others then raise exception 'Local de estoque inválido.'; end;\n  if v_routed_location is not null then\n    if not exists(select 1 from public.food_stock_locations where id=v_routed_location and store_id=new.store_id and active) then raise exception 'Local de estoque fora da loja.'; end if;\n    v_location_id := v_routed_location;\n  end if;\n  v_quantity_delta := coalesce(new.stock_quantity,0)-coalesce(old.stock_quantity,0);\n  v_reserved_delta := coalesce(new.stock_reserved_quantity,0)-coalesce(old.stock_reserved_quantity,0);\n  if v_quantity_delta <> 0 or v_reserved_delta <> 0 then\n    insert into public.food_product_location_stock(store_id,product_id,location_id)\n    values(new.store_id,new.id,v_location_id) on conflict(product_id,location_id) do nothing;\n    update public.food_product_location_stock\n       set stock_quantity=stock_quantity+v_quantity_delta,\n           stock_reserved_quantity=stock_reserved_quantity+v_reserved_delta,\n           updated_at=now()\n     where product_id=new.id and location_id=v_location_id\n       and stock_quantity+v_quantity_delta>=0\n       and stock_reserved_quantity+v_reserved_delta>=0\n       and stock_reserved_quantity+v_reserved_delta<=stock_quantity+v_quantity_delta;\n    if not found then\n      raise exception 'O ajuste do estoque principal não cobre o saldo solicitado; use a operação por local.' using errcode='23514';\n    end if;\n  end if;\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "acl": [
+        "postgres=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "args": "p_order_id uuid, p_items jsonb",
+      "name": "food_update_order_items_v1",
+      "owner": "postgres",
+      "definition": "CREATE OR REPLACE FUNCTION public.food_update_order_items_v1(p_order_id uuid, p_items jsonb)\n RETURNS TABLE(subtotal numeric, total numeric)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\ndeclare\r\n  v_order public.food_orders%rowtype;\r\n  v_existing public.food_order_items%rowtype;\r\n  v_product public.food_products%rowtype;\r\n  v_entry jsonb;\r\n  v_item_id uuid;\r\n  v_product_id uuid;\r\n  v_quantity integer;\r\n  v_unit_price numeric(12,2);\r\n  v_item_total numeric(12,2);\r\n  v_subtotal numeric(12,2) := 0;\r\n  v_total numeric(12,2) := 0;\r\n  v_delivery_fee numeric(12,2) := 0;\r\n  v_seen_ids uuid[] := array[]::uuid[];\r\n  v_reserved integer;\r\n  v_awaiting boolean;\r\n  v_inventory_status text := 'not_tracked';\r\n  v_allow_future boolean := false;\r\n  v_timezone text := 'America/Sao_Paulo';\r\nbegin\r\n  if jsonb_typeof(p_items) is distinct from 'array' then\r\n    raise exception 'Informe os produtos do pedido.';\r\n  end if;\r\n  if jsonb_array_length(p_items) = 0 then\r\n    raise exception 'Mantenha pelo menos um produto no pedido.';\r\n  end if;\r\n  if jsonb_array_length(p_items) > 50 then\r\n    raise exception 'O pedido excede o limite de itens.';\r\n  end if;\r\n\r\n  select * into v_order from public.food_orders where id = p_order_id for update;\r\n  if not found then raise exception 'Pedido não encontrado.'; end if;\r\n  if not public.food_is_store_admin(v_order.store_id) and not public.food_is_platform_admin() then\r\n    raise exception 'Acesso negado.' using errcode = '42501';\r\n  end if;\r\n  if v_order.payment_status = 'paid' or v_order.inventory_status = 'committed' then\n    raise exception 'Itens de um pedido já recebido não podem ser alterados.';\r\n  end if;\r\n  if v_order.status = 'cancelled' then\r\n    raise exception 'Um pedido cancelado não pode ser editado.';\r\n  end if;\r\n\r\n  select coalesce(s.opening_hours->>'timezone', 'America/Sao_Paulo')\r\n    into v_timezone\r\n    from public.food_stores s where s.id = v_order.store_id;\r\n  v_allow_future := v_order.scheduled_for is not null\r\n    and (v_order.scheduled_for at time zone v_timezone)::date >= ((now() at time zone v_timezone)::date + 1);\r\n  v_delivery_fee := coalesce(v_order.delivery_fee, 0);\r\n\r\n  -- Libera a reserva anterior antes de recalcular as linhas. O status volta a\r\n  -- released durante a edição: o trigger INSERT já existente ignora este\r\n  -- estado. A reserva única de todas as linhas é refeita no loop abaixo.\r\n  if v_order.inventory_status in ('reserved', 'awaiting_restock') then\r\n    perform public.food_release_order_inventory(p_order_id);\r\n  end if;\r\n  update public.food_orders set inventory_status = 'released', updated_at = now() where id = p_order_id;\r\n\r\n  for v_entry in select * from jsonb_array_elements(p_items) loop\r\n    begin\r\n      v_quantity := (v_entry->>'quantity')::integer;\r\n    exception when others then\r\n      raise exception 'Quantidade inválida.';\r\n    end;\r\n    if v_quantity is null or v_quantity < 1 or v_quantity > 99 then raise exception 'Quantidade inválida.'; end if;\r\n\r\n    v_item_id := null;\r\n    begin\r\n      if nullif(v_entry->>'item_id', '') is not null then v_item_id := (v_entry->>'item_id')::uuid; end if;\r\n    exception when others then raise exception 'Item do pedido inválido.'; end;\r\n\r\n    if v_item_id is not null then\r\n      if v_item_id = any(v_seen_ids) then raise exception 'Item duplicado no pedido.'; end if;\r\n      select * into v_existing from public.food_order_items where id = v_item_id and order_id = p_order_id for update;\r\n      if not found then raise exception 'Item do pedido não encontrado.'; end if;\r\n      v_unit_price := round(v_existing.item_total / nullif(v_existing.quantity, 0), 2);\r\n      v_item_total := round(v_unit_price * v_quantity, 2);\r\n      update public.food_order_items\r\n         set quantity = v_quantity, item_total = v_item_total\r\n       where id = v_item_id;\r\n    else\r\n      begin v_product_id := (v_entry->>'product_id')::uuid; exception when others then raise exception 'Produto inválido.'; end;\r\n      select * into v_product from public.food_products p\r\n       where p.id = v_product_id and p.store_id = v_order.store_id and p.active\r\n         and p.availability_status <> 'unavailable' and p.stock_status <> 'unavailable';\r\n      if not found then raise exception 'Produto não disponível para edição.'; end if;\r\n      if exists (\r\n        select 1 from public.food_product_option_groups pog\r\n        join public.food_option_groups og on og.id = pog.option_group_id and og.store_id = pog.store_id\r\n        where pog.product_id = v_product.id and pog.store_id = v_order.store_id and og.active and og.min_choices > 0\r\n      ) then\r\n        raise exception 'O produto % exige opções. Abra o pedido original para manter a personalização.', v_product.name;\r\n      end if;\r\n      v_unit_price := round(coalesce(v_product.promotional_price, v_product.price), 2);\r\n      v_item_total := round(v_unit_price * v_quantity, 2);\r\n      insert into public.food_order_items(order_id, product_id, product_name, quantity, unit_price, variant_name, variant_price_delta, addons, item_total)\r\n      values (p_order_id, v_product.id, v_product.name, v_quantity, v_unit_price, null, 0, '[]'::jsonb, v_item_total)\r\n      returning id into v_item_id;\r\n    end if;\r\n    v_seen_ids := array_append(v_seen_ids, v_item_id);\r\n    v_subtotal := v_subtotal + v_item_total;\r\n  end loop;\r\n\r\n  delete from public.food_order_items\r\n   where order_id = p_order_id and not (id = any(v_seen_ids));\r\n\r\n  -- Atualiza a reserva de cada linha sem depender de chamadas separadas do\r\n  -- navegador. A função de reserva mantém o lock do produto e trata encomenda\r\n  -- futura sem bloquear o pedido quando ainda não há saldo.\r\n  for v_existing in\r\n    select oi.* from public.food_order_items oi where oi.order_id = p_order_id order by oi.created_at\r\n  loop\r\n    if v_existing.product_id is not null and exists (\r\n      select 1 from public.food_products p where p.id = v_existing.product_id and p.track_stock\r\n    ) then\r\n      select r.reserved_quantity, r.awaiting_restock into v_reserved, v_awaiting\r\n        from public.food_reserve_product_inventory(v_existing.product_id, v_existing.quantity, v_allow_future) r;\r\n      update public.food_order_items set inventory_reserved_quantity = coalesce(v_reserved, 0) where id = v_existing.id;\r\n      if v_awaiting then v_inventory_status := 'awaiting_restock';\r\n      elsif coalesce(v_reserved, 0) > 0 and v_inventory_status <> 'awaiting_restock' then v_inventory_status := 'reserved';\r\n      end if;\r\n    end if;\r\n  end loop;\r\n\r\n  v_subtotal := round(v_subtotal, 2);\r\n  v_total := round(v_subtotal + v_delivery_fee, 2);\r\n  if v_order.payment_method = 'cash' and v_order.needs_change\n     and (v_order.change_for is null or v_order.change_for <= v_total) then\n    raise exception 'O novo total exige revisar o valor para troco antes de editar os produtos.';\n  end if;\n  update public.food_orders\r\n     set subtotal = v_subtotal, total = v_total, inventory_status = v_inventory_status,\n         change_amount = case when v_order.payment_method = 'cash' and v_order.needs_change\n           then round(v_order.change_for - v_total, 2) else v_order.change_amount end,\n         updated_at = now()\n   where id = p_order_id;\r\n  return query select v_subtotal, v_total;\r\nend;\r\n$function$\n"
+    }
+  ],
+  "migrations": [
+    {
+      "name": "foodweb_public_self_signup_rate_limit",
+      "version": "20260929130836"
+    },
+    {
+      "name": "foodweb_inventory_v066",
+      "version": "20261007152006"
+    },
+    {
+      "name": "foodweb_inventory_v066b",
+      "version": "20261007152202"
+    },
+    {
+      "name": "foodweb_inventory_v066c",
+      "version": "20261007152247"
+    },
+    {
+      "name": "foodweb_inventory_v066d",
+      "version": "20261007152335"
+    },
+    {
+      "name": "foodweb_manual_ondemand_inventory_20261009",
+      "version": "20261009122918"
+    },
+    {
+      "name": "foodweb_release_integrity_fix",
+      "version": "20261009132032"
+    },
+    {
+      "name": "foodweb_inventory_foundation_20261009",
+      "version": "20261009171945"
+    },
+    {
+      "name": "foodweb_inventory_recipe_consumption_20261013",
+      "version": "20261013143331"
+    },
+    {
+      "name": "foodweb_inventory_recipe_consumption_20261013_v4",
+      "version": "20261013143451"
+    },
+    {
+      "name": "foodweb_inventory_recipe_guard_fix_20261013",
+      "version": "20261013143955"
+    },
+    {
+      "name": "foodweb_recipe_stages",
+      "version": "20261014130142"
+    },
+    {
+      "name": "foodweb_inventory_archiving",
+      "version": "20261014183731"
+    },
+    {
+      "name": "foodweb_inventory_archive_guard",
+      "version": "20261014184022"
+    },
+    {
+      "name": "foodweb_party_product_configuration_20261016",
+      "version": "20261019101852"
+    },
+    {
+      "name": "foodweb_party_public_projection_20261016",
+      "version": "20261019101901"
+    },
+    {
+      "name": "foodweb_product_default_order_status_20261016",
+      "version": "20261019102001"
+    },
+    {
+      "name": "foodweb_party_order_item_guard_20261016",
+      "version": "20261019102015"
+    },
+    {
+      "name": "foodweb_security_search_path",
+      "version": "20261020014542"
+    },
+    {
+      "name": "foodweb_acl_public_internal",
+      "version": "20261020014605"
+    },
+    {
+      "name": "foodweb_acl_finance_platform",
+      "version": "20261020014630"
+    },
+    {
+      "name": "foodweb_acl_operations_signup",
+      "version": "20261020014657"
+    },
+    {
+      "name": "foodweb_rls_auth_uid_initplan",
+      "version": "20261020014804"
+    },
+    {
+      "name": "foodweb_pickup_window",
+      "version": "20261020174144"
+    },
+    {
+      "name": "foodweb_party_custom_weight_20261020",
+      "version": "20261020193138"
+    },
+    {
+      "name": "foodweb_optional_modules_foundation_20261021",
+      "version": "20261021154200"
+    },
+    {
+      "name": "foodweb_optional_modules_transactions_20261021",
+      "version": "20261021154212"
+    },
+    {
+      "name": "food_internal_rpc_permissions",
+      "version": "20261022144035"
+    },
+    {
+      "name": "food_public_store_projection",
+      "version": "20261022144600"
+    },
+    {
+      "name": "food_tenant_write_guards",
+      "version": "20261022175058"
+    },
+    {
+      "name": "food_operational_rpc_repair",
+      "version": "20261022175933"
+    },
+    {
+      "name": "food_product_stock_adjustments",
+      "version": "20261023101500"
+    },
+    {
+      "name": "food_business_segments",
+      "version": "20261024003848"
+    },
+    {
+      "name": "food_multilocation_stock",
+      "version": "20261024004724"
+    },
+    {
+      "name": "food_sales_fulfillment_location_ledger",
+      "version": "20261024005013"
+    },
+    {
+      "name": "food_location_initial_balance_upsert",
+      "version": "20261024005608"
+    },
+    {
+      "name": "food_stock_simple_mode",
+      "version": "20261026105329"
+    },
+    {
+      "name": "food_location_stock_fast_flow",
+      "version": "20261026112835"
+    },
+    {
+      "name": "food_stock_location_balance_bootstrap",
+      "version": "20261026115308"
+    },
+    {
+      "name": "food_fitness_segment_20261027",
+      "version": "20261027182514"
+    },
+    {
+      "name": "food_fitness_booking_20261027",
+      "version": "20261027182656"
+    },
+    {
+      "name": "food_fitness_workouts_20261027",
+      "version": "20261027182706"
+    },
+    {
+      "name": "food_fitness_catalog_drafts_20261027",
+      "version": "20261027182716"
+    },
+    {
+      "name": "food_fitness_pilot_waiver_20261027",
+      "version": "20261027182721"
+    }
+  ],
+  "captured_at": "2026-10-28T10:48:23.357029+00:00",
+  "constraints": [
+    {
+      "name": "food_product_location_stock_check",
+      "definition": "CHECK (((stock_reserved_quantity >= 0) AND (stock_reserved_quantity <= stock_quantity)))"
+    },
+    {
+      "name": "food_product_location_stock_location_id_store_id_fkey",
+      "definition": "FOREIGN KEY (location_id, store_id) REFERENCES food_stock_locations(id, store_id) ON DELETE CASCADE"
+    },
+    {
+      "name": "food_product_location_stock_pkey",
+      "definition": "PRIMARY KEY (product_id, location_id)"
+    },
+    {
+      "name": "food_product_location_stock_product_id_fkey",
+      "definition": "FOREIGN KEY (product_id) REFERENCES food_products(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "food_product_location_stock_stock_quantity_check",
+      "definition": "CHECK ((stock_quantity >= 0))"
+    },
+    {
+      "name": "food_product_location_stock_store_id_fkey",
+      "definition": "FOREIGN KEY (store_id) REFERENCES food_stores(id) ON DELETE CASCADE"
+    }
+  ]
+}
