@@ -80,3 +80,21 @@ test('modal avulso tem foco contido, Escape e retorno ao acionador',async({page}
  await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);await expect(launch).toBeFocused();
  const result=await new AxeBuilder({page}).withRules(['aria-required-children','aria-required-parent','label']).analyze();expect(result.violations).toEqual([]);
 });
+for(const width of [320,360,390,768,1366])test(`horários e notificações aparecem acima do fundo e fecham fora ${width}px`,async({page},info)=>{
+ await setup(page,true);await page.setViewportSize({width,height:844});await page.goto('/doce-lua');
+ const hours=page.getByRole('button',{name:/Hoje/});await hours.click();
+ const dialog=page.getByRole('dialog',{name:'Horários da semana'});await expect(dialog).toBeVisible();
+ const rect=await dialog.boundingBox();expect(rect!.x).toBeGreaterThanOrEqual(0);expect(rect!.y).toBeGreaterThanOrEqual(0);expect(rect!.x+rect!.width).toBeLessThanOrEqual(width);expect(rect!.y+rect!.height).toBeLessThanOrEqual(844);
+ expect(await dialog.evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})).toBe(true);
+ for(let n=0;n<5;n++){await page.keyboard.press('Tab');expect(await dialog.evaluate(e=>e.contains(document.activeElement))).toBe(true);}
+ if(width===390)await page.screenshot({path:info.outputPath('horarios-visiveis-mobile.png')});
+ await page.mouse.click(4,4);await expect(dialog).toHaveCount(0);await expect(hours).toBeFocused();expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe('hidden');
+ await hours.click();await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);
+ await page.goto('/admin');const bell=page.getByRole('button',{name:'Abrir diagnóstico de notificações',exact:true});await bell.click();
+ const notice=page.getByRole('dialog',{name:'Diagnóstico de notificações'});await expect(notice).toBeVisible();await notice.getByText('Notificações do painel',{exact:true}).click();await expect(notice).toBeVisible();
+ await page.mouse.click(4,4);await expect(notice).toHaveCount(0);await expect(bell).toBeFocused();expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe('hidden');
+});
+test.describe('toque',()=>{test.use({hasTouch:true});test('toque fora fecha horários e notificações e libera rolagem',async({page})=>{
+ await setup(page,true);await page.setViewportSize({width:390,height:844});await page.goto('/doce-lua');await page.getByRole('button',{name:/Hoje/}).tap();await expect(page.getByRole('dialog',{name:'Horários da semana'})).toBeVisible();await page.touchscreen.tap(4,4);await expect(page.getByRole('dialog')).toHaveCount(0);expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe('hidden');
+ await page.goto('/admin');await page.getByRole('button',{name:'Abrir diagnóstico de notificações',exact:true}).tap();await expect(page.getByRole('dialog')).toBeVisible();await page.touchscreen.tap(4,4);await expect(page.getByRole('dialog')).toHaveCount(0);expect(await page.evaluate(()=>document.body.style.overflow)).not.toBe('hidden');
+});});

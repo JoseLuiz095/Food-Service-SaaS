@@ -1,3 +1,5 @@
+import { useModalAccessibility } from '../useModalAccessibility';
+import '../dismissible-panels.css';
 import { Bell, CheckCircle2, CircleAlert, Info, Loader2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -52,6 +54,8 @@ export function AdminNotifications() {
   const [testFeedback, setTestFeedback] = useState('');
   const [pushRegistered, setPushRegistered] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const diagnosticRef=useRef<HTMLElement>(null);
+  useModalAccessibility(diagnosticOpen,diagnosticRef,()=>setDiagnosticOpen(false));
   const scope = `${membership?.storeId || ''}:${user?.id || ''}`;
   const currentScope = useRef(scope);
   currentScope.current = scope;
@@ -111,20 +115,6 @@ export function AdminNotifications() {
     initialized.current = false; initializedStoreId.current = '';
     knownOrderIds.current.clear(); knownPaymentStatus.current.clear();
   }, [scope]);
-
-  useEffect(() => {
-    if (!diagnosticOpen) return;
-    const previousFocus = document.activeElement;
-    closeButtonRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); setDiagnosticOpen(false); }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
-    };
-  }, [diagnosticOpen]);
 
   useEffect(() => {
     // Aguarda o primeiro snapshot completo. Antes disso o contexto ainda tem
@@ -290,7 +280,7 @@ export function AdminNotifications() {
   const permissionLabel = permission === 'granted' ? 'Permitida' : permission === 'denied' ? 'Bloqueada' : permission === 'default' ? 'Aguardando escolha' : 'Indisponível';
   const statusIcon = permission === 'granted' ? <CheckCircle2 size={15}/> : permission === 'denied' ? <CircleAlert size={15}/> : <Info size={15}/>;
   const diagnostic = diagnosticOpen && typeof document !== 'undefined' ? createPortal(
-    <section className="admin-notification-diagnostic" id="admin-notification-diagnostic" role="dialog" aria-label="Diagnóstico de notificações">
+    <div className="dismissible-panel-overlay" onPointerDown={event=>{if(event.target===event.currentTarget){event.preventDefault();setDiagnosticOpen(false);}}}><section ref={diagnosticRef} tabIndex={-1} className="admin-notification-diagnostic" id="admin-notification-diagnostic" role="dialog" aria-modal="true" aria-label="Diagnóstico de notificações">
       <div className="admin-notification-diagnostic__heading"><div><span className="eyebrow">CENTRAL DE AVISOS</span><strong>Notificações do painel</strong></div><button ref={closeButtonRef} type="button" className="icon-button" onClick={() => setDiagnosticOpen(false)} aria-label="Fechar diagnóstico"><X size={16}/></button></div>
       <div className="admin-notification-diagnostic__status"><span>{statusIcon} Permissão do navegador</span><strong className={permission === 'granted' ? 'is-ok' : permission === 'denied' ? 'is-error' : ''}>{permissionLabel}</strong></div>
       <div className="admin-notification-diagnostic__status"><span><Bell size={15}/> Push em segundo plano</span><strong>{pushStatus === 'available' ? pushRegistered ? 'Assinatura registrada' : 'Aguardando ativação' : pushStatus === 'not_configured' ? 'Ainda não configurado' : pushStatus === 'blocked' ? 'Bloqueado' : 'Indisponível'}</strong></div>
@@ -300,7 +290,7 @@ export function AdminNotifications() {
       {testFeedback && <p role="status">{testFeedback}</p>}
       <div className="admin-notification-diagnostic__links"><Link to="/admin/pedidos" onClick={() => setDiagnosticOpen(false)}>Ver pedidos →</Link><Link to="/admin/estoque" onClick={() => setDiagnosticOpen(false)}>Ver estoque →</Link></div>
       <p>Pedidos novos, pagamentos confirmados e agendamentos próximos são verificados ao abrir o painel e enquanto esta aba estiver ativa.</p>
-    </section>,
+    </section></div>,
     document.body,
   ) : null;
 

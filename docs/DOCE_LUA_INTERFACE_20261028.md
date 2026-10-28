@@ -33,3 +33,11 @@ Foco/inert afeta sobreposições; revisar diálogos que abrem outros diálogos a
 ## Pendências
 
 Dois contatos de comprovante têm implementação separada na branch `codex/comprovantes-contatos-por-ponto`, com migration e revisão próprias. Também permanecem os demais itens do plano amplo de estoque/Sob demanda/reconciliação/mobile; este PR resolve os achados de interface e compartilhamento descritos acima.
+
+## Correção adicional — horários e notificações
+
+Foto recebida em 28/10: fundo borrado e card de horários ausente no browser interno do Instagram/iPhone. A estrutura local colocava backdrop/dialog fixos dentro de ancestrais que criam contexto de pintura. Esse é um mecanismo compatível com o sintoma, não uma reprodução no aparelho físico do usuário.
+
+Horários agora usam portal direto no body, com camada/card juntos e hit test comprovando que o conteúdo está acima do fundo. Horários e notificações fecham ao tocar fora, por X ou Escape, contêm Tab, retornam foco e restauram rolagem. Compartilhamento segue o mesmo fechamento por ponteiro; durante compartilhamento em andamento o fechamento do admin é protegido.
+
+Acrescentados `dismissible-panels.css` e ajustes em StoreHeader/AdminNotifications/AdminStoreShare. 18 testes funcionais finais aprovados, incluindo cinco larguras e toque emulado em 390 px. Typecheck, build e fluxo crítico 122 aprovados novamente. O card de horários em 390 foi inspecionado visualmente com dados fictícios; iOS/Instagram físico ainda requer validação do usuário no preview.

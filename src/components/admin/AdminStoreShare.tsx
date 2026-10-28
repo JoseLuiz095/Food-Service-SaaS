@@ -74,7 +74,7 @@ export function AdminStoreShare() {
   };
 
   const dialog = open && typeof document !== 'undefined' ? createPortal(
-    <div className="admin-store-share-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
+    <div className="admin-store-share-overlay" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget && !sharing) { event.preventDefault(); setOpen(false); } }}>
       <section ref={dialogRef} tabIndex={-1} className="admin-store-share-card" role="dialog" aria-modal="true" aria-labelledby="admin-store-share-title">
         <button ref={closeButtonRef} type="button" className="icon-button admin-store-share-card__close" onClick={() => setOpen(false)} aria-label="Fechar compartilhamento"><X size={18} /></button>
         <div className="admin-store-share-card__icon"><QrCode size={21} /></div>
