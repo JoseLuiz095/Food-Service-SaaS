@@ -60,3 +60,14 @@ test('disabled configuration, invalid origin/method/JSON and invalid Pix do not 
  assert.equal((await f.call('{bad')).status,400);f.store.pix_key='';assert.equal((await f.issue()).status,409);
  f.env.ORDER_PAYMENT_LINK_ENABLED='false';assert.equal((await f.issue()).status,503);
 });
+
+test('comprovante usa loja/ponto do pedido no servidor; ignora destino forjado e não altera pagamento',async()=>{
+ const f=fixture();f.env.ORDER_RECEIPT_CONTACTS_ENABLED='true';const order={...f.order,pickup_location_id:'30000000-0000-4000-8000-000000000001'};
+ const destinations={mode:'point',contacts:[{slot:2,name:'Contato sintético',phone:'5511000000002'}]};let lookups=0;
+ const handler=createOrderPaymentHandler({env:k=>f.env[k],authorizedOrder:async()=>order,order:async()=>order,store:async()=>f.store,
+  receiptDestinations:async(storeId,pointId)=>{assert.equal(storeId,sid);assert.equal(pointId,order.pickup_location_id);lookups++;return destinations}});
+ const call=async(body)=>{const r=await handler(new Request('https://api.example.invalid',{method:'POST',headers:{Origin:origin,Authorization:'Bearer valid'},body:JSON.stringify(body)}));return r.json()};
+ const grant=await call({action:'issue',storeId:sid,orderId:oid});assert.equal(lookups,0);
+ const result=await call({action:'resolve',token:grant.token,storeId:oid,pickupLocationId:oid,phone:'5511000000099'});
+ assert.deepEqual(result.receiptDestinations,destinations);assert.equal(lookups,1);assert.equal(order.payment_status,'pending');assert.equal(order.status,'received');
+});

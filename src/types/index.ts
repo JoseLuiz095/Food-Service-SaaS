@@ -402,6 +402,7 @@ export type CartItem = {
 };
 
 export type CheckoutData = {
+  receiptPickupLocationId?: string;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
@@ -437,6 +438,7 @@ export type OrderPaymentStatus = 'pending' | 'paid';
 
 
 export type CreateOrderResult = {
+  receiptPickupLocationId?: string | null;
   orderId: string;
   orderNumber: number;
   total: number;
@@ -473,6 +475,9 @@ export type ManualOrderInput = {
 };
 
 export type OrderConfirmation = {
+  storeId?: string;
+  /** Origem de comunicação validada no servidor; não define retirada/estoque. */
+  receiptPickupLocationId?: string;
   orderId: string;
   orderNumber: number;
   total: number;

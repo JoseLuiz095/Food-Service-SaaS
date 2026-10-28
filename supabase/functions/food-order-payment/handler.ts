@@ -1,8 +1,9 @@
 import { buildPixPayloadWithAmount } from '../../../src/utils/pix.ts';
 
-type PaymentOrder = { id: string; store_id: string; order_number: number; total: number; payment_method: string; payment_status: string; status: string };
+type PaymentOrder = { pickup_location_id?: string | null; id: string; store_id: string; order_number: number; total: number; payment_method: string; payment_status: string; status: string };
 type PaymentStore = { id: string; name: string; active: boolean; access_status: string; pix_enabled: boolean; pix_receipt_mode: 'key' | 'copy_paste'; pix_key: string; pix_copy_paste: string; pix_holder_name: string; city: string };
 type Dependencies = {
+  receiptDestinations?: (storeId:string,pointId:string|null|undefined,orderId:string)=>Promise<unknown>;
   env: (key: string) => string | undefined;
   now?: () => number;
   authorizedOrder: (jwt: string, storeId: string, orderId: string) => Promise<PaymentOrder | null>;
@@ -82,7 +83,8 @@ export const createOrderPaymentHandler = (deps: Dependencies) => async (req: Req
       return reply(200, { token: `${base64(iv)}.${base64(new Uint8Array(ciphertext))}`, expiresAt: new Date(grant.expiresAt).toISOString() });
     }
     if (grant.fingerprint !== fingerprint) return reply(410, { error: 'O pedido ou os dados do Pix mudaram. Solicite um novo link à loja.' });
-    return reply(200, { status: 'pending', storeName: store.name, orderNumber: order.order_number, total: Number(order.total), receiver: store.pix_holder_name, pixPayload, expiresAt: new Date(grant.expiresAt).toISOString() });
+    const receiptDestinations=deps.env('ORDER_RECEIPT_CONTACTS_ENABLED')==='true'&&deps.receiptDestinations?await deps.receiptDestinations(grant.storeId,order.pickup_location_id,order.id):undefined;
+    return reply(200, { ...(receiptDestinations!==undefined?{receiptDestinations}:{}), status: 'pending', storeName: store.name, orderNumber: order.order_number, total: Number(order.total), receiver: store.pix_holder_name, pixPayload, expiresAt: new Date(grant.expiresAt).toISOString() });
   } catch {
     return reply(400, { error: 'Não foi possível consultar o pagamento. Tente novamente.' });
   }

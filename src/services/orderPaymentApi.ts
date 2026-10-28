@@ -1,7 +1,8 @@
+import { parseReceiptDestinations, type ReceiptDestinations } from './receiptContactsApi';
 import { getSupabaseClient } from '../lib/supabase';
 import { platformOrigin } from '../lib/brand';
 export const paymentLinksEnabled = import.meta.env.VITE_PIX_PAYMENT_LINK_ENABLED === 'true';
-export type OrderPayment = { status: 'pending' | 'paid' | 'cancelled'; storeName: string; orderNumber: number; total?: number; receiver?: string; pixPayload?: string; expiresAt?: string };
+export type OrderPayment = { status: 'pending' | 'paid' | 'cancelled'; storeName: string; orderNumber: number; total?: number; receiver?: string; pixPayload?: string; expiresAt?: string; receiptDestinations?:ReceiptDestinations };
 async function invoke(body: object) {
   const { data, error } = await getSupabaseClient().functions.invoke('food-order-payment', { body, timeout: 15000 });
   if (error) {
@@ -21,5 +22,6 @@ export async function resolveOrderPayment(token: string): Promise<OrderPayment> 
   const data = await invoke({ action: 'resolve', token });
   if (!['pending', 'paid', 'cancelled'].includes(data?.status) || typeof data.storeName !== 'string' || !Number.isSafeInteger(data.orderNumber)) throw new Error('Resposta de pagamento inválida.');
   if (data.status === 'pending' && (typeof data.pixPayload !== 'string' || !data.pixPayload.startsWith('000201') || !(data.total > 0) || !Number.isFinite(Date.parse(data.expiresAt)))) throw new Error('Dados do Pix indisponíveis. Fale com a loja.');
+  if(data.receiptDestinations!==undefined)parseReceiptDestinations(data.receiptDestinations);
   return data;
 }

@@ -1,3 +1,4 @@
+import { receiptContactsEnabled } from '../../services/receiptContactsApi';
 import { AlertCircle, ArrowLeft, Banknote, CheckCircle2, CreditCard, LocateFixed, LockKeyhole, LoaderCircle, MapPin, QrCode, ShieldCheck, ShoppingBag, Store, Truck, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -64,7 +65,7 @@ const readPartyConfig = (groups: OptionGroup[]): PartyOrderConfig | undefined =>
 };
 
 export default function Checkout() {
-  const { items: allItems, clear, removeItem, updateQuantity } = useCart();
+  const { items: allItems, clear, removeItem, updateQuantity,receiptSourceCode } = useCart();
   const [searchParams] = useSearchParams();
   const quickId = searchParams.get('quick');
   const quickQuantity = Math.max(1, Math.min(99, Number(searchParams.get('qty')) || 1));
@@ -333,6 +334,7 @@ export default function Checkout() {
 
   const validate = () => {
     if (!items.length) return 'Seu carrinho está vazio.';
+    if(receiptContactsEnabled&&receiptSourceCode){if(pickup.pointsLoading)return 'Aguarde a consulta do ponto de origem do comprovante.';if(pickup.pointsError||!pickup.points.some(p=>p.short_code===receiptSourceCode))return 'O ponto do link está indisponível. Abra o link geral da loja ou confira outro link antes de confirmar.';}
     if (form.fulfillment === 'pickup' && pickup.pointsLoading) return 'Aguarde a consulta dos pontos de retirada.';
     if (form.fulfillment === 'pickup' && pickup.pointsError) return pickup.pointsError;
     if (form.fulfillment === 'pickup' && pickup.points.length && !pickup.selectedPoint) return 'Selecione um ponto de retirada disponível.';
@@ -389,7 +391,7 @@ export default function Checkout() {
       }
       // A Doce Lua não exibe o checkbox de revisão no piloto, mas o registro
       // continua marcado como revisado para manter compatibilidade com o demo.
-      const payloadForm: CheckoutData = { ...form, pickupLocationId: form.fulfillment === 'pickup' ? pickup.selectedPoint?.id : undefined, deliveryFee, reviewConfirmed: form.reviewConfirmed || isDoceLuaPilot };
+      const payloadForm: CheckoutData = { ...form, receiptPickupLocationId: receiptContactsEnabled ? pickup.points.find(p=>p.short_code===receiptSourceCode)?.id : undefined, pickupLocationId: form.fulfillment === 'pickup' ? pickup.selectedPoint?.id : undefined, deliveryFee, reviewConfirmed: form.reviewConfirmed || isDoceLuaPilot };
       const result = await registerOrder(settings, items, payloadForm, subtotal, {
         turnstileToken,
         analyticsSessionId: getAnalyticsSessionId(settings.id),
@@ -434,6 +436,7 @@ export default function Checkout() {
         }
       }
       const confirmation: OrderConfirmation = {
+        storeId: settings.id, receiptPickupLocationId: receiptContactsEnabled ? result.receiptPickupLocationId || undefined : undefined,
         orderId: result.orderId, orderNumber: result.orderNumber, total: result.total, paymentMethod: form.paymentMethod, customerName: form.customerName,
         fulfillment: form.fulfillment, storeName: settings.name, storeWhatsapp: settings.showWhatsApp !== false ? settings.whatsapp : '', pixEnabled: settings.pixEnabled,
         pickupPointName: form.fulfillment === 'pickup' ? pickup.selectedPoint?.name : undefined,
