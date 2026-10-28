@@ -18,6 +18,7 @@
     "test:fitness:ui": "npm --prefix qa run test:fitness",
     "test:integrations": "node scripts/integration-repair-db-test.mjs && node scripts/tenant-write-guards-db-test.mjs && node scripts/product-stock-db-test.mjs && node scripts/inventory-transaction-db-test.mjs && node scripts/stock-transfer-batch-db-test.mjs",
     "test:domains": "node scripts/domain-unit-test.mjs",
+    "test:seo": "node --test scripts/marketing-seo-test.mjs",
     "test:pwa": "node scripts/pwa-security.mjs",
     "test:security": "node scripts/security-unit-test.mjs && node --test scripts/csv-export-test.mjs",
     "test:segments": "node scripts/segments-unit-test.mjs",
