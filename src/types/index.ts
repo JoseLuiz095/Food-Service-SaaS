@@ -759,8 +759,9 @@ export type FinancialEntry = {
   id: string;
   storeId: string;
   direction: FinancialDirection;
-  source: 'manual' | 'order' | 'adjustment';
+  source: 'manual' | 'order' | 'adjustment' | 'purchase';
   orderId?: string;
+  purchaseId?: string;
   categoryId?: string;
   description: string;
   amount: number;
@@ -875,6 +876,7 @@ export type InventoryPurchaseInput = {
 
 export type InventoryPurchaseResult = {
   purchaseId: string;
+  financialEntryId?: string;
   totalAmount: number;
   duplicate: boolean;
 };

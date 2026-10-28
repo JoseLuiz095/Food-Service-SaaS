@@ -426,6 +426,37 @@ export const inventoryApi = {
     };
   },
 
+  async recordFinancedPurchase(input: InventoryPurchaseInput & { paymentStatus: 'paid' | 'pending'; categoryId?: string; description?: string }): Promise<InventoryPurchaseResult> {
+    if (isDemoMode) throw new Error('A compra integrada exige o modo conectado ao Supabase.');
+    if (!input.idempotencyKey) throw new Error('Identificador da compra ausente.');
+    if (!input.items.length || input.items.some(item => !item.inventoryItemId || !Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unitCost) || item.unitCost < 0)) {
+      throw new Error('Informe insumos, quantidades e custos válidos.');
+    }
+    if (new Set(input.items.map(item => item.inventoryItemId)).size !== input.items.length) throw new Error('Não repita um insumo na mesma compra.');
+    const result = await restFetch<Record<string, unknown> | Array<Record<string, unknown>>>('rpc/food_record_financed_purchase_v1', {
+      method: 'POST',
+      body: { p_request: {
+        store_id: input.storeId, items: input.items.map(item => ({
+          inventory_item_id: item.inventoryItemId, quantity: item.quantity, unit_cost: item.unitCost,
+          ...(item.notes ? { notes: item.notes } : {}),
+        })),
+        supplier: input.supplier || null, occurred_on: input.occurredOn || null,
+        payment_method: input.paymentMethod || null, payment_status: input.paymentStatus,
+        document_type: input.documentType || null, document_number: input.documentNumber || null,
+        category_id: input.categoryId || null, description: input.description || null,
+        notes: input.notes || null, idempotency_key: input.idempotencyKey,
+      } },
+    });
+    const payload = rpcResult(result);
+    if (!payload.purchase_id || !payload.financial_entry_id) throw new Error('A compra integrada não retornou os vínculos confirmados.');
+    return {
+      purchaseId: String(payload.purchase_id),
+      financialEntryId: String(payload.financial_entry_id),
+      totalAmount: Number(payload.total_amount),
+      duplicate: Boolean(payload.duplicate),
+    };
+  },
+
   async registerPurchase(storeId: string, inventoryItemId: string, quantity: number, totalCost: number): Promise<InventoryItem> {
     if (!Number.isFinite(quantity) || quantity <= 0) throw new Error('Informe uma quantidade de compra válida.');
     if (!Number.isFinite(totalCost) || totalCost < 0) throw new Error('Informe um custo de compra válido.');
