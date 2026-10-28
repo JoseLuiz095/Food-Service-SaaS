@@ -691,9 +691,9 @@ export const storeApi = {
       if (!current?.trackStock) throw new Error('Produto não encontrado ou sem controle de estoque.');
       const physical = Number(current.stockQuantity || 0); const reserved = Number(current.stockReservedQuantity || 0);
       const stockQuantity = input.mode === 'set' ? input.quantity : input.mode === 'add' ? physical + input.quantity : physical - input.quantity;
-      if (stockQuantity < reserved) throw new Error(`O estoque físico não pode ficar abaixo das ${reserved} unidade(s) reservadas.`);
+      if (stockQuantity < 0) throw new Error('O estoque físico não pode ser negativo.');
       const available = stockQuantity - reserved;
-      const updated = { stockQuantity, stockReservedQuantity: reserved, stockStatus: (available <= 3 ? 'low_stock' : 'available') as Product['stockStatus'], availabilityStatus: (available === 0 ? 'sold_out' : 'available') as Product['availabilityStatus'] };
+      const updated = { stockQuantity, stockReservedQuantity: reserved, stockStatus: (available <= 3 ? 'low_stock' : 'available') as Product['stockStatus'], availabilityStatus: (available <= 0 ? 'sold_out' : 'available') as Product['availabilityStatus'] };
       db.products = db.products.map((product) => product.id === productId ? { ...product, ...updated } : product);
       writeDemo(db);
       return updated;

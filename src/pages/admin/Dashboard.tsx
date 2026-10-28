@@ -58,7 +58,7 @@ export default function Dashboard(){
     {label:'Categorias',value:categories.length,icon:Tags},
     {label:'Pedidos registrados',value:count(metrics?.ordersTotal),icon:ShoppingBag},
     {label:'Estoque físico',value:physicalUnits,icon:Boxes},
-    {label:'Reservado',value:reservedUnits,icon:PackageOpen},
+    {label:'Reservado',value:-reservedUnits,icon:PackageOpen},
     {label:'Disponível',value:physicalUnits-reservedUnits,icon:PackageCheck},
   ].filter(card=>hasPhysicalStock || !['Estoque físico','Reservado','Disponível'].includes(card.label));
 

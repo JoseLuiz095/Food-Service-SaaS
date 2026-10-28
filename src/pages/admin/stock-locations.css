@@ -114,3 +114,6 @@
 }
 @media(prefers-reduced-motion:reduce){.stock-locations-page *{scroll-behavior:auto!important}}
 .stock-location-matrix .table-scroll{max-width:100%;overflow-x:auto}.stock-location-matrix .data-table{width:100%;border-collapse:collapse;text-align:left}.stock-location-matrix :is(th,td){min-width:140px;padding:12px;vertical-align:top;border-bottom:1px solid var(--line)}.stock-location-matrix :is(th,td):first-child{min-width:220px;max-width:320px;overflow-wrap:anywhere}.stock-location-matrix td small{display:block;margin-top:6px;font-size:.8rem;color:var(--muted)}
+
+.stock-location-product__overview>.stock-location-shortage{color:#ae4138}
+.stock-location-summary span:nth-child(2) strong{color:#ae4138}
