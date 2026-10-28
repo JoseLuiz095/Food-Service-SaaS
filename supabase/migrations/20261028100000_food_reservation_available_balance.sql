@@ -131,8 +131,8 @@ begin
   v_reserved := p_quantity;
   update public.food_products
      set stock_reserved_quantity = coalesce(stock_reserved_quantity, 0) + v_reserved,
-         stock_status = 'low_stock',
-         availability_status = 'sold_out',
+         stock_status = case when coalesce(stock_quantity, 0) - coalesce(stock_reserved_quantity, 0) - v_reserved <= 3 then 'low_stock' else 'available' end,
+         availability_status = case when coalesce(stock_quantity, 0) - coalesce(stock_reserved_quantity, 0) - v_reserved <= 0 then 'sold_out' else 'available' end,
          updated_at = now()
    where id = p_product_id;
   return query select v_reserved, true;

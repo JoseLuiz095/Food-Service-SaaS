@@ -104,6 +104,9 @@ try {
   equal(balance.stock_quantity,0,'reserva não inventa físico');
   equal(balance.stock_reserved_quantity,5,'reserva integral com físico zero');
   equal(balance.available,-5,'disponível negativo após recarregar do banco');
+  const global = await one('select stock_quantity,stock_reserved_quantity,availability_status from food_products where id=$1', [product]);
+  equal(global.stock_quantity-global.stock_reserved_quantity,7,'total global ainda dispõe de saldo em outro local');
+  assert.equal(global.availability_status,'available','outro local mantém disponibilidade global'); checks++;
   await query('select food_adjust_location_stock_v1($1,$2,$3,2,$4,$5)', [store,product,pointA,'Reposição',randomUUID()]);
   balance = await one('select stock_quantity-stock_reserved_quantity available from food_product_location_stock where product_id=$1 and location_id=$2', [product,pointA]);
   equal(balance.available,-3,'entrada de duas unidades preserva compromisso');
