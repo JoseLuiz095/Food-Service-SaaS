@@ -10,6 +10,7 @@ import { isFoodWebMarketingRoot } from '../../lib/config';
 import Landing from './Landing';
 import { getBusinessSegment } from '../../segments/businessSegments';
 import { PublicBusinessOffers } from '../../platform/PublicBusinessOffers';
+import { FitnessBookingOffers } from '../../platform/FitnessBookingOffers';
 import { PickupPointSelector, PointStockNotice } from './PickupPointSelector';
 import { pointStock, usePickupAvailability } from './usePickupAvailability';
 
@@ -24,12 +25,16 @@ function StorefrontHome(){
   const traditionalPresentation=segment.id==='food'||settings.visualTheme.preset==='doce_lua';
   const [selectedCategory,setSelectedCategory]=useState('all');
   const [query,setQuery]=useState('');
-  const pickup = usePickupAvailability();
+  const pickup = usePickupAvailability(segment.id!=='fitness');
   const productCard = (product: typeof products[number], category?: typeof categories[number]) => {
     const row = pointStock(pickup.availability, product.id);
-    const globallyEmpty = product.trackStock && Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) <= 0 && product.stockStatus !== 'unavailable' && product.availabilityStatus === 'available';
-    const unavailableHere = pickup.selectedPoint && row && Number(row.available) < 1;
-    return <div key={product.id} className={`store-point-product${globallyEmpty ? ' store-point-product--global-empty' : ''}${unavailableHere ? ' store-point-product--unavailable' : ''}`}><ProductCard product={product} category={category} pointSelected={Boolean(pickup.selectedPoint)} pointAvailable={row?.available}/>{pickup.selectedPoint ? <PointStockNotice product={product} pointName={pickup.selectedPoint.name} row={row}/> : globallyEmpty ? <p className="store-point-stock store-point-stock--warning">Sem disponibilidade imediata. Confira as opções ao finalizar.</p> : null}</div>;
+    const hasPointContext = Boolean(pickup.selectedPoint);
+    const globallyEmpty = !hasPointContext && product.trackStock && Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) <= 0 && product.stockStatus !== 'unavailable' && product.availabilityStatus === 'available';
+    const unavailableHere = Boolean(hasPointContext && row && Number(row.available) < 1);
+    const pointAvailable = hasPointContext && product.trackStock
+      ? pickup.availability === null ? null : Number(row?.available ?? 0)
+      : undefined;
+    return <div key={product.id} className={`store-point-product${globallyEmpty ? ' store-point-product--global-empty' : ''}${unavailableHere ? ' store-point-product--unavailable' : ''}`}><ProductCard product={product} category={category} pointAvailable={pointAvailable}/>{hasPointContext ? <PointStockNotice product={product} pointName={pickup.selectedPoint?.name ?? ''} row={row}/> : globallyEmpty ? <p className="store-point-stock store-point-stock--warning">Sob encomenda. Agende para amanhã no checkout.</p> : null}</div>;
   };
 
   useEffect(()=>{if(!loading&&!error&&settings.id)void trackPublicEvent(settings.id,'storefront_view')},[loading,error,settings.id]);
@@ -46,6 +51,10 @@ function StorefrontHome(){
 
   if(loading)return <div className="page-center"><LoadingState label={traditionalPresentation?'Carregando cardápio...':'Carregando catálogo...'}/></div>;
   if(error)return <div className="container page-center"><ErrorState message={error} onRetry={()=>void reloadPublic()}/></div>;
+  if(segment.id==='fitness')return <>
+    <header className="container fitness-store-header"><span className="eyebrow">VENDEWEB · FITNESS/ACADEMIA</span><h1>{settings.name}</h1><p>{[settings.city,settings.state].filter(Boolean).join(' · ')}</p></header>
+    <main id="cardapio" className="container storefront-body"><FitnessBookingOffers/></main>
+  </>;
 
   return <>
     <StoreHeader/>

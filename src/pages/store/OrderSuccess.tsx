@@ -151,6 +151,7 @@ export default function OrderSuccess() {
         <h1>Pedido recebido</h1>
         <p className="order-success-number">Pedido <strong>#{formatOrderNumber(confirmation.orderNumber)}</strong></p>
         <div className="order-success-status" role="status"><span className="order-success-status__dot" />{confirmationStatus}</div>
+        <div className="store-checkout-context store-checkout-context--success"><strong>{confirmation.storeName}</strong><span>{confirmation.fulfillment === 'pickup' ? confirmation.pickupPointName ? `Retirada em ${confirmation.pickupPointName}${confirmation.pickupPointAddress ? ` · ${confirmation.pickupPointAddress}` : ''}` : 'Local de retirada: confira as orientações da loja' : 'Entrega no endereço informado no pedido'}</span></div>
 
         <div className="order-registration-proof" role="status">
           <CheckCircle2 size={20} />

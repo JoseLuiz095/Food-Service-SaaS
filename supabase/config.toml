@@ -24,3 +24,11 @@ verify_jwt = false
 
 [functions.food-provision-demo]
 verify_jwt = true
+
+# Fitness authenticates Asaas/worker tokens before parsing a webhook, and
+# checkout verifies the student's JWT via getUser inside the handler.
+[functions.food-fitness-billing]
+verify_jwt = false
+
+[functions.food-fitness-checkout]
+verify_jwt = false

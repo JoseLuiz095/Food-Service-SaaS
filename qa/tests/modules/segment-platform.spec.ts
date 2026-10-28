@@ -60,7 +60,7 @@ test('personal salva aluno, serviço e agendamento; dados vêm do backend ao rec
   await form.getByLabel('Início', { exact: true }).fill('2026-11-12T10:00');
   await form.getByLabel('Término', { exact: true }).fill('2026-11-12T11:00');
   await form.getByRole('button', { name: 'Salvar registro', exact: true }).click();
-  await expect(page.locator('.business-record-list')).toContainText('scheduled');
+  await expect(page.locator('.business-record-list')).toContainText('Agendado');
   expect(state.writes.find(item => item.action === 'services.save')?.data.price_cents).toBe(12550);
   expect(state.stores.get(initialBusiness.id)?.lists.appointments).toHaveLength(1);
   await page.reload();

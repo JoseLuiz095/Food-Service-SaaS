@@ -6,6 +6,13 @@
 - Reconciliação de ficha técnica serializada com conversão g↔kg e ml↔l, sem falsos abastecimentos e com restauração dos flags da transação.
 - Migrations `20261025200720_food_recipe_reconciliation_lock_safety.sql` e `20261026014407_food_location_stock_fast_flow.sql` preparadas e testadas localmente; pendem validação em homologação, sem implantação em produção.
 
+## Em desenvolvimento — piloto Fitness/Academia
+
+- Adiciona agenda e reserva com horários do profissional, bloqueios, histórico e prevenção transacional de dupla reserva; não habilita cobrança.
+- Prepara fichas genéricas em rascunho para revisão obrigatória do Personal Trainer antes da atribuição ao aluno.
+- Mantém suplementos e camisas como rascunhos até confirmar preço, variantes e estoque por variante.
+- Frontend em branch de preparação; publicação e provisionamento da loja ainda pendentes.
+
 ## 0.6.5 - QA Lite publico e baseline controlada
 
 - Simplifica a automacao para `qa:lite`, sem login, Turnstile ou MFA obrigatorios.

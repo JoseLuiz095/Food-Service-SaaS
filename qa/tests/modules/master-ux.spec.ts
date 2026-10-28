@@ -11,12 +11,13 @@ for(const width of [390,1366]) {
     await page.getByLabel('Buscar lojas').fill('busca-sem-resultado');
     await expect(page.getByRole('heading',{name:'Nenhuma loja corresponde aos filtros'})).toBeVisible();
     await page.getByRole('button',{name:'Limpar filtros'}).click();
-    const tableRegion=page.getByRole('region',{name:'Tabela de lojas; use as setas para navegar pelas colunas'});
+    const tableRegion=page.getByRole('region',{name:'Lojas e uso'});
     await expect(tableRegion).toBeVisible();
     await expect(tableRegion).toHaveAttribute('tabindex','0');
     if(width<=600) {
       await expect(tableRegion.locator('tbody tr').first()).toHaveCSS('display','grid');
       expect(await tableRegion.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
+      await expect(page.getByText('Em telas menores, abra os detalhes de uma loja para ver plano, cobrança e endereço.')).toBeVisible();
     }
     await page.getByRole('button',{name:'Gerenciar',exact:true}).first().click();
     const dialog=page.getByRole('dialog',{name:store.name});
@@ -59,11 +60,22 @@ for(const width of [390,768,1024,1440]) {
     const create=page.getByRole('button',{name:'Nova loja',exact:true});
     await expect(create).toBeVisible();
     expect(await create.evaluate(element=>getComputedStyle(element).whiteSpace)).toBe('nowrap');
-    const region=page.getByRole('region',{name:'Tabela de lojas; use as setas para navegar pelas colunas'});
-    if(width<=600) {
-      await expect(region.locator('tbody tr').first()).toHaveCSS('display','grid');
+    const region=page.getByRole('region',{name:'Lojas e uso'});
+    if(width<=900){
+      const firstRow=region.locator('tbody tr').first();
+      if(width<=600) await expect(firstRow).toHaveCSS('display','grid');
+      await expect(firstRow.locator('td').nth(3)).toBeVisible();
+      await expect(firstRow.locator('td').nth(3)).toContainText(/\d+ ativos/);
       expect(await region.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
-    } else {
+      const details=firstRow.getByRole('button',{name:`Detalhes de ${store.name}`});
+      await expect(details).toHaveAttribute('aria-expanded','false');
+      await details.click();
+      await expect(details).toHaveAttribute('aria-expanded','true');
+      await expect(firstRow.locator('td').nth(1)).toBeVisible();
+      await expect(firstRow.locator('td').nth(6)).toBeVisible();
+      await details.click();
+      await expect(firstRow.locator('td').nth(1)).toBeHidden();
+    }else{
       const usage=region.getByRole('columnheader',{name:'Uso'});
       await usage.scrollIntoViewIfNeeded();
       const bounds=await usage.boundingBox(), container=await region.boundingBox();
@@ -164,7 +176,7 @@ for(const width of [390,1366]) {
     }));
     await page.route('**/rest/v1/food_stores?**',route=>route.fulfill({json:stores}));
     await page.goto('/admin-master/lojas');
-    const table=page.getByRole('region',{name:'Tabela de lojas; use as setas para navegar pelas colunas'});
+    const table=page.getByRole('region',{name:'Lojas e uso'});
     const pagination=page.getByRole('navigation',{name:'Paginação de lojas'});
     await expect(table.locator('tbody tr')).toHaveCount(20);
     await expect(pagination.getByText('Página 1 de 3')).toBeVisible();

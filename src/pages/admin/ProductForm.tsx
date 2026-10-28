@@ -15,7 +15,7 @@ import './product-form-simplified.css';
 
 const emptyProduct = (storeId: string, segment: BusinessSegment = 'food'): Product => ({
   id: createId(), storeId, categoryId: '', name: '', slug: '', description: '', price: 0,
-  imageUrl: '/assets/placeholder-food.svg', visualEmoji: segment === 'food' ? '🍔' : segment === 'confectionery' ? '🍰' : segment === 'printing3d' ? '🧩' : segment === 'rentals' ? '🎪' : '📦', gallery: [], images: [], featured: false, active: true,
+  imageUrl: '/assets/placeholder-food.svg', visualEmoji: segment === 'food' ? '🍔' : segment === 'confectionery' ? '🍰' : segment === 'printing3d' ? '🧩' : segment === 'rentals' ? '🎪' : '📦', gallery: [], images: [], featured: false, active: segment !== 'fitness',
   madeToOrder: false, productionDays: 0, stockStatus: 'available', availabilityStatus: 'available',
   trackStock: !['services', 'personal', 'nutrition', 'creator'].includes(segment), stockQuantity: 0, preparationTimeMinutes: 0, sortOrder: 0,
   optionGroups: [], variations: [], addons: [],
@@ -227,7 +227,8 @@ export default function ProductForm() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (saving) return;
-    const activationConsumesSlot = product.active && (!existing || !existing.active);
+    const fitnessDraft = businessProfile.id === 'fitness';
+    const activationConsumesSlot = !fitnessDraft && product.active && (!existing || !existing.active);
     if (activationConsumesSlot && !planUsage.canActivateProduct) {
       showToast(`Seu plano permite até ${planUsage.plan.productLimit} produtos ativos.`, 'error');
       return;
@@ -248,6 +249,7 @@ export default function ProductForm() {
       const normalized: Product = {
         ...product,
         storeId: settings.id,
+        active: fitnessDraft ? false : product.active,
         slug: product.slug || slugify(product.name),
         // Mantém o preço-base do catálogo alinhado ao valor por pacote. A
         // vitrine exibe o preço por grama, mas o servidor também recalcula o
@@ -364,7 +366,7 @@ export default function ProductForm() {
       </section>
 
       <aside>
-        <section className="admin-card form-section"><span className="eyebrow">PUBLICAÇÃO</span><h2>Disponibilidade</h2><label className="switch-row"><span><strong>Produto ativo</strong><small>Aparece no {businessProfile.catalogLabel.toLowerCase()} público</small></span><input type="checkbox" checked={product.active} onChange={(event) => update('active', event.target.checked)}/></label><label className="switch-row"><span><strong>Destaque</strong><small>Produto em evidência</small></span><input type="checkbox" checked={product.featured} onChange={(event) => update('featured', event.target.checked)}/></label><div className="product-form-preview"><span>Preço atual</span><strong>{partyConfig.enabled && partyConfig.pricePerGram > 0 ? `${currency.format(partyConfig.pricePerGram)}/g` : currency.format(product.promotionalPrice ?? product.price)}</strong>{product.visualEmoji && <span className="product-form-emoji-preview-v060" aria-label="Emoji do produto">{product.visualEmoji}</span>}{partyConfig.enabled && <small>Encomenda para festas · mínimo de {partyConfig.minimumPackages} pacote(s)</small>}<small>{product.optionGroups.length} grupo(s) de personalização</small></div></section>
+        <section className="admin-card form-section"><span className="eyebrow">PUBLICAÇÃO</span><h2>Disponibilidade</h2><label className="switch-row"><span><strong>Produto ativo</strong><small>{businessProfile.id==='fitness'?'Rascunho obrigatório até confirmar preço, variantes e estoque por variante.':'Aparece no '+businessProfile.catalogLabel.toLowerCase()+' público'}</small></span><input type="checkbox" checked={businessProfile.id==='fitness'?false:product.active} disabled={businessProfile.id==='fitness'} onChange={(event) => update('active', event.target.checked)}/></label><label className="switch-row"><span><strong>Destaque</strong><small>Produto em evidência</small></span><input type="checkbox" checked={product.featured} onChange={(event) => update('featured', event.target.checked)}/></label><div className="product-form-preview"><span>{businessProfile.id==='fitness'&&product.price<=0?'Preço a confirmar':'Preço atual'}</span><strong>{businessProfile.id==='fitness'&&product.price<=0?'Pendente':partyConfig.enabled && partyConfig.pricePerGram > 0 ? `${currency.format(partyConfig.pricePerGram)}/g` : currency.format(product.promotionalPrice ?? product.price)}</strong>{product.visualEmoji && <span className="product-form-emoji-preview-v060" aria-label="Emoji do produto">{product.visualEmoji}</span>}{partyConfig.enabled && <small>Encomenda para festas · mínimo de {partyConfig.minimumPackages} pacote(s)</small>}<small>{product.optionGroups.length} grupo(s) de personalização</small></div></section>
         <div className="product-form-save-hint">{hasUnsavedChanges ? 'Alterações pendentes. Use o botão flutuante para salvar.' : 'Tudo salvo.'}</div>
       </aside>
     </form>

@@ -201,6 +201,7 @@ export default function AdminLayout() {
         )}
 
         <nav id="admin-navigation" className="admin-nav" aria-label="Navegação do negócio">
+          {business?.profile?.primary_segment==='fitness'&&!membership?.limitedAccess&&<div className="admin-nav__group"><span className="admin-nav__label">Personal Trainer</span><NavLink to="/admin/fitness" onClick={()=>setOpen(false)}><Clock3 size={18}/><span className="admin-nav-text">Agenda e horários</span></NavLink></div>}
           {business?.profile&&['clients','appointments','creator','training','nutrition'].some(code=>moduleIsActive(business,code as 'clients'|'appointments'|'creator'|'training'|'nutrition'))&&!membership?.limitedAccess&&<div className="admin-nav__group"><span className="admin-nav__label">Rotina do negócio</span><NavLink to="/admin/operacao" onClick={()=>setOpen(false)}><LayoutDashboard size={18}/><span className="admin-nav-text">{getBusinessSegment(business.profile.primary_segment).adminTitle}</span></NavLink></div>}
           {navSections.map((section) => {
             const preparationNavAllowed = new Set(['/admin','/admin/primeiros-passos','/admin/produtos','/admin/estoque','/admin/categorias','/admin/entregas','/admin/configuracoes','/admin/negocio']);

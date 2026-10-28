@@ -197,7 +197,7 @@ async function locationCases({ db, q, one, check, rejects, owner, outsider, stor
     grant execute on function public.food_transfer_location_stock_v1(uuid,uuid,uuid,uuid,integer,text,uuid) to authenticated;
     revoke all on function public.food_adjust_location_stock_v1(uuid,uuid,uuid,integer,text,uuid) from public,anon;
     grant execute on function public.food_adjust_location_stock_v1(uuid,uuid,uuid,integer,text,uuid) to authenticated;`);
-  await db.exec(readFileSync('supabase/migrations/20261026014407_food_location_stock_fast_flow.sql', 'utf8'));
+  await db.exec(readFileSync('supabase/migrations/20261026112835_food_location_stock_fast_flow.sql', 'utf8'));
   const home = randomUUID(), work = randomUUID(), privatePlace = randomUUID(), emptyPlace = randomUUID(), point = randomUUID();
   const first = randomUUID(), second = randomUUID();
   await db.exec('reset role');
