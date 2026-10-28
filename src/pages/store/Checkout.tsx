@@ -1,8 +1,9 @@
-import { AlertCircle, ArrowLeft, Banknote, CheckCircle2, CreditCard, LocateFixed, LockKeyhole, LoaderCircle, MapPin, QrCode, ShieldCheck, ShoppingBag, Store, Truck, UserRound } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Banknote, CheckCircle2, CreditCard, LocateFixed, LockKeyhole, LoaderCircle, MapPin, QrCode, ShieldCheck, ShoppingBag, Store, Trash2, Truck, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { TurnstileWidget } from '../../components/ui/TurnstileWidget';
-import { calculateCartSubtotal, cartItemUnitTotal, useCart } from '../../contexts/CartContext';
+import { QuantityControl } from '../../components/QuantityControl';
+import { calculateCartSubtotal, cartItemUnitTotal, MAX_CART_ITEM_QUANTITY, useCart } from '../../contexts/CartContext';
 import { useStore } from '../../contexts/StoreContext';
 import { PLATFORM_BRAND } from '../../lib/brand';
 import { useToast } from '../../contexts/ToastContext';
@@ -23,6 +24,7 @@ import { loadFulfillmentPreference } from '../../utils/fulfillmentPreference';
 import { PickupPointSelector } from './PickupPointSelector';
 import { pointStock, usePickupAvailability } from './usePickupAvailability';
 import '../../components/checkout/checkout-refinements.css';
+import './checkout-quick.css';
 
 const initial: CheckoutData = {
   customerName: '', customerPhone: '', customerEmail: '', fulfillment: 'delivery', zipCode: '', street: '', addressNumber: '', complement: '',
@@ -186,6 +188,16 @@ export default function Checkout() {
     const requested = items.filter((candidate) => candidate.productId === item.productId).reduce((sum, candidate) => sum + candidate.quantity, 0);
     return Boolean(row && Number(row.available) < requested);
   }) : [];
+  const maxQuantityForItem = (itemId: string, productId: string) => {
+    const product = products.find((candidate) => candidate.id === productId);
+    if (!product?.trackStock) return MAX_CART_ITEM_QUANTITY;
+    const otherQuantity = items.filter((candidate) => candidate.productId === productId && candidate.id !== itemId).reduce((sum, candidate) => sum + candidate.quantity, 0);
+    const globalAvailable = settings.allowScheduledOrders ? MAX_CART_ITEM_QUANTITY : Math.max(0, Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0));
+    const pointAvailable = form.fulfillment === 'pickup' && pickup.selectedPoint && pickup.availability
+      ? Number(pointStock(pickup.availability, productId)?.available || 0)
+      : MAX_CART_ITEM_QUANTITY;
+    return Math.max(1, Math.min(MAX_CART_ITEM_QUANTITY, globalAvailable, pointAvailable) - otherQuantity);
+  };
   const stockSchedulingRequired = stockUnavailableItems.length > 0;
   const partyOrderItems = items.map((item) => {
     const product = products.find((candidate) => candidate.id === item.productId);
@@ -487,7 +499,8 @@ export default function Checkout() {
 
       <aside className="order-summary checkout-summary">
         <span className="eyebrow">RESUMO</span>
-         <div className="checkout-items-mini">{items.map((item) => { const product = products.find((candidate) => candidate.id === item.productId); const config = product?.partyOrderConfig?.enabled ? product.partyOrderConfig : readPartyConfig(product?.optionGroups || []); return <div key={item.id}><span>{item.quantity}x {item.productName}{config && <small>{item.partyPackageWeightGrams || config.packageWeightGrams} g por pacote · encomenda para festa</small>}{item.options.length > 0 && <small>{item.options.map((option) => option.itemName).join(' · ')}</small>}</span><strong>{currency.format(cartItemUnitTotal(item) * item.quantity)}</strong></div>; })}</div>
+         <div className="checkout-items-mini">{items.map((item) => { const product = products.find((candidate) => candidate.id === item.productId); const config = product?.partyOrderConfig?.enabled ? product.partyOrderConfig : readPartyConfig(product?.optionGroups || []); return <div key={item.id}><span>{item.quantity}x {item.productName}{config && <small>{item.partyPackageWeightGrams || config.packageWeightGrams} g por pacote · encomenda para festa</small>}{item.options.length > 0 && <small>{item.options.map((option) => option.itemName).join(' · ')}</small>}</span><strong>{currency.format(cartItemUnitTotal(item) * item.quantity)}</strong>{!quickId&&<div className="checkout-item-actions"><QuantityControl value={item.quantity} max={maxQuantityForItem(item.id,item.productId)} label={`Quantidade de ${item.productName}`} onChange={(value)=>updateQuantity(item.id,value)}/><button type="button" className="checkout-item-remove" onClick={()=>removeItem(item.id)} aria-label={`Remover ${item.productName}`}><Trash2 size={15}/>Remover</button></div>}</div>; })}</div>
+        {quickId&&<Link className="checkout-edit-cart" to={storefrontPath(storeBasePath,'/carrinho')}>Editar itens no carrinho</Link>}
         <div className="summary-line"><span>Subtotal</span><strong>{currency.format(subtotal)}</strong></div>
         {form.fulfillment === 'delivery' && <div className="summary-line"><span>Entrega</span><strong>{deliveryFee === 0 ? 'Grátis' : currency.format(deliveryFee)}</strong></div>}
         <div className="summary-total"><span>Total</span><strong>{currency.format(total)}</strong></div>

@@ -14,21 +14,42 @@ for(const width of [390,1366]) {
     const tableRegion=page.getByRole('region',{name:'Tabela de lojas; use as setas para navegar pelas colunas'});
     await expect(tableRegion).toBeVisible();
     await expect(tableRegion).toHaveAttribute('tabindex','0');
-    if(width<=600) await expect(page.getByText('Em telas menores, deslize a tabela na horizontal para ver todas as informações e ações.')).toBeVisible();
+    if(width<=600) {
+      await expect(tableRegion.locator('tbody tr').first()).toHaveCSS('display','grid');
+      expect(await tableRegion.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
+    }
     await page.getByRole('button',{name:'Gerenciar',exact:true}).first().click();
     const dialog=page.getByRole('dialog',{name:store.name});
     await expect(dialog.getByText('Administrando esta loja')).toBeVisible();
     await expect(dialog.getByRole('link',{name:`/${store.slug}`,exact:true})).toBeVisible();
+    const accessOptions=dialog.locator('details.master-access-options');
+    expect(await accessOptions.evaluate(element=>element.hasAttribute('open'))).toBe(false);
+    await accessOptions.locator('summary').click();
+    await expect(dialog.getByLabel('E-mail de acesso')).toBeVisible();
     await page.screenshot({path:testInfo.outputPath(`master-edicao-${width}.png`),fullPage:true});
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole('button',{name:'Gerenciar',exact:true}).first()).toBeFocused();
     await page.getByRole('button',{name:'Nova loja',exact:true}).click();
     await expect(page.getByRole('dialog').getByLabel('Cidade',{exact:true})).toHaveValue('');
+    const advanced=page.getByRole('dialog').locator('details.master-advanced-options');
+    expect(await advanced.evaluate(element=>element.hasAttribute('open'))).toBe(false);
+    await advanced.locator('summary').click();
+    await expect(page.getByRole('dialog').getByLabel('Status',{exact:true})).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
     expect(errors).toEqual([]);
   });
 }
+
+test('Master mostra limites do plano sob demanda',async({page})=>{
+  await mockBackend(page,{auth:true,master:true});
+  await page.goto('/admin-master/planos');
+  const options=page.locator('details.master-plan-advanced').first();
+  await expect(options.locator('summary')).toBeVisible();
+  expect(await options.evaluate(element=>element.hasAttribute('open'))).toBe(false);
+  await options.locator('summary').click();
+  await expect(options.getByText('Produtos ativos')).toBeVisible();
+});
 
 for(const width of [390,768,1024,1440]) {
   test(`tabela do Master mantém Uso e ações acessíveis em ${width}px`,async({page})=>{
@@ -39,14 +60,19 @@ for(const width of [390,768,1024,1440]) {
     await expect(create).toBeVisible();
     expect(await create.evaluate(element=>getComputedStyle(element).whiteSpace)).toBe('nowrap');
     const region=page.getByRole('region',{name:'Tabela de lojas; use as setas para navegar pelas colunas'});
-    const usage=region.getByRole('columnheader',{name:'Uso'});
-    await usage.scrollIntoViewIfNeeded();
-    const bounds=await usage.boundingBox(), container=await region.boundingBox();
-    expect(bounds).not.toBeNull();expect(container).not.toBeNull();
-    expect(bounds!.x).toBeGreaterThanOrEqual(container!.x-2);
-    expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(container!.x+container!.width+2);
-    expect(bounds!.width).toBeGreaterThanOrEqual(210);
-    if(width<=1024) expect(await region.evaluate(element=>element.scrollWidth>element.clientWidth)).toBe(true);
+    if(width<=600) {
+      await expect(region.locator('tbody tr').first()).toHaveCSS('display','grid');
+      expect(await region.evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
+    } else {
+      const usage=region.getByRole('columnheader',{name:'Uso'});
+      await usage.scrollIntoViewIfNeeded();
+      const bounds=await usage.boundingBox(), container=await region.boundingBox();
+      expect(bounds).not.toBeNull();expect(container).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(container!.x-2);
+      expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(container!.x+container!.width+2);
+      expect(bounds!.width).toBeGreaterThanOrEqual(210);
+      if(width<=1024) expect(await region.evaluate(element=>element.scrollWidth>element.clientWidth)).toBe(true);
+    }
     const action=region.getByRole('button',{name:'Gerenciar',exact:true}).first();
     await action.scrollIntoViewIfNeeded();
     await action.click();

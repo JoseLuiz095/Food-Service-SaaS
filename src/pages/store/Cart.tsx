@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { ProductMedia } from '../../components/ProductMedia';
 import { LoadingState } from '../../components/ui/AsyncState';
 import { QuantityControl } from '../../components/QuantityControl';
-import { cartItemUnitTotal, useCart } from '../../contexts/CartContext';
+import { cartItemUnitTotal, MAX_CART_ITEM_QUANTITY, useCart } from '../../contexts/CartContext';
 import { useStore } from '../../contexts/StoreContext';
 import { currency } from '../../utils/format';
 import { loadRecentOrder } from '../../utils/customerSales';
@@ -25,6 +25,16 @@ export default function Cart() {
     return row && Number(row.available) < totalQuantity;
   }) : [];
   const pickupOnlyShortage = insufficient.length > 0 && !settings.deliveryEnabled;
+  const maxQuantityForItem = (itemId: string, productId: string) => {
+    const product = products.find((candidate) => candidate.id === productId);
+    if (!product?.trackStock) return MAX_CART_ITEM_QUANTITY;
+    const otherQuantity = items.filter((candidate) => candidate.productId === productId && candidate.id !== itemId).reduce((sum, candidate) => sum + candidate.quantity, 0);
+    const globalAvailable = settings.allowScheduledOrders ? MAX_CART_ITEM_QUANTITY : Math.max(0, Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0));
+    const pointAvailable = !settings.deliveryEnabled && pickup.selectedPoint && pickup.availability
+      ? Number(pointStock(pickup.availability, productId)?.available || 0)
+      : MAX_CART_ITEM_QUANTITY;
+    return Math.max(1, Math.min(MAX_CART_ITEM_QUANTITY, globalAvailable, pointAvailable) - otherQuantity);
+  };
 
   useEffect(() => { if (!loading) validateAgainstProducts(products); }, [products, loading, validateAgainstProducts]);
 
@@ -83,7 +93,7 @@ export default function Cart() {
             <b>{currency.format(cartItemUnitTotal(item))} / un.</b>
             {pickup.selectedPoint && products.find((product) => product.id === item.productId) && <PointStockNotice product={products.find((product) => product.id === item.productId)!} pointName={pickup.selectedPoint.name} row={pointStock(pickup.availability,item.productId)} quantity={items.filter((candidate) => candidate.productId === item.productId).reduce((sum, candidate) => sum + candidate.quantity, 0)}/>}
           </div>
-          <QuantityControl value={item.quantity} onChange={(value) => updateQuantity(item.id, value)}/>
+          <QuantityControl value={item.quantity} max={maxQuantityForItem(item.id, item.productId)} label={`Quantidade de ${item.productName}`} onChange={(value) => updateQuantity(item.id, value)}/>
           <strong className="cart-item__total">{currency.format(cartItemUnitTotal(item) * item.quantity)}</strong>
           <button type="button" className="row-delete" onClick={() => removeItem(item.id)} aria-label={`Remover ${item.productName}`}><Trash2 size={18}/></button>
         </article>)}</div>

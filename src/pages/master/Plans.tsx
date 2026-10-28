@@ -436,6 +436,9 @@ export default function MasterPlans() {
                 </label>
               </div>
 
+              <details className="master-advanced-options master-plan-advanced">
+                <summary>Mais opções do plano: limites e recursos</summary>
+                <div className="master-advanced-content">
               <div className="master-plan-limits">
                 <label>
                   Produtos ativos
@@ -527,6 +530,9 @@ export default function MasterPlans() {
                   <small>Itens adicionais exibidos na página comercial. Use para destacar novidades sem precisar alterar o código da landing.</small>
                 </label>
               </div>
+
+                </div>
+              </details>
 
               <div className="food-master-chip-list">
                 {chips.map((chip) => {

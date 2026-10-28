@@ -11,12 +11,13 @@ import { currency, roundMoney, slugify } from '../../utils/format';
 import { createId } from '../../utils/id';
 import { createProductCopy } from '../../utils/productCopy';
 import { getBusinessSegment, type BusinessSegment } from '../../segments/businessSegments';
+import './product-form-simplified.css';
 
 const emptyProduct = (storeId: string, segment: BusinessSegment = 'food'): Product => ({
   id: createId(), storeId, categoryId: '', name: '', slug: '', description: '', price: 0,
   imageUrl: '/assets/placeholder-food.svg', visualEmoji: segment === 'food' ? '🍔' : segment === 'confectionery' ? '🍰' : segment === 'printing3d' ? '🧩' : segment === 'rentals' ? '🎪' : '📦', gallery: [], images: [], featured: false, active: true,
   madeToOrder: false, productionDays: 0, stockStatus: 'available', availabilityStatus: 'available',
-  trackStock: true, stockQuantity: 0, preparationTimeMinutes: 0, sortOrder: 0,
+  trackStock: !['services', 'personal', 'nutrition', 'creator'].includes(segment), stockQuantity: 0, preparationTimeMinutes: 0, sortOrder: 0,
   optionGroups: [], variations: [], addons: [],
 });
 
@@ -116,6 +117,8 @@ export default function ProductForm() {
   const duplicateSource = products.find((product) => product.id === duplicateId && product.storeId === settings.id);
   const editorKey = `${settings.id}:${id || 'novo'}:${duplicateId || ''}`;
   const initializedEditorKey = useRef('');
+  const moreDetailsRef = useRef<HTMLDetailsElement>(null);
+  const optionsDetailsRef = useRef<HTMLDetailsElement>(null);
   const [product, setProduct] = useState<Product>(() => existing ? productForEditor(existing) : duplicateSource ? productForEditor(createProductCopy(duplicateSource, products)) : emptyProduct(settings.id,businessProfile.id));
   const [partyConfig, setPartyConfig] = useState<PartyOrderConfig>(() => {
     const source = existing || duplicateSource;
@@ -230,11 +233,12 @@ export default function ProductForm() {
       return;
     }
     if (product.promotionalPrice != null && product.promotionalPrice > product.price) {
+      if (moreDetailsRef.current) moreDetailsRef.current.open = true;
       showToast('O preço promocional não pode ser maior que o preço normal.', 'error');
       return;
     }
     const groupError = validateGroups();
-    if (groupError) { showToast(groupError, 'error'); return; }
+    if (groupError) { if (optionsDetailsRef.current) optionsDetailsRef.current.open = true; setOpenGroups(Object.fromEntries(product.optionGroups.map((group) => [group.id, true]))); showToast(groupError, 'error'); return; }
 
     setSaving(true);
     try {
@@ -296,20 +300,21 @@ export default function ProductForm() {
   return <>
     <div className="admin-page-title"><div><Link to="/admin/produtos" className="back-link"><ArrowLeft size={16}/>Produtos</Link><h1>{existing ? 'Editar produto' : duplicateSource ? 'Duplicar produto' : 'Novo produto'}</h1><p>{duplicateSource ? 'Revise a cópia antes de salvar. Ela começa oculta, sem estoque, reservas, imagens ou código interno. As opções são independentes do produto original.' : 'Cadastre o item e monte as regras de tamanho, escolhas, adicionais e remoções.'}</p></div></div>
     <form id="product-form" className="admin-form-layout" onSubmit={submit}>
-      <section className="admin-card form-section">
+      <section className="admin-card form-section product-form-main">
         <div className="admin-card__header"><div><span className="eyebrow">INFORMAÇÕES</span><h2>Dados principais</h2></div></div>
         <div className="form-grid">
           <label className="full">Nome do produto<input required value={product.name} onChange={(event) => update('name', event.target.value)} placeholder="Ex.: X-Bacon Artesanal"/></label>
           <label>Categoria<select required value={product.categoryId} onChange={(event) => update('categoryId', event.target.value)}><option value="">Selecione</option>{activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+          <label>Preço<input required type="number" min="0" step="0.01" value={product.price} onChange={(event) => update('price', Number(event.target.value))}/></label>
+          <label className="switch-row full"><span><strong>Controlar estoque deste produto</strong><small>Pedidos ficam pré-vendidos e só baixam do estoque quando o recebimento for confirmado.</small></span><input type="checkbox" checked={product.trackStock} onChange={(event) => update('trackStock', event.target.checked)} /></label>
+          {product.trackStock && <div className="stock-physical-summary"><label>{existing ? 'Estoque físico atual' : 'Estoque físico inicial'}<input type="number" min="0" step="1" value={product.stockQuantity ?? 0} onChange={(event) => update('stockQuantity', Math.max(0, Math.trunc(Number(event.target.value) || 0)))} readOnly={Boolean(existing)}/></label>{existing ? <small className="muted">{Number(existing.stockReservedQuantity || 0)} reservado(s) · {Math.max(0, Number(existing.stockQuantity || 0) - Number(existing.stockReservedQuantity || 0))} disponível(is). Para ajustar o saldo físico e registrar o motivo, use <Link to="/admin/estoque">Estoque e insumos</Link>.</small> : <small className="muted">O disponível começa igual ao físico. Pedidos pendentes são descontados automaticamente; produtos sem saldo poderão ser agendados conforme as regras da loja.</small>}</div>}
+          <details ref={moreDetailsRef} className="product-form-more full"><summary><strong>Mais detalhes</strong><small>Código, promoção, preparo, disponibilidade e personalizações especiais</small></summary><div className="form-grid">
           <label>Código interno<input value={product.internalCode || ''} onChange={(event) => update('internalCode', event.target.value)} placeholder="Ex.: XB001"/></label>
           <label className="full product-emoji-field-v060"><span>Visual sem foto</span><div className="product-emoji-input-v060"><input value={product.visualEmoji || ''} onChange={(event) => update('visualEmoji', event.target.value.slice(0, 16))} placeholder={foodPresentation ? 'Ex.: 🍔' : 'Ex.: 📦'}/><div className="product-emoji-picker-v060" aria-label="Sugestões de emoji">{emojiChoices.map((emoji) => <button type="button" key={emoji} className={product.visualEmoji === emoji ? 'selected' : ''} onClick={() => update('visualEmoji', emoji)}>{emoji}</button>)}</div></div><small>Se o produto não tiver imagem, a VendeWeb usa este emoji no {businessProfile.catalogLabel.toLowerCase()}.</small></label>
-          <label>Preço<input required type="number" min="0" step="0.01" value={product.price} onChange={(event) => update('price', Number(event.target.value))}/></label>
           <label>Preço promocional<input type="number" min="0" step="0.01" value={product.promotionalPrice ?? ''} onChange={(event) => update('promotionalPrice', event.target.value ? Number(event.target.value) : undefined)}/></label>
           <label>Tempo adicional de preparo (min)<input type="number" min="0" step="1" value={product.preparationTimeMinutes} onChange={(event) => update('preparationTimeMinutes', Number(event.target.value))}/></label>
           <label>Status<select value={product.availabilityStatus} onChange={(event) => update('availabilityStatus', event.target.value as Product['availabilityStatus'])}><option value="available">Disponível</option><option value="unavailable">Indisponível temporariamente</option><option value="sold_out">Esgotado</option></select></label>
           <label>Status inicial do pedido<select value={product.defaultOrderStatus || 'received'} onChange={(event) => update('defaultOrderStatus', event.target.value as Product['defaultOrderStatus'])}><option value="received">Recebido</option><option value="confirmed">Confirmado</option><option value="preparing">Em preparo</option><option value="ready">Pronto</option><option value="out_for_delivery">Saiu para entrega</option></select><small>Usado como sugestão em lançamentos deste produto. Pedidos existentes não são alterados.</small></label>
-          <label className="switch-row full"><span><strong>Controlar estoque deste produto</strong><small>Pedidos ficam pré-vendidos e só baixam do estoque quando o recebimento for confirmado.</small></span><input type="checkbox" checked={product.trackStock} onChange={(event) => update('trackStock', event.target.checked)} /></label>
-          {product.trackStock && <div className="stock-physical-summary"><label>{existing ? 'Estoque físico atual' : 'Estoque físico inicial'}<input type="number" min="0" step="1" value={product.stockQuantity ?? 0} onChange={(event) => update('stockQuantity', Math.max(0, Math.trunc(Number(event.target.value) || 0)))} readOnly={Boolean(existing)}/></label>{existing ? <small className="muted">{Number(existing.stockReservedQuantity || 0)} reservado(s) · {Math.max(0, Number(existing.stockQuantity || 0) - Number(existing.stockReservedQuantity || 0))} disponível(is). Para ajustar o saldo físico e registrar o motivo, use <Link to="/admin/estoque">Estoque e insumos</Link>.</small> : <small className="muted">O disponível começa igual ao físico. Pedidos pendentes são descontados automaticamente; produtos sem saldo poderão ser agendados conforme as regras da loja.</small>}</div>}
           <div className="party-order-editor full">
             <label className="switch-row"><span><strong>Encomenda para festas</strong><small>Use este produto para pedidos programados de eventos, com cálculo por gramatura e referência de arte.</small></span><input type="checkbox" checked={partyConfig.enabled} onChange={(event) => setPartyConfig((current) => ({ ...current, enabled: event.target.checked }))} /></label>
             {partyConfig.enabled && <div className="form-grid party-order-editor__fields">
@@ -320,10 +325,12 @@ export default function ProductForm() {
               <label className="full">Arte ou referência da festa<textarea rows={3} value={partyConfig.artworkInstructions} onChange={(event) => setPartyConfig((current) => ({ ...current, artworkInstructions: event.target.value }))} placeholder="Ex.: informe tema, cores e data. Para detalhes, fale com a loja pelo Instagram."/><small>O cliente verá essa orientação no produto e poderá enviar os detalhes pelo Instagram.</small></label>
             </div>}
           </div>
-          <label className="full">Descrição<textarea required rows={5} value={product.description} onChange={(event) => update('description', event.target.value)} placeholder="Descreva ingredientes e características principais."/></label>
+          <label className="full">Descrição<textarea rows={5} value={product.description} onChange={(event) => update('description', event.target.value)} placeholder="Descreva ingredientes e características principais."/></label>
+        </div></details>
+
         </div>
 
-        <div className="subform-section">
+        <details ref={optionsDetailsRef} className="product-form-options"><summary><strong>Personalizações</strong><small>{product.optionGroups.length} grupo(s) de opções</small></summary><div className="subform-section">
           <div className="subform-title"><div><span className="eyebrow">PERSONALIZAÇÃO</span><h3>Grupos de opções</h3><p className="muted">Um único modelo atende tamanho, ponto da carne, adicionais e remoções.</p></div><button type="button" className="secondary-button" onClick={addGroup}><Plus size={16}/>Adicionar grupo</button></div>
           <div className="option-preset-bar-v060"><span>Adicionar rapidamente:</span><div>{optionPresets.map((preset) => <button type="button" key={preset.label} onClick={() => addPresetGroup(preset)}><Plus size={14}/>{preset.label}</button>)}</div></div>
                     {product.optionGroups.length === 0 ? <div className="option-builder-empty"><p>Este produto não possui personalizações.</p><button type="button" className="secondary-button" onClick={addGroup}><Plus size={16}/>Criar primeiro grupo</button></div> : <div className="option-builder-list">
@@ -351,9 +358,9 @@ export default function ProductForm() {
               </div>}
             </section>)}
           </div>}
-        </div>
+        </div></details>
 
-        <div className="subform-section"><div className="subform-title"><div><span className="eyebrow">IMAGENS</span><h3>Galeria do produto</h3></div><span className="muted">{totalImages}/{imageLimit ?? '∞'} imagens</span></div><p className="product-media-note-v060">Imagem tem prioridade. Sem imagem cadastrada, o emoji escolhido acima aparece automaticamente para o cliente.</p><label className="upload-drop"><ImagePlus size={24}/><strong>Selecionar imagens</strong><span>JPG, PNG ou WEBP · até 5 MB cada</span><input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => selectFiles(event.target.files)}/></label>{files.length > 0 && <div className="pending-files">{files.map((file, index) => <span key={`${file.name}-${index}`}>{file.name}<button type="button" onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X size={14}/></button></span>)}</div>}{product.images.length > 0 && <div className="image-admin-grid">{product.images.map((image) => <article key={image.id} className={image.isPrimary ? 'is-primary' : ''}><ImageWithFallback src={image.url} alt={image.altText || product.name}/><div><button type="button" onClick={() => void primary(image)} title="Definir como principal"><Star size={16}/>{image.isPrimary ? 'Principal' : 'Tornar principal'}</button><button type="button" onClick={() => void removeImage(image)} title="Excluir imagem"><Trash2 size={16}/></button></div></article>)}</div>}</div>
+        <div className="subform-section product-form-images"><div className="subform-title"><div><span className="eyebrow">IMAGENS</span><h3>Galeria do produto</h3></div><span className="muted">{totalImages}/{imageLimit ?? '∞'} imagens</span></div><p className="product-media-note-v060">Imagem tem prioridade. Sem imagem cadastrada, o emoji escolhido acima aparece automaticamente para o cliente.</p><label className="upload-drop"><ImagePlus size={24}/><strong>Selecionar imagens</strong><span>JPG, PNG ou WEBP · até 5 MB cada</span><input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => selectFiles(event.target.files)}/></label>{files.length > 0 && <div className="pending-files">{files.map((file, index) => <span key={`${file.name}-${index}`}>{file.name}<button type="button" onClick={() => setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X size={14}/></button></span>)}</div>}{product.images.length > 0 && <div className="image-admin-grid">{product.images.map((image) => <article key={image.id} className={image.isPrimary ? 'is-primary' : ''}><ImageWithFallback src={image.url} alt={image.altText || product.name}/><div><button type="button" onClick={() => void primary(image)} title="Definir como principal"><Star size={16}/>{image.isPrimary ? 'Principal' : 'Tornar principal'}</button><button type="button" onClick={() => void removeImage(image)} title="Excluir imagem"><Trash2 size={16}/></button></div></article>)}</div>}</div>
       </section>
 
       <aside>

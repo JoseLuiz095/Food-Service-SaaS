@@ -70,6 +70,7 @@ for (const width of [390, 1366]) {
     await expect(page.getByRole('heading', { name: 'Duplicar produto', exact: true })).toBeVisible();
     await expect(page.getByLabel('Nome do produto', { exact: true })).toHaveValue('Brigadeiro teste (cópia)');
     await expect(page.getByLabel('Estoque físico inicial', { exact: true })).toHaveValue('0');
+    await page.locator('.product-form-more summary').click();
     await expect(page.getByLabel('Código interno', { exact: true })).toHaveValue('');
     await expect(page.getByRole('checkbox', { name: /Produto ativo/ })).not.toBeChecked();
     await expect(page.locator('.image-admin-grid')).toHaveCount(0);
@@ -95,6 +96,20 @@ for (const width of [390, 1366]) {
     expect(backend.writes.filter(write => write.method === 'DELETE').some(write => write.query.includes(GROUP))).toBe(false);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`catalogo-copia-${width}.png`), fullPage: true });
+  });
+}
+
+for (const width of [390, 1366]) {
+  test(`preço pode ser alterado na lista sem abrir o cadastro em ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    const backend = await catalogBackend(page);
+    await page.goto('/admin/produtos');
+    await page.getByRole('button', { name: 'Alterar preço de Brigadeiro teste' }).click();
+    await page.getByRole('spinbutton', { name: 'Novo preço de Brigadeiro teste' }).fill('19.90');
+    await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+    await expect(page).toHaveURL(/\/admin\/produtos$/);
+    await expect(page.getByText('Preço atualizado.', { exact: true })).toBeVisible();
+    expect(backend.rows.food_products.find(row => row.id === PRODUCT)?.price).toBe(19.9);
   });
 }
 
