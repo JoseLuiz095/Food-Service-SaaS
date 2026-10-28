@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { ProductMedia } from '../../components/ProductMedia';
 import { LoadingState } from '../../components/ui/AsyncState';
 import { QuantityControl } from '../../components/QuantityControl';
-import { cartItemUnitTotal, MAX_CART_ITEM_QUANTITY, useCart } from '../../contexts/CartContext';
+import { cartItemUnitTotal, useCart } from '../../contexts/CartContext';
 import { useStore } from '../../contexts/StoreContext';
 import { currency } from '../../utils/format';
 import { loadRecentOrder } from '../../utils/customerSales';
@@ -12,6 +12,7 @@ import { storefrontPath } from '../../utils/storefrontRoute';
 import type { SelectedOption } from '../../types';
 import { PickupPointSelector, PointStockNotice } from './PickupPointSelector';
 import { pointStock, usePickupAvailability } from './usePickupAvailability';
+import { canAddWithoutOptions, cartLineLimit } from '../../utils/cartAvailability';
 
 export default function Cart() {
   const { items, subtotal, addItem, updateQuantity, removeItem, validateAgainstProducts } = useCart();
@@ -25,15 +26,11 @@ export default function Cart() {
     return row && Number(row.available) < totalQuantity;
   }) : [];
   const pickupOnlyShortage = insufficient.length > 0 && !settings.deliveryEnabled;
-  const maxQuantityForItem = (itemId: string, productId: string) => {
-    const product = products.find((candidate) => candidate.id === productId);
-    if (!product?.trackStock) return MAX_CART_ITEM_QUANTITY;
-    const otherQuantity = items.filter((candidate) => candidate.productId === productId && candidate.id !== itemId).reduce((sum, candidate) => sum + candidate.quantity, 0);
-    const globalAvailable = settings.allowScheduledOrders ? MAX_CART_ITEM_QUANTITY : Math.max(0, Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0));
-    const pointAvailable = !settings.deliveryEnabled && pickup.selectedPoint && pickup.availability
-      ? Number(pointStock(pickup.availability, productId)?.available || 0)
-      : MAX_CART_ITEM_QUANTITY;
-    return Math.max(1, Math.min(MAX_CART_ITEM_QUANTITY, globalAvailable, pointAvailable) - otherQuantity);
+  const lineLimit = (productId: string, lineId: string) => {
+    const product = products.find(candidate => candidate.id === productId);
+    return product ? cartLineLimit(product, items, lineId, pickup.selectedPoint
+      ? pickup.availability === null ? null : Number(pointStock(pickup.availability, productId)?.available || 0)
+      : undefined) : 0;
   };
 
   useEffect(() => { if (!loading) validateAgainstProducts(products); }, [products, loading, validateAgainstProducts]);
@@ -93,22 +90,22 @@ export default function Cart() {
             <b>{currency.format(cartItemUnitTotal(item))} / un.</b>
             {pickup.selectedPoint && products.find((product) => product.id === item.productId) && <PointStockNotice product={products.find((product) => product.id === item.productId)!} pointName={pickup.selectedPoint.name} row={pointStock(pickup.availability,item.productId)} quantity={items.filter((candidate) => candidate.productId === item.productId).reduce((sum, candidate) => sum + candidate.quantity, 0)}/>}
           </div>
-          <QuantityControl value={item.quantity} max={maxQuantityForItem(item.id, item.productId)} label={`Quantidade de ${item.productName}`} onChange={(value) => updateQuantity(item.id, value)}/>
+          <QuantityControl value={item.quantity} max={lineLimit(item.productId,item.id)} onChange={(value) => updateQuantity(item.id, value)}/>
           <strong className="cart-item__total">{currency.format(cartItemUnitTotal(item) * item.quantity)}</strong>
           <button type="button" className="row-delete" onClick={() => removeItem(item.id)} aria-label={`Remover ${item.productName}`}><Trash2 size={18}/></button>
         </article>)}</div>
 
         {suggestions.length > 0 && <section className="cart-upsell-v061"><div className="cart-upsell-v061__heading"><span className="eyebrow">COMPLETE O PEDIDO</span><h2>Que tal levar também?</h2><p>Sugestões disponíveis no cardápio para aumentar seu pedido sem complicar a escolha.</p></div><div className="cart-upsell-v061__grid">{suggestions.map((product) => {
-          const canQuickAdd = product.optionGroups.every((group) => !group.active || group.minChoices === 0);
+          const canQuickAdd = canAddWithoutOptions(product);
           const price = product.promotionalPrice ?? product.price;
-          return <article key={product.id}><ProductMedia src={product.imageUrl} emoji={product.visualEmoji} alt={product.name}/><div><strong>{product.name}</strong><span>{currency.format(price)}</span></div>{canQuickAdd ? <button type="button" onClick={() => addItem(product, 1, [])}><Plus size={16}/>Adicionar</button> : <Link to={storefrontPath(storeBasePath, `/produto/${product.slug}`)}>Personalizar <ArrowRight size={15}/></Link>}</article>;
+          return <article key={product.id}><ProductMedia src={product.imageUrl} emoji={product.visualEmoji} alt={product.name}/><div><strong>{product.name}</strong><span>{currency.format(price)}</span></div>{canQuickAdd ? <button type="button" disabled={lineLimit(product.id,`${product.id}|base`)<1} onClick={() => addItem(product, 1, [])}><Plus size={16}/>Adicionar</button> : <Link to={storefrontPath(storeBasePath, `/produto/${product.slug}`)}>Personalizar <ArrowRight size={15}/></Link>}</article>;
         })}</div></section>}
       </section>
       <aside className="order-summary cart-navigation-layer">
         <span className="eyebrow">RESUMO</span>
         <div className="summary-total"><span>Subtotal</span><strong>{currency.format(subtotal)}</strong></div>
         {settings.minimumOrder > 0 && <div className={`minimum-order ${minimumMissing > 0 ? 'warning' : ''}`}><span>Pedido mínimo: {currency.format(settings.minimumOrder)}</span>{minimumMissing > 0 && <strong>Faltam {currency.format(minimumMissing)}</strong>}</div>}
-        <p>Taxa de entrega será calculada conforme o bairro selecionado.</p>
+        {pickup.selectedPoint ? <p>Retirada em <strong>{pickup.selectedPoint.name}</strong>. Sem taxa de entrega.</p> : settings.deliveryEnabled ? <p>Taxa de entrega calculada ao escolher o bairro. Retirada sem taxa.</p> : <p>Retirada sem taxa de entrega.</p>}
         {insufficient.length > 0 && <p className="store-point-stock store-point-stock--warning" role="alert">Há itens sem saldo suficiente no ponto escolhido. {settings.deliveryEnabled ? 'No checkout, escolha delivery ou altere o ponto de retirada.' : 'Ajuste as quantidades ou selecione outro ponto.'}</p>}
         {minimumMissing > 0 || pickupOnlyShortage ? <button type="button" className="primary-button cart-continue-button" disabled><AlertCircle size={18}/>{pickupOnlyShortage ? 'Ajuste o estoque do ponto' : 'Complete o pedido'}</button> : <Link className="primary-button cart-continue-button" to={storefrontPath(storeBasePath, '/finalizar')}>{insufficient.length ? 'Escolher delivery' : 'Continuar'} <ArrowRight size={18}/></Link>}
       </aside>

@@ -21,18 +21,18 @@
 
 As contagens são dos fluxos e controles do código e dos testes locais. Não há medição confiável de tempo real ou conversão; nenhum percentual foi estimado.
 
-## Validação local
+## Validação local após integrar a main atual
 
-- `npm run build`: passou, incluindo TypeScript.
-- 24 cenários Playwright de compra, catálogo e Master: passaram em Chromium local.
-- Smoke, fluxo crítico, segmentos, domínio, PWA, notificações, segurança, estoque simples, provisionamento demo, integrações e plataforma: passaram até a etapa `test:provision` da validação completa.
-- `npm run validate`: parou em um teste preexistente de permissões de arquivo (`OUTPUT_DIRECTORY_MUST_BE_PRIVATE_0700`) no Windows. O teste não toca os fluxos alterados.
-- O teste legado `npm run test:modules` compara arquivos com um commit histórico e já falha porque a branch base alterou esses arquivos antes desta tarefa.
+- `npm run build`: passou, incluindo verificação TypeScript.
+- `npm run test:payment-links`: 12 casos passaram; `npm run test:cart`: 14 verificações passaram.
+- `npm run smoke`: 177 verificações passaram; `npm run test:critical`: 122 verificações passaram.
+- `npm run test:segments`, `npm run test:domains`, `npm run test:platform` (96 verificações PostgreSQL locais) e `npm run test:security`: passaram.
+- Playwright não pôde iniciar Chromium neste executor: o processo foi encerrado porque a criação de socket Unix não é permitida (`socket() failed: Operation not permitted`). Portanto, não há nova validação visual/E2E desta revisão integrada. As 24 execuções citadas no histórico eram da revisão anterior da branch, antes da integração mais recente.
 
 ## Capturas
 
-- [Checkout móvel anterior](screenshots/ux-before-checkout-mobile.png): snapshot visual já existente no repositório, com dados da loja demo.
-- [Checkout móvel após a mudança](screenshots/ux-after-checkout-mobile.png): captura do teste Playwright com dados simulados da Doce Lua. As capturas usam dados diferentes e servem para inspeção visual; a comparação de etapas acima vem do fluxo testado.
+- [Checkout móvel após a mudança](screenshots/ux-after-checkout-mobile.png): captura do teste Playwright anterior com dados simulados da Doce Lua.
+- A captura anterior da branch era uma página 404, não um baseline válido, e foi removida. A comparação de etapas acima descreve o fluxo no código/testes, não uma comparação visual antes/depois.
 
 ## Supabase e pendências
 

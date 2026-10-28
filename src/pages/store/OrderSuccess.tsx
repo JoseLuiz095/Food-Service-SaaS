@@ -1,7 +1,9 @@
-import { ArrowLeft, Banknote, Bell, Check, CheckCircle2, Copy, CreditCard, MessageCircle, QrCode, Share2, Store } from 'lucide-react';
+import { ArrowLeft, Banknote, Bell, CheckCircle2, CreditCard, MessageCircle, QrCode, Share2, Store } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
+import PixCopyButton from '../../components/PixCopyButton';
+import './order-payment.css';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import type { OrderConfirmation } from '../../types';
@@ -19,7 +21,6 @@ export default function OrderSuccess() {
   const location = useLocation();
   const { markOrderWhatsAppClicked, settings, storeBasePath } = useStore();
   const { showToast } = useToast();
-  const [copied, setCopied] = useState(false);
   const [sharingPix, setSharingPix] = useState(false);
   const [pixQrCode, setPixQrCode] = useState('');
   const [whatsappMarkState, setWhatsappMarkState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
@@ -65,7 +66,7 @@ export default function OrderSuccess() {
   }
 
   const isPix = confirmation.paymentMethod === 'pix' && confirmation.pixEnabled;
-  const isPixCopyPaste = isPix && confirmation.pixReceiptMode === 'copy_paste' && Boolean(confirmation.pixCopyPaste.trim());
+  const isPixCopyPaste = isPix && (Boolean(confirmation.pixPayload?.trim()) || (confirmation.pixReceiptMode === 'copy_paste' && Boolean(confirmation.pixCopyPaste.trim())));
   const isPixKey = isPix && confirmation.pixReceiptMode === 'key' && Boolean(confirmation.pixKey.trim());
   const hasPixPayload = isPix && Boolean(confirmation.pixPayload?.trim());
   const isCard = confirmation.paymentMethod === 'card';
@@ -75,17 +76,6 @@ export default function OrderSuccess() {
   const whatsappUrl = hasWhatsApp ? getWhatsAppUrl(confirmation.storeWhatsapp, whatsappMessage) : '';
   const pixValue = isPixCopyPaste ? (confirmation.pixPayload || confirmation.pixCopyPaste) : confirmation.pixKey;
   const confirmationStatus = isPix ? 'Aguardando confirmação do PIX pela loja' : isCard ? 'Aguardando recebimento na entrega ou retirada' : isCash ? 'Aguardando recebimento em dinheiro' : 'Aguardando confirmação da loja';
-
-  const handleCopyPix = async () => {
-    try {
-      await copyText(pixValue);
-      setCopied(true);
-      showToast(isPixCopyPaste ? 'PIX Copia e Cola copiado.' : 'Chave PIX copiada.', 'success');
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      showToast('Não foi possível copiar o PIX.', 'error');
-    }
-  };
 
   const handleSharePix = async () => {
     if (!pixQrCode || sharingPix) return;
@@ -168,6 +158,7 @@ export default function OrderSuccess() {
             <>
               <p>{isPixCopyPaste ? 'Copie o PIX Copia e Cola abaixo. Ele já contém o valor deste pedido.' : hasWhatsApp ? 'Efetue o pagamento via PIX e envie o comprovante pelo WhatsApp para a loja confirmar seu pedido.' : 'Efetue o pagamento via PIX. A loja fará a confirmação pelo sistema.'}</p>
               <strong className="order-success-total">Total: {currency.format(confirmation.total)}</strong>
+              <p role="status">Aguardando confirmação do pagamento pela loja. Enviar o comprovante não confirma o pagamento automaticamente.</p>
             </>
           ) : isCard ? (
             <>
@@ -191,12 +182,7 @@ export default function OrderSuccess() {
           <div className="pix-confirmation-box">
               <p>{isPixCopyPaste ? `Copie o código abaixo e cole na opção “PIX Copia e Cola” do seu banco. O valor de ${currency.format(confirmation.total)} já está preenchido.` : hasWhatsApp ? `Copie a chave PIX, informe o valor de ${currency.format(confirmation.total)} no banco e depois envie o comprovante para ${confirmation.storeName}.` : `Copie a chave PIX e informe o valor de ${currency.format(confirmation.total)} no banco. A loja fará a confirmação pelo painel.`}</p>
             <span className="pix-key-label">{isPixCopyPaste ? 'PIX Copia e Cola · valor automático' : `Chave PIX · ${confirmation.pixKeyType || 'Chave cadastrada'}`}</span>
-            <div className="pix-key-row">
-              <code>{pixValue}</code>
-              <button type="button" onClick={() => void handleCopyPix()} aria-label="Copiar PIX" title="Copiar PIX">
-                {copied ? <Check size={21} /> : <Copy size={21} />}
-              </button>
-            </div>
+            <PixCopyButton key={pixValue} value={pixValue} label={isPixCopyPaste ? 'Código Pix' : 'Chave Pix'}/>
           {hasPixPayload && <div className="pix-qr-code"><span className="pix-key-label">QR Code PIX · valor preenchido</span>{pixQrCode ? <img src={pixQrCode} alt={`QR Code PIX no valor de ${currency.format(confirmation.total)}`} /> : <small>Gerando QR Code…</small>}<small>Escaneie com o aplicativo do seu banco.</small>{pixQrCode && <button type="button" className="secondary-button pix-share-button" disabled={sharingPix} onClick={() => void handleSharePix()}><Share2 size={16}/>{sharingPix ? 'Preparando...' : 'Compartilhar QR Code + texto'}</button>}</div>}
             {confirmation.pixReceiver && <small>Recebedor: {confirmation.pixReceiver}</small>}
           </div>

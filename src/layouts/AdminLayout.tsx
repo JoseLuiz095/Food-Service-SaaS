@@ -46,6 +46,7 @@ import { useStockMode } from '../hooks/useStockMode';
 import { useAdminMobileNavigation } from '../hooks/useAdminMobileNavigation';
 import { moduleIsActive } from '../platform/api';
 import '../components/admin/admin-navigation.css';
+import './operational-navigation.css';
 
 const navSections: Array<{ label: string; items: Array<{ to: string; label: string; icon: LucideIcon; end?: boolean; requiresFeature?: string }> }> = [
   {
@@ -56,7 +57,7 @@ const navSections: Array<{ label: string; items: Array<{ to: string; label: stri
     ],
   },
   {
-    label: 'Vendas',
+    label: 'Operação',
     items: [
       { to: '/admin/pedidos', label: 'Pedidos', icon: ShoppingBag },
       { to: '/admin/analytics', label: 'Análises', icon: BarChart3, requiresFeature: 'analytics' },
@@ -73,13 +74,13 @@ const navSections: Array<{ label: string; items: Array<{ to: string; label: stri
     ],
   },
   {
-    label: 'Loja',
+    label: 'Minha loja',
     items: [
       { to: '/admin/configuracoes', label: 'Configurações', icon: Settings },
     ],
   },
   {
-    label: 'Administração',
+    label: 'Mais ferramentas',
     items: [
       { to: '/admin/financeiro', label: 'Financeiro', icon: Landmark, requiresFeature: 'finance' },
       { to: '/admin/plano', label: 'Meu plano', icon: BadgeDollarSign },
@@ -182,6 +183,7 @@ export default function AdminLayout() {
 
   return (
     <div data-business-segment={segment.id} data-visual-preset={settings.visualTheme.preset} style={segmentStyle} className={`admin-shell food-admin-parity-v054 ${segmentPresentation ? 'admin-business-theme' : ''} ${sidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
+      <a className="admin-operation-skip" href="#admin-main">Ir para o conteúdo</a>
       <button ref={triggerRef} type="button" className="admin-mobile-menu" onClick={() => setOpen(true)} aria-label="Abrir menu" aria-expanded={open} aria-controls="admin-sidebar"><Menu size={21} /></button>
       {open && <button type="button" className="admin-backdrop" onClick={() => setOpen(false)} aria-label="Fechar menu" tabIndex={-1} aria-hidden="true" />}
 
@@ -212,14 +214,18 @@ export default function AdminLayout() {
               && (item.to !== '/admin/entregas' || deliverySegments.includes(segment.id))
               && (item.to !== '/admin/estoque' || deliverySegments.includes(segment.id) || products.some((product) => product.trackStock)));
             if (!items.length) return null;
-            return (
-              <div className="admin-nav__group" key={section.label}>
-                <span className="admin-nav__label">{section.label==='Catálogo'&&segmentPresentation?segment.catalogLabel:section.label}</span>
-                {items.map(({ to, label, icon: Icon, end }) => (
-                  <NavLink key={to} to={to} end={end} onClick={() => setOpen(false)}><Icon size={18} /><span className="admin-nav-text">{segmentPresentation&&to==='/admin/produtos'?segment.catalogLabel:label}</span></NavLink>
-                ))}
-              </div>
+            const links = items.map(({ to, label, icon: Icon, end }) => {
+              const itemLabel = segmentPresentation && to === '/admin/produtos' ? segment.catalogLabel : label;
+              return <NavLink key={to} to={to} end={end} title={itemLabel} aria-label={itemLabel} onClick={() => setOpen(false)}><Icon size={18} /><span className="admin-nav-text">{itemLabel}</span></NavLink>;
+            });
+            if (section.label === 'Mais ferramentas') return (
+              <details className="admin-nav-more" key={section.label} open={sidebarCollapsed || items.some(item => location.pathname.startsWith(item.to))}>
+                <summary>Mais ferramentas</summary><div className="admin-nav__group">{links}</div>
+              </details>
             );
+            return <div className="admin-nav__group" key={section.label}>
+              <span className="admin-nav__label">{section.label==='Catálogo'&&segmentPresentation?segment.catalogLabel:section.label}</span>{links}
+            </div>;
           })}
         </nav>
 
@@ -263,7 +269,7 @@ export default function AdminLayout() {
           </div>
         </header>
         {membership?.approvalStatus === 'pending' && <div className={`self-service-approval-banner ${membership.limitedAccess?'is-limited':'is-trial'}`}><ShieldCheck size={18}/><div><strong>{membership.limitedAccess?'Cadastro em preparação':'Cadastro em análise'}</strong><span>{membership.limitedAccess?'Você pode configurar cardápio, identidade, entregas e configurações. Pedidos, Analytics, Financeiro, cobrança e a vitrine ficam bloqueados até a aprovação do Admin Master.':'Seu Demo está disponível enquanto o Admin Master revisa o cadastro.'}</span></div></div>}
-        <div className="admin-page"><div key={`${location.pathname}:${membership?.storeId || 'none'}`}><Outlet /></div></div>
+        <main id="admin-main" tabIndex={-1} className="admin-page"><div key={`${location.pathname}:${membership?.storeId || 'none'}`}><Outlet /></div></main>
       </section>
       <PlatformHelpButton />
     </div>

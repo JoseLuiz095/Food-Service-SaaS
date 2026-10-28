@@ -1,0 +1,29 @@
+.catalog-disclosure{margin-top:24px;border:1px solid var(--border,#e4e7ec);border-radius:14px;background:var(--surface,#fff)}
+.catalog-disclosure>summary{cursor:pointer;padding:18px;min-height:48px;line-height:1.5;overflow-wrap:anywhere}
+.catalog-disclosure>summary strong{margin-inline-end:12px}
+.catalog-disclosure>summary span{display:block;margin-top:4px;color:var(--muted,#667085);font-size:.86rem}
+.catalog-disclosure__body{padding:4px 18px 20px}
+.catalog-disclosure:focus-within{outline-offset:3px}
+.catalog-toolbar{flex-wrap:wrap;gap:12px}
+.catalog-status-filter{display:flex;align-items:center;gap:8px;min-height:44px;font-size:.85rem}
+.catalog-status-filter select{min-height:44px;max-width:100%;padding:8px 12px;border:1px solid var(--border,#e4e7ec);border-radius:10px;background:var(--surface,#fff);color:inherit}
+.catalog-quick-editor{display:grid;gap:14px;margin:0 20px 20px;padding:20px;border:1px solid var(--border,#e4e7ec);border-radius:14px;background:var(--surface,#fff);scroll-margin-top:100px}
+.catalog-quick-editor h2{font-size:1rem;margin:0 0 4px}
+.catalog-quick-editor p{margin:0;overflow-wrap:anywhere}
+.catalog-quick-editor>label,.catalog-quick-editor .form-grid>label{display:grid;gap:7px;font-weight:600;font-size:.88rem}
+.catalog-quick-editor input,.catalog-quick-editor select{width:100%;min-width:0;min-height:44px;padding:10px 12px;border:1px solid var(--border,#d0d5dd);border-radius:9px;background:var(--surface,#fff);color:inherit;font:inherit}
+.catalog-quick-editor__actions,.catalog-row-quick{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.catalog-quick-editor__actions{justify-content:flex-end}
+.catalog-save-error{color:var(--danger,#b42318);font-weight:600}
+.catalog-empty{padding:36px 20px;text-align:center}
+.catalog-empty h2{font-size:1.1rem}
+.catalog-empty p{margin-bottom:18px}
+@media(max-width:760px){
+  .catalog-toolbar .admin-search{flex:1 1 100%;min-width:0}
+  .catalog-status-filter{flex:1 1 auto;min-width:0}
+  .catalog-quick-editor{margin:0 12px 16px;padding:16px}
+  .catalog-quick-editor__actions{display:grid;grid-template-columns:1fr 1fr}
+  .products-mobile-card__actions>.secondary-button,.products-mobile-card__actions>.status-toggle{flex:1 1 auto;min-height:44px}
+  .catalog-disclosure>summary{padding:16px}
+  .catalog-disclosure__body{padding:0 12px 16px}
+}

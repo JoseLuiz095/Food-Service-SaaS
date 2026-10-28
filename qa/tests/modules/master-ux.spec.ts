@@ -23,7 +23,7 @@ for(const width of [390,1366]) {
     const dialog=page.getByRole('dialog',{name:store.name});
     await expect(dialog.getByText('Administrando esta loja')).toBeVisible();
     await expect(dialog.getByRole('link',{name:`/${store.slug}`,exact:true})).toBeVisible();
-    const accessOptions=dialog.locator('details.master-access-options');
+    const accessOptions=dialog.locator('details.master-access-details');
     expect(await accessOptions.evaluate(element=>element.hasAttribute('open'))).toBe(false);
     await accessOptions.locator('summary').click();
     await expect(dialog.getByLabel('E-mail de acesso')).toBeVisible();
@@ -33,10 +33,6 @@ for(const width of [390,1366]) {
     await expect(page.getByRole('button',{name:'Gerenciar',exact:true}).first()).toBeFocused();
     await page.getByRole('button',{name:'Nova loja',exact:true}).click();
     await expect(page.getByRole('dialog').getByLabel('Cidade',{exact:true})).toHaveValue('');
-    const advanced=page.getByRole('dialog').locator('details.master-advanced-options');
-    expect(await advanced.evaluate(element=>element.hasAttribute('open'))).toBe(false);
-    await advanced.locator('summary').click();
-    await expect(advanced.getByRole('combobox',{name:'Status',exact:true})).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
     expect(errors).toEqual([]);
   });

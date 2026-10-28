@@ -179,8 +179,8 @@ export const platformApi = {
     });
   },
 
-  async dashboard(): Promise<PlatformDashboardStats> {
-    const [stores, settings] = await Promise.all([platformApi.listStores(), platformApi.getPlatformSettings()]);
+  async dashboard(snapshot?: { stores: PlatformStoreSummary[]; settings: PlatformSettings }): Promise<PlatformDashboardStats> {
+    const [stores, settings] = snapshot ? [snapshot.stores, snapshot.settings] : await Promise.all([platformApi.listStores(), platformApi.getPlatformSettings()]);
     return {
       storesTotal:stores.length,
       storesOnline:stores.filter((store)=>store.accessStatus==='online').length,

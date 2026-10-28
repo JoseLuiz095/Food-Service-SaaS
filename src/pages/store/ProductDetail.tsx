@@ -13,6 +13,7 @@ import { trackPublicEvent } from '../../services/analyticsApi';
 import '../../segments/product-detail-mobile.css';
 import { PickupPointSelector, PointStockNotice } from './PickupPointSelector';
 import { pointStock, usePickupAvailability } from './usePickupAvailability';
+import { cartLineLimit } from '../../utils/cartAvailability';
 
 const groupInstruction = (group: OptionGroup) => {
   if (group.minChoices === group.maxChoices && group.maxChoices === 1) return 'Escolha 1 opção';
@@ -196,7 +197,11 @@ export default function ProductDetail() {
 
   const add = (quick = false) => {
     if (unavailable || !validateSelections()) return;
-    if (!settings.deliveryEnabled && (insufficientAtPoint || (localStock && Number(localStock.available) < quantity + (items.filter((item) => item.productId === product.id).reduce((sum, item) => sum + item.quantity, 0))))) {
+    if (product.trackStock && (pickup.pickupLocationId || searchParams.get('ponto')) && (!pickup.selectedPoint || !localStock)) {
+      showToast('Confirme o ponto de retirada e aguarde a consulta de disponibilidade.', 'error');
+      return;
+    }
+    if (localStock && Number(localStock.available) < quantity + items.filter((item) => item.productId === product.id).reduce((sum, item) => sum + item.quantity, 0)) {
       showToast(`Quantidade indisponível em ${pickup.selectedPoint?.name}. Ajuste o pedido ou escolha outro ponto.`, 'error');
       return;
     }
@@ -205,6 +210,11 @@ export default function ProductDetail() {
     const existingQuantity = items.find(item => item.id === cartItemIdFor(product.id, selectedOptions, selectedPartyWeight))?.quantity || 0;
     if (quantity + existingQuantity > MAX_CART_ITEM_QUANTITY) {
       showToast(`Este item tem limite de ${MAX_CART_ITEM_QUANTITY} unidades por combinação de opções. Ajuste a quantidade no carrinho.`, 'error');
+      return;
+    }
+    const availableLimit = cartLineLimit(product, items, cartItemIdFor(product.id, selectedOptions, selectedPartyWeight), localStock ? Number(localStock.available) : undefined);
+    if (quantity + existingQuantity > availableLimit) {
+      showToast('Quantidade acima da disponibilidade. Ajuste o carrinho ou escolha outro ponto.', 'error');
       return;
     }
     addItem(product, quantity, selectedOptions, partyConfig ? { partyPackageWeightGrams: selectedPartyWeight } : undefined);

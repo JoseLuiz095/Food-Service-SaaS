@@ -5,6 +5,7 @@ on:
       - 'src/**'
       - 'scripts/**'
       - 'supabase/migrations/**'
+      - 'supabase/functions/food-order-payment/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/vendas-estoque.yml'
@@ -22,6 +23,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run test:payment-links
       - run: npm run test:fitness
       - run: npm run smoke
       - run: npm run test:critical

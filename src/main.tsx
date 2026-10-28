@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App, { CanonicalPlatformBoundary } from './App';
@@ -9,7 +9,9 @@ import { ToastProvider } from './contexts/ToastContext';
 import { installGlobalInteractionTelemetry } from './services/interactionTelemetry';
 import './styles.css';
 
-installGlobalInteractionTelemetry();
+const OrderPayment = lazy(() => import('./pages/store/OrderPayment'));
+const isPaymentPage = /^\/pagamento\/pix\/?$/.test(window.location.pathname);
+if (!isPaymentPage) installGlobalInteractionTelemetry();
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -25,7 +27,7 @@ if (!root) throw new Error('Elemento #root não encontrado.');
 createRoot(root).render(
   <StrictMode>
     <BrowserRouter>
-      <CanonicalPlatformBoundary>
+      {isPaymentPage ? <Suspense fallback={<main role="status">Conferindo pagamento…</main>}><OrderPayment/></Suspense> : <CanonicalPlatformBoundary>
         <ToastProvider>
           <AuthProvider>
             <StoreProvider>
@@ -35,16 +37,14 @@ createRoot(root).render(
             </StoreProvider>
           </AuthProvider>
         </ToastProvider>
-      </CanonicalPlatformBoundary>
+      </CanonicalPlatformBoundary>}
     </BrowserRouter>
   </StrictMode>,
 );
 
 const splash = document.getElementById('foodweb-splash-screen');
 if (splash) {
-  const startedAt = performance.now();
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const minimumVisibleMs = reducedMotion ? 180 : 520;
   const splashImage = splash.querySelector<HTMLImageElement>('img');
   let imageReady = !splashImage || splashImage.complete;
   let dismissed = false;
@@ -52,7 +52,7 @@ if (splash) {
   const dismissSplash = (force = false) => {
     if (dismissed || !splash.isConnected || (!imageReady && !force)) return;
     dismissed = true;
-    const wait = Math.max(0, minimumVisibleMs - (performance.now() - startedAt));
+    const wait = 0;
     window.setTimeout(() => {
       if (!splash.isConnected) return;
       splash.classList.add('is-ready');
@@ -61,7 +61,7 @@ if (splash) {
   };
 
   // Aguarda a primeira pintura do React para evitar um flash vazio entre a arte e o app.
-  window.requestAnimationFrame(() => window.requestAnimationFrame(() => dismissSplash()));
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => dismissSplash(true)));
   if (splashImage && !imageReady) {
     splashImage.addEventListener('load', () => { imageReady = true; dismissSplash(); }, { once: true });
     splashImage.addEventListener('error', () => { imageReady = true; dismissSplash(); }, { once: true });

@@ -48,7 +48,7 @@ async function catalogBackend(page: Page) {
           else rows[table].push(row);
         }
       }
-      await route.fulfill({ json: body == null ? null : Array.isArray(body) ? body : [body] });
+      await route.fulfill({ json: request.method() === 'PATCH' ? rows[table].filter(matches) : body == null ? null : Array.isArray(body) ? body : [body] });
     });
     // Some writes omit a query string (new group items and product links).
     await page.route(`**/rest/v1/${table}`, async route => {
@@ -70,7 +70,7 @@ for (const width of [390, 1366]) {
     await expect(page.getByRole('heading', { name: 'Duplicar produto', exact: true })).toBeVisible();
     await expect(page.getByLabel('Nome do produto', { exact: true })).toHaveValue('Brigadeiro teste (cópia)');
     await expect(page.getByLabel('Estoque físico inicial', { exact: true })).toHaveValue('0');
-    await page.locator('.product-form-more summary').click();
+    await page.locator('.catalog-disclosure summary').click();
     await expect(page.getByLabel('Código interno', { exact: true })).toHaveValue('');
     await expect(page.getByRole('checkbox', { name: /Produto ativo/ })).not.toBeChecked();
     await expect(page.locator('.image-admin-grid')).toHaveCount(0);
@@ -96,20 +96,6 @@ for (const width of [390, 1366]) {
     expect(backend.writes.filter(write => write.method === 'DELETE').some(write => write.query.includes(GROUP))).toBe(false);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`catalogo-copia-${width}.png`), fullPage: true });
-  });
-}
-
-for (const width of [390, 1366]) {
-  test(`preço pode ser alterado na lista sem abrir o cadastro em ${width}px`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 844 });
-    const backend = await catalogBackend(page);
-    await page.goto('/admin/produtos');
-    await page.getByRole('button', { name: 'Alterar preço de Brigadeiro teste' }).click();
-    await page.getByRole('spinbutton', { name: 'Novo preço de Brigadeiro teste' }).fill('19.90');
-    await page.getByRole('button', { name: 'Salvar', exact: true }).click();
-    await expect(page).toHaveURL(/\/admin\/produtos$/);
-    await expect(page.getByText('Preço atualizado.', { exact: true })).toBeVisible();
-    expect(backend.rows.food_products.find(row => row.id === PRODUCT)?.price).toBe(19.9);
   });
 }
 
@@ -159,4 +145,66 @@ test('origem de cópia ausente não abre cadastro vazio nem grava dados', async 
   await expect(page.getByRole('heading', { name: 'Produto para duplicar não encontrado' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Salvar produto' })).toHaveCount(0);
   expect(backend.writes).toEqual([]);
+});
+
+for (const width of [390, 1366]) {
+  test(`ajuste rápido altera só campos comerciais e preserva estoque e opções em ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    const backend = await catalogBackend(page);
+    await page.goto('/admin/produtos');
+    await page.getByRole('button', { name: 'Editar preço e disponibilidade de Brigadeiro teste' }).click();
+    const editor = page.getByRole('form', { name: 'Ajuste rápido de Brigadeiro teste' });
+    await editor.getByLabel('Preço', { exact: true }).fill('18.50');
+    await editor.getByLabel('Preço promocional (opcional)', { exact: true }).fill('17');
+    await editor.getByRole('combobox', { name: 'Disponibilidade', exact: true }).selectOption('unavailable');
+    const readsBefore=backend.reads;
+    await editor.getByRole('button', { name: 'Salvar ajuste' }).click();
+    await expect(page.getByText('Preço e disponibilidade atualizados.', { exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/\/admin\/produtos$/);
+    expect(backend.reads).toBe(readsBefore);
+    expect(backend.writes).toHaveLength(1);
+    expect(backend.writes[0]).toMatchObject({ table: 'food_products', method: 'PATCH', body: { price: 18.5, promotional_price: 17, availability_status: 'unavailable' } });
+    const scope = new URLSearchParams(backend.writes[0].query);
+    expect(scope.get('id')).toBe(`eq.${PRODUCT}`);
+    expect(scope.get('store_id')).toBe(`eq.${STORE}`);
+    expect(backend.rows.food_products[0]).toMatchObject({ price: 18.5, promotional_price: 17, stock_quantity: 50, stock_reserved_quantity: 7, internal_code: 'ORIGINAL-1' });
+    expect(backend.rows.food_option_items[0].id).toBe(OPTION);
+    await page.reload();
+    await expect(page.locator(width <= 760 ? '.products-mobile-list' : '.products-desktop-table').getByText('R$ 17,00', { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`catalogo-ajuste-${width}.png`), fullPage: true });
+  });
+}
+
+test('ajuste negado por RLS mantém os valores e informa que não foi confirmado', async ({ page }) => {
+  await catalogBackend(page);
+  await page.route('**/rest/v1/food_products?**', async route => {
+    if (route.request().method() === 'PATCH') return route.fulfill({ json: [] });
+    return route.fallback();
+  });
+  await page.goto('/admin/produtos');
+  await page.getByRole('button', { name: 'Editar preço e disponibilidade de Brigadeiro teste' }).click();
+  const editor = page.getByRole('form', { name: 'Ajuste rápido de Brigadeiro teste' });
+  await editor.getByLabel('Preço', { exact: true }).fill('19');
+  await editor.getByRole('button', { name: 'Salvar ajuste' }).click();
+  await expect(editor.getByRole('alert')).toContainText('A alteração não foi confirmada');
+  await expect(editor.getByLabel('Preço', { exact: true })).toHaveValue('19');
+  await expect(page.getByText('Preço e disponibilidade atualizados.', { exact: true })).toHaveCount(0);
+});
+
+test('novo produto simples não exige descrição nem opções avançadas', async ({ page }, testInfo) => {
+  const backend = await catalogBackend(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/admin/produtos/novo');
+  const details = page.locator('.catalog-disclosure');
+  await expect(details).not.toHaveAttribute('open');
+  await expect(page.getByLabel('Descrição (opcional)', { exact: true })).not.toBeVisible();
+  await page.getByLabel('Nome do produto', { exact: true }).fill('Produto simples');
+  await page.getByRole('combobox', { name: 'Categoria', exact: true }).selectOption(product.category_id);
+  await page.getByLabel('Preço', { exact: true }).fill('12');
+  await page.getByLabel('Estoque físico inicial', { exact: true }).fill('5');
+  await page.screenshot({ path: testInfo.outputPath('produto-basico-mobile.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Salvar produto', exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/produtos$/);
+  expect(backend.rows.food_products.find(row => row.name === 'Produto simples')).toMatchObject({ description: '', price: 12, stock_quantity: 5, store_id: STORE });
 });
