@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "build": "npm run check:env && npm run typecheck && vite build",
     "preview": "vite preview",
-    "validate": "npm run smoke && npm run test:critical && npm run test:segments && npm run test:domains && npm run test:pwa && npm run test:notifications && npm run test:security && npm run test:simple-stock && npm run test:demo-provision && npm run test:integrations && npm run test:platform && npm run test:provision && npm run build",
+    "validate": "npm run smoke && npm run test:cart && npm run test:critical && npm run test:segments && npm run test:domains && npm run test:pwa && npm run test:notifications && npm run test:security && npm run test:simple-stock && npm run test:demo-provision && npm run test:integrations && npm run test:platform && npm run test:provision && npm run build",
     "test:notifications": "node --test scripts/notification-delivery-test.mjs scripts/push-preferences-test.mjs",
     "test:fitness": "node scripts/fitness-access-db-test.mjs && node --test scripts/fitness-billing-handler-test.mjs scripts/fitness-checkout-handler-test.mjs",
     "test:fitness-pilot-db": "node scripts/fitness-db-test.mjs",
@@ -53,7 +53,11 @@
     "test:platform": "node scripts/segment-platform-db-test.mjs",
     "test:provision": "node --test scripts/provision-test-tenants.test.mjs",
     "test:simple-stock": "node scripts/stock-simple-mode-db-test.mjs",
-    "test:demo-provision": "node --test scripts/demo-provisioning-handler-test.mjs"
+    "test:demo-provision": "node --test scripts/demo-provisioning-handler-test.mjs",
+    "test:cart": "node scripts/cart-availability-test.mjs",
+    "qa:quick-purchase": "npm --prefix qa run test:quick-purchase",
+    "test:payment-links": "node --test scripts/order-payment-handler-test.mjs",
+    "qa:payment-links": "npm --prefix qa run test:payment-links"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.112.4",

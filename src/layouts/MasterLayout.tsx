@@ -8,6 +8,7 @@ import { useAdminMobileNavigation } from '../hooks/useAdminMobileNavigation';
 import '../components/admin/admin-navigation.css';
 import '../segments/segments.css';
 import '../pages/master/master-refinements.css';
+import './operational-navigation.css';
 
 type MasterNavItem = { to: string; label: string; icon: LucideIcon; end?: boolean };
 const navSections: Array<{ label: string; items: MasterNavItem[] }> = [

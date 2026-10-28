@@ -161,12 +161,12 @@ ok('CTA público não expõe telefone no DOM',landing.includes('ProtectedContact
 
 ok('FoodWeb v0.4.6 possui migration de mensalidade e acesso', exists('supabase/migrations/202609032230_foodweb_v046_billing_access.sql'));
 ok('FoodWeb v0.4.6 possui gestão de e-mail/senha do lojista', exists('supabase/functions/food-platform-manage-store-user/index.ts')&&(read('src/pages/master/Stores.tsx').includes('Atualizar e-mail / senha')||read('src/pages/master/Stores.tsx').includes('Salvar e-mail / senha')));
-ok('FoodWeb v0.4.6 mostra vencimento no Master', read('src/pages/master/Stores.tsx').includes('<th>Vencimento</th>')&&read('src/pages/master/Stores.tsx').includes('master-due-cell-v046'));
+ok('FoodWeb v0.4.6 mostra vencimento no Master', read('src/pages/master/Stores.tsx').includes('<th scope="col">Vencimento</th>')&&read('src/pages/master/Stores.tsx').includes('master-due-cell-v046'));
 ok('FoodWeb v0.4.6 permite negar renovação', read('src/pages/master/Payments.tsx').includes('Não confirmar renovação')&&read('src/services/platformApi.ts').includes('food_platform_reject_subscription_payment_v1'));
 ok('FoodWeb v0.4.7 mostra status verde amarelo vermelho no topo', read('src/layouts/AdminLayout.tsx').includes('admin-billing-status-v047')&&read('src/layouts/AdminLayout.tsx').includes('is-warning')&&billingStatus.includes('Mensalidade atrasada')&&billingStatus.includes('Mensalidade em dia')&&billingStatus.includes('Vencimento próximo'));
 ok('FoodWeb v0.4.7 topo abre Meu plano no vencimento', read('src/layouts/AdminLayout.tsx').includes('/admin/plano#vencimento')&&planPage.includes('id="vencimento"'));
 ok('FoodWeb v0.4.7 OCR reforca imagem pequena e valor por contexto',localReader.includes('MAX_UPSCALE')&&localReader.includes('LEITURA REFORCADA')&&localReader.includes('VALOR\\s+DO\\s+DOCUMENTO')&&localReader.includes('scoreAmountContext'));
-ok('FoodWeb v0.4.8 mostra e-mail e senha no topo da gestao do cliente',read('src/pages/master/Stores.tsx').includes('master-credential-edit-v048')&&read('src/pages/master/Stores.tsx').indexOf('master-credential-edit-v048')<read('src/pages/master/Stores.tsx').indexOf('PLANO E COBRANÇA')&&read('src/pages/master/Stores.tsx').includes('Salvar e-mail / senha'));
+ok('VendeWeb mantém gestão de credenciais sob demanda',read('src/pages/master/Stores.tsx').includes('<details className="operational-details master-access-details">')&&read('src/pages/master/Stores.tsx').includes('Alterar e-mail ou senha do lojista')&&read('src/pages/master/Stores.tsx').includes('master-credential-edit-v048')&&read('src/pages/master/Stores.tsx').includes('Salvar e-mail / senha'));
 ok('FoodWeb v0.4.8 estilos deixam acesso do lojista visivel',read('src/styles.css').includes('master-credential-edit-v048')&&read('src/styles.css').includes('master-credential-grid-v048'));
 ok('FoodWeb v0.4.6 mostra ultimo pagamento ao lojista', read('src/pages/admin/Plan.tsx').includes('ÚLTIMO PAGAMENTO')&&read('src/pages/admin/Plan.tsx').includes('Próximo vencimento'));
 ok('FoodWeb v0.4.6 preserva dia de vencimento no banco', read('supabase/migrations/202609032230_foodweb_v046_billing_access.sql').includes('food_subscription_reference_due_v1')&&read('supabase/migrations/202609032230_foodweb_v046_billing_access.sql').includes('v_reference_due'));
@@ -259,7 +259,7 @@ console.log(`\nSmoke FoodWeb v0.6.2 concluído: ${checks.length} verificações 
 
 
 // FoodWeb v0.5.4 - paridade visual com FloriWeb no Admin/Admin Master
-ok('v0.6.5 Admin organiza navegação por tarefas', ['Início','Vendas','Catálogo','Loja','Administração'].every((label)=>adminLayout.includes(`label: '${label}'`))&&['/admin/pedidos','/admin/produtos','/admin/estoque','/admin/configuracoes','/admin/financeiro'].every((route)=>adminLayout.includes(`to: '${route}'`)));
+ok('v0.6.5 Admin organiza navegação por tarefas', ['Início','Operação','Catálogo','Minha loja','Mais ferramentas'].every((label)=>adminLayout.includes(`label: '${label}'`))&&['/admin/pedidos','/admin/produtos','/admin/estoque','/admin/configuracoes','/admin/financeiro'].every((route)=>adminLayout.includes(`to: '${route}'`)));
 ok('v0.5.4 Admin preserva regras Food por feature',adminLayout.includes('requiresFeature')&&adminLayout.includes('planHasFeature'));
 ok('v0.5.4 Admin preserva navegacao para Admin Master',adminLayout.includes('platformAdmin')&&adminLayout.includes('/admin-master'));
 ok('v0.5.4 visual possui marcador de paridade',css.includes('FoodWeb v0.5.4 — paridade visual com FloriWeb'));
@@ -274,7 +274,7 @@ ok('v0.5.2 pedido relacionado abre destacado',financePage.includes('/admin/pedid
 ok('v0.5.2 horario de hoje com outros dias',header.includes('<small>Hoje</small>')&&header.includes('Horários da semana')&&header.includes('food-hours-popover'));
 ok('v0.5.2 popover fecha ao clicar fora',header.includes('pointerdown')&&header.includes('hoursRef'));
 ok('v0.5.2 pausa de almoco configuravel',settingsV052.includes('breakStart')&&settingsV052.includes('breakEnd')&&settingsV052.includes('Fechar para almoço'));
-ok('v0.5.2 PIX possui botao textual para copiar',orderSuccessV052.includes('Copiar PIX'));
+ok('v0.5.2 PIX possui botao textual para copiar',orderSuccessV052.includes('<PixCopyButton key={pixValue} value={pixValue}') && read('src/components/PixCopyButton.tsx').includes('Copiar código Pix'));
 ok('v0.5.2 admin segue padrao estrutural do FloriWeb',masterLayout.includes('master-admin-mini')&&css.includes('text-overflow:ellipsis'));
 
 if(failures.length){

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { useStore } from '../../contexts/StoreContext';
 import { restFetch } from '../../lib/supabaseRest';
+import { saveFulfillmentPreference } from '../../utils/fulfillmentPreference';
 
 export type PickupPoint = { id: string; name: string; short_code: string; address?: string; instructions?: string };
 export type PointAvailability = { product_id: string; available: number; available_elsewhere: boolean | number };
@@ -34,7 +35,7 @@ export function usePickupAvailability(enabled = true) {
       setPoints(valid);
       const qrPoint = pointCode ? valid.find((point) => point.short_code === pointCode) : undefined;
       setInvalidQr(Boolean(pointCode && !qrPoint));
-      if (qrPoint) setPickupLocationId(qrPoint.id);
+      if (qrPoint) { setPickupLocationId(qrPoint.id); saveFulfillmentPreference(settings.id, 'pickup'); }
       else if (pointCode) setPickupLocationId('');
       else if (pickupLocationId && !valid.some((point) => point.id === pickupLocationId)) setPickupLocationId('');
     }).catch(() => {
@@ -87,7 +88,7 @@ export function usePickupAvailability(enabled = true) {
     return result;
   };
 
-  const selectPoint = (id: string) => { setInvalidQr(false); setPickupLocationId(id); };
+  const selectPoint = (id: string) => { setInvalidQr(false); setPickupLocationId(id); if (id) saveFulfillmentPreference(settings.id, 'pickup'); };
   const selectedPoint = points.find((point) => point.id === pickupLocationId);
   return { points, pointsLoading, pointsError, pickupLocationId, setPickupLocationId: selectPoint, selectedPoint, identifiedByQr: Boolean(pointCode && selectedPoint?.short_code === pointCode && !invalidQr), availability: availabilityPointId === pickupLocationId ? availability : null, availabilityLoading, availabilityError, invalidQr, revalidate };
 }

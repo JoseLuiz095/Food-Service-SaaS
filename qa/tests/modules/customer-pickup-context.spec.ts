@@ -60,8 +60,8 @@ for (const viewport of [
     await expect(page.getByText('Ponto escolhido: Loja Centro')).toBeVisible();
     const notices = page.locator('.store-point-stock');
     await expect(notices).toHaveText(Array(4).fill('5 disponíveis'));
-    await expect(notices).not.toContainText('Sujeito à confirmação');
-    await expect(notices).not.toContainText('em Loja Centro');
+    for (const notice of await notices.all()) await expect(notice).not.toContainText('Sujeito à confirmação');
+    for (const notice of await notices.all()) await expect(notice).not.toContainText('em Loja Centro');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 2)).toBe(true);
 
     const geometry = await page.locator('.store-point-product').evaluateAll(cards => {

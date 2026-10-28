@@ -32,3 +32,8 @@ verify_jwt = false
 
 [functions.food-fitness-checkout]
 verify_jwt = false
+
+# Public resolve verifies an encrypted capability; issue verifies Auth, MFA and order RLS in handler.
+# Disabled until explicitly configured and deployed; no schema or RLS changes.
+[functions.food-order-payment]
+verify_jwt = false

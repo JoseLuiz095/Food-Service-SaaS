@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { StorefrontUnavailableError, storeApi } from '../services/storeApi';
+import { StorefrontUnavailableError, storeApi, type ProductCommercialUpdate } from '../services/storeApi';
 import { seedAddons, seedCategories, seedDeliveryZones, seedPlan, seedProducts, seedSettings } from '../data/seed';
 import type { Addon, Category, DeliveryZone, ManualOrderInput, Order, OrderDetailsUpdate, PlanUsage, Product, ProductImage, StoreSettings } from '../types';
 import { useAuth } from './AuthContext';
@@ -26,6 +26,7 @@ type StoreContextValue = {
   reloadAdmin: (options?: { silent?: boolean; force?: boolean }) => Promise<void>;
   reloadOrders: (options?: { silent?: boolean }) => Promise<void>;
   saveProduct: (product: Product, options?: { isNew?: boolean }) => Promise<void>;
+  updateProductCommercial: (productId: string, input: ProductCommercialUpdate) => Promise<void>;
   updateProductStock: (productId: string, input: { mode: 'set' | 'add' | 'remove'; quantity: number; reason: string; idempotencyKey?: string }) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   saveCategory: (category: Category) => Promise<void>;
@@ -62,13 +63,14 @@ const shouldRetryAdminLoad = (error: unknown) => {
   return /Loja não encontrada ou sem permissão|Sessão expirada|Failed to fetch|NetworkError|fetch failed/i.test(message);
 };
 const SYNC_KEY = 'foodservice_store_sync_v1';
+const SYNC_SENDER_ID = Math.random().toString(36).slice(2);
 const ADMIN_SNAPSHOT_CACHE_MS = 30_000;
 const notifyStoreChange = () => {
   // Evita que a própria sessão continue exibindo uma vitrine pública antiga
   // depois de salvar produtos, configurações ou imagens no painel.
   storeApi.invalidatePublicCache();
   try { localStorage.setItem(SYNC_KEY, String(Date.now())); } catch { /* sem storage */ }
-  try { const channel = new BroadcastChannel('foodservice-store-sync'); channel.postMessage({ type: 'store-change', at: Date.now() }); channel.close(); } catch { /* browser sem BroadcastChannel */ }
+  try { const channel = new BroadcastChannel('foodservice-store-sync'); channel.postMessage({ type: 'store-change', sender: SYNC_SENDER_ID, at: Date.now() }); channel.close(); } catch { /* browser sem BroadcastChannel */ }
 };
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -230,7 +232,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const onStorage = (event: StorageEvent) => { if (event.key === SYNC_KEY) refresh(); };
     window.addEventListener('storage', onStorage);
     let channel: BroadcastChannel | null = null;
-    try { channel = new BroadcastChannel('foodservice-store-sync'); channel.onmessage = refresh; } catch { channel = null; }
+    try { channel = new BroadcastChannel('foodservice-store-sync'); channel.onmessage = event => { if (event.data?.sender !== SYNC_SENDER_ID) refresh(); }; } catch { channel = null; }
     return () => { window.removeEventListener('storage', onStorage); channel?.close(); };
   }, [authLoading, user, membership, reloadAdmin, reloadPublic, location.pathname]);
 
@@ -274,6 +276,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     reloadAdmin,
     reloadOrders,
     saveProduct: async (product, options) => { assertAdminScope(product.storeId); await runAdminMutation(() => storeApi.saveProduct(product, options)); },
+    updateProductCommercial: async (productId, input) => {
+      const storeId = assertAdminScope();
+      const current = products.find(product => product.id === productId && product.storeId === storeId);
+      if (!current) throw new Error('Produto não encontrado na loja selecionada.');
+      if (input.availabilityStatus === 'available' && current.stockStatus === 'unavailable') throw new Error('Este produto tem um bloqueio de estoque. Revise o saldo em Estoque e insumos antes de disponibilizá-lo.');
+      const confirmed = await runAdminMutation(() => storeApi.updateProductCommercial(storeId, productId, input), 'none');
+      if (activeScopeRef.current !== adminScope) return;
+      setProducts(currentProducts => currentProducts.map(product => product.id === productId && product.storeId === storeId ? { ...product, ...confirmed } : product));
+      if (confirmed.active !== undefined && confirmed.active !== current.active) {
+        setPlanUsage(usage => { const activeProductCount = Math.max(0, usage.activeProductCount + (confirmed.active ? 1 : -1)); return { ...usage, activeProductCount, canActivateProduct: usage.plan.productLimit == null || activeProductCount < usage.plan.productLimit }; });
+      }
+    },
     updateProductStock: async (productId, input) => {
       const storeId = assertAdminScope();
       const updated = await storeApi.updateProductStock(storeId, productId, input);
