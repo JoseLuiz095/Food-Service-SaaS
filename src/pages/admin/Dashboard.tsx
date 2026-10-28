@@ -11,6 +11,7 @@ import { getBusinessSegment, isDefaultStoreImage } from '../../segments/business
 import { storeDateLabel } from '../../utils/storeHours';
 import { dashboardApi, type DashboardMetrics } from '../../services/dashboardApi';
 import './dashboard-metrics.css';
+import { dashboardErrorMessage } from '../../utils/dashboardErrors';
 import './dashboard-simple.css';
 
 export default function Dashboard(){
@@ -24,7 +25,7 @@ export default function Dashboard(){
     void dashboardApi.getMetrics(settings.id).then((data)=>{
       if(current)setMetricState({storeId:settings.id,data,error:'',loading:false});
     }).catch((cause)=>{
-      if(current)setMetricState({storeId:settings.id,data:null,error:cause instanceof Error?cause.message:'Indicadores indisponíveis.',loading:false});
+      if(current)setMetricState({storeId:settings.id,data:null,error:dashboardErrorMessage(cause),loading:false});
     });
     return ()=>{current=false;};
   },[settings.id,metricRetry]);
@@ -76,7 +77,7 @@ export default function Dashboard(){
 
     {showCommerce&&<section className="admin-card dashboard-today-card" aria-labelledby="dashboard-today-title">
       <div className="dashboard-today-card__header"><div><span className="eyebrow">CAIXA E OPERAÇÃO</span><h2 id="dashboard-today-title">O que importa hoje</h2><p>Comece pelo faturamento, recebimentos e pendências antes de entrar no catálogo.</p></div><div className="dashboard-metrics-actions"><span className="dashboard-today-card__date"><CalendarDays size={15}/>{storeDateLabel(new Date(),timezone)} · horário da loja</span><button type="button" className="secondary-button compact-button" disabled={metricsLoading} onClick={()=>setMetricRetry((value)=>value+1)}>Atualizar indicadores</button></div></div>
-      {metricsError&&<div role="alert" className="inline-alert inline-alert-error">Indicadores do servidor indisponíveis: {metricsError} <button type="button" onClick={()=>setMetricRetry((value)=>value+1)}>Tentar novamente</button></div>}
+      {metricsError&&<div role="alert" className="dashboard-metrics-error"><strong>Indicadores indisponíveis</strong><p>{metricsError}</p><button type="button" className="secondary-button" onClick={()=>setMetricRetry((value)=>value+1)}>Tentar novamente</button></div>}
       {metricsLoading&&<p role="status">Consultando indicadores do servidor…</p>}
       <div className="dashboard-today-grid" aria-busy={metricsLoading}>
         <Link to="/admin/financeiro" className="dashboard-today-metric"><span className="dashboard-today-metric__icon is-green"><CircleDollarSign size={17}/></span><span><small>Recebido hoje</small><strong>{amount(metrics?.receivedToday)}</strong><em>{metrics?`${metrics.receivedTodayCount} pedido(s) recebido(s)`:'Aguardando dados do servidor'}</em></span><ArrowUpRight size={15}/></Link>
