@@ -36,7 +36,7 @@ for(const width of [390,1366]) {
     const advanced=page.getByRole('dialog').locator('details.master-advanced-options');
     expect(await advanced.evaluate(element=>element.hasAttribute('open'))).toBe(false);
     await advanced.locator('summary').click();
-    await expect(page.getByRole('dialog').getByLabel('Status',{exact:true})).toBeVisible();
+    await expect(advanced.getByRole('combobox',{name:'Status',exact:true})).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
     expect(errors).toEqual([]);
   });
@@ -44,6 +44,11 @@ for(const width of [390,1366]) {
 
 test('Master mostra limites do plano sob demanda',async({page})=>{
   await mockBackend(page,{auth:true,master:true});
+  await page.route('**/rest/v1/food_plans?**',route=>route.fulfill({json:[{
+    id:'plan-essencial',code:'ESSENTIAL',name:'Essencial',product_limit:40,image_limit_per_product:1,
+    custom_domain:false,reports:false,priority_support:false,monthly_price:49.9,setup_price:0,
+    category_limit:12,addon_limit:40,admin_user_limit:1,sort_order:1,active:true,marketing_benefits:[]
+  }]}));
   await page.goto('/admin-master/planos');
   const options=page.locator('details.master-plan-advanced').first();
   await expect(options.locator('summary')).toBeVisible();
@@ -76,7 +81,7 @@ for(const width of [390,768,1024,1440]) {
       await details.click();
       await expect(firstRow.locator('td').nth(1)).toBeHidden();
     }else{
-      const usage=region.getByRole('columnheader',{name:'Uso'});
+      const usage=region.locator('thead th').filter({hasText:'Uso'});
       await usage.scrollIntoViewIfNeeded();
       const bounds=await usage.boundingBox(), container=await region.boundingBox();
       expect(bounds).not.toBeNull();expect(container).not.toBeNull();

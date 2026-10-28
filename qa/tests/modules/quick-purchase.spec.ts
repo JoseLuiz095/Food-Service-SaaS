@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { mockBackend } from './fixtures';
 
-test('produto simples entra no carrinho pela vitrine e pode ser ajustado no checkout', async ({ page }) => {
+test('produto simples entra no carrinho pela vitrine e pode ser ajustado no checkout', async ({ page }, testInfo) => {
   const { writes } = await mockBackend(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/doce-lua');
@@ -18,6 +18,7 @@ test('produto simples entra no carrinho pela vitrine e pode ser ajustado no chec
   await summary.getByRole('button', { name: 'Aumentar quantidade' }).click();
   await expect(summary).toContainText('2x Brigadeiro teste');
   await expect(page.locator('.checkout-summary .summary-total')).toContainText('20,00');
+  await page.screenshot({ path: testInfo.outputPath('ux-after-checkout-mobile.png'), fullPage: true });
   await summary.getByRole('button', { name: 'Diminuir quantidade' }).click();
   await expect(summary).toContainText('1x Brigadeiro teste');
   expect(writes.some((call) => call.url.includes('food-public-checkout'))).toBe(false);
