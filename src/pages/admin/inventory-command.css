@@ -62,3 +62,6 @@
 @media (prefers-reduced-motion: reduce) {
   .inventory-command *, .inventory-command *::before, .inventory-command *::after { scroll-behavior: auto; transition-duration: .01ms; animation-duration: .01ms; }
 }
+
+.inventory-command-row__availability strong.is-shortage{color:#ae4138}
+.inventory-command-row__reserved strong{color:#ae4138}

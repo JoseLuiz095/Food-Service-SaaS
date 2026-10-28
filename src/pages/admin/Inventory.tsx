@@ -43,23 +43,23 @@ const stockErrorMessage = (error: unknown) => {
 };
 
 function ProductStockCard({ product, onAdjust, onSet, busy, expanded, onToggle, canAdjust }: { product: Product; onAdjust: (product: Product, delta: number, reason?: string) => void; onSet: (product: Product, quantity: number, reason: string) => void; busy: boolean; expanded: boolean; onToggle: () => void; canAdjust: boolean }) {
-  const quantity = Math.max(0, Number(product.stockQuantity || 0)); const reserved = Math.max(0, Number(product.stockReservedQuantity || 0)); const available = Math.max(0, quantity - reserved);
-  const low = product.trackStock && available <= 3 && available > 0; const zero = product.trackStock && available <= 0;
+  const quantity = Math.max(0, Number(product.stockQuantity || 0)); const reserved = Math.max(0, Number(product.stockReservedQuantity || 0)); const available = quantity - reserved;
+  const low = product.trackStock && available <= 3 && available > 0; const zero = product.trackStock && available === 0; const shortage = product.trackStock && available < 0;
   const [draft, setDraft] = useState(String(quantity)); const [reason, setReason] = useState('Conferência física'); const [adjustmentDraft, setAdjustmentDraft] = useState('1');
   useEffect(() => setDraft(String(quantity)), [quantity]);
   const adjustmentQuantity = Number(adjustmentDraft);
   const adjustBy = (direction: -1 | 1) => { if (Number.isInteger(adjustmentQuantity) && adjustmentQuantity > 0) onAdjust(product, direction * adjustmentQuantity, `Ajuste rápido: ${direction > 0 ? 'entrada' : 'saída'} de ${adjustmentQuantity} unidade(s)`); };
-  const saveCount = (event: FormEvent) => { event.preventDefault(); const value = Number(draft); if (!Number.isInteger(value) || value < reserved || !reason.trim()) return; onSet(product, value, reason.trim()); };
+  const saveCount = (event: FormEvent) => { event.preventDefault(); const value = Number(draft); if (!Number.isInteger(value) || value < 0 || !reason.trim()) return; onSet(product, value, reason.trim()); };
   return <article id={`stock-row-${product.id}`} className={`inventory-product-card inventory-command-row${expanded ? ' is-open' : ''}`}>
-    <div className="inventory-command-row__name"><strong>{product.name}</strong><small>{product.active ? 'Publicado' : 'Inativo'}</small></div>
-    <div className="inventory-command-row__availability"><strong className={zero ? 'is-zero' : low ? 'is-low' : ''}>{available}</strong><span>disponíveis</span>{(zero || low) && <em>{zero ? 'Sem estoque' : 'Estoque baixo'}</em>}</div>
-    <div className="inventory-command-row__reserved"><span>Reservado</span><strong>{reserved}</strong></div>
+    <div className="inventory-command-row__name"><strong>{product.name}</strong><small>{product.active ? 'Publicado' : 'Inativo'} · Físico: {quantity}</small></div>
+    <div className="inventory-command-row__availability"><strong className={shortage ? 'is-shortage' : zero ? 'is-zero' : low ? 'is-low' : ''}>{available}</strong><span>disponíveis</span>{(shortage || zero || low) && <em>{shortage ? `Repor ${-available} unidade(s)` : zero ? 'Sem estoque' : 'Estoque baixo'}</em>}</div>
+    <div className="inventory-command-row__reserved"><span>Reservado</span><strong>{reserved > 0 ? `−${reserved}` : 0}</strong></div>
     <button type="button" className="secondary-button compact-button inventory-command-row__action" aria-expanded={expanded} aria-controls={`stock-details-${product.id}`} onClick={onToggle}>{expanded ? 'Fechar' : 'Ajustar'}</button>
     {expanded && <div id={`stock-details-${product.id}`} className="inventory-command-row__details">
-      <p>Físico: <strong>{quantity}</strong> · Reservado: <strong>{reserved}</strong> · Disponível: <strong>{available}</strong></p>
+      <p>Físico: <strong>{quantity}</strong> · Reservado: <strong>{reserved > 0 ? `−${reserved}` : 0}</strong> · Disponível: <strong>{available}</strong></p>
       {canAdjust ? <div className="inventory-product-stock-actions">
-        <form className="inventory-product-count-form" onSubmit={saveCount}><label>Definir físico<input aria-label={`Definir estoque físico de ${product.name}`} type="number" min={reserved} step="1" inputMode="numeric" value={draft} onChange={(event) => setDraft(event.target.value)} disabled={busy} /></label><label>Motivo<input aria-label={`Motivo do ajuste de ${product.name}`} value={reason} onChange={(event) => setReason(event.target.value)} maxLength={160} placeholder="Conferência, reposição..." disabled={busy} /></label><button type="submit" className="secondary-button compact-button" disabled={busy || !reason.trim() || !/^\d+$/.test(draft) || Number(draft) < reserved}>{busy ? 'Salvando…' : 'Definir'}</button></form>
-        <div className="inventory-product-adjust-control"><label>Adicionar/remover unidades<input aria-label={`Quantidade para ajuste rápido de ${product.name}`} type="number" min="1" step="1" inputMode="numeric" value={adjustmentDraft} onChange={(event) => setAdjustmentDraft(event.target.value)} disabled={busy} /></label><div className="inventory-stepper" aria-label={`Ajustar estoque de ${product.name}`}><button type="button" onClick={() => adjustBy(-1)} disabled={busy || !Number.isInteger(adjustmentQuantity) || adjustmentQuantity < 1 || quantity - adjustmentQuantity < reserved} aria-label={`Remover ${adjustmentQuantity} unidade(s) de ${product.name}`}><Minus size={16} /></button><span>{quantity}</span><button type="button" onClick={() => adjustBy(1)} disabled={busy || !Number.isInteger(adjustmentQuantity) || adjustmentQuantity < 1} aria-label={`Adicionar ${adjustmentQuantity} unidade(s) de ${product.name}`}><Plus size={16} /></button></div></div>
+        <form className="inventory-product-count-form" onSubmit={saveCount}><label>Definir físico<input aria-label={`Definir estoque físico de ${product.name}`} type="number" min="0" step="1" inputMode="numeric" value={draft} onChange={(event) => setDraft(event.target.value)} disabled={busy} /></label><label>Motivo<input aria-label={`Motivo do ajuste de ${product.name}`} value={reason} onChange={(event) => setReason(event.target.value)} maxLength={160} placeholder="Conferência, reposição..." disabled={busy} /></label><button type="submit" className="secondary-button compact-button" disabled={busy || !reason.trim() || !/^\d+$/.test(draft) || Number(draft) < 0}>{busy ? 'Salvando…' : 'Definir'}</button></form>
+        <div className="inventory-product-adjust-control"><label>Adicionar/remover unidades<input aria-label={`Quantidade para ajuste rápido de ${product.name}`} type="number" min="1" step="1" inputMode="numeric" value={adjustmentDraft} onChange={(event) => setAdjustmentDraft(event.target.value)} disabled={busy} /></label><div className="inventory-stepper" aria-label={`Ajustar estoque de ${product.name}`}><button type="button" onClick={() => adjustBy(-1)} disabled={busy || !Number.isInteger(adjustmentQuantity) || adjustmentQuantity < 1 || quantity - adjustmentQuantity < 0} aria-label={`Remover ${adjustmentQuantity} unidade(s) de ${product.name}`}><Minus size={16} /></button><span>{quantity}</span><button type="button" onClick={() => adjustBy(1)} disabled={busy || !Number.isInteger(adjustmentQuantity) || adjustmentQuantity < 1} aria-label={`Adicionar ${adjustmentQuantity} unidade(s) de ${product.name}`}><Plus size={16} /></button></div></div>
       </div> : <p>Para ajustar um local específico, abra <a href="/admin/estoque-locais">Estoque por local</a>.</p>}
     </div>}
   </article>;
@@ -232,15 +232,7 @@ export default function InventoryAdmin() {
     if (!product.trackStock || stockBusyRef.current || multiLocation === true) return;
     const storeId = settings.id;
     const currentQuantity = Math.max(0, Number(product.stockQuantity || 0));
-    const reservedQuantity = Math.max(0, Number(product.stockReservedQuantity || 0));
-    const nextQuantity = Math.max(0, currentQuantity + delta);
-    // Nunca permita que o ajuste manual consuma unidades já reservadas por
-    // pedidos pendentes. Isso evita saldo disponível negativo e mantém a
-    // confirmação/cancelamento desses pedidos idempotente no banco.
-    if (nextQuantity < reservedQuantity) {
-      showToast(`Não é possível retirar esta unidade: ${reservedQuantity} já está(ão) reservada(s) para pedidos.`, 'error');
-      return;
-    }
+    if (currentQuantity + delta < 0) return;
     stockBusyRef.current = true; setBusyId(product.id);
     setStockFeedback('');
     const mode = delta < 0 ? 'remove' : 'add'; const quantity = Math.abs(delta); const operation = stockOperationKey(product.id, mode, quantity);
