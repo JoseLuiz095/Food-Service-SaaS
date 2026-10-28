@@ -363,7 +363,7 @@ export default function Finance(){
       <button onClick={()=>startEntry('expense')}><span className="expense"><ArrowDownRight/></span><strong>Nova saída</strong><small>Compra, conta ou despesa operacional</small></button>
       <button type="button" onClick={()=>fileRef.current?.click()}><span className="document"><Upload/></span><strong>Abrir galeria</strong><small>Selecione foto ou PDF do cupom</small></button>
       <button type="button" onClick={()=>cameraRef.current?.click()}><span className="document"><Camera/></span><strong>Fotografar documento</strong><small>A câmera traseira abre para enquadrar o cupom</small></button>
-      <input ref={cameraRef} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event)=>void upload(event.target.files?.[0])}/>
+      <input aria-label="Fotografar documento financeiro" ref={cameraRef} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event)=>void upload(event.target.files?.[0])}/>
     </section>
 
     {quickExpenseOpen&&<section className="finance-quick-expense" id="finance-quick-expense" aria-labelledby="finance-quick-expense-title">
@@ -388,7 +388,7 @@ export default function Finance(){
         </div>
 
         <label className="finance-document-drop finance-document-drop-v4">
-          <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(event)=>void upload(event.target.files?.[0])}/>
+          <input aria-label="Selecionar documento financeiro" ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(event)=>void upload(event.target.files?.[0])}/>
           {extracting?<Loader2 className="spin"/>:<Upload/>}
           <span><strong>{extracting?'Lendo documento...':'Preencher a partir de um documento'}</strong><small>Envie foto, cupom fiscal, nota, boleto ou PDF. A leitura ocorre no navegador e nunca salva automaticamente.</small></span>
         </label>

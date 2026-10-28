@@ -22,7 +22,7 @@ async function setup(page:Page){
  await page.getByRole('button',{name:'Mostrar QR Code',exact:true}).click();
  return {escaped,writes,issued};
 }
-for(const width of [320,360,390,768,1366]) test(`admin compartilha código isolado e copia link em ${width}px`,async({page,context})=>{
+for(const width of [320,360,390,768,1366]) test(`admin mantém cópia e link sem botão redundante em ${width}px`,async({page,context})=>{
  test.skip(!linksEnabled);
  await context.grantPermissions(['clipboard-read','clipboard-write']);
  await page.setViewportSize({width,height:900});
@@ -32,8 +32,9 @@ for(const width of [320,360,390,768,1366]) test(`admin compartilha código isola
  });
  const {escaped,writes,issued}=await setup(page);
  const code=await page.getByLabel('Código Pix',{exact:true}).inputValue();
- await page.getByRole('button',{name:'Compartilhar só o código Pix',exact:true}).click();
- expect(await page.evaluate(()=>(window as any).shared)).toEqual([{text:code}]);
+ await expect(page.getByRole('button',{name:'Compartilhar só o código Pix',exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Copiar código Pix',exact:true}).click();
+ expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(code);
  expect(issued).toEqual([]); // Compartilhar o código não emite link ou confirma pagamento.
  await page.getByRole('button',{name:'Compartilhar link de pagamento',exact:true}).click();
  const link=await page.getByLabel('Link de pagamento',{exact:true}).inputValue();
@@ -49,55 +50,6 @@ for(const width of [320,360,390,768,1366]) test(`admin compartilha código isola
  expect(writes.filter(x=>/confirm.*payment|food_orders/.test(x.url))).toEqual([]);
  expect(escaped).toEqual([]);
 });
-test('sem Web Share copia somente o código para colar na conversa',async({page,context})=>{
- await context.grantPermissions(['clipboard-read','clipboard-write']);
- await page.addInitScript(()=>Object.defineProperty(navigator,'share',{value:undefined}));
- const {issued,escaped}=await setup(page);
- const code=await page.getByLabel('Código Pix',{exact:true}).inputValue();
- await page.getByRole('button',{name:'Compartilhar só o código Pix'}).click();
- await expect(page.getByText('Código Pix copiado. Cole na conversa com o cliente.',{exact:true})).toBeVisible();
- expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(code);
- expect(issued).toEqual([]);expect(escaped).toEqual([]);
-});
-test('cópia do link negada mantém seleção manual e não anuncia sucesso',async({page})=>{
- test.skip(!linksEnabled);
- await page.addInitScript(()=>{
-  Object.defineProperty(navigator,'share',{value:async()=>{}});
-  Object.defineProperty(navigator,'clipboard',{value:{writeText:async()=>{throw new DOMException('denied','NotAllowedError')}}});
-  document.execCommand=()=>false;
- });
- await setup(page);
- await page.getByRole('button',{name:'Compartilhar link de pagamento',exact:true}).click();
- await page.getByRole('button',{name:'Copiar link de pagamento',exact:true}).click();
- const field=page.getByLabel('Link de pagamento',{exact:true});
- await expect(field).toBeFocused();
- await expect(page.getByRole('status').filter({hasText:'A cópia automática foi bloqueada'})).toBeVisible();
- const selection=await field.evaluate((e:HTMLTextAreaElement)=>e.selectionEnd-e.selectionStart);
- expect(selection).toBe((await field.inputValue()).length);
- await expect(page.getByText('Link copiado. Cole na conversa com o cliente.',{exact:true})).toHaveCount(0);
-});
-test('cancelar compartilhamento não copia nem confirma pagamento',async({page})=>{
- await page.addInitScript(()=>{
-  (window as any).copies=[];
-  Object.defineProperty(navigator,'share',{value:async()=>{throw new DOMException('cancelled','AbortError')}});
-  Object.defineProperty(navigator,'clipboard',{value:{writeText:async(text:string)=>{(window as any).copies.push(text)}}});
- });
- const {writes}=await setup(page);
- await page.getByRole('button',{name:'Compartilhar só o código Pix'}).click();
- await expect(page.getByRole('button',{name:'Compartilhar só o código Pix'})).toBeEnabled();
- expect(await page.evaluate(()=>(window as any).copies)).toEqual([]);
- expect(writes.filter(x=>/confirm.*payment|food_orders/.test(x.url))).toEqual([]);
-});
-test('código continua disponível sem habilitar a API de links',async({page})=>{
- test.skip(linksEnabled);
- await page.addInitScript(()=>Object.defineProperty(navigator,'share',{value:async()=>{}}));
- const {issued}=await setup(page);
- await expect(page.getByRole('button',{name:'Compartilhar link de pagamento',exact:true})).toHaveCount(0);
- await page.getByRole('button',{name:'Compartilhar só o código Pix'}).click();
- await expect(page.getByLabel('Código Pix',{exact:true})).toBeVisible();
- expect(issued).toEqual([]);
-});
-
 test('controles de cópia têm rótulos e atributos acessíveis',async({page})=>{
  test.skip(!linksEnabled);
  await page.addInitScript(()=>Object.defineProperty(navigator,'share',{value:async()=>{}}));

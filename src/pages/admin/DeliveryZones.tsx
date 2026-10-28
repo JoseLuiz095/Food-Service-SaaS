@@ -129,8 +129,8 @@ export default function DeliveryZonesAdmin() {
                   <span>{zone.city} · {zone.state}</span>
                   {zone.aliases.length > 0 && <small>Também reconhece: {zone.aliases.join(', ')}</small>}
                 </div>
-                <label className="delivery-inline-field"><span>Taxa</span><div><b>R$</b><input type="number" min="0" step="0.01" value={zone.fee} onChange={(e) => patchDraft(zone.id, { fee: Number(e.target.value) })} /></div></label>
-                <label className="delivery-inline-field"><span>Ordem</span><input type="number" min="0" step="10" value={zone.sortOrder} onChange={(e) => patchDraft(zone.id, { sortOrder: Number(e.target.value) })} /></label>
+                <label className="delivery-inline-field"><span>Taxa</span><div><b>R$</b><input type="number" aria-label={`Taxa de entrega de ${zone.name}`} min="0" step="0.01" value={zone.fee} onChange={(e) => patchDraft(zone.id, { fee: Number(e.target.value) })} /></div></label>
+                <label className="delivery-inline-field"><span>Ordem</span><input type="number" aria-label={`Ordem de ${zone.name}`} min="0" step="10" value={zone.sortOrder} onChange={(e) => patchDraft(zone.id, { sortOrder: Number(e.target.value) })} /></label>
                 <label className="delivery-status-toggle"><input type="checkbox" checked={zone.active} onChange={(e) => patchDraft(zone.id, { active: e.target.checked })} /><span>{zone.active ? 'Ativa' : 'Oculta'}</span></label>
                 <button className="icon-danger-button" type="button" onClick={() => void remove(zone)} aria-label={`Excluir ${zone.name}`}><Trash2 size={17} /></button>
               </article>

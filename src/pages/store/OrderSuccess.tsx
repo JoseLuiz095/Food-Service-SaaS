@@ -55,7 +55,7 @@ export default function OrderSuccess() {
 
   if (!confirmation) {
     return (
-      <main className="order-success-page food-storefront-theme" style={storefrontThemeStyle}>
+      <main data-visual-preset={settings.visualTheme.preset} className="order-success-page food-storefront-theme" style={storefrontThemeStyle}>
         <section className="order-success-card order-success-card--missing">
           <div className="success-icon"><CheckCircle2 size={50} /></div>
           <h1>Pedido não disponível nesta sessão</h1>
@@ -135,7 +135,7 @@ export default function OrderSuccess() {
   };
 
   return (
-    <main className="order-success-page food-storefront-theme" style={storefrontThemeStyle}>
+    <main data-visual-preset={settings.visualTheme.preset} className="order-success-page food-storefront-theme" style={storefrontThemeStyle}>
       <section className="order-success-card">
         <div className="success-icon"><CheckCircle2 size={54} strokeWidth={2.2} /></div>
 

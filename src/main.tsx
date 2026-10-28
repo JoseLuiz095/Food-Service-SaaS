@@ -8,6 +8,7 @@ import { StoreProvider } from './contexts/StoreContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { installGlobalInteractionTelemetry } from './services/interactionTelemetry';
 import './styles.css';
+import './segments/doce-lua-accessibility.css';
 
 const OrderPayment = lazy(() => import('./pages/store/OrderPayment'));
 const isPaymentPage = /^\/pagamento\/pix\/?$/.test(window.location.pathname);

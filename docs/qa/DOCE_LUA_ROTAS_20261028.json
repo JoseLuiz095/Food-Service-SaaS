@@ -1,0 +1,1857 @@
+{
+  "ambiente": "Local isolado, mocks sintéticos; não é evidência de deploy",
+  "widths": [
+    320,
+    360,
+    390,
+    768,
+    1366
+  ],
+  "routes": [
+    {
+      "route": "/admin",
+      "url": "/admin",
+      "width": 320,
+      "headings": [
+        "Painel do estabelecimento",
+        "O que você quer atualizar?",
+        "O que importa hoje",
+        "Uso do catálogo",
+        "Sua loja"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/pedidos",
+      "url": "/admin/pedidos",
+      "width": 320,
+      "headings": [
+        "Pedidos",
+        "A receber do cliente",
+        "Pedidos agendados"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos",
+      "url": "/admin/produtos",
+      "width": 320,
+      "headings": [
+        "Produtos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos/novo",
+      "url": "/admin/produtos/novo",
+      "width": 320,
+      "headings": [
+        "Novo produto",
+        "Dados principais",
+        "Galeria do produto",
+        "Disponibilidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos/20000000-0000-4000-8000-000000000001",
+      "url": "/admin/produtos/20000000-0000-4000-8000-000000000001",
+      "width": 320,
+      "headings": [
+        "Editar produto",
+        "Dados principais",
+        "Galeria do produto",
+        "Disponibilidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/categorias",
+      "url": "/admin/categorias",
+      "width": 320,
+      "headings": [
+        "Categorias",
+        "Suas categorias",
+        "Adicionar categoria"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/entregas",
+      "url": "/admin/entregas",
+      "width": 320,
+      "headings": [
+        "Áreas e taxas de entrega",
+        "Adicionar bairro ou cidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/analytics",
+      "url": "/admin/analytics",
+      "width": 320,
+      "headings": [
+        "Desempenho comercial",
+        "Produtos com maior interesse",
+        "Vistos, mas ainda não vendidos",
+        "Pedidos por dia da semana",
+        "Pedidos por dia da semana",
+        "Formas de pagamento",
+        "Entrega × retirada",
+        "Bairros / zonas",
+        "Dias da semana",
+        "Horários dos pedidos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/plano",
+      "url": "/admin/plano",
+      "width": 320,
+      "headings": [
+        "Meu plano e mensalidade",
+        "Teste grátis",
+        "Nenhum pagamento confirmado ainda",
+        "Business",
+        "Pagamento simples por PIX"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/primeiros-passos",
+      "url": "/admin/primeiros-passos",
+      "width": 320,
+      "headings": [
+        "Coloque sua loja pronta para receber pedidos",
+        "Configuração essencial concluída",
+        "Conclua a configuração do segmento",
+        "Configuração obrigatória",
+        "Teste um pedido real",
+        "Divulgue sua loja"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/modulos",
+      "url": "/admin/modulos",
+      "width": 320,
+      "headings": [
+        "Eventos e módulos",
+        "Módulos opcionais"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/estoque",
+      "url": "/admin/estoque",
+      "width": 320,
+      "headings": [
+        "Estoque",
+        "Produção e insumos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/estoque-locais",
+      "url": "/admin/estoque-locais",
+      "width": 320,
+      "headings": [
+        "Locais de estoque",
+        "Estoque por local",
+        "Transferir estoque"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/financeiro",
+      "url": "/admin/financeiro",
+      "width": 320,
+      "headings": [
+        "Financeiro",
+        "Entradas × saídas",
+        "Principais despesas",
+        "Novo lançamento",
+        "Histórico recente"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/configuracoes",
+      "url": "/admin/configuracoes",
+      "width": 320,
+      "headings": [
+        "Configurações",
+        "Estoque",
+        "Dados do estabelecimento",
+        "Uma identidade que parece sua",
+        "Orientações antes de pedir",
+        "Alterar minha senha"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/negocio",
+      "url": "/admin/negocio",
+      "width": 320,
+      "headings": [
+        "Segmento e módulos",
+        "Configuração inicial pendente",
+        "Ferramentas deste negócio",
+        "Histórico de alterações"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/operacao",
+      "url": "/admin/operacao",
+      "width": 320,
+      "headings": [
+        "Minha operação",
+        "Prepare os módulos do negócio"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master",
+      "url": "/admin-master",
+      "width": 320,
+      "headings": [
+        "Gestão comercial da VendeWeb",
+        "O que precisa de atenção agora",
+        "Lojas que ainda não publicaram produtos",
+        "Vencimentos nos próximos 7 dias"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master/lojas",
+      "url": "/admin-master/lojas",
+      "width": 320,
+      "headings": [
+        "Lojas e assinaturas"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master/solicitacoes",
+      "url": "/admin-master/solicitacoes",
+      "width": 320,
+      "headings": [
+        "Solicitações de novos clientes",
+        "Nenhuma solicitação pendente"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua",
+      "url": "/doce-lua",
+      "width": 320,
+      "headings": [
+        "Doce Lua",
+        "Os queridinhos da casa",
+        "Brigadeiro teste"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/produto/brigadeiro-teste",
+      "url": "/doce-lua/produto/brigadeiro-teste",
+      "width": 320,
+      "headings": [
+        "Brigadeiro teste"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/carrinho",
+      "url": "/doce-lua/carrinho",
+      "width": 320,
+      "headings": [
+        "Revise os itens"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/finalizar",
+      "url": "/doce-lua/finalizar",
+      "width": 320,
+      "headings": [
+        "Finalize seu pedido"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/pedido/b0000000-0000-4000-8000-000000000001",
+      "url": "/doce-lua/pedido/b0000000-0000-4000-8000-000000000001",
+      "width": 320,
+      "headings": [
+        "Pedido recebido"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/pagamento/pix#AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "url": "/pagamento/pix",
+      "width": 320,
+      "headings": [
+        "Pagamento Pix",
+        "Loja sintética"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin",
+      "url": "/admin",
+      "width": 360,
+      "headings": [
+        "Painel do estabelecimento",
+        "O que você quer atualizar?",
+        "O que importa hoje",
+        "Uso do catálogo",
+        "Sua loja"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/pedidos",
+      "url": "/admin/pedidos",
+      "width": 360,
+      "headings": [
+        "Pedidos",
+        "A receber do cliente",
+        "Pedidos agendados"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos",
+      "url": "/admin/produtos",
+      "width": 360,
+      "headings": [
+        "Produtos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos/novo",
+      "url": "/admin/produtos/novo",
+      "width": 360,
+      "headings": [
+        "Novo produto",
+        "Dados principais",
+        "Galeria do produto",
+        "Disponibilidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos/20000000-0000-4000-8000-000000000001",
+      "url": "/admin/produtos/20000000-0000-4000-8000-000000000001",
+      "width": 360,
+      "headings": [
+        "Editar produto",
+        "Dados principais",
+        "Galeria do produto",
+        "Disponibilidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/categorias",
+      "url": "/admin/categorias",
+      "width": 360,
+      "headings": [
+        "Categorias",
+        "Suas categorias",
+        "Adicionar categoria"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/entregas",
+      "url": "/admin/entregas",
+      "width": 360,
+      "headings": [
+        "Áreas e taxas de entrega",
+        "Adicionar bairro ou cidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/analytics",
+      "url": "/admin/analytics",
+      "width": 360,
+      "headings": [
+        "Desempenho comercial",
+        "Produtos com maior interesse",
+        "Vistos, mas ainda não vendidos",
+        "Pedidos por dia da semana",
+        "Pedidos por dia da semana",
+        "Formas de pagamento",
+        "Entrega × retirada",
+        "Bairros / zonas",
+        "Dias da semana",
+        "Horários dos pedidos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/plano",
+      "url": "/admin/plano",
+      "width": 360,
+      "headings": [
+        "Meu plano e mensalidade",
+        "Teste grátis",
+        "Nenhum pagamento confirmado ainda",
+        "Business",
+        "Pagamento simples por PIX"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/primeiros-passos",
+      "url": "/admin/primeiros-passos",
+      "width": 360,
+      "headings": [
+        "Coloque sua loja pronta para receber pedidos",
+        "Configuração essencial concluída",
+        "Conclua a configuração do segmento",
+        "Configuração obrigatória",
+        "Teste um pedido real",
+        "Divulgue sua loja"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/modulos",
+      "url": "/admin/modulos",
+      "width": 360,
+      "headings": [
+        "Eventos e módulos",
+        "Módulos opcionais"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/estoque",
+      "url": "/admin/estoque",
+      "width": 360,
+      "headings": [
+        "Estoque",
+        "Produção e insumos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/estoque-locais",
+      "url": "/admin/estoque-locais",
+      "width": 360,
+      "headings": [
+        "Locais de estoque",
+        "Estoque por local",
+        "Transferir estoque"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/financeiro",
+      "url": "/admin/financeiro",
+      "width": 360,
+      "headings": [
+        "Financeiro",
+        "Entradas × saídas",
+        "Principais despesas",
+        "Novo lançamento",
+        "Histórico recente"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/configuracoes",
+      "url": "/admin/configuracoes",
+      "width": 360,
+      "headings": [
+        "Configurações",
+        "Estoque",
+        "Dados do estabelecimento",
+        "Uma identidade que parece sua",
+        "Orientações antes de pedir",
+        "Alterar minha senha"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/negocio",
+      "url": "/admin/negocio",
+      "width": 360,
+      "headings": [
+        "Segmento e módulos",
+        "Configuração inicial pendente",
+        "Ferramentas deste negócio",
+        "Histórico de alterações"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/operacao",
+      "url": "/admin/operacao",
+      "width": 360,
+      "headings": [
+        "Minha operação",
+        "Prepare os módulos do negócio"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master",
+      "url": "/admin-master",
+      "width": 360,
+      "headings": [
+        "Gestão comercial da VendeWeb",
+        "O que precisa de atenção agora",
+        "Lojas que ainda não publicaram produtos",
+        "Vencimentos nos próximos 7 dias"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master/lojas",
+      "url": "/admin-master/lojas",
+      "width": 360,
+      "headings": [
+        "Lojas e assinaturas"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master/solicitacoes",
+      "url": "/admin-master/solicitacoes",
+      "width": 360,
+      "headings": [
+        "Solicitações de novos clientes",
+        "Nenhuma solicitação pendente"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua",
+      "url": "/doce-lua",
+      "width": 360,
+      "headings": [
+        "Doce Lua",
+        "Os queridinhos da casa",
+        "Brigadeiro teste"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/produto/brigadeiro-teste",
+      "url": "/doce-lua/produto/brigadeiro-teste",
+      "width": 360,
+      "headings": [
+        "Brigadeiro teste"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/carrinho",
+      "url": "/doce-lua/carrinho",
+      "width": 360,
+      "headings": [
+        "Revise os itens"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/finalizar",
+      "url": "/doce-lua/finalizar",
+      "width": 360,
+      "headings": [
+        "Finalize seu pedido"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/pedido/b0000000-0000-4000-8000-000000000001",
+      "url": "/doce-lua/pedido/b0000000-0000-4000-8000-000000000001",
+      "width": 360,
+      "headings": [
+        "Pedido recebido"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/pagamento/pix#AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "url": "/pagamento/pix",
+      "width": 360,
+      "headings": [
+        "Pagamento Pix",
+        "Loja sintética"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin",
+      "url": "/admin",
+      "width": 390,
+      "headings": [
+        "Painel do estabelecimento",
+        "O que você quer atualizar?",
+        "O que importa hoje",
+        "Uso do catálogo",
+        "Sua loja"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/pedidos",
+      "url": "/admin/pedidos",
+      "width": 390,
+      "headings": [
+        "Pedidos",
+        "A receber do cliente",
+        "Pedidos agendados"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos",
+      "url": "/admin/produtos",
+      "width": 390,
+      "headings": [
+        "Produtos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos/novo",
+      "url": "/admin/produtos/novo",
+      "width": 390,
+      "headings": [
+        "Novo produto",
+        "Dados principais",
+        "Galeria do produto",
+        "Disponibilidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos/20000000-0000-4000-8000-000000000001",
+      "url": "/admin/produtos/20000000-0000-4000-8000-000000000001",
+      "width": 390,
+      "headings": [
+        "Editar produto",
+        "Dados principais",
+        "Galeria do produto",
+        "Disponibilidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/categorias",
+      "url": "/admin/categorias",
+      "width": 390,
+      "headings": [
+        "Categorias",
+        "Suas categorias",
+        "Adicionar categoria"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/entregas",
+      "url": "/admin/entregas",
+      "width": 390,
+      "headings": [
+        "Áreas e taxas de entrega",
+        "Adicionar bairro ou cidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/analytics",
+      "url": "/admin/analytics",
+      "width": 390,
+      "headings": [
+        "Desempenho comercial",
+        "Produtos com maior interesse",
+        "Vistos, mas ainda não vendidos",
+        "Pedidos por dia da semana",
+        "Pedidos por dia da semana",
+        "Formas de pagamento",
+        "Entrega × retirada",
+        "Bairros / zonas",
+        "Dias da semana",
+        "Horários dos pedidos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/plano",
+      "url": "/admin/plano",
+      "width": 390,
+      "headings": [
+        "Meu plano e mensalidade",
+        "Teste grátis",
+        "Nenhum pagamento confirmado ainda",
+        "Business",
+        "Pagamento simples por PIX"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/primeiros-passos",
+      "url": "/admin/primeiros-passos",
+      "width": 390,
+      "headings": [
+        "Coloque sua loja pronta para receber pedidos",
+        "Configuração essencial concluída",
+        "Conclua a configuração do segmento",
+        "Configuração obrigatória",
+        "Teste um pedido real",
+        "Divulgue sua loja"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/modulos",
+      "url": "/admin/modulos",
+      "width": 390,
+      "headings": [
+        "Eventos e módulos",
+        "Módulos opcionais"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/estoque",
+      "url": "/admin/estoque",
+      "width": 390,
+      "headings": [
+        "Estoque",
+        "Produção e insumos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/estoque-locais",
+      "url": "/admin/estoque-locais",
+      "width": 390,
+      "headings": [
+        "Locais de estoque",
+        "Estoque por local",
+        "Transferir estoque"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/financeiro",
+      "url": "/admin/financeiro",
+      "width": 390,
+      "headings": [
+        "Financeiro",
+        "Entradas × saídas",
+        "Principais despesas",
+        "Novo lançamento",
+        "Histórico recente"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/configuracoes",
+      "url": "/admin/configuracoes",
+      "width": 390,
+      "headings": [
+        "Configurações",
+        "Estoque",
+        "Dados do estabelecimento",
+        "Uma identidade que parece sua",
+        "Orientações antes de pedir",
+        "Alterar minha senha"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/negocio",
+      "url": "/admin/negocio",
+      "width": 390,
+      "headings": [
+        "Segmento e módulos",
+        "Configuração inicial pendente",
+        "Ferramentas deste negócio",
+        "Histórico de alterações"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/operacao",
+      "url": "/admin/operacao",
+      "width": 390,
+      "headings": [
+        "Minha operação",
+        "Prepare os módulos do negócio"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master",
+      "url": "/admin-master",
+      "width": 390,
+      "headings": [
+        "Gestão comercial da VendeWeb",
+        "O que precisa de atenção agora",
+        "Lojas que ainda não publicaram produtos",
+        "Vencimentos nos próximos 7 dias"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master/lojas",
+      "url": "/admin-master/lojas",
+      "width": 390,
+      "headings": [
+        "Lojas e assinaturas"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master/solicitacoes",
+      "url": "/admin-master/solicitacoes",
+      "width": 390,
+      "headings": [
+        "Solicitações de novos clientes",
+        "Nenhuma solicitação pendente"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua",
+      "url": "/doce-lua",
+      "width": 390,
+      "headings": [
+        "Doce Lua",
+        "Os queridinhos da casa",
+        "Brigadeiro teste"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/produto/brigadeiro-teste",
+      "url": "/doce-lua/produto/brigadeiro-teste",
+      "width": 390,
+      "headings": [
+        "Brigadeiro teste"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/carrinho",
+      "url": "/doce-lua/carrinho",
+      "width": 390,
+      "headings": [
+        "Revise os itens"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/finalizar",
+      "url": "/doce-lua/finalizar",
+      "width": 390,
+      "headings": [
+        "Finalize seu pedido"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/pedido/b0000000-0000-4000-8000-000000000001",
+      "url": "/doce-lua/pedido/b0000000-0000-4000-8000-000000000001",
+      "width": 390,
+      "headings": [
+        "Pedido recebido"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/pagamento/pix#AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "url": "/pagamento/pix",
+      "width": 390,
+      "headings": [
+        "Pagamento Pix",
+        "Loja sintética"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin",
+      "url": "/admin",
+      "width": 768,
+      "headings": [
+        "Painel do estabelecimento",
+        "O que você quer atualizar?",
+        "O que importa hoje",
+        "Uso do catálogo",
+        "Sua loja"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/pedidos",
+      "url": "/admin/pedidos",
+      "width": 768,
+      "headings": [
+        "Pedidos",
+        "A receber do cliente",
+        "Pedidos agendados"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos",
+      "url": "/admin/produtos",
+      "width": 768,
+      "headings": [
+        "Produtos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos/novo",
+      "url": "/admin/produtos/novo",
+      "width": 768,
+      "headings": [
+        "Novo produto",
+        "Dados principais",
+        "Galeria do produto",
+        "Disponibilidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos/20000000-0000-4000-8000-000000000001",
+      "url": "/admin/produtos/20000000-0000-4000-8000-000000000001",
+      "width": 768,
+      "headings": [
+        "Editar produto",
+        "Dados principais",
+        "Galeria do produto",
+        "Disponibilidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/categorias",
+      "url": "/admin/categorias",
+      "width": 768,
+      "headings": [
+        "Categorias",
+        "Suas categorias",
+        "Adicionar categoria"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/entregas",
+      "url": "/admin/entregas",
+      "width": 768,
+      "headings": [
+        "Áreas e taxas de entrega",
+        "Adicionar bairro ou cidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/analytics",
+      "url": "/admin/analytics",
+      "width": 768,
+      "headings": [
+        "Desempenho comercial",
+        "Produtos com maior interesse",
+        "Vistos, mas ainda não vendidos",
+        "Pedidos por dia da semana",
+        "Pedidos por dia da semana",
+        "Formas de pagamento",
+        "Entrega × retirada",
+        "Bairros / zonas",
+        "Dias da semana",
+        "Horários dos pedidos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/plano",
+      "url": "/admin/plano",
+      "width": 768,
+      "headings": [
+        "Meu plano e mensalidade",
+        "Teste grátis",
+        "Nenhum pagamento confirmado ainda",
+        "Business",
+        "Pagamento simples por PIX"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/primeiros-passos",
+      "url": "/admin/primeiros-passos",
+      "width": 768,
+      "headings": [
+        "Coloque sua loja pronta para receber pedidos",
+        "Configuração essencial concluída",
+        "Conclua a configuração do segmento",
+        "Configuração obrigatória",
+        "Teste um pedido real",
+        "Divulgue sua loja"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/modulos",
+      "url": "/admin/modulos",
+      "width": 768,
+      "headings": [
+        "Eventos e módulos",
+        "Módulos opcionais"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/estoque",
+      "url": "/admin/estoque",
+      "width": 768,
+      "headings": [
+        "Estoque",
+        "Produção e insumos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/estoque-locais",
+      "url": "/admin/estoque-locais",
+      "width": 768,
+      "headings": [
+        "Locais de estoque",
+        "Estoque por local",
+        "Transferir estoque"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/financeiro",
+      "url": "/admin/financeiro",
+      "width": 768,
+      "headings": [
+        "Financeiro",
+        "Entradas × saídas",
+        "Principais despesas",
+        "Novo lançamento",
+        "Histórico recente"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/configuracoes",
+      "url": "/admin/configuracoes",
+      "width": 768,
+      "headings": [
+        "Configurações",
+        "Estoque",
+        "Dados do estabelecimento",
+        "Uma identidade que parece sua",
+        "Orientações antes de pedir",
+        "Alterar minha senha"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/negocio",
+      "url": "/admin/negocio",
+      "width": 768,
+      "headings": [
+        "Segmento e módulos",
+        "Configuração inicial pendente",
+        "Ferramentas deste negócio",
+        "Histórico de alterações"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/operacao",
+      "url": "/admin/operacao",
+      "width": 768,
+      "headings": [
+        "Minha operação",
+        "Prepare os módulos do negócio"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master",
+      "url": "/admin-master",
+      "width": 768,
+      "headings": [
+        "Gestão comercial da VendeWeb",
+        "O que precisa de atenção agora",
+        "Lojas que ainda não publicaram produtos",
+        "Vencimentos nos próximos 7 dias"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master/lojas",
+      "url": "/admin-master/lojas",
+      "width": 768,
+      "headings": [
+        "Lojas e assinaturas"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master/solicitacoes",
+      "url": "/admin-master/solicitacoes",
+      "width": 768,
+      "headings": [
+        "Solicitações de novos clientes",
+        "Nenhuma solicitação pendente"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua",
+      "url": "/doce-lua",
+      "width": 768,
+      "headings": [
+        "Doce Lua",
+        "Os queridinhos da casa",
+        "Brigadeiro teste"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/produto/brigadeiro-teste",
+      "url": "/doce-lua/produto/brigadeiro-teste",
+      "width": 768,
+      "headings": [
+        "Brigadeiro teste"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/carrinho",
+      "url": "/doce-lua/carrinho",
+      "width": 768,
+      "headings": [
+        "Revise os itens"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/finalizar",
+      "url": "/doce-lua/finalizar",
+      "width": 768,
+      "headings": [
+        "Finalize seu pedido"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/pedido/b0000000-0000-4000-8000-000000000001",
+      "url": "/doce-lua/pedido/b0000000-0000-4000-8000-000000000001",
+      "width": 768,
+      "headings": [
+        "Pedido recebido"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/pagamento/pix#AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "url": "/pagamento/pix",
+      "width": 768,
+      "headings": [
+        "Pagamento Pix",
+        "Loja sintética"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin",
+      "url": "/admin",
+      "width": 1366,
+      "headings": [
+        "Painel do estabelecimento",
+        "O que você quer atualizar?",
+        "O que importa hoje",
+        "Uso do catálogo",
+        "Sua loja"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/pedidos",
+      "url": "/admin/pedidos",
+      "width": 1366,
+      "headings": [
+        "Pedidos",
+        "A receber do cliente",
+        "Pedidos agendados"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos",
+      "url": "/admin/produtos",
+      "width": 1366,
+      "headings": [
+        "Produtos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos/novo",
+      "url": "/admin/produtos/novo",
+      "width": 1366,
+      "headings": [
+        "Novo produto",
+        "Dados principais",
+        "Galeria do produto",
+        "Disponibilidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/produtos/20000000-0000-4000-8000-000000000001",
+      "url": "/admin/produtos/20000000-0000-4000-8000-000000000001",
+      "width": 1366,
+      "headings": [
+        "Editar produto",
+        "Dados principais",
+        "Galeria do produto",
+        "Disponibilidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/categorias",
+      "url": "/admin/categorias",
+      "width": 1366,
+      "headings": [
+        "Categorias",
+        "Suas categorias",
+        "Adicionar categoria"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/entregas",
+      "url": "/admin/entregas",
+      "width": 1366,
+      "headings": [
+        "Áreas e taxas de entrega",
+        "Adicionar bairro ou cidade"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/analytics",
+      "url": "/admin/analytics",
+      "width": 1366,
+      "headings": [
+        "Desempenho comercial",
+        "Produtos com maior interesse",
+        "Vistos, mas ainda não vendidos",
+        "Pedidos por dia da semana",
+        "Pedidos por dia da semana",
+        "Formas de pagamento",
+        "Entrega × retirada",
+        "Bairros / zonas",
+        "Dias da semana",
+        "Horários dos pedidos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/plano",
+      "url": "/admin/plano",
+      "width": 1366,
+      "headings": [
+        "Meu plano e mensalidade",
+        "Teste grátis",
+        "Nenhum pagamento confirmado ainda",
+        "Business",
+        "Pagamento simples por PIX"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/primeiros-passos",
+      "url": "/admin/primeiros-passos",
+      "width": 1366,
+      "headings": [
+        "Coloque sua loja pronta para receber pedidos",
+        "Configuração essencial concluída",
+        "Conclua a configuração do segmento",
+        "Configuração obrigatória",
+        "Teste um pedido real",
+        "Divulgue sua loja"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/modulos",
+      "url": "/admin/modulos",
+      "width": 1366,
+      "headings": [
+        "Eventos e módulos",
+        "Módulos opcionais"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/estoque",
+      "url": "/admin/estoque",
+      "width": 1366,
+      "headings": [
+        "Estoque",
+        "Produção e insumos"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/estoque-locais",
+      "url": "/admin/estoque-locais",
+      "width": 1366,
+      "headings": [
+        "Locais de estoque",
+        "Estoque por local",
+        "Transferir estoque"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/financeiro",
+      "url": "/admin/financeiro",
+      "width": 1366,
+      "headings": [
+        "Financeiro",
+        "Entradas × saídas",
+        "Principais despesas",
+        "Novo lançamento",
+        "Histórico recente"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/configuracoes",
+      "url": "/admin/configuracoes",
+      "width": 1366,
+      "headings": [
+        "Configurações",
+        "Estoque",
+        "Dados do estabelecimento",
+        "Uma identidade que parece sua",
+        "Orientações antes de pedir",
+        "Alterar minha senha"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/negocio",
+      "url": "/admin/negocio",
+      "width": 1366,
+      "headings": [
+        "Segmento e módulos",
+        "Configuração inicial pendente",
+        "Ferramentas deste negócio",
+        "Histórico de alterações"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin/operacao",
+      "url": "/admin/operacao",
+      "width": 1366,
+      "headings": [
+        "Minha operação",
+        "Prepare os módulos do negócio"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master",
+      "url": "/admin-master",
+      "width": 1366,
+      "headings": [
+        "Gestão comercial da VendeWeb",
+        "O que precisa de atenção agora",
+        "Lojas que ainda não publicaram produtos",
+        "Vencimentos nos próximos 7 dias"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master/lojas",
+      "url": "/admin-master/lojas",
+      "width": 1366,
+      "headings": [
+        "Lojas e assinaturas"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/admin-master/solicitacoes",
+      "url": "/admin-master/solicitacoes",
+      "width": 1366,
+      "headings": [
+        "Solicitações de novos clientes",
+        "Nenhuma solicitação pendente"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua",
+      "url": "/doce-lua",
+      "width": 1366,
+      "headings": [
+        "Doce Lua",
+        "Os queridinhos da casa",
+        "Brigadeiro teste"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/produto/brigadeiro-teste",
+      "url": "/doce-lua/produto/brigadeiro-teste",
+      "width": 1366,
+      "headings": [
+        "Brigadeiro teste"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/carrinho",
+      "url": "/doce-lua/carrinho",
+      "width": 1366,
+      "headings": [
+        "Revise os itens"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/finalizar",
+      "url": "/doce-lua/finalizar",
+      "width": 1366,
+      "headings": [
+        "Finalize seu pedido"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/doce-lua/pedido/b0000000-0000-4000-8000-000000000001",
+      "url": "/doce-lua/pedido/b0000000-0000-4000-8000-000000000001",
+      "width": 1366,
+      "headings": [
+        "Pedido recebido"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    },
+    {
+      "route": "/pagamento/pix#AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "url": "/pagamento/pix",
+      "width": 1366,
+      "headings": [
+        "Pagamento Pix",
+        "Loja sintética"
+      ],
+      "errors": [],
+      "mainCount": 1,
+      "overflow": false,
+      "axe": []
+    }
+  ]
+}

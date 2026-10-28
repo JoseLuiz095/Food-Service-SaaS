@@ -1,0 +1,5 @@
+/* Compartilhamento por ponto: link e seleção legíveis no celular. */
+.share-target-field{display:grid;gap:8px;text-align:left;font-weight:700;margin:14px 0}
+.share-target-field select{width:100%;min-width:0;min-height:44px;padding:10px;font-size:16px;border:1px solid #b8a59b;border-radius:10px;background:#fff;color:#32110c}
+:is(.admin-store-share-card__link,.store-share-card__link)>input{width:100%;min-width:0;min-height:44px;padding:8px;border:1px solid #b8a59b;border-radius:8px;background:#fff;color:#32110c;font-size:16px}
+@media(max-width:480px){.admin-store-share-card__link,.store-share-card__link{grid-template-columns:1fr}.admin-store-share-card__link button,.store-share-card__link button{min-height:44px;width:100%}}

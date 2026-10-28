@@ -1,0 +1,6 @@
+/* Portal direto no body: ancestrais com transform/filter não recortam o diálogo fixo. */
+.dismissible-panel-overlay{position:fixed;inset:0;z-index:1500;display:grid;place-items:center;padding:20px;background:rgba(36,22,17,.32);overflow:auto;overscroll-behavior:contain}
+.dismissible-panel-overlay>.food-hours-flyout,.dismissible-panel-overlay>.admin-notification-diagnostic{position:relative;inset:auto;transform:none;width:min(440px,100%);min-width:0;max-height:calc(100dvh - 40px);margin:auto;overflow:auto;background:#fff;border-radius:18px;z-index:auto}
+.dismissible-panel-overlay .food-hours-flyout__close,.dismissible-panel-overlay .icon-button{min-width:44px;min-height:44px}
+.dismissible-panel-overlay .hours-details-item span{white-space:normal;overflow-wrap:anywhere}
+@media(max-width:760px){.dismissible-panel-overlay{align-items:end;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left))}.dismissible-panel-overlay>.food-hours-flyout,.dismissible-panel-overlay>.admin-notification-diagnostic{max-height:calc(100dvh - 40px);margin:0 auto}}

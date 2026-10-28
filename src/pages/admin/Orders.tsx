@@ -1,4 +1,5 @@
 import { createOrderPaymentLink, paymentLinksEnabled } from '../../services/orderPaymentApi';
+import { useModalAccessibility } from '../../components/useModalAccessibility';
 import PixCopyButton from '../../components/PixCopyButton';
 import CopyableText from '../../components/CopyableText';
 import '../../pages/store/order-payment.css';
@@ -154,6 +155,8 @@ export default function OrdersAdmin() {
   const [manualProductId, setManualProductId] = useState('');
   const [manualQuantityDraft, setManualQuantityDraft] = useState(1);
   const [manualSaving, setManualSaving] = useState(false);
+  const manualDialogRef=useRef<HTMLFormElement>(null);
+  useModalAccessibility(manualOrderOpen,manualDialogRef,()=>setManualOrderOpen(false),!manualSaving);
   const [manualPixView, setManualPixView] = useState<ManualPixView | null>(null);
   const [manualPixQrCode, setManualPixQrCode] = useState('');
   const [manualPixQrCodeError, setManualPixQrCodeError] = useState('');
@@ -482,22 +485,6 @@ export default function OrdersAdmin() {
       showToast('Link de pagamento pronto. Compartilhe somente com quem vai pagar.', 'success');
     } catch (error) { if (request === paymentLinkRequest.current) setPaymentLinkError(error instanceof Error ? error.message : 'Não foi possível gerar o link.'); }
     finally { if (request === paymentLinkRequest.current) setSharingPix(false); }
-  };
-  const sharePixCode = async (view: ManualPixView) => {
-    if (!view.payload || sharingPix) return;
-    const request = ++paymentLinkRequest.current;
-    setSharingPix(true);
-    try {
-      // Só o código: o cliente pode copiar a mensagem inteira, sem remover título/valor.
-      if (navigator.share) await navigator.share({ text: view.payload });
-      else {
-        await copyText(view.payload);
-        if (request === paymentLinkRequest.current) showToast('Código Pix copiado. Cole na conversa com o cliente.', 'success');
-      }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      if (request === paymentLinkRequest.current) showToast('Não foi possível compartilhar. Use “Copiar código Pix” ou selecione o código acima.', 'error');
-    } finally { if (request === paymentLinkRequest.current) setSharingPix(false); }
   };
   const sharePix = async (view: ManualPixView, qrCode: string) => {
     if (!qrCode || sharingPix) return;
@@ -953,7 +940,7 @@ export default function OrdersAdmin() {
         <div className="orders-calendar-card__actions"><button type="button" className="icon-button" onClick={() => moveCalendarMonth(-1)} aria-label="Mês anterior"><ChevronLeft size={17}/></button><strong>{calendarMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</strong><button type="button" className="icon-button" onClick={() => moveCalendarMonth(1)} aria-label="Próximo mês"><ChevronRight size={17}/></button></div>
       </div>
       <div className="orders-calendar-weekdays" aria-hidden="true">{['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => <span key={day}>{day}</span>)}</div>
-      <div className="orders-calendar-grid" role="grid" aria-label="Calendário de pedidos agendados">{calendarDays.map(({ date, key, inMonth, count }) => <button type="button" role="gridcell" key={key} className={`orders-calendar-day ${inMonth ? '' : 'is-outside'} ${scheduledDateFilter === key ? 'is-selected' : ''}`} onClick={() => count ? setScheduledDateFilter(key) : undefined} disabled={!count} aria-label={`${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}${count ? `, ${count} pedido${count === 1 ? '' : 's'} agendado${count === 1 ? '' : 's'}` : ', sem pedidos agendados'}`}><span>{date.getDate()}</span>{count ? <b>{count}</b> : null}</button>)}</div>
+      <div className="orders-calendar-grid" role="group" aria-label="Calendário de pedidos agendados">{calendarDays.map(({ date, key, inMonth, count }) => <button type="button" key={key} className={`orders-calendar-day ${inMonth ? '' : 'is-outside'} ${scheduledDateFilter === key ? 'is-selected' : ''}`} onClick={() => count ? setScheduledDateFilter(key) : undefined} disabled={!count} aria-label={`${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}${count ? `, ${count} pedido${count === 1 ? '' : 's'} agendado${count === 1 ? '' : 's'}` : ', sem pedidos agendados'}`}><span>{date.getDate()}</span>{count ? <b>{count}</b> : null}</button>)}</div>
       {scheduledDateFilter && <div className="orders-calendar-filter-chip"><span><CalendarDays size={15}/>Filtrando: <strong>{scheduledFilterLabel}</strong></span><button type="button" onClick={clearScheduledFilter} aria-label="Limpar filtro de pedidos agendados" title="Limpar filtro"><Slash size={15}/></button></div>}
     </section>
 
@@ -988,7 +975,7 @@ export default function OrdersAdmin() {
     </aside>}
     {detailsOrder && <OrderDetailsModal order={detailsOrder} settings={settings} onClose={() => setDetailsOrderId(null)} onSave={saveOrderDetails} onCancelOrder={cancelOrderFromDetails} saving={detailsSaving} />}
     {manualOrderOpen && <div className="modal-overlay" role="presentation">
-      <form className="master-modal master-modal--wide manual-order-modal" role="dialog" aria-modal="true" aria-labelledby="manual-order-title" onSubmit={saveManualOrder}>
+      <form ref={manualDialogRef} tabIndex={-1} className="master-modal master-modal--wide manual-order-modal" role="dialog" aria-modal="true" aria-labelledby="manual-order-title" onSubmit={saveManualOrder}>
         <button type="button" className="modal-close" aria-label="Fechar lançamento de pedido avulso" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}><X/></button>
         <span className="eyebrow">LANÇAMENTO OPERACIONAL</span>
         <h2 id="manual-order-title">Pedido avulso</h2>
@@ -1053,7 +1040,6 @@ export default function OrdersAdmin() {
           {manualPixQrCode ? <img className="manual-pix-result-qr" src={manualPixQrCode} alt={`QR Code PIX no valor de ${currency.format(manualPixView.total)}`} /> : manualPixQrCodeError ? <div className="manual-pix-live-preview__error">{manualPixQrCodeError}</div> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
           <strong>Total: {currency.format(manualPixView.total)}</strong>
           <PixCopyButton key={manualPixView.orderId} value={manualPixView.payload}/>
-          <button type="button" className="secondary-button" disabled={sharingPix} onClick={() => void sharePixCode(manualPixView)}><Share2 size={16}/>Compartilhar só o código Pix</button>
           {paymentLinksEnabled && <button type="button" className="primary-button" disabled={sharingPix} onClick={() => void sharePaymentLink(manualPixView)}><Share2 size={16}/>{sharingPix ? 'Preparando link…' : 'Compartilhar link de pagamento'}</button>}
           {paymentLinkError && <p role="alert">{paymentLinkError} Use o QR ou o código acima enquanto isso.</p>}
           {paymentLink && <CopyableText key={paymentLink} value={paymentLink} label="Link de pagamento" copyLabel="Copiar link de pagamento" instructions="Envie este link ao cliente. Ele poderá conferir o valor e copiar o Pix em um toque." copiedMessage="Link copiado. Cole na conversa com o cliente."/>}
@@ -1072,7 +1058,6 @@ export default function OrdersAdmin() {
           {paymentPixQrCode ? <img className="manual-pix-result-qr" src={paymentPixQrCode} alt={`QR Code PIX no valor de ${currency.format(paymentPixView.total)}`} /> : paymentPixQrCodeError ? <div className="manual-pix-live-preview__error">{paymentPixQrCodeError}</div> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
           <strong>Total: {currency.format(paymentPixView.total)}</strong>
           <PixCopyButton key={paymentPixView.orderId} value={paymentPixView.payload}/>
-          <button type="button" className="secondary-button" disabled={sharingPix} onClick={() => void sharePixCode(paymentPixView)}><Share2 size={16}/>Compartilhar só o código Pix</button>
           {paymentLinksEnabled && <button type="button" className="primary-button" disabled={sharingPix} onClick={() => void sharePaymentLink(paymentPixView)}><Share2 size={16}/>{sharingPix ? 'Preparando link…' : 'Compartilhar link de pagamento'}</button>}
           {paymentLinkError && <p role="alert">{paymentLinkError} Use o QR ou o código acima enquanto isso.</p>}
           {paymentLink && <CopyableText key={paymentLink} value={paymentLink} label="Link de pagamento" copyLabel="Copiar link de pagamento" instructions="Envie este link ao cliente. Ele poderá conferir o valor e copiar o Pix em um toque." copiedMessage="Link copiado. Cole na conversa com o cliente."/>}
