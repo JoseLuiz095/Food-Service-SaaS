@@ -101,7 +101,7 @@ check('Pedidos cancelados não geram alerta de novo pedido',adminNotifications.i
 check('Assinatura push é sincronizada no painel',adminNotifications.includes('subscribeToPwaPush(membership.storeId, user.id)'));
 check('Painel não pede permissão de notificações sem ação do lojista',adminNotifications.includes("Notification.permission !== 'granted'")&&adminNotifications.includes('subscriptionSyncedFor')&&!adminNotifications.includes('permissionAttemptedFor'));
 check('Pedidos não fazem polling duplicado na tela operacional',adminNotifications.includes("const isOrdersScreen = location.pathname === '/admin/pedidos';")&&adminNotifications.includes('if (isOrdersScreen) return;'));
-check('Compartilhamento sempre usa a vitrine da loja ativa',storefrontRoute.includes('publicStorefrontPath')&&adminStoreShare.includes('publicStorefrontUrl(settings.slug)')&&adminLayout.includes('admin-topbar__store-actions'));
+check('Compartilhamento sempre usa a vitrine da loja ativa',storefrontRoute.includes('publicStorefrontPath')&&adminStoreShare.includes('useStoreShareTarget(settings.id, settings.slug, open)')&&read('src/components/useStoreShareTarget.ts').includes('publicStorefrontUrl(slug)')&&adminLayout.includes('admin-topbar__store-actions'));
 check('Vitrine usa somente um carrinho fixo no celular',!home.includes('food-cart-dock')&&styles.includes('mobile-cart-dock'));
 check('Pagamento confirmado gera alerta sem repetir snapshot',adminNotifications.includes('newlyPaidOrders')&&adminNotifications.includes("paymentStatus === 'paid'")&&adminNotifications.includes("knownPaymentStatus.current.get(order.id) === 'pending'"));
 check('Checkout responde antes do push e preserva a notificação',edge.includes('runInBackground(notifyStoreAdmins(url, service, {'));

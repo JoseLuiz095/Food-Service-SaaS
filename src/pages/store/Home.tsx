@@ -57,12 +57,12 @@ function StorefrontHome(){
   if(error)return <div className="container page-center"><ErrorState message={error} onRetry={()=>void reloadPublic()}/></div>;
   if(segment.id==='fitness')return <>
     <header className="container fitness-store-header"><span className="eyebrow">VENDEWEB · FITNESS/ACADEMIA</span><h1>{settings.name}</h1><p>{[settings.city,settings.state].filter(Boolean).join(' · ')}</p></header>
-    <main id="cardapio" className="container storefront-body"><FitnessBookingOffers/></main>
+    <section id="cardapio" className="container storefront-body"><FitnessBookingOffers/></section>
   </>;
 
   return <>
     <StoreHeader/>
-    <main id="cardapio" className="container storefront-body food-marketplace-body">
+    <section id="cardapio" className="container storefront-body food-marketplace-body">
       <PublicBusinessOffers/>
       {settings.pickupEnabled && <PickupPointSelector points={pickup.points} value={pickup.pickupLocationId} onChange={pickup.setPickupLocationId} loading={pickup.pointsLoading} error={pickup.pointsError} invalidQr={pickup.invalidQr}/>}
       {pickup.selectedPoint && pickup.availabilityError && <p className="store-point-stock store-point-stock--warning" role="status">{pickup.availabilityError}</p>}
@@ -78,6 +78,6 @@ function StorefrontHome(){
       {!normalizedQuery&&selectedCategory==='all'&&featured.length>0&&<section className="food-featured-section"><div className="food-section-title"><div><span>{traditionalPresentation?'Para pedir sem pensar muito':'Uma seleção para começar'}</span><h2>{traditionalPresentation?'Os queridinhos da casa':'Destaques do catálogo'}</h2></div><Sparkles size={22}/></div><div className="food-featured-rail" aria-label="Produtos em destaque">{featured.map(product=>productCard(product,categories.find(category=>category.id===product.categoryId)))}</div></section>}
 
       {selectedCategory==='all'&&!normalizedQuery?grouped.map(({category,items})=><section className="food-category-section" key={category.id}><div className="food-section-title"><div><h2>{category.name}</h2>{category.description&&<p>{category.description}</p>}</div><button type="button" onClick={()=>setSelectedCategory(category.id)}>Ver categoria <ChevronRight size={16}/></button></div><div className="product-grid food-product-grid">{items.map(product=>productCard(product,category))}</div></section>):<section className="food-category-section"><div className="food-section-title"><div><h2 key={selectedCategory} className="storefront-filter-heading">{selectedCategory==='all'?'Resultados':categories.find(c=>c.id===selectedCategory)?.name||(traditionalPresentation?'Cardápio':segment.catalogLabel)}</h2><p>{visible.length} {visible.length===1?'item encontrado':'itens encontrados'}</p></div></div>{visible.length?<div className="product-grid food-product-grid">{visible.map(product=>productCard(product,categories.find(category=>category.id===product.categoryId)))}</div>:<div className="empty-state"><Search size={28}/><h3>Nenhum item encontrado</h3><p>Tente outra categoria ou termo de pesquisa.</p></div>}</section>}
-    </main>
+    </section>
   </>;
 }

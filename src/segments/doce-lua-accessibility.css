@@ -1,0 +1,25 @@
+/* Mesma identidade, com texto/ações legíveis nos fundos já usados pela Doce Lua. */
+.admin-shell[data-visual-preset="doce_lua"]{--food-admin-accent:#a84b29;--food-admin-accent-dark:#82351e;--food-red:#b91c2e}
+.admin-shell[data-visual-preset="doce_lua"] :is(.eyebrow,.text-link){color:#a84b29}
+.admin-shell[data-visual-preset="doce_lua"] .dashboard-today-metric small{color:#6b5e56}
+.admin-shell[data-visual-preset="doce_lua"] :is(.finance-summary-band span,.finance-summary-band small,.finance-chart-legend,.finance-direction-toggle small,.finance-expense-card button small){color:#625952}
+.admin-shell[data-visual-preset="doce_lua"] .stock-locations-page button.is-active{background:#a84b29;color:#fff}
+.food-storefront-theme[data-visual-preset="doce_lua"] :is(.product-card__category,.eyebrow,.store-platform-footer__eyebrow){color:#8b3f27}
+.order-payment-page .primary-button{background:#923e23;color:#fff}
+@media(prefers-reduced-motion:reduce){.food-storefront-theme .store-route-view{animation:none;transform:none}}
+.admin-shell[data-visual-preset="doce_lua"] :is(.status-toggle.on,.inventory-command__context a,.inventory-filters .is-active,.inventory-command-row__availability strong,.password-visibility-button,.analytics-selection-note b,.delivery-status-toggle span){color:#b91c2e}
+.admin-shell[data-visual-preset="doce_lua"] :is(.category-stat-grid small,.category-main-cell span,.category-form small,.finance-quick-actions small,.onboarding-score>span,.onboarding-url>span,.delivery-money-icon){color:#625952}
+.admin-shell[data-visual-preset="doce_lua"] .settings-storefront-preview :is(.settings-storefront-preview__hero>span,.settings-storefront-preview__product small){color:var(--food-store-primary)}
+
+.admin-shell[data-visual-preset="doce_lua"] [class*="delivery-"] b{color:#625952}
+
+.admin-shell[data-visual-preset="doce_lua"] :is(.admin-share-store-button small,.category-table-head,.delivery-zone-head){color:#68594f}
+.admin-shell[data-visual-preset="doce_lua"] .inventory-command__filters button.is-active{color:#b91c2e}
+.admin-shell[data-visual-preset="doce_lua"] .settings-storefront-preview .settings-storefront-preview__hero>span{color:#82351e}
+.food-storefront-theme[data-visual-preset="doce_lua"] :is(.checkout-card__title span,.checkout-extra-fields summary small,.checkout-address-extra summary small,.checkout-stepper header>span,.checkout-progress header>span,.order-success-hint){color:#6b625d}
+.food-storefront-theme[data-visual-preset="doce_lua"] .whatsapp-confirmation-button{background:#137c3b;color:#fff}
+
+.catalog-products-card{min-width:0;max-width:100%}
+.products-desktop-table{min-width:0;max-width:100%}
+.products-desktop-table .product-cell strong{white-space:normal;overflow-wrap:anywhere;max-width:32ch}
+.food-storefront-theme[data-visual-preset="doce_lua"] .checkout-topbar-v44>span{color:#6b625d}

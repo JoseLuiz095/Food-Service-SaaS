@@ -292,7 +292,7 @@ export default function SettingsAdmin() {
                <div className="settings-storefront-preview" style={{ ...getStorefrontThemeStyle(form.visualTheme), borderRadius: form.visualTheme.radius, background: form.visualTheme.backgroundColor, color: form.visualTheme.textColor }}>
                  <div className="settings-storefront-preview__bar"><strong>{form.name || 'Sua loja'}</strong><span>Pedido direto</span></div>
                  <div className="settings-storefront-preview__hero" style={{ background: form.visualTheme.surfaceColor, borderColor: form.visualTheme.borderColor }}>
-                   <span style={{ color: form.visualTheme.accentColor }}>{canUseDoceLua ? 'ENCOMENDAS ONLINE' : businessProfile.heroEyebrow}</span>
+                   <span style={{ color: form.visualTheme.preset === 'doce_lua' ? '#82351e' : form.visualTheme.accentColor }}>{canUseDoceLua ? 'ENCOMENDAS ONLINE' : businessProfile.heroEyebrow}</span>
                    <strong>{form.tagline || (canUseDoceLua ? 'Sabores que dão vontade de voltar' : businessProfile.heroTitle)}</strong>
                    <small>{form.storefrontNotice || 'Encomendas confirmadas conforme o horário da loja.'}</small>
                  </div>

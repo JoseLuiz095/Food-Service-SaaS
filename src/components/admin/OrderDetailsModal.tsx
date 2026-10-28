@@ -1,5 +1,6 @@
 import { CreditCard, MapPin, Pencil, Save, Store, Truck, X, Minus, Plus, Trash2, Ban } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useModalAccessibility } from '../useModalAccessibility';
 import type { Order, OrderDetailsUpdate, StoreSettings } from '../../types';
 import './order-details-mobile.css';
 import { currency, formatDateTimeBR } from '../../utils/format';
@@ -25,6 +26,8 @@ const toLocalDateTimeInput = (value?: string) => {
 export function OrderDetailsModal({ order, settings, onClose, onSave, onCancelOrder, saving }: OrderDetailsModalProps) {
   const [editing, setEditing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const dialogRef=useRef<HTMLElement>(null);
+  useModalAccessibility(true,dialogRef,onClose,!saving&&!cancelling);
   const [draftItems, setDraftItems] = useState(() => order.items || []);
   const [draft, setDraft] = useState<OrderDetailsUpdate>({
     customerName: order.customerName,
@@ -85,7 +88,7 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, onCancelOr
   };
 
   return <div className="modal-overlay order-details-modal-overlay" role="presentation">
-    <section className="master-modal master-modal--wide order-details-modal" role="dialog" aria-modal="true" aria-labelledby="order-details-title">
+    <section ref={dialogRef} tabIndex={-1} className="master-modal master-modal--wide order-details-modal" role="dialog" aria-modal="true" aria-labelledby="order-details-title">
       <button type="button" className="modal-close" aria-label="Fechar detalhes do pedido" onClick={onClose} disabled={saving || cancelling}><X /></button>
       <div className="order-details-modal__header">
         <div>
