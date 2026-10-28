@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {PGlite} from '@electric-sql/pglite';
+const db=new PGlite();let checks=0;
+const q=async(s,a=[])=>(await db.query(s,a)).rows;
+const check=(v,m)=>{assert.ok(v,m);checks++};
+const fail=async(f)=>{await assert.rejects(f);checks++};
+const A='10000000-0000-4000-8000-000000000001',B='10000000-0000-4000-8000-000000000002',U='20000000-0000-4000-8000-000000000001',V='20000000-0000-4000-8000-000000000002',P='30000000-0000-4000-8000-000000000001',Q='30000000-0000-4000-8000-000000000002';
+try{
+ await db.exec(`create role anon;create role authenticated;create role service_role;create schema auth;create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('test.user',true),'')::uuid$$;grant usage on schema auth to anon,authenticated;
+ create table public.food_stores(id uuid primary key,active boolean default true);
+ create table public.food_store_users(store_id uuid,user_id uuid,active boolean default true,role text default 'owner');
+ create function public.food_is_store_admin(uuid) returns boolean language sql stable security definer set search_path=public,pg_temp as $$select exists(select 1 from food_store_users where store_id=$1 and user_id=auth.uid() and active and role in ('owner','admin','manager'))$$;
+ create function public.food_store_accessible(uuid) returns boolean language sql stable security definer set search_path=public,pg_temp as $$select exists(select 1 from food_stores where id=$1 and active)$$;
+ create table public.food_stock_locations(id uuid primary key,store_id uuid,active boolean default true);
+ create table public.food_pickup_locations(id uuid primary key,store_id uuid references food_stores,stock_location_id uuid,name text,active boolean default true,is_public boolean default true,unique(id,store_id));
+ insert into food_stores(id) values('${A}'),('${B}');insert into food_store_users(store_id,user_id) values('${A}','${U}'),('${B}','${V}');insert into food_stock_locations(id,store_id) values('${P}','${A}'),('${Q}','${B}');insert into food_pickup_locations(id,store_id,stock_location_id,name) values('${P}','${A}','${P}','Ponto fictício A'),('${Q}','${B}','${Q}','Ponto fictício B');`);
+ await db.exec(readFileSync('supabase/migrations/20261028143000_food_receipt_contacts.sql','utf8'));
+ const contacts=[{slot:1,name:'Contato sintético A',phone:'5511000000001'},{slot:2,name:'Contato sintético B',phone:'5511000000002'}],mapping=[{pickup_location_id:P,contact_slot:2}];
+ const save=(id,c=contacts,p=mapping)=>q('select food_save_receipt_contacts_v1($1,$2::jsonb,$3::jsonb)',[id,JSON.stringify(c),JSON.stringify(p)]);
+ const get=async(id,p=null)=>(await q('select food_get_receipt_destinations_v1($1,$2) as v',[id,p]))[0].v;
+ await db.exec(`set role authenticated;select set_config('test.user','${U}',false)`);
+ await save(A);check((await get(A)).contacts.length===2,'geral tem dois');check((await get(A,P)).contacts[0].slot===2,'ponto usa contato2');check((await get(A,Q)).mode==='unavailable','ponto estrangeiro negado');
+ await save(A);check((await q('select * from food_receipt_contacts')).length===2,'retry sem duplicação');
+ await fail(()=>save(B,contacts,[]));await fail(()=>save(A,contacts,[{pickup_location_id:Q,contact_slot:1}]));
+ for(const c of [[...contacts,{slot:3,name:'Extra',phone:'5511000000003'}],[contacts[0],contacts[0]],[{slot:0,name:'Inválido',phone:'5511000000001'}],[{slot:1,name:'',phone:'5511000000001'}],[{slot:1,name:'Inválido',phone:'https://example.invalid'}]])await fail(()=>save(A,c,[]));
+ await fail(()=>save(A,contacts,[{pickup_location_id:P,contact_slot:9}]));check((await get(A,P)).contacts[0].slot===2,'falha não apaga configuração');
+ await fail(()=>q('update food_receipt_contacts set phone=$1',['5511000000099']));await fail(()=>q('delete from food_receipt_contacts'));await fail(()=>q('insert into food_receipt_contacts values($1,1,$2,$3)',[B,'Invasor','5511000000099']));
+ await db.exec(`select set_config('test.user','${V}',false)`);check((await q('select * from food_receipt_contacts')).length===0,'RLS oculta outra loja');await save(B,[{slot:1,name:'Outra loja',phone:'5511000000099'}],[]);check((await q('select * from food_receipt_contacts')).length===1,'RLS mostra apenas própria loja');
+ await db.exec('reset role;update food_pickup_locations set is_public=false where store_id=\''+A+'\';set role anon');
+ check((await get(A,P)).mode==='unavailable','ponto privado bloqueado');await fail(()=>q('select * from food_receipt_contacts'));await fail(()=>save(A));check((await get(A)).contacts.length===2,'somente contatos comerciais publicados pela RPC');
+ await db.exec(`reset role;update food_pickup_locations set is_public=true where store_id='${A}';update food_stock_locations set active=false where store_id='${A}'`);check((await get(A,P)).mode==='unavailable','local inativo bloqueado');
+ await db.exec(`update food_stock_locations set active=true;set role authenticated;select set_config('test.user','${U}',false)`);await save(A,contacts,[]);check((await get(A,P)).mode==='unassigned','ponto sem vínculo oferece escolha');await save(A,[],[]);check((await get(A)).contacts.length===0,'zerocontatos compatível');
+ await db.exec(`reset role;update food_stores set active=false where id='${B}'`);check((await get(B)).mode==='unavailable','loja suspensa não publica contato');
+ console.log(`${checks} verificações de contatos/tenant/grants/rollback aprovadas. Nenhum banco remoto alterado.`);
+}finally{await db.close()}

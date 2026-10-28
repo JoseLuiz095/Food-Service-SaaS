@@ -1,3 +1,4 @@
+import ReceiptDestination from '../../components/ReceiptDestination';
 import { ArrowLeft, Banknote, Bell, CheckCircle2, CreditCard, MessageCircle, QrCode, Share2, Store } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
@@ -225,7 +226,7 @@ export default function OrderSuccess() {
           </section>
         )}
 
-        {hasWhatsApp && <a
+        {hasWhatsApp && !isPix && <a
           className="whatsapp-confirmation-button"
           href={whatsappUrl}
           target="_blank"
@@ -235,13 +236,13 @@ export default function OrderSuccess() {
           <MessageCircle size={21} />
           {isPix ? 'Abrir WhatsApp e enviar comprovante' : 'Abrir WhatsApp'}
         </a>}
-        {hasWhatsApp && <div className={`whatsapp-sync-state is-${whatsappMarkState}`} aria-live="polite">
+        {hasWhatsApp && !isPix && <div className={`whatsapp-sync-state is-${whatsappMarkState}`} aria-live="polite">
           {whatsappMarkState === 'sending' && <span>Registrando a abertura do WhatsApp no pedido...</span>}
           {whatsappMarkState === 'done' && <span>A abertura do WhatsApp foi vinculada ao pedido #{formatOrderNumber(confirmation.orderNumber)}.</span>}
           {whatsappMarkState === 'error' && <span>O pedido continua salvo; apenas o status do WhatsApp não foi atualizado. Toque no botão novamente quando voltar.</span>}
         </div>}
 
-        {isPix && hasWhatsApp && <p className="order-success-hint">O WhatsApp abrirá com a mensagem pronta. Depois do pagamento, anexe a imagem do comprovante na conversa.</p>}
+        {isPix && <ReceiptDestination key={confirmation.orderId} storeId={confirmation.storeId} pointId={confirmation.receiptPickupLocationId} legacyPhone={confirmation.storeWhatsapp} message={whatsappMessage} onOpen={handleWhatsAppClick}/>}
         {isCard && <p className="order-success-hint">A loja fará a cobrança por cartão na entrega ou retirada. Nunca envie número completo do cartão, CVV ou senha pelo WhatsApp.</p>}
         {isCash && <p className="order-success-hint">{confirmation.changeAmount != null ? `Troco previsto: ${currency.format(confirmation.changeAmount)}.` : 'Pagamento em dinheiro sem troco solicitado.'}</p>}
 

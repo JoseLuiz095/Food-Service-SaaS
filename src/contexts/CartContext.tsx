@@ -1,3 +1,4 @@
+import {useReceiptSourceCode} from '../hooks/useReceiptSourceCode';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { CartItem, Product, SelectedOption } from '../types';
 import { roundMoney } from '../utils/format';
@@ -24,6 +25,7 @@ const readCart = (key: string): CartItem[] => {
 
 type CartContextValue = {
   items: CartItem[];
+  receiptSourceCode: string;
   pickupLocationId: string;
   setPickupLocationId: (id: string) => void;
   totalItems: number;
@@ -54,7 +56,8 @@ export const cartItemIdFor = (productId: string, options: SelectedOption[] = [],
   `${productId}|${normalizedOptionKey(options, partyWeight) || 'base'}`;
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const { settings } = useStore();
+  const { settings,storeBasePath } = useStore();
+  const receiptSourceCode=useReceiptSourceCode(settings.id,storeBasePath);
   const cartKey = cartKeyFor(settings.id || settings.slug || 'default');
   const [state, setState] = useState<{ key: string; items: CartItem[] }>(() => ({ key: cartKey, items: readCart(cartKey) }));
   const items = state.key === cartKey ? state.items : readCart(cartKey);
@@ -83,6 +86,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<CartContextValue>(() => ({
     items,
+    receiptSourceCode,
     pickupLocationId,
     setPickupLocationId: (id) => {
       try { if (id) localStorage.setItem(pointKey, id); else localStorage.removeItem(pointKey); } catch { /* armazenamento indisponível */ }
@@ -149,7 +153,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       });
       return next.length === current.length && next.every((item, index) => item === current[index]) ? current : next;
     }),
-  }), [items, pickupLocationId, pointKey]);
+  }), [items, pickupLocationId, pointKey,receiptSourceCode]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

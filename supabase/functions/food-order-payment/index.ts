@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 import { createOrderPaymentHandler } from './handler.ts';
 
-const orderFields = 'id,store_id,order_number,total,payment_method,payment_status,status';
+const orderFields = 'id,store_id,order_number,total,payment_method,payment_status,status,pickup_location_id';
 Deno.serve(async (req: Request) => {
   const url = Deno.env.get('SUPABASE_URL') || '';
   const service = Deno.env.get('SUPABASE_SECRET_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
@@ -10,6 +10,13 @@ Deno.serve(async (req: Request) => {
   const options = { auth: { persistSession: false, autoRefreshToken: false } };
   const admin = createClient(url, service, options);
   return createOrderPaymentHandler({
+    receiptDestinations: async (storeId,_pointId,receiptOrderId) => {
+      const {data:source,error:sourceError}=await admin.from('food_order_receipt_sources').select('pickup_location_id').eq('order_id',receiptOrderId).eq('store_id',storeId).maybeSingle();
+      if(sourceError)throw new Error('RECEIPT_SOURCE_UNAVAILABLE');
+      const {data,error}=await admin.rpc('food_get_receipt_destinations_v1',{p_store_id:storeId,p_pickup_location_id:source?.pickup_location_id || null});
+      if(error)throw new Error('RECEIPT_DESTINATIONS_UNAVAILABLE');
+      return data;
+    },
     env: name => Deno.env.get(name),
     authorizedOrder: async (jwt, storeId, orderId) => {
       const { data: { user }, error } = await admin.auth.getUser(jwt);
