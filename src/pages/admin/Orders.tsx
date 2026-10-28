@@ -1,5 +1,6 @@
 import { createOrderPaymentLink, paymentLinksEnabled } from '../../services/orderPaymentApi';
 import PixCopyButton from '../../components/PixCopyButton';
+import CopyableText from '../../components/CopyableText';
 import '../../pages/store/order-payment.css';
 import { AlertCircle, AlertTriangle, Ban, CalendarDays, CheckCircle2, ChefHat, ChevronLeft, ChevronRight, CircleDollarSign, Copy, Download, Eye, MessageCircle, Plus, QrCode, RefreshCw, RotateCcw, Search, Share2, ShoppingBag, Slash, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
@@ -482,6 +483,22 @@ export default function OrdersAdmin() {
       showToast('Link de pagamento pronto. Compartilhe somente com quem vai pagar.', 'success');
     } catch (error) { if (request === paymentLinkRequest.current) setPaymentLinkError(error instanceof Error ? error.message : 'Não foi possível gerar o link.'); }
     finally { if (request === paymentLinkRequest.current) setSharingPix(false); }
+  };
+  const sharePixCode = async (view: ManualPixView) => {
+    if (!view.payload || sharingPix) return;
+    const request = ++paymentLinkRequest.current;
+    setSharingPix(true);
+    try {
+      // Só o código: o cliente pode copiar a mensagem inteira, sem remover título/valor.
+      if (navigator.share) await navigator.share({ text: view.payload });
+      else {
+        await copyText(view.payload);
+        if (request === paymentLinkRequest.current) showToast('Código Pix copiado. Cole na conversa com o cliente.', 'success');
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (request === paymentLinkRequest.current) showToast('Não foi possível compartilhar. Use “Copiar código Pix” ou selecione o código acima.', 'error');
+    } finally { if (request === paymentLinkRequest.current) setSharingPix(false); }
   };
   const sharePix = async (view: ManualPixView, qrCode: string) => {
     if (!qrCode || sharingPix) return;
@@ -1042,9 +1059,10 @@ export default function OrdersAdmin() {
           {manualPixQrCode ? <img className="manual-pix-result-qr" src={manualPixQrCode} alt={`QR Code PIX no valor de ${currency.format(manualPixView.total)}`} /> : manualPixQrCodeError ? <div className="manual-pix-live-preview__error">{manualPixQrCodeError}</div> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
           <strong>Total: {currency.format(manualPixView.total)}</strong>
           <PixCopyButton key={manualPixView.orderId} value={manualPixView.payload}/>
+          <button type="button" className="secondary-button" disabled={sharingPix} onClick={() => void sharePixCode(manualPixView)}><Share2 size={16}/>Compartilhar só o código Pix</button>
           {paymentLinksEnabled && <button type="button" className="primary-button" disabled={sharingPix} onClick={() => void sharePaymentLink(manualPixView)}><Share2 size={16}/>{sharingPix ? 'Preparando link…' : 'Compartilhar link de pagamento'}</button>}
           {paymentLinkError && <p role="alert">{paymentLinkError} Use o QR ou o código acima enquanto isso.</p>}
-          {paymentLink && <label>Link de pagamento<input aria-label="Link de pagamento" readOnly value={paymentLink} onClick={event => event.currentTarget.select()}/><small>Se o compartilhamento ou a cópia falhar, selecione este link e copie manualmente.</small></label>}
+          {paymentLink && <CopyableText key={paymentLink} value={paymentLink} label="Link de pagamento" copyLabel="Copiar link de pagamento" instructions="Envie este link ao cliente. Ele poderá conferir o valor e copiar o Pix em um toque." copiedMessage="Link copiado. Cole na conversa com o cliente."/>}
           {manualPixQrCode && <button type="button" className="secondary-button pix-share-button" disabled={sharingPix} onClick={() => void sharePix(manualPixView, manualPixQrCode)}><Share2 size={16}/>{sharingPix ? 'Preparando...' : 'Compartilhar QR Code + texto'}</button>}
         </> : <div className="form-error">{manualPixView.error || 'Configure uma chave PIX ou um PIX Copia e Cola válido nas configurações da loja para gerar a cobrança com valor.'}</div>}
         <div className="master-modal-actions"><button type="button" className="primary-button" onClick={() => setManualPixView(null)}>Concluir</button></div>
@@ -1060,9 +1078,10 @@ export default function OrdersAdmin() {
           {paymentPixQrCode ? <img className="manual-pix-result-qr" src={paymentPixQrCode} alt={`QR Code PIX no valor de ${currency.format(paymentPixView.total)}`} /> : paymentPixQrCodeError ? <div className="manual-pix-live-preview__error">{paymentPixQrCodeError}</div> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
           <strong>Total: {currency.format(paymentPixView.total)}</strong>
           <PixCopyButton key={paymentPixView.orderId} value={paymentPixView.payload}/>
+          <button type="button" className="secondary-button" disabled={sharingPix} onClick={() => void sharePixCode(paymentPixView)}><Share2 size={16}/>Compartilhar só o código Pix</button>
           {paymentLinksEnabled && <button type="button" className="primary-button" disabled={sharingPix} onClick={() => void sharePaymentLink(paymentPixView)}><Share2 size={16}/>{sharingPix ? 'Preparando link…' : 'Compartilhar link de pagamento'}</button>}
           {paymentLinkError && <p role="alert">{paymentLinkError} Use o QR ou o código acima enquanto isso.</p>}
-          {paymentLink && <label>Link de pagamento<input aria-label="Link de pagamento" readOnly value={paymentLink} onClick={event => event.currentTarget.select()}/><small>Se o compartilhamento ou a cópia falhar, selecione este link e copie manualmente.</small></label>}
+          {paymentLink && <CopyableText key={paymentLink} value={paymentLink} label="Link de pagamento" copyLabel="Copiar link de pagamento" instructions="Envie este link ao cliente. Ele poderá conferir o valor e copiar o Pix em um toque." copiedMessage="Link copiado. Cole na conversa com o cliente."/>}
           {paymentPixQrCode && <button type="button" className="secondary-button pix-share-button" disabled={sharingPix} onClick={() => void sharePix(paymentPixView, paymentPixQrCode)}><Share2 size={16}/>{sharingPix ? 'Preparando...' : 'Compartilhar QR Code + texto'}</button>}
         </> : <div className="form-error">{paymentPixView.error || 'Configure uma chave PIX ou um PIX Copia e Cola válido nas configurações da loja para gerar a cobrança com valor.'}</div>}
         <div className="master-modal-actions"><button type="button" className="primary-button" onClick={() => setPaymentPixView(null)}>Concluir</button></div>
