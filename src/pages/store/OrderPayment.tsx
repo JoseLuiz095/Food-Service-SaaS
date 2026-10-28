@@ -49,6 +49,11 @@ export default function OrderPayment() {
         <p role="status">Aguardando confirmação do pagamento pela loja.</p>
         <p>Recebedor: {payment.receiver || payment.storeName}. Confira os dados no banco antes de pagar.</p>
         <PixCopyButton key={payment.pixPayload} value={payment.pixPayload!}/>
+        <ol className="pix-bank-steps" aria-label="Como pagar no seu banco">
+          <li>Copie o código Pix no botão acima.</li>
+          <li>Abra o aplicativo do banco de sua preferência e escolha Pix → Copia e Cola.</li>
+          <li>Cole o código, confira o recebedor e o valor e confirme no banco.</li>
+        </ol>
         {qr && <details><summary>Mostrar QR Code</summary><img src={qr} alt={`QR Code Pix no valor de ${currency.format(payment.total!)}`} width="260" height="260"/></details>}
         <p>Link válido até {new Date(payment.expiresAt!).toLocaleString('pt-BR')}. A expiração do link não cancela um Pix já copiado.</p>
         <button type="button" className="secondary-button" onClick={retry}>Já paguei · verificar status</button>
