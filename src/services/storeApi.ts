@@ -12,6 +12,8 @@ import { normalizeCustomerMessageTemplates } from '../utils/customerSales';
 import { normalizeStoreVisualTheme } from '../utils/storeVisualTheme';
 import { optimizeImageForUpload } from '../utils/imageUpload';
 
+export type ProductCommercialUpdate = Partial<Pick<Product, 'price' | 'promotionalPrice' | 'availabilityStatus' | 'active'>>;
+
 export class StorefrontUnavailableError extends Error {
   storeName: string;
   constructor(storeName: string) {
@@ -628,6 +630,53 @@ export const storeApi = {
       await restFetch<unknown>('food_product_option_groups',{method:'POST',body:{store_id:product.storeId,product_id:product.id,option_group_id:group.id,sort_order:(groupIndex+1)*10}});
     }
     return product;
+  },
+
+  /** Ações rápidas não regravam opções, imagens ou saldos de estoque. */
+  async updateProductCommercial(storeId: string, productId: string, input: ProductCommercialUpdate): Promise<ProductCommercialUpdate> {
+    if (!storeId || !productId) throw new Error('Selecione uma loja e um produto válidos.');
+    const payload: Record<string, unknown> = {};
+    if ('price' in input || 'promotionalPrice' in input) {
+      if (!('price' in input) || !('promotionalPrice' in input) || !Number.isFinite(input.price) || Number(input.price) < 0
+        || (input.promotionalPrice != null && (!Number.isFinite(input.promotionalPrice) || input.promotionalPrice < 0 || input.promotionalPrice > Number(input.price)))) {
+        throw new Error('Informe um preço válido e uma promoção menor ou igual ao preço normal.');
+      }
+      payload.price = roundMoney(Number(input.price));
+      payload.promotional_price = input.promotionalPrice == null ? null : roundMoney(input.promotionalPrice);
+    }
+    if (input.availabilityStatus !== undefined) {
+      if (!['available', 'unavailable', 'sold_out'].includes(input.availabilityStatus)) throw new Error('Disponibilidade inválida.');
+      payload.availability_status = input.availabilityStatus;
+    }
+    if (input.active !== undefined) {
+      if (typeof input.active !== 'boolean') throw new Error('Publicação inválida.');
+      payload.active = input.active;
+    }
+    if (!Object.keys(payload).length) throw new Error('Nenhuma alteração informada.');
+    if (isDemoMode) {
+      const db = readDemo();
+      const product = db.products.find(item => item.id === productId && item.storeId === storeId);
+      if (!product) throw new Error('Produto não encontrado na loja selecionada.');
+      const limit = db.planUsage.plan.productLimit;
+      if (input.active && limit != null && db.products.filter(item => item.active && item.id !== productId).length >= limit) throw new Error(`Seu plano permite até ${limit} produtos ativos.`);
+      const defined = Object.fromEntries(Object.entries(input).filter(([,value])=>value!==undefined)) as ProductCommercialUpdate;
+      if ('promotionalPrice' in input) defined.promotionalPrice = input.promotionalPrice;
+      Object.assign(product, defined);
+      writeDemo(db);
+      return defined;
+    }
+    const rows = await restFetch<Array<{id: string; store_id: string; price: number | string; promotional_price: number | string | null; availability_status: Product['availabilityStatus']; active: boolean}>>(`food_products?id=eq.${encode(productId)}&store_id=eq.${encode(storeId)}&select=id,store_id,price,promotional_price,availability_status,active`, {
+      method: 'PATCH', body: payload, prefer: 'return=representation',
+    });
+    if (rows.length !== 1 || rows[0].id !== productId || rows[0].store_id !== storeId) {
+      throw new Error('A alteração não foi confirmada. Verifique a loja selecionada e sua permissão antes de tentar novamente.');
+    }
+    const row=rows[0];
+    const confirmed: ProductCommercialUpdate = {};
+    if ('price' in payload) { confirmed.price=Number(row.price); confirmed.promotionalPrice=row.promotional_price==null ? undefined : Number(row.promotional_price); }
+    if ('availability_status' in payload) confirmed.availabilityStatus=row.availability_status;
+    if ('active' in payload) confirmed.active=row.active;
+    return confirmed;
   },
 
   /** Atualiza somente o saldo operacional do produto.

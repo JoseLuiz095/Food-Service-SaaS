@@ -23,7 +23,9 @@
     "auth:master": "node scripts/capture-auth.mjs master",
     "test:full": "node scripts/run-full-qa.mjs",
     "test:core": "playwright test tests/smoke tests/e2e tests/responsive/public-responsive.spec.ts tests/a11y --project=chromium",
-    "test:authenticated": "playwright test tests/authenticated --project=chromium"
+    "test:authenticated": "playwright test tests/authenticated --project=chromium",
+    "test:quick-purchase": "playwright test --config modules.config.ts quick-purchase.spec.ts",
+    "test:payment-links": "playwright test --config modules.config.ts payment-link.spec.ts delivery-mobile.spec.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",

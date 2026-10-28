@@ -42,8 +42,8 @@ test('produtos sem saldo continuam compráveis por agendamento, sem consumir est
     ...snapshot, products: [{ ...snapshot.products[0], stock_quantity: 0, stock_reserved_quantity: 0 }],
   } }));
   await page.goto('/doce-lua/produto/brigadeiro-teste');
-  await expect(page.getByText('Sem disponibilidade para hoje', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Adicionar para agendar', exact: true }).click();
+  await expect(page.locator('.stock-schedule-note').getByText('Sob encomenda', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Adicionar ao carrinho', exact: true }).click();
   await page.goto('/doce-lua/finalizar');
   await expect(page.getByText('Agendamento necessário para este pedido', { exact: true })).toBeVisible();
   expect(writes.some(call => call.url.includes('food-public-checkout'))).toBe(false);

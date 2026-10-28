@@ -1,3 +1,6 @@
+import { createOrderPaymentLink, paymentLinksEnabled } from '../../services/orderPaymentApi';
+import PixCopyButton from '../../components/PixCopyButton';
+import '../../pages/store/order-payment.css';
 import { AlertCircle, AlertTriangle, Ban, CalendarDays, CheckCircle2, ChefHat, ChevronLeft, ChevronRight, CircleDollarSign, Copy, Download, Eye, MessageCircle, Plus, QrCode, RefreshCw, RotateCcw, Search, Share2, ShoppingBag, Slash, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -109,7 +112,7 @@ const productNeedsFutureScheduling = (product: { availabilityStatus: string; sto
 
 type SortMode = (typeof sortOptions)[number]['value'];
 type CustomerSummary = { key: string; name: string; phone: string; orders: number; total: number; lastAt: string };
-type ManualPixView = { orderNumber: number; total: number; payload: string; error?: string };
+type ManualPixView = { orderId: string; orderNumber: number; total: number; payload: string; error?: string };
 type ManualOrderMode = 'quick' | 'scheduled';
 type SavedOrderFilter = { id: string; name: string; query: string; status: 'all' | OrderStatus; payment: 'all' | 'pending' | 'paid'; sort: SortMode; scheduledDate: string | null };
 const newManualOrder = (): Omit<ManualOrderInput, 'items'> => ({
@@ -157,7 +160,6 @@ export default function OrdersAdmin() {
   const [paymentPixView, setPaymentPixView] = useState<ManualPixView | null>(null);
   const [paymentPixQrCode, setPaymentPixQrCode] = useState('');
   const [paymentPixQrCodeError, setPaymentPixQrCodeError] = useState('');
-  const [paymentPixCopied, setPaymentPixCopied] = useState(false);
   const [sharingPix, setSharingPix] = useState(false);
   const [detailsOrderId, setDetailsOrderId] = useState<string | null>(null);
   const [detailsSaving, setDetailsSaving] = useState(false);
@@ -425,7 +427,8 @@ export default function OrdersAdmin() {
         } catch (error) {
           pixError = error instanceof Error ? error.message : 'Não foi possível gerar o PIX com valor.';
         }
-        setManualPixView({ orderNumber: result.orderNumber, total: result.total, payload, error: pixError || undefined });
+        setPaymentLink(''); setPaymentLinkError('');
+        setManualPixView({ orderId: result.orderId, orderNumber: result.orderNumber, total: result.total, payload, error: pixError || undefined });
         setManualPixCopied(false);
       }
     } catch (manualOrderError) {
@@ -436,6 +439,7 @@ export default function OrdersAdmin() {
   };
 
   const openPaymentPix = (order: Order) => {
+    setPaymentLink(''); setPaymentLinkError('');
     if (order.paymentMethod !== 'pix') return;
     let payload = '';
     let pixError = '';
@@ -452,10 +456,33 @@ export default function OrdersAdmin() {
     } catch (error) {
       pixError = error instanceof Error ? error.message : 'Não foi possível gerar o PIX com valor.';
     }
-    setPaymentPixView({ orderNumber: order.orderNumber, total: order.total, payload, error: pixError || undefined });
-    setPaymentPixCopied(false);
+    setPaymentPixView({ orderId: order.id, orderNumber: order.orderNumber, total: order.total, payload, error: pixError || undefined });
   };
 
+  const [paymentLink, setPaymentLink] = useState('');
+  const [paymentLinkError, setPaymentLinkError] = useState('');
+  const paymentLinkRequest = useRef(0);
+  useEffect(() => {
+    paymentLinkRequest.current += 1;
+    setPaymentLink(''); setPaymentLinkError(''); setSharingPix(false);
+  }, [settings.id, manualPixView?.orderId, paymentPixView?.orderId]);
+  const sharePaymentLink = async (view: ManualPixView) => {
+    if (sharingPix) return;
+    const request = ++paymentLinkRequest.current;
+    setSharingPix(true); setPaymentLink(''); setPaymentLinkError('');
+    try {
+      const url = await createOrderPaymentLink(settings.id, view.orderId);
+      if (request !== paymentLinkRequest.current) return;
+      setPaymentLink(url);
+      const share = { title: 'Pagamento Pix · VendeWeb', text: 'Abra para conferir o pedido e copiar o código Pix.', url };
+      if (navigator.share) {
+        try { await navigator.share(share); }
+        catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) await copyText(url); }
+      } else await copyText(url);
+      showToast('Link de pagamento pronto. Compartilhe somente com quem vai pagar.', 'success');
+    } catch (error) { if (request === paymentLinkRequest.current) setPaymentLinkError(error instanceof Error ? error.message : 'Não foi possível gerar o link.'); }
+    finally { if (request === paymentLinkRequest.current) setSharingPix(false); }
+  };
   const sharePix = async (view: ManualPixView, qrCode: string) => {
     if (!qrCode || sharingPix) return;
     setSharingPix(true);
@@ -1013,7 +1040,11 @@ export default function OrdersAdmin() {
         <p>Use este QR Code ou o PIX Copia e Cola para enviar a cobrança ao cliente. O recebimento ainda deve ser conferido no painel.</p>
         {manualPixView.payload ? <>
           {manualPixQrCode ? <img className="manual-pix-result-qr" src={manualPixQrCode} alt={`QR Code PIX no valor de ${currency.format(manualPixView.total)}`} /> : manualPixQrCodeError ? <div className="manual-pix-live-preview__error">{manualPixQrCodeError}</div> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
-          <label className="manual-pix-result-code">PIX Copia e Cola · {currency.format(manualPixView.total)}<div><textarea readOnly rows={4} value={manualPixView.payload}/><button type="button" className="secondary-button" onClick={() => void copyText(manualPixView.payload).then(() => { setManualPixCopied(true); window.setTimeout(() => setManualPixCopied(false), 1800); })}><Copy size={16}/>{manualPixCopied ? 'Copiado' : 'Copiar'}</button></div></label>
+          <strong>Total: {currency.format(manualPixView.total)}</strong>
+          <PixCopyButton key={manualPixView.orderId} value={manualPixView.payload}/>
+          {paymentLinksEnabled && <button type="button" className="primary-button" disabled={sharingPix} onClick={() => void sharePaymentLink(manualPixView)}><Share2 size={16}/>{sharingPix ? 'Preparando link…' : 'Compartilhar link de pagamento'}</button>}
+          {paymentLinkError && <p role="alert">{paymentLinkError} Use o QR ou o código acima enquanto isso.</p>}
+          {paymentLink && <label>Link de pagamento<input aria-label="Link de pagamento" readOnly value={paymentLink} onClick={event => event.currentTarget.select()}/><small>Se o compartilhamento ou a cópia falhar, selecione este link e copie manualmente.</small></label>}
           {manualPixQrCode && <button type="button" className="secondary-button pix-share-button" disabled={sharingPix} onClick={() => void sharePix(manualPixView, manualPixQrCode)}><Share2 size={16}/>{sharingPix ? 'Preparando...' : 'Compartilhar QR Code + texto'}</button>}
         </> : <div className="form-error">{manualPixView.error || 'Configure uma chave PIX ou um PIX Copia e Cola válido nas configurações da loja para gerar a cobrança com valor.'}</div>}
         <div className="master-modal-actions"><button type="button" className="primary-button" onClick={() => setManualPixView(null)}>Concluir</button></div>
@@ -1027,7 +1058,11 @@ export default function OrdersAdmin() {
         <p>Confira este valor com o comprovante recebido antes de confirmar o pagamento do cliente.</p>
         {paymentPixView.payload ? <>
           {paymentPixQrCode ? <img className="manual-pix-result-qr" src={paymentPixQrCode} alt={`QR Code PIX no valor de ${currency.format(paymentPixView.total)}`} /> : paymentPixQrCodeError ? <div className="manual-pix-live-preview__error">{paymentPixQrCodeError}</div> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
-          <label className="manual-pix-result-code">PIX Copia e Cola · {currency.format(paymentPixView.total)}<div><textarea readOnly rows={4} value={paymentPixView.payload}/><button type="button" className="secondary-button" onClick={() => void copyText(paymentPixView.payload).then(() => { setPaymentPixCopied(true); window.setTimeout(() => setPaymentPixCopied(false), 1800); })}><Copy size={16}/>{paymentPixCopied ? 'Copiado' : 'Copiar'}</button></div></label>
+          <strong>Total: {currency.format(paymentPixView.total)}</strong>
+          <PixCopyButton key={paymentPixView.orderId} value={paymentPixView.payload}/>
+          {paymentLinksEnabled && <button type="button" className="primary-button" disabled={sharingPix} onClick={() => void sharePaymentLink(paymentPixView)}><Share2 size={16}/>{sharingPix ? 'Preparando link…' : 'Compartilhar link de pagamento'}</button>}
+          {paymentLinkError && <p role="alert">{paymentLinkError} Use o QR ou o código acima enquanto isso.</p>}
+          {paymentLink && <label>Link de pagamento<input aria-label="Link de pagamento" readOnly value={paymentLink} onClick={event => event.currentTarget.select()}/><small>Se o compartilhamento ou a cópia falhar, selecione este link e copie manualmente.</small></label>}
           {paymentPixQrCode && <button type="button" className="secondary-button pix-share-button" disabled={sharingPix} onClick={() => void sharePix(paymentPixView, paymentPixQrCode)}><Share2 size={16}/>{sharingPix ? 'Preparando...' : 'Compartilhar QR Code + texto'}</button>}
         </> : <div className="form-error">{paymentPixView.error || 'Configure uma chave PIX ou um PIX Copia e Cola válido nas configurações da loja para gerar a cobrança com valor.'}</div>}
         <div className="master-modal-actions"><button type="button" className="primary-button" onClick={() => setPaymentPixView(null)}>Concluir</button></div>

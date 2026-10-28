@@ -1,0 +1,11 @@
+.checkout-trust-details{margin-top:12px;color:var(--color-muted,#52645a);font-size:.85rem}
+.checkout-trust-details>summary,.checkout-order-notes>summary,.checkout-quantity-editor>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;font-weight:700}
+.checkout-order-notes small{font-weight:400;color:var(--color-muted,#52645a)}
+.checkout-order-notes label{display:grid;gap:8px;margin-top:12px}
+.checkout-quantity-editor{border-block:1px solid #e0e7e2;padding:4px 0;margin-bottom:12px}
+.checkout-quantity-line{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;font-size:.9rem}
+.checkout-quantity-line>span{min-width:0;overflow-wrap:anywhere}
+.checkout-quantity-line small{display:block;font-size:.75rem;color:#52645a}
+.checkout-quantity-line .quantity-control{flex-shrink:0}
+.checkout-quantity-line .quantity-control>button{min-width:40px;min-height:44px}
+.checkout-trust-details>summary:focus-visible,.checkout-order-notes>summary:focus-visible,.checkout-quantity-editor>summary:focus-visible{outline:3px solid var(--food-store-primary,var(--color-primary,#206c60));outline-offset:3px;border-radius:6px}

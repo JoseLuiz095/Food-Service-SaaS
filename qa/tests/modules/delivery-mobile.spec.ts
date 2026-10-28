@@ -1,0 +1,30 @@
+import { test, expect } from '@playwright/test';
+import { mockBackend, STORE, PRODUCT, ORDER } from './fixtures';
+
+test('delivery mobile preserves contact/address on reload and shows fee before ordering',async({page,context})=>{
+ await page.setViewportSize({width:390,height:844});
+ await context.grantPermissions(['clipboard-read','clipboard-write']);
+ const {writes}=await mockBackend(page);
+ await page.addInitScript(({STORE,PRODUCT})=>localStorage.setItem(`foodservice_cart_v1:${STORE}`,JSON.stringify([{id:`${PRODUCT}|base`,productId:PRODUCT,productName:'Brigadeiro teste',quantity:1,options:[],unitPrice:10}])) ,{STORE,PRODUCT});
+ await page.goto('/doce-lua/finalizar');
+ await page.getByLabel('Nome',{exact:true}).fill('Cliente entrega');
+ await page.getByLabel(/WhatsApp \/ telefone/).fill('11999999999');
+ await page.getByLabel('Bairro / área').selectOption('50000000-0000-4000-8000-000000000001');
+ await page.getByLabel('Rua',{exact:true}).fill('Rua de teste');
+ await page.getByLabel('Número',{exact:true}).fill('10');
+ await expect(page.locator('.summary-total')).toContainText('15,00');
+ await expect.poll(()=>page.evaluate(key=>JSON.parse(sessionStorage.getItem(key)||'{}').street,`foodweb_checkout_draft_v1:${STORE}`)).toBe('Rua de teste');
+ await page.reload();
+ await expect(page.getByLabel('Nome',{exact:true})).toHaveValue('Cliente entrega');
+ await expect(page.getByLabel('Rua',{exact:true})).toHaveValue('Rua de teste');
+ await expect(page.getByLabel('Número',{exact:true})).toHaveValue('10');
+ await expect(page.locator('.summary-total')).toContainText('15,00');
+ await page.getByRole('button',{name:/Registrar pedido|^Finalizar$/}).filter({visible:true}).first().click();
+ await expect(page).toHaveURL(new RegExp(ORDER));
+ const request=writes.find(w=>w.url.endsWith('/food-public-checkout'));
+ expect(request?.body.payload).toMatchObject({store_id:STORE,delivery_type:'delivery',customer_name:'Cliente entrega',delivery_street:'Rua de teste',delivery_number:'10'});
+ await expect(page.getByLabel('Código Pix',{exact:true})).toHaveValue(/^000201/);
+ await page.getByRole('button',{name:'Copiar código Pix'}).click();
+ expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain('540515.00');
+ await expect(page.getByText(/Aguardando confirmação do pagamento pela loja\./)).toBeVisible();
+});

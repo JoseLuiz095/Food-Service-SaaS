@@ -182,7 +182,7 @@ for (const width of [390, 1366]) {
     const picker = page.getByRole('group', { name: /Qual é o ramo/ });
     await expect(picker.getByRole('radio', { name: /Nutricionista/ })).toBeChecked();
     await expect(picker.locator('[aria-live]')).toContainText('Clientes e consultas');
-    await expect(page.getByRole('button', { name: /Criar conta e continuar/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Continuar para plano e segurança', exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 3)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`cadastro-nutrition-${width}.png`), fullPage: true });
     expect(writes.filter(call => /food-public-self-signup|food_business_initialize/.test(call.url))).toHaveLength(0);

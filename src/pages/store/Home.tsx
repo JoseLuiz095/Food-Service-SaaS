@@ -1,5 +1,7 @@
 import { ChevronRight, Search, Sparkles, Truck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { normalizeText } from '../../utils/text';
 import { ProductCard } from '../../components/ProductCard';
 import { StoreHeader } from '../../components/StoreHeader';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
@@ -26,12 +28,14 @@ function StorefrontHome(){
   const [selectedCategory,setSelectedCategory]=useState('all');
   const [query,setQuery]=useState('');
   const pickup = usePickupAvailability(segment.id!=='fitness');
+  const [searchParams]=useSearchParams();
+  const resolvingPoint=Boolean((searchParams.get('ponto') || pickup.pickupLocationId) && (pickup.pointsLoading || !pickup.selectedPoint && !pickup.invalidQr && !pickup.pointsError));
   const productCard = (product: typeof products[number], category?: typeof categories[number]) => {
     const row = pointStock(pickup.availability, product.id);
     const hasPointContext = Boolean(pickup.selectedPoint);
     const globallyEmpty = !hasPointContext && product.trackStock && Number(product.stockQuantity || 0) - Number(product.stockReservedQuantity || 0) <= 0 && product.stockStatus !== 'unavailable' && product.availabilityStatus === 'available';
     const unavailableHere = Boolean(hasPointContext && row && Number(row.available) < 1);
-    const pointAvailable = hasPointContext && product.trackStock
+    const pointAvailable = (resolvingPoint || pickup.invalidQr || Boolean(searchParams.get('ponto') && pickup.pointsError)) && product.trackStock ? null : hasPointContext && product.trackStock
       ? pickup.availability === null ? null : Number(row?.available ?? 0)
       : undefined;
     return <div key={product.id} className={`store-point-product${globallyEmpty ? ' store-point-product--global-empty' : ''}${unavailableHere ? ' store-point-product--unavailable' : ''}`}><ProductCard product={product} category={category} pointAvailable={pointAvailable}/>{hasPointContext ? <PointStockNotice product={product} pointName={pickup.selectedPoint?.name ?? ''} row={row}/> : globallyEmpty ? <p className="store-point-stock store-point-stock--warning">Sob encomenda. Agende para amanhã no checkout.</p> : null}</div>;
@@ -40,10 +44,10 @@ function StorefrontHome(){
   useEffect(()=>{if(!loading&&!error&&settings.id)void trackPublicEvent(settings.id,'storefront_view')},[loading,error,settings.id]);
 
   const activeProducts=useMemo(()=>products.filter((product)=>product.active),[products]);
-  const normalizedQuery=query.trim().toLowerCase();
+  const normalizedQuery=normalizeText(query);
   const visible=useMemo(()=>activeProducts.filter((product)=>{
     const categoryMatch=selectedCategory==='all'||product.categoryId===selectedCategory;
-    const textMatch=!normalizedQuery||`${product.name} ${product.description}`.toLowerCase().includes(normalizedQuery);
+    const textMatch=!normalizedQuery||normalizeText(`${product.name} ${product.description}`).includes(normalizedQuery);
     return categoryMatch&&textMatch;
   }),[activeProducts,selectedCategory,normalizedQuery]);
   const featured=useMemo(()=>visible.filter((product)=>product.featured).slice(0,6),[visible]);
@@ -63,7 +67,7 @@ function StorefrontHome(){
       {settings.pickupEnabled && <PickupPointSelector points={pickup.points} value={pickup.pickupLocationId} onChange={pickup.setPickupLocationId} loading={pickup.pointsLoading} error={pickup.pointsError} invalidQr={pickup.invalidQr}/>}
       {pickup.selectedPoint && pickup.availabilityError && <p className="store-point-stock store-point-stock--warning" role="status">{pickup.availabilityError}</p>}
       {!traditionalPresentation&&<section className="segment-catalog-intro" aria-label={`Catálogo de ${segment.label}`}><div><span className="eyebrow">{segment.heroEyebrow}</span><h2>{segment.heroTitle}</h2><p>{segment.heroDescription}</p></div><a href="#catalogo-produtos" className="segment-catalog-intro__link">Explorar {segment.catalogLabel.toLocaleLowerCase('pt-BR')} <ChevronRight size={17}/></a></section>}
-      <section className="food-order-summary"><div><Truck size={17}/><strong>{settings.deliveryEnabled&&settings.pickupEnabled?'Delivery ou retirada':settings.deliveryEnabled?'Delivery':'Retirada'}</strong><span>{settings.minimumOrder>0?`Pedido mínimo ${currency.format(settings.minimumOrder)}`:'Sem pedido mínimo'}</span></div><div><Sparkles size={17}/><strong>{traditionalPresentation?'Peça em poucos minutos':'Escolha com tranquilidade'}</strong><span>{traditionalPresentation?'Personalize e finalize online':'Confira os detalhes de cada item'}</span></div></section>
+      <details className="food-order-guide"><summary>Informações para comprar</summary><section className="food-order-summary"><div><Truck size={17}/><strong>{settings.deliveryEnabled&&settings.pickupEnabled?'Delivery ou retirada':settings.deliveryEnabled?'Delivery':'Retirada'}</strong><span>{settings.minimumOrder>0?`Pedido mínimo ${currency.format(settings.minimumOrder)}`:'Sem pedido mínimo'}</span></div><div><Sparkles size={17}/><strong>{traditionalPresentation?'Peça em poucos minutos':'Escolha com tranquilidade'}</strong><span>{traditionalPresentation?'Personalize e finalize online':'Confira os detalhes de cada item'}</span></div></section></details>
 
       <div className="food-discovery-bar">
         <label className="store-search"><Search size={20}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={traditionalPresentation?'Buscar item no cardápio':segment.searchPlaceholder} aria-label={traditionalPresentation?'Buscar no cardápio':segment.searchPlaceholder}/></label>

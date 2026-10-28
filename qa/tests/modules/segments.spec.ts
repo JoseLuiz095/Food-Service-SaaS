@@ -76,6 +76,9 @@ for (const width of [390, 768, 1366]) {
     await expect(picker.getByRole('radio', { name: /Produtos e varejo/ })).toBeChecked();
     await expect(picker.locator('[aria-live]')).toContainText(/Loja e catálogo/);
     await expect(picker.getByText(/Recursos complementares precisam de autorização do Admin Master/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Continuar para plano e segurança', exact: true })).toBeVisible();
+    await fillSignup(page);
+    await expect(page.getByRole('group', { name: '2. Plano e segurança', exact: true })).toContainText('retail');
     await expect(page.getByRole('button', { name: /Criar conta e continuar/ })).toBeVisible();
     await expectNoOverflow(page);
     expect(writes.filter(call => /food_modules_command|food-modules-public|food-public-self-signup|food_business_initialize|food_business_master/.test(call.url))).toHaveLength(0);
@@ -177,6 +180,7 @@ async function fillSignup(page: Page) {
   await page.getByLabel('Responsável', { exact: true }).fill('Pessoa de teste');
   await page.getByLabel('E-mail', { exact: true }).fill('lojista.teste@gmail.com');
   await page.getByLabel('WhatsApp comercial', { exact: true }).fill('11999999999');
+  await page.getByRole('button', { name: 'Continuar para plano e segurança', exact: true }).click();
   await page.locator('input[autocomplete="new-password"], input[autocomplete="current-password"]').fill('TesteSeguro123');
 }
 
@@ -296,6 +300,7 @@ async function mockMasterStore(page: Page) {
   await expect(page.getByRole('heading', { name: 'Lojas e assinaturas', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Gerenciar', exact: true }).click();
   const modal = page.locator('.master-modal');
+  await modal.locator('summary', { hasText: 'Segmento da loja:' }).click();
   await modal.getByText('Impressão 3D e personalizados', { exact: true }).click();
   await expect(modal.getByRole('radio', { name: /Impressão 3D e personalizados/ })).toBeChecked();
   return { ...backend, credentials, modal, restWrites };
@@ -316,6 +321,7 @@ test('persistência RPC: Master salva segmento ao confirmar sem alterar preço o
 
 test('persistência REST: salvar credenciais no Master não publica o ramo ainda não salvo', async ({ page }) => {
   const { settingsWrites, credentials, modal, businessWrites } = await mockMasterStore(page);
+  await modal.locator('summary', { hasText: 'Alterar e-mail ou senha do lojista' }).click();
   await modal.getByRole('textbox', { name: /^E-mail de acesso/ }).fill('lojista.atualizado@gmail.com');
   await modal.getByRole('button', { name: 'Salvar e-mail / senha', exact: true }).click();
   await expect(page.getByText('E-mail de acesso atualizado.', { exact: true })).toBeVisible();
