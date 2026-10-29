@@ -5,12 +5,12 @@ import { createId } from '../utils/id';
 
 const num=(value:number|string|null|undefined)=>value==null?0:Number(value);
 type CategoryRow={id:string;store_id:string;name:string;direction:FinancialCategory['direction'];active:boolean;sort_order:number};
-type EntryRow={id:string;store_id:string;direction:FinancialDirection;source:FinancialEntry['source'];order_id:string|null;purchase_id:string|null;category_id:string|null;description:string;amount:number|string;occurred_on:string;due_on:string|null;paid_at:string|null;status:FinancialEntryStatus;payment_method:string|null;counterparty:string|null;document_type:FinancialDocumentType;document_number:string|null;notes:string|null;created_at:string};
+type EntryRow={id:string;store_id:string;direction:FinancialDirection;source:FinancialEntry['source'];order_id:string|null;inventory_purchase_id:string|null;category_id:string|null;description:string;amount:number|string;occurred_on:string;due_on:string|null;paid_at:string|null;status:FinancialEntryStatus;payment_method:string|null;counterparty:string|null;document_type:FinancialDocumentType;document_number:string|null;notes:string|null;created_at:string};
 export type FinancialEntriesPage = { entries: FinancialEntry[]; hasMore: boolean; nextOffset: number };
 const CATEGORY_SELECT='id,store_id,name,direction,active,sort_order';
-const ENTRY_SELECT='id,store_id,direction,source,order_id,purchase_id,category_id,description,amount,occurred_on,due_on,paid_at,status,payment_method,counterparty,document_type,document_number,notes,created_at';
+const ENTRY_SELECT='id,store_id,direction,source,order_id,inventory_purchase_id,category_id,description,amount,occurred_on,due_on,paid_at,status,payment_method,counterparty,document_type,document_number,notes,created_at';
 const mapCategory=(r:CategoryRow):FinancialCategory=>({id:r.id,storeId:r.store_id,name:r.name,direction:r.direction,active:r.active,sortOrder:r.sort_order});
-const mapEntry=(r:EntryRow):FinancialEntry=>({id:r.id,storeId:r.store_id,direction:r.direction,source:r.source,orderId:r.order_id||undefined,purchaseId:r.purchase_id||undefined,categoryId:r.category_id||undefined,description:r.description,amount:num(r.amount),occurredOn:r.occurred_on,dueOn:r.due_on||undefined,paidAt:r.paid_at||undefined,status:r.status,paymentMethod:r.payment_method||undefined,counterparty:r.counterparty||undefined,documentType:r.document_type,documentNumber:r.document_number||undefined,notes:r.notes||undefined,createdAt:r.created_at});
+const mapEntry=(r:EntryRow):FinancialEntry=>({id:r.id,storeId:r.store_id,direction:r.direction,source:r.source,orderId:r.order_id||undefined,purchaseId:r.inventory_purchase_id||undefined,categoryId:r.category_id||undefined,description:r.description,amount:num(r.amount),occurredOn:r.occurred_on,dueOn:r.due_on||undefined,paidAt:r.paid_at||undefined,status:r.status,paymentMethod:r.payment_method||undefined,counterparty:r.counterparty||undefined,documentType:r.document_type,documentNumber:r.document_number||undefined,notes:r.notes||undefined,createdAt:r.created_at});
 
 export const financeApi={
   async listCategories(storeId:string):Promise<FinancialCategory[]>{
@@ -20,6 +20,16 @@ export const financeApi={
   async listEntries(storeId:string):Promise<FinancialEntry[]>{
     const page=await this.listEntriesPage(storeId,{limit:300});
     return page.entries;
+  },
+  async listAllEntries(storeId:string,firstPage?:FinancialEntriesPage):Promise<FinancialEntry[]>{
+    const initial=firstPage??await this.listEntriesPage(storeId,{limit:300});
+    const entries=[...initial.entries];
+    let page=initial;
+    while(page.hasMore){
+      page=await this.listEntriesPage(storeId,{limit:300,offset:page.nextOffset});
+      entries.push(...page.entries);
+    }
+    return entries;
   },
   async listEntriesPage(storeId:string,{limit=100,offset=0}:{limit?:number;offset?:number}={}):Promise<FinancialEntriesPage>{
     if(isDemoMode)return {entries:[],hasMore:false,nextOffset:offset};
