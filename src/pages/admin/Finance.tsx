@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, Camera, ChevronDown, Download, FileSearch2, Info, Loader2, Pencil, Plus, ReceiptText, Save, ShoppingCart, TrendingUp, Upload, WalletCards, X } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Camera, ChevronDown, Download, FileSearch2, Loader2, Pencil, Plus, ReceiptText, Save, ShoppingCart, TrendingUp, Upload, WalletCards, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -11,6 +11,7 @@ import { planHasFeature } from '../../utils/plan';
 import { normalizeCounterpartyKey, readLocalFinancialDocument, type LocalFinancialReadProgress, type LocalFinancialReadResult } from '../../utils/localFinancialDocumentReader';
 import { downloadCsv } from '../../utils/exportCsv';
 import { createId } from '../../utils/id';
+import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 
 const today=()=>{const date=new Date();return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`};
 const documentTypes:{value:FinancialDocumentType;label:string}[]=[
@@ -31,12 +32,14 @@ export default function Finance(){
   const enabled=planHasFeature(planUsage.plan,'finance');
   const[categories,setCategories]=useState<FinancialCategory[]>([]);
   const[entries,setEntries]=useState<FinancialEntry[]>([]);
+  const[analysisEntries,setAnalysisEntries]=useState<FinancialEntry[]>([]);
   const[hasMoreEntries,setHasMoreEntries]=useState(false);
   const[loadingMoreEntries,setLoadingMoreEntries]=useState(false);
   const[ledgerQuery,setLedgerQuery]=useState('');
   const[ledgerStatus,setLedgerStatus]=useState<'all'|FinancialEntryStatus>('all');
   const[form,setForm]=useState(()=>emptyForm(settings.id));
   const[loading,setLoading]=useState(true);
+  const[financeError,setFinanceError]=useState('');
   const[saving,setSaving]=useState(false);
   const[extracting,setExtracting]=useState(false);
   const[extractionInfo,setExtractionInfo]=useState<{recognizedFields:number;signals:string[];preview:string;confidence:number}|null>(null);
@@ -61,11 +64,14 @@ export default function Finance(){
   const cameraRef=useRef<HTMLInputElement|null>(null);
 
   const reload=async()=>{
-    setLoading(true);
+    setLoading(true);setFinanceError('');
     try{
       const[c,page]=await Promise.all([financeApi.listCategories(settings.id),financeApi.listEntriesPage(settings.id,{limit:100})]);
-      setCategories(c);setEntries(page.entries);setHasMoreEntries(page.hasMore);
+      const all=await financeApi.listAllEntries(settings.id,page);
+      setCategories(c);setEntries(page.entries);setHasMoreEntries(page.hasMore);setAnalysisEntries(all);
     }catch(err){
+      setEntries([]);setAnalysisEntries([]);setHasMoreEntries(false);
+      setFinanceError('Não foi possível carregar os lançamentos financeiros. Tente novamente.');
       showToast(err instanceof Error?err.message:'Falha ao carregar o financeiro.','error');
     }finally{setLoading(false)}
   };
@@ -90,22 +96,22 @@ export default function Finance(){
   },[settings.id,enabled]);
 
   const summary=useMemo(()=>{
-    const paid=entries.filter((entry)=>entry.status==='paid');
+    const paid=analysisEntries.filter((entry)=>entry.status==='paid');
     const income=paid.filter((entry)=>entry.direction==='income').reduce((sum,e)=>sum+e.amount,0);
     const expense=paid.filter((entry)=>entry.direction==='expense').reduce((sum,e)=>sum+e.amount,0);
-    const pendingIncome=entries.filter((entry)=>entry.status==='pending'&&entry.direction==='income').reduce((sum,e)=>sum+e.amount,0);
-    const pendingExpense=entries.filter((entry)=>entry.status==='pending'&&entry.direction==='expense').reduce((sum,e)=>sum+e.amount,0);
+    const pendingIncome=analysisEntries.filter((entry)=>entry.status==='pending'&&entry.direction==='income').reduce((sum,e)=>sum+e.amount,0);
+    const pendingExpense=analysisEntries.filter((entry)=>entry.status==='pending'&&entry.direction==='expense').reduce((sum,e)=>sum+e.amount,0);
     return{income,expense,result:income-expense,pendingIncome,pendingExpense};
-  },[entries]);
+  },[analysisEntries]);
 
   const expenseRanking=useMemo(()=>{
     const totals=new Map<string,number>();
-    entries.filter((entry)=>entry.status==='paid'&&entry.direction==='expense').forEach((entry)=>{
+    analysisEntries.filter((entry)=>entry.status==='paid'&&entry.direction==='expense').forEach((entry)=>{
       const name=categories.find((category)=>category.id===entry.categoryId)?.name||'Sem categoria';
       totals.set(name,(totals.get(name)||0)+entry.amount);
     });
     return [...totals.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6);
-  },[entries,categories]);
+  },[analysisEntries,categories]);
 
   const monthly=useMemo(()=>{
     const now=new Date();
@@ -114,13 +120,13 @@ export default function Finance(){
       return{key:monthKey(date),label:new Intl.DateTimeFormat('pt-BR',{month:'short'}).format(date).replace('.',''),income:0,expense:0};
     });
     const byKey=new Map(rows.map((row)=>[row.key,row]));
-    entries.filter((entry)=>entry.status==='paid').forEach((entry)=>{
+    analysisEntries.filter((entry)=>entry.status==='paid').forEach((entry)=>{
       const row=byKey.get(entry.occurredOn.slice(0,7));
       if(!row)return;
       if(entry.direction==='income')row.income+=entry.amount;else row.expense+=entry.amount;
     });
     return rows;
-  },[entries]);
+  },[analysisEntries]);
 
   const chartMax=Math.max(1,...monthly.flatMap((row)=>[row.income,row.expense]));
   const expenseMax=Math.max(1,...expenseRanking.map(([,value])=>value));
@@ -365,6 +371,8 @@ export default function Finance(){
   };
 
   if(!enabled)return <section className="feature-lock"><div><ReceiptText size={28}/><h1>Financeiro disponível no Profissional</h1><p>Fluxo de caixa gerencial, entradas, saídas e leitura local de documentos ficam disponíveis no plano Profissional.</p><a className="primary-button" href="/admin/plano">Conhecer o Profissional</a></div></section>;
+  if(loading)return <LoadingState label="Carregando lançamentos financeiros..."/>;
+  if(financeError)return <ErrorState message={financeError} onRetry={()=>void reload()}/>;
 
   return <>
     <div className="admin-page-title finance-heading finance-heading-v4">
@@ -377,7 +385,6 @@ export default function Finance(){
       <div className={`result ${summary.result>=0?'positive':'negative'}`}><span>Resultado gerencial</span><strong>{currency.format(summary.result)}</strong><small>Entradas realizadas − saídas realizadas</small></div>
       <div className="pending"><span>Próximos compromissos</span><strong>{currency.format(summary.pendingExpense)}</strong><small>A receber: {currency.format(summary.pendingIncome)}</small></div>
     </section>
-    {hasMoreEntries&&<div className="finance-data-notice" role="status"><Info size={15}/> Indicadores calculados sobre os lançamentos carregados. Carregue mais registros no histórico para ampliar a análise.</div>}
 
     <section className="finance-daily-actions" aria-label="Ações do dia">
       <button type="button" className="primary-button" onClick={()=>void openPurchase()}><ShoppingCart size={17}/>Compra de insumos</button>
