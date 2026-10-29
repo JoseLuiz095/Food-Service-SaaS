@@ -1,3 +1,4 @@
+import { MARKETING_HEADLINE } from '../src/content/marketingSeo.ts';
 // Only the public platform homepage receives an HTML introduction before React loads.
 // The existing SPA and its origin-bound shopping/auth flows remain asset-served.
 const PLATFORM_HOSTS = new Set(['www.vendeweb.com.br', 'vendeweb.com.br']);
@@ -6,10 +7,10 @@ const DESCRIPTION = 'Crie uma vitrine online com sua marca, apresente produtos e
 
 const introduction = `
   <div class="seo-pre-render">
-    <header><a href="/" aria-label="VendeWeb, página inicial">VendeWeb</a><nav aria-label="Navegação principal"><a href="#recursos">Recursos</a><a href="#segmentos">Para seu negócio</a><a href="#planos">Planos</a></nav></header>
+    <header><a href="/" aria-label="VendeWeb, página inicial">VendeWeb</a><nav aria-label="Navegação principal"><a href="#recursos">Recursos</a><a href="#ramos">Para seu negócio</a><a href="#planos">Planos</a></nav></header>
     <main>
-      <section><h1>Seu negócio tem personalidade. Sua plataforma também.</h1><p>A VendeWeb reúne uma vitrine com a sua marca e ferramentas para apresentar produtos e serviços, receber pedidos e organizar a operação em um só lugar.</p><a href="/cadastro?plan=DEMO">Criar meu negócio</a></section>
-      <section id="segmentos"><h2>Uma vitrine para diferentes negócios</h2><p>Alimentação, floricultura, comércio e serviços podem começar com o catálogo e os recursos adequados ao seu segmento.</p></section>
+      <section><h1>${MARKETING_HEADLINE}</h1><p>A VendeWeb reúne uma vitrine com a sua marca e ferramentas para apresentar produtos e serviços, receber pedidos e organizar a operação em um só lugar.</p><a href="/cadastro?plan=DEMO">Criar meu negócio</a></section>
+      <section id="ramos"><h2>Uma vitrine para diferentes negócios</h2><p>Alimentação, floricultura, comércio e serviços podem começar com o catálogo e os recursos adequados ao seu segmento.</p></section>
       <section id="recursos"><h2>Venda online com uma operação organizada</h2><p>Publique seu catálogo, compartilhe o link da loja, receba pedidos e acompanhe seus produtos. Recursos adicionais dependem do plano e da liberação para cada negócio.</p></section>
       <section id="planos"><h2>Conheça a VendeWeb</h2><p>Explore os recursos e os planos para escolher como começar.</p><a href="/cadastro?plan=DEMO">Começar agora</a></section>
     </main>

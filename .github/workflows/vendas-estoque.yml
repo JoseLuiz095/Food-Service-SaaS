@@ -3,6 +3,12 @@ on:
   pull_request:
     paths:
       - 'src/**'
+      - 'worker/**'
+      - 'public/robots.txt'
+      - 'public/sitemap.xml'
+      - 'public/_headers'
+      - 'wrangler.jsonc'
+      - 'index.html'
       - 'scripts/**'
       - 'supabase/migrations/**'
       - 'supabase/functions/food-order-payment/**'
@@ -24,6 +30,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run test:seo
       - run: node scripts/receipt-contacts-db-test.mjs
       - run: node scripts/receipt-source-db-test.mjs
       - run: npm run test:payment-links

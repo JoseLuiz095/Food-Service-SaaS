@@ -135,7 +135,13 @@ export default function Landing() {
   const demoHref = `/${encodeURIComponent(view.demoStoreSlug)}`;
   const trialDays = view.demoEnabled ? view.demoDurationDays : 14;
 
-  if (!data) return <div className="landing-loading"><LoadingState label={`Preparando apresentação ${PLATFORM_BRAND}...`} /></div>;
+  if (!data) return <div className="food-sales-page food-sales-page--segments">
+    <header className="sales-nav"><div className="sales-shell"><a className="sales-brand" href="/">VendeWeb</a><nav aria-label="Navegação comercial"><a href="#recursos">Recursos</a><a href="#ramos">Para seu negócio</a><a href="#planos">Planos</a></nav></div></header>
+    <CommercialHero/>
+    <section id="recursos" className="sales-shell"><h2>Venda online com uma operação organizada</h2><p>Publique seu catálogo, compartilhe o link da loja, receba pedidos e acompanhe seus produtos. Recursos adicionais dependem do plano e da liberação para cada negócio.</p></section>
+    <section id="ramos" className="sales-shell"><h2 id="demonstracao">Uma vitrine para diferentes negócios</h2><p>Alimentação, floricultura, comércio e serviços podem começar com o catálogo e os recursos adequados ao seu segmento.</p></section>
+    <section id="planos" className="sales-shell"><h2>Conheça os planos da VendeWeb</h2><p role="status">Consultando planos e lojas disponíveis…</p></section>
+  </div>;
 
   return <div className="food-sales-page food-sales-page-v43 food-sales-page-v44 food-sales-page-v59 food-sales-page--segments">
     <header className="sales-nav sales-nav-v44"><div className="sales-shell">

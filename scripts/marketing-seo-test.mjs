@@ -34,7 +34,7 @@ globalThis.HTMLRewriter = class {
 test('página inicial canônica tem conteúdo legível, metadados e JSON-LD permitido pela CSP', async () => {
   const response = await worker.fetch(new Request('https://www.vendeweb.com.br/'), { ASSETS: assets });
   const body = await response.text();
-  assert.match(body, /<h1>Seu negócio tem personalidade/);
+  assert.match(body, /<h1>Sua vitrine online\. Seu jeito de vender\.<\/h1>/);
   assert.match(body, /<link rel="canonical" href="https:\/\/www\.vendeweb\.com\.br\/">/);
   assert.match(body, /<meta property="og:image"/);
   assert.doesNotMatch(body, /foodweb-splash-screen/);
@@ -70,4 +70,9 @@ test('páginas privadas não entram no sitemap e têm regra de não indexação'
   for (const path of ['/admin/*', '/admin-master/*', '/carrinho', '/finalizar', '/pedido/*', '/pagamento/*']) {
     assert.ok(headers.includes(`${path}\n  X-Robots-Tag: noindex`), `sem noindex: ${path}`);
   }
+});
+
+test('links de navegação do HTML inicial têm seções correspondentes',async()=>{
+ const response=await worker.fetch(new Request('https://www.vendeweb.com.br/'),{ASSETS:assets});const body=await response.text();
+ for(const [,anchor]of body.matchAll(/href="#([^" ]+)"/g))assert.ok(body.includes(`id="${anchor}"`),anchor);
 });
