@@ -32,6 +32,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:seo
       - run: node --test scripts/password-recovery-test.mjs
+      - run: node --test scripts/appearance-editor-test.mjs
       - run: node scripts/receipt-contacts-db-test.mjs
       - run: node scripts/receipt-source-db-test.mjs
       - run: npm run test:payment-links
