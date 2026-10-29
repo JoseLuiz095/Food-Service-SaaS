@@ -44,6 +44,11 @@
 .master-shell.is-sidebar-collapsed .master-admin-mini>span{flex:0 0 38px}
 .master-shell.is-sidebar-collapsed .admin-nav a{justify-content:center;padding-inline:8px}
 .master-shell.is-sidebar-collapsed .admin-nav__label{display:none}
+.master-shell.is-sidebar-collapsed .admin-brand{padding-top:38px}
+.master-shell.is-sidebar-collapsed .admin-brand>img{flex:0 0 34px;width:34px;height:34px}
+.master-shell.is-sidebar-collapsed .admin-sidebar__bottom a,
+.master-shell.is-sidebar-collapsed .admin-sidebar__bottom button{min-height:44px;justify-content:center;padding-inline:8px}
+.master-shell.is-sidebar-collapsed .admin-sidebar__bottom svg{flex:0 0 18px}
 .master-shell .master-table-scroll-note{display:none}
 .master-shell .master-store-table .master-store-card-note{display:none}
 .master-shell .master-store-table .master-store-wide-note{display:none}
@@ -95,10 +100,7 @@
 .master-shell .master-advanced-options>.form-grid,
 .master-shell .master-advanced-options>.master-advanced-content{padding:16px}
 @media(max-width:600px){.master-shell .master-store-page-title>.primary-button{width:100%}}
-@media(min-width:901px) and (max-width:1500px){
-  .master-shell .master-store-table .master-store-wide-note{display:block;margin:0;padding:10px 16px;color:var(--food-admin-muted);font-size:.72rem;line-height:1.45}
-}
-@media(max-width:900px){
+@media(max-width:1450px){
   .master-shell .master-store-table .master-store-card-note{display:block;margin:0;padding:10px 16px 0;color:var(--food-admin-muted);font-size:.72rem;line-height:1.45}
   .master-shell .master-store-table .master-store-wide-note{display:none}
   .master-shell .master-store-table .responsive-table{overflow:visible;scrollbar-gutter:auto;margin:0}
@@ -128,6 +130,29 @@
   .master-shell .master-store-table .master-url-cell a{min-width:0;overflow-wrap:anywhere}
   .master-shell .master-store-table .master-mobile-details{display:inline-flex}
   .master-shell .master-store-table .master-store-row-actions button{min-height:44px!important}
+}
+@media(min-width:901px) and (max-width:1450px){
+  .master-shell .master-store-table .master-store-card-note{display:none}
+  .master-shell .master-store-table .responsive-table tbody tr{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .master-shell .master-store-table .responsive-table tbody td:nth-child(2),
+  .master-shell .master-store-table .responsive-table tbody td:nth-child(5),
+  .master-shell .master-store-table .responsive-table tbody td:nth-child(6),
+  .master-shell .master-store-table .responsive-table tbody td:nth-child(7){display:block;grid-column:auto}
+  .master-shell .master-store-table .master-mobile-details{display:none}
+  .master-shell .master-store-table .master-store-cell{min-width:0}
+}
+@media(min-width:901px) and (max-width:1199px){
+  .master-shell .master-store-table .responsive-table tbody tr{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:820px){
+  .master-shell.is-sidebar-collapsed .admin-brand{padding-top:0}
+  .master-shell.is-sidebar-collapsed .admin-brand>div{display:block}
+  .master-shell.is-sidebar-collapsed .master-nav-text{display:inline}
+  .master-shell.is-sidebar-collapsed .master-admin-mini>div{display:grid}
+  .master-shell.is-sidebar-collapsed .admin-nav__label{display:block}
+  .master-shell.is-sidebar-collapsed .admin-sidebar nav a,
+  .master-shell.is-sidebar-collapsed .admin-sidebar__bottom a,
+  .master-shell.is-sidebar-collapsed .admin-sidebar__bottom button{justify-content:flex-start;padding-inline:11px}
 }
 @media(max-width:520px){
   .master-shell .master-store-table .responsive-table tbody tr{grid-template-columns:minmax(0,1fr);gap:14px}

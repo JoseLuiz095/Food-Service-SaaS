@@ -83,8 +83,8 @@ export default function MasterLayout() {
         </nav>
 
         <div className="admin-sidebar__bottom">
-          <a href="/" target="_blank" rel="noreferrer"><ExternalLink size={18} /> Página comercial</a>
-          <button onClick={() => void logout()}><LogOut size={18} /> Sair</button>
+          <a href="/" target="_blank" rel="noreferrer" title="Página comercial" aria-label="Página comercial"><ExternalLink size={18} /><span className="master-nav-text">Página comercial</span></a>
+          <button onClick={() => void logout()} title="Sair" aria-label="Sair"><LogOut size={18} /><span className="master-nav-text">Sair</span></button>
         </div>
       </aside>
 
