@@ -9,6 +9,8 @@ import { isFoodWebMarketingRoot } from '../lib/config';
 import { getStorefrontThemeStyle } from '../utils/storeVisualTheme';
 import { StorePlatformFooter } from '../components/StorePlatformFooter';
 import { getBusinessSegment, resolveBusinessTheme } from '../segments/businessSegments';
+import { usePwaIdentity } from '../services/pwaIdentity';
+import { PwaAccessCard } from '../components/PwaAccessCard';
 import '../segments/segments.css';
 import '../segments/storefront-motion.css';
 
@@ -17,6 +19,7 @@ export default function StoreLayout(){
   const marketingRoot=typeof window!=='undefined'&&isFoodWebMarketingRoot(location.pathname,window.location.hostname);
   const {settings,storeUnavailable,unavailableStoreName,storeBasePath}=useStore();
   const {totalItems,subtotal}=useCart();
+  usePwaIdentity(settings.id && settings.slug ? {kind:'customer',slug:settings.slug,name:settings.name,iconUrl:settings.logoUrl,root:!storeBasePath}:null);
   useEffect(()=>{window.scrollTo({top:0,left:0,behavior:'auto'})},[location.pathname]);
 
   if(marketingRoot)return <main className="store-layout marketing-root-layout"><Outlet/></main>;
@@ -46,5 +49,5 @@ export default function StoreLayout(){
   const hideDock=path.includes('/carrinho')||path.includes('/finalizar')||path.includes('/pedido/');
   const showDock=segment.id!=='fitness'&&totalItems>0&&!hideDock;
 
-  return <main data-business-segment={segment.id} data-visual-preset={settings.visualTheme.preset} className={`store-layout food-storefront-theme storefront-motion ${useSegmentPresentation?'storefront-business-theme':''} ${showDock?'has-mobile-cart-dock':''}`} style={storefrontThemeStyle}><div key={location.pathname} className="store-route-view"><Outlet/></div><StorePlatformFooter/>{showDock&&<Link className="mobile-cart-dock" to={storefrontPath(storeBasePath,'/finalizar')} aria-label={`Finalizar pedido com ${totalItems} item(ns)`}><span className="mobile-cart-dock__icon"><ShoppingBag size={19}/><b>{totalItems}</b></span><span className="mobile-cart-dock__copy"><small>Seu carrinho</small><strong>{currency.format(subtotal)}</strong></span><span className="mobile-cart-dock__action">Finalizar <ArrowRight size={17}/></span></Link>}</main>;
+  return <main data-business-segment={segment.id} data-visual-preset={settings.visualTheme.preset} className={`store-layout food-storefront-theme storefront-motion ${useSegmentPresentation?'storefront-business-theme':''} ${showDock?'has-mobile-cart-dock':''}`} style={storefrontThemeStyle}><div key={location.pathname} className="store-route-view"><Outlet/></div>{settings.id&&path===storefrontPath(storeBasePath)&&<div className="container"><PwaAccessCard role="customer" scope={settings.id} name={settings.name}/></div>}<StorePlatformFooter/>{showDock&&<Link className="mobile-cart-dock" to={storefrontPath(storeBasePath,'/finalizar')} aria-label={`Finalizar pedido com ${totalItems} item(ns)`}><span className="mobile-cart-dock__icon"><ShoppingBag size={19}/><b>{totalItems}</b></span><span className="mobile-cart-dock__copy"><small>Seu carrinho</small><strong>{currency.format(subtotal)}</strong></span><span className="mobile-cart-dock__action">Finalizar <ArrowRight size={17}/></span></Link>}</main>;
 }

@@ -4,6 +4,46 @@ import { MARKETING_HEADLINE } from '../src/content/marketingSeo.ts';
 const PLATFORM_HOSTS = new Set(['www.vendeweb.com.br', 'vendeweb.com.br']);
 const CANONICAL_URL = 'https://www.vendeweb.com.br/';
 const DESCRIPTION = 'Crie uma vitrine online com sua marca, apresente produtos e serviços, receba pedidos e organize a operação do seu negócio com a VendeWeb.';
+const LOGO_STORAGE_HOST = 'elttryavkeartoxgdgse.supabase.co';
+const pwaJson = (body) => new Response(JSON.stringify(body), { headers: {
+  'Content-Type': 'application/manifest+json; charset=utf-8', 'Cache-Control': 'no-cache, must-revalidate',
+  'X-Content-Type-Options': 'nosniff',
+} });
+const allowedIcon = (value, origin) => {
+  if (!value || value.length > 1200) return null;
+  try {
+    const url = new URL(value, origin);
+    if (url.username || url.password || url.search || url.hash) return null;
+    if (url.origin === origin && /^\/assets\/[a-z0-9/_-]+\.(png|jpe?g|webp)$/i.test(url.pathname)) return url.href;
+    if (url.protocol === 'https:' && url.hostname === LOGO_STORAGE_HOST &&
+      /^\/storage\/v1\/object\/public\/food-store-assets\/stores\/[0-9a-f-]{36}\/logo\/[a-z0-9-]+\.(png|jpe?g|webp)$/i.test(url.pathname)) return url.href;
+  } catch { /* URL inválida */ }
+  return null;
+};
+const pwaManifest = (url) => {
+  const kind = url.searchParams.get('kind');
+  const slug = url.searchParams.get('slug') || '';
+  const storeId = url.searchParams.get('store') || '';
+  const root = url.searchParams.get('root') === '1';
+  const name = (url.searchParams.get('name') || '').trim().slice(0, 64);
+  if (!['customer','admin','master'].includes(kind) ||
+      (kind !== 'master' && !/^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(slug)) ||
+      (kind === 'admin' && !/^[0-9a-f-]{36}$/i.test(storeId))) return null;
+  const icon = allowedIcon(url.searchParams.get('icon'), url.origin);
+  const logo = (size) => icon ? `/_pwa/icon?src=${encodeURIComponent(icon)}&size=${size}` : `/assets/vendeweb-icon-${size}.png`;
+  const path = kind === 'customer' ? (root ? '/' : `/${slug}`) : kind === 'admin' ? `/admin?store=${storeId}` : '/admin-master';
+  const identity = kind === 'customer' ? `customer/${slug}` : kind === 'admin' ? `admin/${storeId}` : 'master';
+  return {
+    name:kind==='master'?'VendeWeb Admin Master':kind==='admin'?`${name || slug} · Gestão`:(name || slug),
+    short_name:kind==='master'?'Admin Master':(name || slug).slice(0, 24),
+    description:kind==='customer'?'Vitrine da loja na VendeWeb.':'Gestão na VendeWeb.', lang:'pt-BR',
+    id:`/_pwa/${identity}`, start_url:path, scope:kind==='customer'?(root?'/':`/${slug}`):'/',
+    display:'standalone', background_color:'#fffdfa', theme_color:'#123d28',
+    icons:[{src:logo(192),sizes:'192x192',...(icon?{}:{type:'image/png'}),purpose:'any'},
+      {src:logo(512),sizes:'512x512',...(icon?{}:{type:'image/png'}),purpose:'any'},
+      {src:'/assets/vendeweb-maskable-512.png',sizes:'512x512',type:'image/png',purpose:'maskable'}],
+  };
+};
 
 const introduction = `
   <div class="seo-pre-render">
@@ -39,6 +79,27 @@ const homepageHead = `
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === '/_pwa/manifest.webmanifest') {
+      if (!['GET','HEAD'].includes(request.method)) return new Response(null,{status:405});
+      const manifest = pwaManifest(url);
+      return manifest ? pwaJson(manifest) : new Response('Manifesto inválido.',{status:400});
+    }
+    if (url.pathname === '/_pwa/icon') {
+      if (!['GET','HEAD'].includes(request.method)) return new Response(null,{status:405});
+      const source = allowedIcon(url.searchParams.get('src'),url.origin);
+      const size = Number(url.searchParams.get('size'));
+      if (!source || ![180,192,512].includes(size)) return new Response('Ícone inválido.',{status:400});
+      try {
+        const image = await fetch(source,{cf:{image:{width:size,height:size,fit:'cover',format:'png'}}});
+        const length = Number(image.headers.get('content-length') || 0);
+        if (!image.ok || length > 2_000_000 || !/^image\/(?:png|jpeg|webp)$/i.test(image.headers.get('content-type') || '')) throw new Error('Imagem indisponível');
+        const bytes = await image.arrayBuffer();
+        if (bytes.byteLength > 2_000_000) throw new Error('Imagem grande');
+        return new Response(request.method==='HEAD'?null:bytes,{headers:{'Content-Type':image.headers.get('content-type') || 'image/png','Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff'}});
+      } catch {
+        return env.ASSETS.fetch(new Request(new URL(`/assets/vendeweb-icon-${size===512?512:192}.png`,url.origin),request));
+      }
+    }
     const platformHost = PLATFORM_HOSTS.has(url.hostname.toLowerCase());
     if (!platformHost && url.pathname === '/sitemap.xml') {
       return new Response('Sitemap indisponível neste domínio.', { status: 404, headers: { 'X-Robots-Tag': 'noindex' } });

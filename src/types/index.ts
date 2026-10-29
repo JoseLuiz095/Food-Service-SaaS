@@ -289,7 +289,7 @@ export type Plan = {
 };
 
 export type BillingProvider = 'manual' | 'asaas';
-export type SubscriptionBillingMode = 'standard' | 'negotiated' | 'complimentary';
+export type SubscriptionBillingMode = 'standard' | 'negotiated' | 'complimentary' | 'introductory';
 
 export type PlatformSettings = {
   demoEnabled: boolean;
@@ -611,6 +611,8 @@ export type PlatformStoreSummary = {
   planCode?: string;
   billingAmount?: number;
   billingMode?: SubscriptionBillingMode;
+  introFreeMonths?: number;
+  introFirstChargeOn?: string;
   dueDay?: number;
   nextDueDate?: string;
   customDomain?: string;

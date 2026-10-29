@@ -14,6 +14,7 @@ import type {
   SubscriptionBillingMode,
   SubscriptionPayment,
 } from '../types';
+import { firstChargeAfterFreeMonths } from '../utils/introBilling';
 
 const toNumber = (value: number | string | null | undefined) => value == null ? 0 : Number(value);
 const isMissingSchemaColumn = (error: unknown, column: string) => {
@@ -56,7 +57,7 @@ const trialExpired = (value?: string) => Boolean(value) && new Date(value as str
 
 type StoreRow = { visual_theme?: {businessSegment?: import('../segments/businessSegments').BusinessSegment}; id:string; slug:string; name:string; city:string|null; state:string|null; owner_name:string|null; owner_email:string|null; active:boolean; access_status:StoreAccessStatus; suspended_at:string|null; suspension_reason:string|null };
 type PlanRow = { id:string; code:string; name:string; product_limit:number|null; image_limit_per_product:number|null; custom_domain:boolean; reports:boolean; priority_support:boolean; monthly_price:number|string|null; setup_price:number|string|null; category_limit:number|null; addon_limit:number|null; admin_user_limit:number|null; sort_order:number|null; active:boolean; marketing_benefits?: string[] | null };
-type SubscriptionRow = { id:string; store_id:string; plan_id:string; status:'trial'|'active'|'suspended'|'cancelled'; status_before_suspension:'trial'|'active'|null; started_at:string; expires_at:string|null; billing_amount:number|string|null; billing_mode?:SubscriptionBillingMode|null; due_day:number|null; next_due_date:string|null };
+type SubscriptionRow = { id:string; store_id:string; plan_id:string; status:'trial'|'active'|'suspended'|'cancelled'; status_before_suspension:'trial'|'active'|null; started_at:string; expires_at:string|null; billing_amount:number|string|null; billing_mode?:SubscriptionBillingMode|null; intro_free_months?:number|null; intro_first_charge_on?:string|null; due_day:number|null; next_due_date:string|null };
 type DomainRow = { id:string; store_id:string; domain:string; is_primary:boolean; active:boolean };
 type CountRow = { id:string; store_id:string; active?:boolean };
 type PlatformSettingsRow = { id:number; demo_enabled?:boolean; demo_duration_days:number; demo_warning_days:number; billing_provider?:'manual'|'asaas'; billing_pix_key_type?:string|null; billing_pix_key?:string|null; billing_pix_holder_name?:string|null; billing_pix_city?:string|null; billing_pix_copy_paste?:string|null; billing_whatsapp?:string|null; billing_proof_required?:boolean; billing_auto_renew?:boolean; billing_grace_days?:number|null; marketing_whatsapp?:string|null; support_whatsapp?:string|null };
@@ -172,7 +173,8 @@ export const platformApi = {
         businessSegment: normalizeBusinessSegment(store.visual_theme?.businessSegment),
         active:store.active,accessStatus:demoExpired?'suspended':(store.access_status||'online'),productCount:storeProducts.length,activeProductCount:storeProducts.filter((item)=>item.active).length,
         adminUserCount:users.filter((item)=>item.store_id===store.id&&item.active).length,subscriptionId:sub?.id,subscriptionStatus:sub?.status,
-        planId:plan?.id,planName:plan?.name,planCode:plan?.code,billingAmount:sub?.billing_amount==null?toNumber(plan?.monthly_price):toNumber(sub.billing_amount),billingMode:sub?.billing_mode||((sub?.billing_amount==null?toNumber(plan?.monthly_price):toNumber(sub.billing_amount))===0?'complimentary':'negotiated'),
+        planId:plan?.id,planName:plan?.name,planCode:plan?.code,billingAmount:sub?.billing_amount==null?toNumber(plan?.monthly_price):toNumber(sub.billing_amount),billingMode:sub&&plan?.code!=='DEMO'&&toNumber(sub.billing_amount)===0?'complimentary':(sub?.billing_mode||'standard'),
+        introFreeMonths:sub?.intro_free_months||undefined,introFirstChargeOn:sub?.intro_first_charge_on||undefined,
         dueDay:sub?.due_day||undefined,nextDueDate:sub?.next_due_date||undefined,customDomain:domains.find((item)=>item.store_id===store.id&&item.is_primary)?.domain,
         suspendedAt:store.suspended_at||undefined,suspensionReason:store.suspension_reason||undefined,expiresAt:sub?.expires_at||undefined,
       };
@@ -187,17 +189,12 @@ export const platformApi = {
       storesSuspended:stores.filter((store)=>store.accessStatus==='suspended').length,
       storesTrial:stores.filter((store)=>store.subscriptionStatus==='trial').length,
       trialsExpiringSoon:stores.filter((store)=>store.subscriptionStatus==='trial'&&!trialExpired(store.expiresAt)&&daysUntil(store.expiresAt)<=settings.demoWarningDays).length,
-      monthlyRecurringRevenue:stores.filter((store)=>store.accessStatus==='online'&&store.subscriptionStatus!=='trial').reduce((sum,store)=>sum+(store.billingAmount||0),0),
+      monthlyRecurringRevenue:stores.filter((store)=>store.accessStatus==='online'&&store.subscriptionStatus!=='trial'&&store.billingMode!=='complimentary'&&!(store.billingMode==='introductory'&&store.introFirstChargeOn&&store.introFirstChargeOn>new Date().toISOString().slice(0,10))).reduce((sum,store)=>sum+(store.billingAmount||0),0),
     };
   },
 
-  async updateStore(input: { storeId:string; planId:string; accessStatus:StoreAccessStatus; billingAmount:number; billingMode?:SubscriptionBillingMode; dueDay:number; nextDueDate?:string; expiresAt?:string; customDomain?:string; suspensionReason?:string }): Promise<void> {
+  async updateStore(input: { storeId:string; planId:string; accessStatus:StoreAccessStatus; billingAmount:number; billingMode?:SubscriptionBillingMode; introFreeMonths?:number; dueDay:number; nextDueDate?:string; expiresAt?:string; customDomain?:string; suspensionReason?:string }): Promise<void> {
     if (isDemoMode) return;
-    await restFetch<unknown>(`food_stores?id=eq.${encodeURIComponent(input.storeId)}`, {method:'PATCH',body:{
-      access_status:input.accessStatus,
-      suspended_at:input.accessStatus==='suspended'?new Date().toISOString():null,
-      suspension_reason:input.accessStatus==='suspended'?(input.suspensionReason?.trim()||'Acesso suspenso manualmente pelo Admin Master'):null,
-    }});
 
     const [subs, planRows] = await Promise.all([
       restFetch<SubscriptionRow[]>(`food_store_subscriptions?select=*&store_id=eq.${encodeURIComponent(input.storeId)}&order=started_at.desc&limit=1`),
@@ -206,6 +203,8 @@ export const platformApi = {
     const currentSub = subs[0];
     const plan = planRows[0];
     if (!plan) throw new Error('Plano selecionado não existe.');
+    if(input.billingMode==='introductory' && (!currentSub || !('intro_first_charge_on' in currentSub)))
+      throw new Error('A cortesia temporária ainda não foi ativada no banco. Aplique a migration de cobrança antes de salvar este acordo.');
     const planChanged = currentSub?.plan_id !== input.planId;
     const isDemo = plan.code === 'DEMO';
     const settings = isDemo ? await platformApi.getPlatformSettings() : DEFAULT_PLATFORM_SETTINGS;
@@ -220,6 +219,8 @@ export const platformApi = {
     let billingAmount = Math.max(0, Number(input.billingAmount) || 0);
     let dueDay: number | null = input.dueDay;
     let nextDueDate: string | null = alignSubscriptionDueDate(input.dueDay, input.nextDueDate || currentSub?.next_due_date || null);
+    let introFirstChargeOn: string | null = null;
+    let introFreeMonths: number | null = null;
 
     if (isDemo) {
       status = input.accessStatus === 'online' ? 'trial' : 'suspended';
@@ -242,6 +243,17 @@ export const platformApi = {
         billingAmount = 0;
         dueDay = null;
         nextDueDate = null;
+      } else if (billingMode === 'introductory') {
+        if (!Number.isFinite(input.billingAmount) || input.billingAmount <= 0) throw new Error('Informe o valor negociado após a cortesia.');
+        introFreeMonths = input.introFreeMonths || 0;
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+        const sameIntroTerms = currentSub?.billing_mode==='introductory' && currentSub.plan_id===input.planId &&
+          currentSub.intro_free_months===introFreeMonths && currentSub.due_day===input.dueDay;
+        introFirstChargeOn = sameIntroTerms && currentSub.intro_first_charge_on
+          ? currentSub.intro_first_charge_on : firstChargeAfterFreeMonths(today,introFreeMonths,input.dueDay);
+        nextDueDate = sameIntroTerms && currentSub?.next_due_date &&
+          currentSub.next_due_date>introFirstChargeOn ? currentSub.next_due_date : introFirstChargeOn;
       }
     }
 
@@ -254,6 +266,7 @@ export const platformApi = {
       due_day:dueDay,
       next_due_date:nextDueDate,
       expires_at:expiresAt,
+      ...((currentSub && 'intro_first_charge_on' in currentSub) ? {intro_free_months:introFreeMonths,intro_first_charge_on:introFirstChargeOn} : {}),
     };
     const persistSubscription = async (path:string, body:Record<string, unknown>) => {
       try {
@@ -266,6 +279,12 @@ export const platformApi = {
     };
     if (currentSub) await persistSubscription(`food_store_subscriptions?id=eq.${encodeURIComponent(currentSub.id)}`, subscriptionBody);
     else await persistSubscription('food_store_subscriptions', {store_id:input.storeId,...subscriptionBody});
+
+    await restFetch<unknown>(`food_stores?id=eq.${encodeURIComponent(input.storeId)}`, {method:'PATCH',body:{
+      access_status:input.accessStatus,
+      suspended_at:input.accessStatus==='suspended'?new Date().toISOString():null,
+      suspension_reason:input.accessStatus==='suspended'?(input.suspensionReason?.trim()||'Acesso suspenso manualmente pelo Admin Master'):null,
+    }});
 
     const existing = await restFetch<DomainRow[]>(`food_store_domains?select=*&store_id=eq.${encodeURIComponent(input.storeId)}&is_primary=eq.true&limit=1`);
     const domain = plan.custom_domain ? (input.customDomain||'').trim().toLowerCase().replace(/^https?:\/\//,'').replace(/\/$/,'') : '';

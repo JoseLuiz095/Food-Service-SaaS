@@ -121,10 +121,10 @@ test('push e clique rejeitam URL externa, javascript e protocolo relativo', asyn
   assert.equal(app.notifications.at(-1).data.url, `${origin}/admin/estoque?item=123`);
 });
 
-test('manifest mantém identidade /admin e oferece ícones PNG válidos para instalação', () => {
+test('manifest padrão da plataforma oferece ícones PNG válidos para instalação', () => {
   const manifest = JSON.parse(readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8'));
-  assert.equal(manifest.id, '/admin');
-  assert.equal(manifest.start_url, '/admin');
+  assert.equal(manifest.id, '/_pwa/platform');
+  assert.equal(manifest.start_url, '/');
   assert.equal(manifest.scope, '/');
   for (const icon of manifest.icons.filter(icon => icon.type === 'image/png')) {
     const file = new URL(`../public${icon.src}`, import.meta.url);

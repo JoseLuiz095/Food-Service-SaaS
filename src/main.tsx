@@ -7,12 +7,14 @@ import { CartProvider } from './contexts/CartContext';
 import { StoreProvider } from './contexts/StoreContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { installGlobalInteractionTelemetry } from './services/interactionTelemetry';
+import { startInstallCapture } from './services/pwaInstall';
 import './styles.css';
 import './segments/doce-lua-accessibility.css';
 
 const OrderPayment = lazy(() => import('./pages/store/OrderPayment'));
 const isPaymentPage = /^\/pagamento\/pix\/?$/.test(window.location.pathname);
 if (!isPaymentPage) installGlobalInteractionTelemetry();
+startInstallCapture();
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {

@@ -1,0 +1,7 @@
+.pwa-access-card{display:flex;gap:14px;align-items:flex-start;position:relative;max-width:100%;padding:17px 48px 17px 18px;margin:0 0 18px;border:1px solid #cce0d4;border-radius:16px;background:linear-gradient(120deg,#f0f9f3,#fffdfa);box-shadow:0 6px 22px rgba(23,72,43,.06);color:#23412e}
+.pwa-access-card__icon{display:grid;place-items:center;flex:0 0 38px;height:38px;border-radius:12px;background:#dcefe2;color:#145b37}
+.pwa-access-card__copy{min-width:0}.pwa-access-card__copy strong{display:block;font-size:.98rem;line-height:1.35}.pwa-access-card__copy p{margin:5px 0 10px;color:#53685a;font-size:.83rem;line-height:1.5}.pwa-access-card__copy small{display:block;line-height:1.5;margin:8px 0;color:#3c624b}
+.pwa-access-card__actions{display:flex;flex-wrap:wrap;gap:8px}.pwa-access-card__actions button{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:8px 13px;border:1px solid #296743;border-radius:9px;background:#226440;color:white;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer}.pwa-access-card__actions .secondary-button{background:white;color:#225d3b}
+.pwa-access-card__close{position:absolute;top:12px;right:12px;display:grid;place-items:center;width:32px;height:32px;border:0;border-radius:8px;background:transparent;color:#53685a;cursor:pointer}
+.pwa-access-card button:focus-visible{outline:2px solid #145b37;outline-offset:3px}
+@media(max-width:600px){.pwa-access-card{padding:15px 44px 15px 14px;gap:10px}.pwa-access-card__icon{flex-basis:32px;height:32px}}

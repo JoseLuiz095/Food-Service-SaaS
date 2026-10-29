@@ -26,7 +26,7 @@ import {
   Warehouse,
   type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PlatformHelpButton } from '../components/PlatformHelpButton';
 import { AdminNotifications } from '../components/admin/AdminNotifications';
@@ -45,6 +45,9 @@ import { useBusinessStatus } from '../platform/useBusinessStatus';
 import { useStockMode } from '../hooks/useStockMode';
 import { useAdminMobileNavigation } from '../hooks/useAdminMobileNavigation';
 import { moduleIsActive } from '../platform/api';
+import { usePwaIdentity } from '../services/pwaIdentity';
+import { getInstallPrompt, installPwa, subscribeInstallPrompt } from '../services/pwaInstall';
+import { PwaAccessCard } from '../components/PwaAccessCard';
 import '../components/admin/admin-navigation.css';
 import './operational-navigation.css';
 
@@ -92,11 +95,6 @@ const navSections: Array<{ label: string; items: Array<{ to: string; label: stri
 
 const BILLING_WARNING_DAYS = 7;
 
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-};
-
 export default function AdminLayout() {
   const { settings, planUsage, dataMode, products } = useStore();
   const { user, signOut, platformAdmin, membership, memberships, selectStore } = useAuth();
@@ -104,25 +102,23 @@ export default function AdminLayout() {
   const {enabled:multiLocation}=useStockMode(membership?.storeId||'');
   const navigate = useNavigate();
   const location = useLocation();
+  usePwaIdentity(settings.id&&settings.slug?{kind:'admin',slug:settings.slug,storeId:settings.id,name:settings.name,iconUrl:settings.logoUrl}:null);
+  useEffect(()=>{
+    const requested=new URLSearchParams(location.search).get('store');
+    if(!requested || !memberships.some(item=>item.storeId===requested))return;
+    if(membership?.storeId!==requested)selectStore(requested);
+    navigate(location.pathname,{replace:true});
+  },[location.pathname,location.search,membership?.storeId,memberships,selectStore,navigate]);
   const [open, setOpen] = useState(false);
   const { triggerRef, sidebarRef } = useAdminMobileNavigation(open, setOpen);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [billingOverview, setBillingOverview] = useState<StoreBillingOverview | null>(null);
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const installPrompt = useSyncExternalStore(subscribeInstallPrompt, getInstallPrompt, () => null);
   const segment = getBusinessSegment(business?.profile?.primary_segment || settings.visualTheme);
   const segmentPresentation = segment.id !== 'food' && settings.visualTheme.preset !== 'doce_lua';
   const logoUrl = segmentPresentation && isDefaultStoreImage(settings.logoUrl) ? '/assets/placeholder-catalog.svg' : settings.logoUrl;
   const theme = resolveBusinessTheme(settings.visualTheme);
   const segmentStyle = segmentPresentation ? { '--segment-primary': theme.primaryColor, '--segment-accent': theme.accentColor } as CSSProperties : undefined;
-
-  useEffect(() => {
-    const onBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as BeforeInstallPromptEvent);
-    };
-    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
-  }, []);
 
   useEffect(() => {
     try { setSidebarCollapsed(window.localStorage.getItem('foodweb_admin_sidebar_collapsed') === '1'); } catch { /* storage indisponível */ }
@@ -132,12 +128,7 @@ export default function AdminLayout() {
     try { window.localStorage.setItem('foodweb_admin_sidebar_collapsed', sidebarCollapsed ? '1' : '0'); } catch { /* storage indisponível */ }
   }, [sidebarCollapsed]);
 
-  const installAdminApp = async () => {
-    if (!installPrompt) return;
-    await installPrompt.prompt();
-    await installPrompt.userChoice;
-    setInstallPrompt(null);
-  };
+  const installAdminApp = async () => { await installPwa(); };
 
   const logout = async () => {
     await signOut();
@@ -269,7 +260,7 @@ export default function AdminLayout() {
           </div>
         </header>
         {membership?.approvalStatus === 'pending' && <div className={`self-service-approval-banner ${membership.limitedAccess?'is-limited':'is-trial'}`}><ShieldCheck size={18}/><div><strong>{membership.limitedAccess?'Cadastro em preparação':'Cadastro em análise'}</strong><span>{membership.limitedAccess?'Você pode configurar cardápio, identidade, entregas e configurações. Pedidos, Analytics, Financeiro, cobrança e a vitrine ficam bloqueados até a aprovação do Admin Master.':'Seu Demo está disponível enquanto o Admin Master revisa o cadastro.'}</span></div></div>}
-        <main id="admin-main" tabIndex={-1} className="admin-page"><div key={`${location.pathname}:${membership?.storeId || 'none'}`}><Outlet /></div></main>
+        <main id="admin-main" tabIndex={-1} className="admin-page"><PwaAccessCard role="admin" scope={`${user?.id||''}:${membership?.storeId||''}`} name={settings.name||'VendeWeb Admin'} notifications={settings.notificationsDesktopEnabled}/><div key={`${location.pathname}:${membership?.storeId || 'none'}`}><Outlet /></div></main>
       </section>
       <PlatformHelpButton />
     </div>
