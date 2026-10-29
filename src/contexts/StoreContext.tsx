@@ -209,7 +209,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (isMasterRoute || marketingRoot || isStandalonePublicRoute) { adminSnapshotRef.current = null; setLoading(false); return; }
     if (authLoading) { setLoading(true); return; }
     if (isStoreAdminRoute) {
-      if (user && membership) void reloadAdmin();
+      if (user && membership) void reloadAdmin({ silent: snapshotScopeRef.current === adminScope }).catch(() => { /* Mantém o snapshot atual em erro de atualização. */ });
       else { adminSnapshotRef.current = null; setLoading(false); setError(''); }
       return;
     }
@@ -224,7 +224,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const isStandalonePublicRoute = /^\/(?:cadastro|modulos)(?:\/|$)/.test(location.pathname);
       if (isMasterRoute || marketingRoot || isStandalonePublicRoute || authLoading) return;
       if (isStoreAdminRoute) {
-        if (user && membership) void reloadAdmin({ force: true });
+        if (user && membership) void reloadAdmin({ force: true, silent: true }).catch(() => { /* Mantém a tela atual em falha de sincronização. */ });
         return;
       }
       void reloadPublic();

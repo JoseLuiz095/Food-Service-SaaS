@@ -43,6 +43,7 @@ jobs:
       - run: node scripts/order-item-location-db-test.mjs
       - run: node scripts/dashboard-metrics-db-test.mjs
       - run: node scripts/dashboard-error-test.mjs
+      - run: node scripts/order-relocation-db-test.mjs
       - run: node --test scripts/store-name-test.mjs
       - run: node scripts/store-name-db-test.mjs
       - name: PostgreSQL isolado para concorrência
@@ -51,6 +52,10 @@ jobs:
         env:
           FOOD_DB_TEST_RUNTIME: ${{ runner.temp }}/food-db-runtime/node_modules
         run: node scripts/store-name-postgres-test.mjs
+      - name: Edição e retry de retirada concorrentes
+        env:
+          FOOD_DB_TEST_RUNTIME: ${{ runner.temp }}/food-db-runtime/node_modules
+        run: node scripts/order-relocation-postgres-test.mjs
       - name: Reservas e transferências concorrentes
         env:
           FOOD_DB_TEST_RUNTIME: ${{ runner.temp }}/food-db-runtime/node_modules

@@ -1,0 +1,46 @@
+import {PGlite} from '@electric-sql/pglite';import{randomUUID}from'node:crypto';import{readFileSync}from'node:fs';import assert from'node:assert/strict';import{pathToFileURL}from'node:url';import{runOrderItemLocationTests}from'./order-item-location-db-test.mjs';
+export async function runRelocationTests(db=new PGlite(),concurrentCases){let n=0;const q=async(s,p=[])=>(await db.query(s,p)).rows;const eq=(a,b)=>{assert.deepEqual(a,b);n++};const no=async(f,p)=>{await assert.rejects(f,p);n++};
+try{
+ await runOrderItemLocationTests({db:{query:db.query.bind(db),exec:db.exec.bind(db),close:async()=>{}}});
+ await db.exec(`alter table food_orders add column if not exists pickup_location_id uuid,add column if not exists delivery_type text default 'pickup',add column if not exists customer_name text,add column if not exists customer_phone text,add column if not exists notes text;
+ create table food_pickup_locations(id uuid primary key,store_id uuid,stock_location_id uuid,active boolean default true);
+ create table food_platform_event_log(actor_user_id uuid,store_id uuid,kind text,action text,result text,route text,metadata jsonb);
+ create trigger relocation_guard before update of stock_location_id,pickup_location_id on food_orders for each row execute function food_guard_order_stock_location();`.replace('create trigger relocation_guard before update of stock_location_id,pickup_location_id on food_orders for each row execute function food_guard_order_stock_location();',''));
+ await db.exec(JSON.parse(readFileSync('scripts/fixtures/order-location-guards-baseline.json','utf8')).guards.find(f=>f.proname==='food_guard_order_stock_location').definition);
+ await db.exec(readFileSync('supabase/migrations/20261029145753_food_order_relocation.sql','utf8'));
+ await db.exec('create trigger relocation_guard before update of stock_location_id,pickup_location_id on food_orders for each row execute function food_guard_order_stock_location()');
+ const s=randomUUID(),u=randomUUID(),a=randomUUID(),b=randomUUID(),pa=randomUUID(),pb=randomUUID(),product=randomUUID(),o=randomUUID(),item=randomUUID();
+ await q('insert into food_stores(id)values($1)',[s]);await q('insert into food_store_users(store_id,user_id)values($1,$2)',[s,u]);
+ await q("insert into food_stock_locations(id,store_id,name,is_default)values($1,$3,'A',true),($2,$3,'B',false)",[a,b,s]);
+ await q('insert into food_pickup_locations(id,store_id,stock_location_id)values($1,$3,$4),($2,$3,$5)',[pa,pb,s,a,b]);
+ await q("insert into food_products(id,store_id,name,stock_quantity)values($1,$2,'Produto sintético',25)",[product,s]);
+ await q('insert into food_product_location_stock(store_id,product_id,location_id,stock_quantity)values($1,$2,$3,20),($1,$2,$4,5)',[s,product,a,b]);
+ await q("select set_config('test.user',$1,false),set_config('food.order_stock_location',$2,false)",[u,a]);
+ await q("insert into food_orders(id,store_id,stock_location_id,pickup_location_id)values($1,$2,$3,$4)",[o,s,a,pa]);
+ await q("insert into food_order_items(id,order_id,product_id,product_name,quantity,unit_price,item_total)values($1,$2,$3,'Sintético',2,10,20)",[item,o,product]);
+ const balances=async()=>q('select stock_quantity,stock_reserved_quantity from food_product_location_stock where product_id=$1 order by stock_quantity desc',[product]);
+ const edit=(p,expected=pa)=>q('select food_edit_order_pickup_v1($1,$2,$3,$4)',[o,p,expected,JSON.stringify({customerName:'Pessoa sintética',notes:'Teste'})]);
+ await q('update food_product_location_stock set stock_quantity=1 where product_id=$1 and location_id=$2',[product,b]);
+ await no(()=>edit(pb),/Estoque insuficiente/);eq((await q('select pickup_location_id from food_orders where id=$1',[o]))[0].pickup_location_id,pa);
+ await q('update food_product_location_stock set stock_quantity=5 where product_id=$1 and location_id=$2',[product,b]);
+ await q('update food_orders set payment_status=\'paid\' where id=$1',[o]);
+ await edit(pb);eq(await balances(),[{stock_quantity:20,stock_reserved_quantity:0},{stock_quantity:5,stock_reserved_quantity:2}]);
+ await db.exec('grant select,update on food_orders to authenticated;grant select on food_order_items to authenticated');
+ await db.exec('set role authenticated');await q("select set_config('food.relocating_order',$1,false)",[o]);await no(()=>q('update food_orders set stock_location_id=$1 where id=$2',[a,o]),/edição segura/);await db.exec('reset role');
+ await edit(pb);eq(Number((await q('select count(*) n from food_platform_event_log'))[0].n),1);
+ const otherStore=randomUUID(),foreignPoint=randomUUID(),foreignLocation=randomUUID();
+ await q('insert into food_stores(id)values($1)',[otherStore]);await q("insert into food_stock_locations(id,store_id,name)values($1,$2,'Outro tenant')",[foreignLocation,otherStore]);await q('insert into food_pickup_locations(id,store_id,stock_location_id)values($1,$2,$3)',[foreignPoint,otherStore,foreignLocation]);
+ await no(()=>edit(foreignPoint,pb),/Ponto de retirada/);
+ await no(()=>edit(randomUUID(),pb),/Ponto de retirada/);
+ await q('update food_pickup_locations set active=false where id=$1',[pa]);await no(()=>edit(pa,pb),/Ponto de retirada/);await q('update food_pickup_locations set active=true where id=$1',[pa]);
+ eq((await q("select has_function_privilege('anon','food_edit_order_pickup_v1(uuid,uuid,uuid,jsonb)','EXECUTE') allowed"))[0].allowed,false);
+ await q("select set_config('test.user',$1,false)",[randomUUID()]);await no(()=>edit(pa,pb),/Sem permissão/);
+ await q("select set_config('test.user',$1,false)",[u]);
+ if(concurrentCases)await concurrentCases({db,o,pb,pa,u,eq});
+ await q("update food_orders set status='delivered' where id=$1",[o]);
+ eq(await balances(),[{stock_quantity:20,stock_reserved_quantity:0},{stock_quantity:3,stock_reserved_quantity:0}]);
+ await no(()=>edit(pa,pb),/encerrado/);
+ console.log(`Troca de ponto: ${n} verificações aprovadas.`);
+}finally{await db.close()}
+}
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)await runRelocationTests().catch(e=>{console.error(e.message);process.exitCode=1});

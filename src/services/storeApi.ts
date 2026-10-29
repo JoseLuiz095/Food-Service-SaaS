@@ -89,6 +89,7 @@ type PlanFeatureRow = { plan_id:string; feature_code:string; enabled:boolean; li
 type SubscriptionRow = { id: string; store_id: string; plan_id: string; status: 'trial' | 'active' | 'suspended' | 'cancelled'; started_at: string; expires_at: string | null };
 type StoreDomainRow = { store_id: string; domain: string; active: boolean; is_primary: boolean };
 type OrderRow = {
+  pickup_location_id?: string | null; stock_location_id?: string | null;
   id: string; order_number?: number | string | null; store_id: string; customer_name: string; customer_phone: string | null; customer_email?: string | null;
   delivery_type: 'delivery'|'pickup'; desired_date?: string | null; desired_period?: string | null; recipient_name?: string | null; recipient_phone?: string | null;
   delivery_address?: string | null; delivery_zip_code?: string | null; delivery_street?: string | null; delivery_number?: string | null; delivery_complement?: string | null;
@@ -238,6 +239,7 @@ const mapAddon = (row: AddonRow): Addon => ({ id: row.id, storeId: row.store_id,
 const mapDeliveryZone = (row: DeliveryZoneRow): DeliveryZone => ({ id: row.id, storeId: row.store_id, name: row.name, aliases: row.aliases || [], city: row.city, state: row.state, fee: toNumber(row.fee), active: row.active, sortOrder: row.sort_order });
 const mapPlan = (row: PlanRow, features: PlanFeatureRow[] = []): Plan => ({ id: row.id, code: row.code, name: row.name, productLimit: row.product_limit, imageLimitPerProduct: row.image_limit_per_product, customDomain: row.custom_domain, reports: row.reports, prioritySupport: row.priority_support, monthlyPrice:toNumber(row.monthly_price), setupPrice:toNumber(row.setup_price), categoryLimit:row.category_limit, addonLimit:row.addon_limit, adminUserLimit:row.admin_user_limit, sortOrder:row.sort_order ?? 0, active: row.active, featureCodes:features.filter((feature)=>feature.plan_id===row.id&&feature.enabled).map((feature)=>feature.feature_code), featureLimits:Object.fromEntries(features.filter((feature)=>feature.plan_id===row.id&&feature.enabled).map((feature)=>[feature.feature_code,feature.limit_value])) });
 const mapOrder = (row: OrderRow): Order => ({
+  pickupLocationId: row.pickup_location_id || undefined, stockLocationId: row.stock_location_id || undefined,
   id: row.id, orderNumber: toNumber(row.order_number), storeId: row.store_id, customerName: row.customer_name, customerPhone: row.customer_phone || undefined, customerEmail: row.customer_email || undefined,
   deliveryType: row.delivery_type, desiredDate: row.desired_date || undefined, desiredPeriod: row.desired_period || undefined, recipientName: row.recipient_name || undefined, recipientPhone: row.recipient_phone || undefined,
   deliveryAddress: row.delivery_address || undefined, deliveryZipCode: row.delivery_zip_code || undefined, deliveryStreet: row.delivery_street || undefined, deliveryNumber: row.delivery_number || undefined,
@@ -953,6 +955,18 @@ export const storeApi = {
       return;
     }
 
+    if (input.pickupLocationId) {
+      await restFetch('rpc/food_edit_order_pickup_v1', { method:'POST', body: {
+        p_order_id: orderId, p_pickup_id: input.pickupLocationId, p_expected_pickup_id: input.expectedPickupLocationId || null,
+        p_details: { customerName, customerPhone: input.customerPhone || null, notes: input.notes || null,
+          scheduledFor: serializeScheduledDateTime(input.scheduledFor),
+          ...(input.items ? {items: input.items.map(item => ({item_id:item.itemId,quantity:item.quantity}))} : {}) },
+      }}).catch(error => {
+        if (error instanceof SupabaseHttpError && error.status === 404) throw new Error('A troca de ponto aguarda a atualização segura do banco. As alterações não foram salvas.');
+        throw error;
+      });
+      return;
+    }
     if (input.items) {
       await restFetch<{ subtotal: number; total: number }>('rpc/food_update_order_items_v1', {
         method: 'POST',
