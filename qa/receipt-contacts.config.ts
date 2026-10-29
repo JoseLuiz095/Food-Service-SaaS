@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
-  testDir: './tests/modules', testMatch: ['receipt-contacts.spec.ts'],
+  testDir: './tests/modules', testMatch: ['receipt-contacts.spec.ts', 'receipt-payment.spec.ts', 'payment-status.spec.ts'],
   outputDir: './test-results/receipt-contacts', timeout: 45000, workers: 1,
   reporter: [['list']],
   use: { baseURL:'http://127.0.0.1:5193',channel:'',locale:'pt-BR',timezoneId:'America/Sao_Paulo',

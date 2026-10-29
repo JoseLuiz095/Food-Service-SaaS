@@ -1,8 +1,10 @@
+import {mintReceiptClaim,openReceiptClaim,type ReceiptClaim} from '../_shared/receiptCapability.ts';
 import { buildPixPayloadWithAmount } from '../../../src/utils/pix.ts';
 
-type PaymentOrder = { pickup_location_id?: string | null; id: string; store_id: string; order_number: number; total: number; payment_method: string; payment_status: string; status: string };
-type PaymentStore = { id: string; name: string; active: boolean; access_status: string; pix_enabled: boolean; pix_receipt_mode: 'key' | 'copy_paste'; pix_key: string; pix_copy_paste: string; pix_holder_name: string; city: string };
+type PaymentOrder = { payment_reported_by_customer?:boolean; payment_receipt_version?:number; pickup_location_id?: string | null; id: string; store_id: string; order_number: number; total: number; payment_method: string; payment_status: string; status: string };
+type PaymentStore = { receipt_click_marks_paid?:boolean; id: string; name: string; active: boolean; access_status: string; pix_enabled: boolean; pix_receipt_mode: 'key' | 'copy_paste'; pix_key: string; pix_copy_paste: string; pix_holder_name: string; city: string };
 type Dependencies = {
+  reportReceipt?: (claim:ReceiptClaim)=>Promise<unknown>;
   receiptDestinations?: (storeId:string,pointId:string|null|undefined,orderId:string)=>Promise<unknown>;
   env: (key: string) => string | undefined;
   now?: () => number;
@@ -21,7 +23,7 @@ const payloadFor = (order: PaymentOrder, store: PaymentStore) => buildPixPayload
   receiver: store.pix_holder_name || '', city: store.city || '', amount: Number(order.total), txid: `PED${order.order_number}`,
 });
 
-/** Read-only capability API. No financial creation, confirmation or database writes. */
+/** Leitura Pix e declaração opcional, protegida por capability específica e política da loja. */
 export const createOrderPaymentHandler = (deps: Dependencies) => async (req: Request): Promise<Response> => {
   const origin = req.headers.get('Origin') || '';
   const allowed = (deps.env('ORDER_PAYMENT_ALLOWED_ORIGINS') || 'https://www.vendeweb.com.br,https://vendeweb.com.br').split(',').map(s => s.trim());
@@ -33,7 +35,6 @@ export const createOrderPaymentHandler = (deps: Dependencies) => async (req: Req
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
   if (req.method !== 'POST') return reply(405, { error: 'Método não permitido.' });
   const secret = deps.env('ORDER_PAYMENT_LINK_SECRET') || '';
-  if (deps.env('ORDER_PAYMENT_LINK_ENABLED') !== 'true' || secret.length < 32) return reply(503, { error: 'Link de pagamento ainda não habilitado. Solicite o QR Code à loja.' });
   const now = deps.now?.() ?? Date.now();
   try {
     // Bound the actual body too; Content-Length may be absent or dishonest.
@@ -45,6 +46,16 @@ export const createOrderPaymentHandler = (deps: Dependencies) => async (req: Req
       raw += new TextDecoder().decode(value);
     }
     const body = JSON.parse(raw);
+    const autoPaidReady=deps.env('ORDER_RECEIPT_AUTOPAID_ENABLED')==='true'&&deps.env('ORDER_RECEIPT_CONTACTS_ENABLED')==='true'&&secret.length>=32;
+    if(body.action==='receipt_capabilities')return reply(200,{autoPaidConfigured:autoPaidReady});
+    if(body.action==='report_receipt'){
+      if(!autoPaidReady||!deps.reportReceipt)return reply(503,{error:'A declaração de pagamento ainda não está ativada. Fale com a loja.'});
+      let claim:ReceiptClaim;try{claim=await openReceiptClaim(body.token,secret,now);}catch{return reply(410,{error:'A autorização deste comprovante expirou. Solicite orientação à loja.'});}
+      try{await deps.reportReceipt(claim);return reply(200,{ok:true,status:'paid',paymentReportedByCustomer:true});}
+      catch{return reply(409,{error:'O pedido foi alterado ou revisado pela loja. Consulte seu pagamento antes de reenviar.'});}
+    }
+  if (deps.env('ORDER_PAYMENT_LINK_ENABLED') !== 'true' || secret.length < 32) return reply(503, { error: 'Link de pagamento ainda não habilitado. Solicite o QR Code à loja.' });
+
     const key = await crypto.subtle.importKey('raw', await crypto.subtle.digest('SHA-256', encoder.encode(secret)), 'AES-GCM', false, ['encrypt', 'decrypt']);
     let grant: Grant;
     let order: PaymentOrder | null;
@@ -68,10 +79,15 @@ export const createOrderPaymentHandler = (deps: Dependencies) => async (req: Req
     if (!order || order.store_id !== grant.storeId || order.id !== grant.orderId) return reply(404, { error: 'Pagamento indisponível. Fale com a loja.' });
     const store = await deps.store(grant.storeId);
     if (!store || store.id !== grant.storeId || !store.active || store.access_status !== 'online') return reply(410, { error: 'Pagamento indisponível. Fale com a loja.' });
+    const receiptToken=!['cancelled','delivered','picked_up'].includes(order.status)&&autoPaidReady&&store.receipt_click_marks_paid&&Number(order.payment_receipt_version||0)===0&&(order.payment_status==='pending'||order.payment_reported_by_customer)
+      ?await mintReceiptClaim({storeId:store.id,orderId:order.id,amount:Number(order.total),version:0},secret,now):undefined;
     const ended = order.status === 'cancelled' ? 'cancelled' : order.payment_status === 'paid' ? 'paid' : null;
     if (ended) return body.action === 'issue'
       ? reply(409, { error: 'Este pedido já foi pago ou cancelado.' })
-      : reply(200, { status: ended, storeName: store.name, orderNumber: order.order_number });
+      : reply(200, { status: ended, storeName: store.name, orderNumber: order.order_number,
+        ...(ended==='paid'&&order.payment_reported_by_customer?{paymentReportedByCustomer:true,total:Number(order.total),receiptToken,
+          receiptDestinations:deps.env('ORDER_RECEIPT_CONTACTS_ENABLED')==='true'&&deps.receiptDestinations?await deps.receiptDestinations(grant.storeId,order.pickup_location_id,order.id):undefined}:{}),
+      });
     if (order.payment_method !== 'pix' || order.payment_status !== 'pending' || !store.pix_enabled || !Number.isFinite(Number(order.total)) || Number(order.total) <= 0) return reply(410, { error: 'Pagamento indisponível. Fale com a loja.' });
     let pixPayload: string;
     try { pixPayload = payloadFor(order, store); } catch { return reply(409, { error: 'A loja precisa revisar a configuração do Pix.' }); }
@@ -84,7 +100,7 @@ export const createOrderPaymentHandler = (deps: Dependencies) => async (req: Req
     }
     if (grant.fingerprint !== fingerprint) return reply(410, { error: 'O pedido ou os dados do Pix mudaram. Solicite um novo link à loja.' });
     const receiptDestinations=deps.env('ORDER_RECEIPT_CONTACTS_ENABLED')==='true'&&deps.receiptDestinations?await deps.receiptDestinations(grant.storeId,order.pickup_location_id,order.id):undefined;
-    return reply(200, { ...(receiptDestinations!==undefined?{receiptDestinations}:{}), status: 'pending', storeName: store.name, orderNumber: order.order_number, total: Number(order.total), receiver: store.pix_holder_name, pixPayload, expiresAt: new Date(grant.expiresAt).toISOString() });
+    return reply(200, { ...(receiptToken?{receiptToken}:{}), ...(receiptDestinations!==undefined?{receiptDestinations}:{}), status: 'pending', storeName: store.name, orderNumber: order.order_number, total: Number(order.total), receiver: store.pix_holder_name, pixPayload, expiresAt: new Date(grant.expiresAt).toISOString() });
   } catch {
     return reply(400, { error: 'Não foi possível consultar o pagamento. Tente novamente.' });
   }

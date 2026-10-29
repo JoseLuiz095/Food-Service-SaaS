@@ -242,7 +242,7 @@ export default function OrderSuccess() {
           {whatsappMarkState === 'error' && <span>O pedido continua salvo; apenas o status do WhatsApp não foi atualizado. Toque no botão novamente quando voltar.</span>}
         </div>}
 
-        {isPix && <ReceiptDestination key={confirmation.orderId} storeId={confirmation.storeId} pointId={confirmation.receiptPickupLocationId} legacyPhone={confirmation.storeWhatsapp} message={whatsappMessage} onOpen={handleWhatsAppClick}/>}
+        {isPix && <ReceiptDestination receiptToken={confirmation.receiptToken} key={confirmation.orderId} storeId={confirmation.storeId} pointId={confirmation.receiptPickupLocationId} legacyPhone={confirmation.storeWhatsapp} message={whatsappMessage} onOpen={handleWhatsAppClick}/>}
         {isCard && <p className="order-success-hint">A loja fará a cobrança por cartão na entrega ou retirada. Nunca envie número completo do cartão, CVV ou senha pelo WhatsApp.</p>}
         {isCash && <p className="order-success-hint">{confirmation.changeAmount != null ? `Troco previsto: ${currency.format(confirmation.changeAmount)}.` : 'Pagamento em dinheiro sem troco solicitado.'}</p>}
 

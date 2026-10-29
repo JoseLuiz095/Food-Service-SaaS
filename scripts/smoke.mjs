@@ -175,7 +175,7 @@ ok('FoodWeb v0.4.6 preserva dia de vencimento no banco', read('supabase/migratio
 
 ok('FoodWeb v0.4.9 pedido possui estado de recebimento',types.includes("OrderPaymentStatus = 'pending' | 'paid'")&&storeApi.includes('payment_status')&&storeApi.includes('paymentReceivedAt'));
 ok('FoodWeb v0.4.9 Orders possui botao Confirmar recebimento',orders.includes('Confirmar recebimento')&&orders.includes('confirmOrderPayment'));
-ok('FoodWeb v0.4.9 StoreContext publica confirmacao de recebimento',storeContext.includes('confirmOrderPayment: typeof storeApi.confirmOrderPayment')&&storeContext.includes('storeApi.confirmOrderPayment(orderId)'));
+ok('FoodWeb v0.4.9 StoreContext publica confirmacao de recebimento',storeContext.includes('confirmOrderPayment: typeof storeApi.confirmOrderPayment')&&/storeApi\.confirmOrderPayment\(orderId(?:,|\))/.test(storeContext));
 ok('FoodWeb v0.4.9 confirmacao usa RPC transacional',storeApi.includes('rpc/food_confirm_order_payment_v1'));
 ok('FoodWeb v0.4.9 migration troca receita de entrega por recebimento',orderPaymentMigration.includes('food_confirm_order_payment_v1')&&orderPaymentMigration.includes("new.payment_status='paid'")&&!orderPaymentMigration.includes("new.status in ('delivered','picked_up')"));
 ok('FoodWeb v0.4.9 preserva anti-duplicidade por pedido',orderPaymentMigration.includes('food_financial_entries_order_uidx')||commercialMigration.includes('food_financial_entries_order_uidx'));

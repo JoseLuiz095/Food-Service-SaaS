@@ -1,0 +1,78 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {PGlite} from '@electric-sql/pglite';
+export async function runReceiptPaymentTests(db,concurrentCases){
+let checks=0;
+const q=async(s,a=[])=>(await db.query(s,a)).rows;
+const check=(v,m)=>{assert.ok(v,m);checks++};
+const fail=async(f)=>{await assert.rejects(f);checks++};
+const A='10000000-0000-4000-8000-000000000001',B='10000000-0000-4000-8000-000000000002',U='20000000-0000-4000-8000-000000000001',V='20000000-0000-4000-8000-000000000002',O='30000000-0000-4000-8000-000000000001';
+try{
+ await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('test.user',true),'')::uuid$$;
+ grant usage on schema auth to anon,authenticated,service_role;
+ create table food_stores(id uuid primary key,active boolean default true,access_status text default 'online',updated_at timestamptz);
+ create table food_store_users(store_id uuid,user_id uuid,active boolean default true,role text default 'owner');
+ create function food_is_store_admin(uuid) returns boolean language sql stable security definer set search_path=public,pg_temp as $$select exists(select 1 from food_store_users where store_id=$1 and user_id=auth.uid() and active and role in ('owner','admin','manager'))$$;
+ create function food_is_platform_admin() returns boolean language sql as $$select false$$;
+ create function food_store_accessible(uuid) returns boolean language sql stable security definer as $$select true$$;
+ create table food_stock_locations(id uuid primary key,store_id uuid,active boolean default true);
+ create table food_pickup_locations(id uuid primary key,store_id uuid references food_stores,stock_location_id uuid,name text,active boolean default true,is_public boolean default true,unique(id,store_id));
+ create table food_orders(id uuid primary key,store_id uuid references food_stores,order_number integer default 1,total numeric default 12.5,payment_status text default 'pending',payment_method text default 'pix',status text default 'received',payment_received_at timestamptz,payment_confirmed_by uuid,customer_name text default 'Cliente fictício',created_at timestamptz default now(),updated_at timestamptz default now(),stock_snapshot integer default 7,stock_location_id uuid,inventory_status text default 'not_tracked');
+ create table food_platform_event_log(id uuid default gen_random_uuid(),actor_user_id uuid,store_id uuid,kind text,action text,result text,route text,metadata jsonb,app_version text);
+ create table food_financial_categories(id uuid default gen_random_uuid(),store_id uuid,name text);
+ create function food_seed_financial_categories(uuid) returns void language sql as $$insert into food_financial_categories(store_id,name) select $1,'Vendas' where not exists(select 1 from food_financial_categories where store_id=$1)$$;
+ create table food_financial_entries(id uuid default gen_random_uuid(),store_id uuid,direction text,source text,order_id uuid,category_id uuid,description text,amount numeric,occurred_on date,paid_at timestamptz,status text check(status in ('paid','pending','cancelled')),payment_method text,counterparty text,document_type text,document_number text,notes text,created_by uuid,updated_at timestamptz);
+ create unique index on food_financial_entries(store_id,order_id) where source='order' and order_id is not null;
+ insert into food_stores(id) values('${A}'),('${B}');insert into food_store_users(store_id,user_id) values('${A}','${U}'),('${B}','${V}');
+ insert into food_orders(id,store_id,stock_location_id) values('${O}','${A}','${B}');
+ alter table food_orders enable row level security;create policy own_orders on food_orders to authenticated using(food_is_store_admin(store_id)) with check(food_is_store_admin(store_id));grant select,update on food_orders to authenticated;
+ alter table food_financial_entries enable row level security;create policy own_entries on food_financial_entries to authenticated using(food_is_store_admin(store_id));grant select on food_financial_entries to authenticated;
+ grant all on all tables in schema public to service_role;`);
+ await db.exec(readFileSync('supabase/migrations/20261028143000_food_receipt_contacts.sql','utf8'));
+ const finance=readFileSync('supabase/migrations/202609041610_foodweb_v049_order_payment_finance.sql','utf8');
+ await db.exec(finance.slice(finance.indexOf('create or replace function public.food_sync_order_financial_entry()'),finance.indexOf('create or replace function public.food_confirm_order_payment_v1')));
+ await db.exec(readFileSync('scripts/fixtures/food-confirm-payment-installed-20261029.sql','utf8'));
+ await db.exec(readFileSync('supabase/migrations/20261029171540_food_customer_receipt_payment.sql','utf8'));
+ const declare=()=>q('select food_declare_order_receipt_v1($1,$2,$3,$4)',[A,O,12.5,0]);
+ const review=accept=>q('select food_review_receipt_report_v1($1,$2)',[O,accept]);
+ const order=async()=>(await q('select * from food_orders where id=$1',[O]))[0];
+ const ledger=async()=>(await q('select * from food_financial_entries where order_id=$1',[O]))[0];
+ await db.exec('set role anon');await fail(declare);
+ await db.exec(`set role authenticated;select set_config('test.user','${U}',false)`);await fail(declare);
+ await fail(()=>q('update food_orders set payment_reported_by_customer=true where id=$1',[O]));
+ await fail(()=>q('select food_save_receipt_policy_v1($1,$2::jsonb,$3::jsonb,true)',[A,'[]','[]']));
+ const contacts=JSON.stringify([{slot:1,name:'Contato fictício',phone:'5511000000001'}]);
+ await db.exec('set role service_role');await fail(declare);await db.exec(`set role authenticated;select set_config('test.user','${U}',false)`);
+ await q('select food_save_receipt_policy_v1($1,$2::jsonb,$3::jsonb,true)',[A,contacts,'[]']);checks++;
+ await db.exec('set role service_role');await fail(()=>q('select food_declare_order_receipt_v1($1,$2,12.5,0)',[B,O]));
+ await fail(()=>q('select food_declare_order_receipt_v1($1,$2,0.01,0)',[A,O]));
+ for(const [column,value,reset] of [['status','cancelled','received'],['status','delivered','received'],['payment_method','cash','pix'],['payment_status','paid','pending']]){
+  await q(`update food_orders set ${column}=$1 where id=$2`,[value,O]);await fail(declare);await q(`update food_orders set ${column}=$1 where id=$2`,[reset,O]);
+ }
+ await q('delete from food_financial_entries');
+ await declare();check((await order()).payment_reported_by_customer,'origem cliente persistida');check((await ledger()).status==='paid','receita paga na mesma transação');
+ check((await order()).status==='received'&&(await order()).stock_snapshot===7&&(await order()).stock_location_id===B,'não altera entrega, estoque ou local');
+ await declare();check((await q('select * from food_financial_entries')).length===1,'retry não duplica receita');check((await q("select * from food_platform_event_log where action='order_receipt_declared'")).length===1,'retry não duplica auditoria');
+ await q('update food_orders set total=13 where id=$1',[O]);check((await ledger()).notes.includes('informado pelo cliente'),'editar total preserva origem da receita');await q('update food_orders set total=12.5 where id=$1',[O]);
+ await db.exec(`set role authenticated;select set_config('test.user','${V}',false)`);await fail(()=>review(false));
+ await db.exec(`select set_config('test.user','${U}',false)`);await review(false);
+ check((await order()).payment_status==='pending'&&!(await order()).payment_reported_by_customer,'admin devolve A receber');check((await ledger()).status==='pending'&&(await ledger()).paid_at===null,'receita também volta pendente');
+ await review(false);check((await order()).payment_receipt_version===1,'retry de revisão não incrementa versão');
+ await db.exec('set role service_role');await fail(declare);
+ // Novo pedido para conferência positiva, sem fabricar movimentos de estoque.
+ await db.exec(`reset role;delete from food_orders where id='${O}';delete from food_financial_entries;insert into food_orders(id,store_id)values('${O}','${A}');set role service_role;`);
+ await declare();await db.exec(`set role authenticated;select set_config('test.user','${U}',false)`);await review(true);
+ check((await order()).payment_status==='paid'&&!(await order()).payment_reported_by_customer&&(await order()).payment_confirmed_by===U,'conferência identifica responsável');
+ await fail(()=>review(false));await review(true);check((await order()).payment_receipt_version===1,'conferência idempotente');
+ await db.exec(`reset role;delete from food_orders where id='${O}';delete from food_financial_entries;insert into food_orders(id,store_id)values('${O}','${A}');set role service_role;`);
+ await declare();await db.exec(`set role authenticated;select set_config('test.user','${U}',false)`);await q('select food_confirm_order_payment_v1($1)',[O]);
+ check(!(await order()).payment_reported_by_customer&&(await order()).payment_receipt_version===1,'confirmação legada invalida declaração após corrida de interface');
+ if(concurrentCases)await concurrentCases({db,A,B,U,V,O,check});
+ // A auditoria participa da mesma transação: falha de gravação não deixa pedido pago.
+ await db.exec(`reset role;delete from food_orders where id='${O}';delete from food_financial_entries;insert into food_orders(id,store_id)values('${O}','${A}');create function reject_test_audit() returns trigger language plpgsql as $$begin raise exception 'audit unavailable';end$$;create trigger test_audit before insert on food_platform_event_log for each row execute function reject_test_audit();set role service_role;`);
+ await fail(declare);check((await order()).payment_status==='pending'&&(await q('select * from food_financial_entries')).length===0,'rollback atômico da declaração');
+ console.log(`Comprovante e pagamento: ${checks} verificações isoladas passaram.`);
+}finally{await db.close();}
+}
+if(import.meta.url===new URL(process.argv[1],'file://').href)await runReceiptPaymentTests(new PGlite());

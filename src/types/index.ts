@@ -438,6 +438,7 @@ export type OrderPaymentStatus = 'pending' | 'paid';
 
 
 export type CreateOrderResult = {
+  receiptToken?: string;
   receiptPickupLocationId?: string | null;
   orderId: string;
   orderNumber: number;
@@ -475,6 +476,7 @@ export type ManualOrderInput = {
 };
 
 export type OrderConfirmation = {
+  receiptToken?: string;
   storeId?: string;
   /** Origem de comunicação validada no servidor; não define retirada/estoque. */
   receiptPickupLocationId?: string;
@@ -529,6 +531,7 @@ export type OrderItem = {
 };
 
 export type Order = {
+  paymentReportedByCustomer?: boolean;
   pickupLocationId?: string;
   stockLocationId?: string;
   id: string;
