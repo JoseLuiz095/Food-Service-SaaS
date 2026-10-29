@@ -1,0 +1,11 @@
+.inventory-workspace { min-width: 0; }
+.inventory-workspace__context { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .4rem 1rem; margin-bottom: .75rem; overflow-wrap: anywhere; }
+.inventory-workspace__context span { color: #475569; }
+.inventory-workspace__navigation { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+.inventory-workspace__navigation a { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: .65rem 1rem; border: 1px solid #cbd5e1; border-radius: .65rem; background: #fff; color: #334155; text-decoration: none; font-weight: 650; }
+.inventory-workspace__navigation a[aria-current="page"] { background: #0f172a; color: #fff; border-color: #0f172a; }
+.inventory-workspace__navigation a:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.inventory-workspace__pane[hidden] { display: none !important; }
+@media (max-width: 480px) {
+  .inventory-workspace__navigation a { flex: 1 1 130px; padding-inline: .5rem; font-size: .875rem; }
+}

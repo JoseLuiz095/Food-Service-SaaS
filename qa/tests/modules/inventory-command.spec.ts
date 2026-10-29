@@ -19,7 +19,7 @@ async function openStock(page:import('@playwright/test').Page, mode=false){
     amounts.set(id,next);
     await route.fulfill({json:{stock_quantity:next,stock_reserved_quantity:id===SECOND?2:0,stock_status:next<=3?'low_stock':'available',availability_status:next===0?'sold_out':'available'}});
   });
-  await page.goto('/admin/estoque');
+  await page.goto('/admin/estoque?visao=produtos');
   await expect(page.getByRole('region',{name:'Estoque de produtos'})).toBeVisible();
   return {writes,amounts};
 }
@@ -54,7 +54,7 @@ test('modo multilocal indica total da loja e exige ajuste por local',async({page
   const {writes}=await openStock(page,true);
   const panel=page.getByRole('region',{name:'Estoque de produtos'});
   await expect(panel.getByText('Locais separados · consulte o local ativo')).toBeVisible();
-  await expect(panel.getByRole('link',{name:'Conferir por local'})).toHaveAttribute('href','/admin/estoque-locais');
+  await expect(panel.getByRole('link',{name:'Conferir por local'})).toHaveAttribute('href','/admin/estoque?visao=locais');
   await panel.locator(`#stock-row-${PRODUCT}`).getByRole('button',{name:'Ajustar'}).click();
   await expect(panel.locator(`#stock-row-${PRODUCT}`).getByRole('link',{name:'Estoque por local'})).toBeVisible();
   expect(writes).toHaveLength(0);
