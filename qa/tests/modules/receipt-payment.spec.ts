@@ -1,6 +1,22 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mockBackend, STORE, ORDER, PRODUCT, store } from './fixtures';
 import { buildStaticPixCopyPaste } from '../../../src/utils/pix';
+test('fila nova mantém declarações a conferir e não volta a limitar doze pedidos',async({page})=>{
+ await isolated(page,true);
+ const base={store_id:STORE,delivery_type:'pickup',payment_method:'pix',subtotal:12.5,total:12.5,created_at:new Date().toISOString()};
+ const row=(number:number,status:string,payment:string,reported=false)=>({...base,id:`b0000000-0000-4000-8000-${String(number).padStart(12,'0')}`,order_number:number,customer_name:`Pessoa fictícia ${number}`,status,payment_status:payment,payment_reported_by_customer:reported});
+ const rows=[...Array.from({length:14},(_,n)=>row(n+1,'received','pending')),row(15,'delivered','paid',true),row(16,'delivered','pending'),row(17,'cancelled','paid',true)];
+ await page.route(/\/rest\/v1\/food_orders(?:\?|$)/,r=>r.fulfill({json:rows}));
+ await page.goto('/admin/pedidos');
+ const inbox=page.getByRole('region',{name:'Recebimentos a conferir'});
+ await expect(inbox.locator('.orders-payment-inbox__list > article')).toHaveCount(15);
+ await expect(inbox).toContainText('Pessoa fictícia 15');
+ await expect(inbox).not.toContainText('Pessoa fictícia 16');
+ await expect(inbox).not.toContainText('Pessoa fictícia 17');
+ await expect(page.getByRole('button',{name:/Conferir pagamento/})).toContainText('15');
+ await page.getByRole('button',{name:/Conferir pagamento/}).click();
+ await expect(page.locator('#orders-payment')).toBeVisible();
+});
 const contacts=[{slot:1,name:'Contato fictício',phone:'5511000000001'}];
 const pix=buildStaticPixCopyPaste({key:'test@example.invalid',receiver:'Loja Teste',city:'Teste',amount:12.5,txid:'PED42'});
 async function isolated(page:Page,auth=false){

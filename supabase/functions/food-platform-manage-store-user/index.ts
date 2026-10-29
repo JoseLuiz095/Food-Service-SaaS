@@ -93,6 +93,7 @@ Deno.serve(async(req)=>{
     const storeId=String(body.storeId||'').trim();
     const email=validateEmail(String(body.email||''));
     const password=String(body.password||'');
+    const linkOwner=body.linkOwner===true;
     const forcePasswordChange=body.forcePasswordChange!==false;
     validatePassword(password);
     if(!storeId)throw new Error('Loja não informada.');
@@ -110,7 +111,18 @@ Deno.serve(async(req)=>{
       if(fallback.error)throw fallback.error;
       membership=fallback.data;
     }
-    if(!membership)throw new Error('A loja não possui responsável administrativo ativo para atualizar.');
+    if(!membership){
+      if(!linkOwner)throw new Error('Esta loja ainda não tem um acesso de responsável vinculado. Confirme a associação antes de atualizar a senha.');
+      if((store.owner_email||'').trim().toLowerCase()!==email)throw new Error('O e-mail precisa corresponder ao responsável cadastrado para esta loja.');
+      const existing=await findAuthUserByEmail(adminClient,email);
+      if(!existing)throw new Error('Não encontrei uma conta confirmada com este e-mail. Crie o acesso do responsável pela opção segura de convite.');
+      if(!existing.email_confirmed_at)throw new Error('O e-mail ainda não foi confirmado no Supabase Auth. Peça ao responsável que confirme o convite antes de vincular.');
+      const{data:linked,error:linkError}=await adminClient.from('food_store_users')
+        .insert({store_id:storeId,user_id:existing.id,role:'owner',active:true,must_change_password:false})
+        .select('id,user_id,role,active,must_change_password,created_at').single();
+      if(linkError)throw linkError;
+      membership=linked;
+    }
 
     const{data:targetUserData,error:targetUserError}=await adminClient.auth.admin.getUserById(membership.user_id);
     if(targetUserError)throw targetUserError;

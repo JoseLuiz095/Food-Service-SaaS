@@ -1,9 +1,10 @@
+import './orders-settings-navigation.css';
 import StoreNameField from '../../components/admin/StoreNameField';
 import { assertStoreNameAvailable } from '../../services/storeIdentityApi';
 import { cleanStoreName, storeNameValidation } from '../../utils/storeName';
 import StoreAppearanceEditor from '../../components/admin/StoreAppearanceEditor';
 import ReceiptContactsSettings from '../../components/admin/ReceiptContactsSettings';
-import { ArrowDown, ArrowUp, Banknote, ChevronDown, Clock3, CreditCard, ImagePlus, Info, QrCode, RotateCcw } from 'lucide-react';
+import { ArrowDown, ArrowUp, Banknote, ChevronDown, Clock3, CreditCard, ImagePlus, Info, QrCode, RotateCcw, Store, Truck, Bell, MessageCircle, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
@@ -54,6 +55,15 @@ export default function SettingsAdmin() {
   const hasUnsavedChanges = Boolean(logoFile || coverFile) || JSON.stringify(form) !== JSON.stringify(pristineSettings);
   const pushStatus = pwaPushStatus();
   const toggleSection = (id: string) => setCollapsedSections((current) => ({ ...current, [id]: !current[id] }));
+  const settingsGroups = [
+    { label: 'Loja e atendimento', items: [{ id: 'identity', label: 'Dados e visual', icon: Store }, { id: 'service', label: 'Pedidos e entregas', icon: Truck }, { id: 'stock', label: 'Estoque', icon: Store }] },
+    { label: 'Recebimento', items: [{ id: 'confirm', label: 'Confirmação manual', icon: Banknote }, { id: 'pix', label: 'PIX', icon: QrCode }, { id: 'card', label: 'Cartão', icon: CreditCard }, { id: 'cash', label: 'Dinheiro', icon: Banknote }, { id: 'order', label: 'Ordem no checkout', icon: CreditCard }] },
+    { label: 'Comunicação e vendas', items: [{ id: 'alerts', label: 'Notificações', icon: Bell }, { id: 'messages', label: 'Mensagens', icon: MessageCircle }, { id: 'growth', label: 'Vendas e relacionamento', icon: Sparkles }] },
+  ];
+  const goToSection = (id: string) => {
+    setCollapsedSections(current => ({ ...current, [id]: false }));
+    window.requestAnimationFrame(() => document.getElementById(`settings-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
   const sectionToggle = (id: string, label: string) => <button type="button" className="settings-section-toggle" onClick={() => toggleSection(id)} aria-expanded={!collapsedSections[id]}><span>{label}</span><ChevronDown size={17} /></button>;
 
   const draftScope = useRef({storeId:form.id,dirty:hasUnsavedChanges});
@@ -251,10 +261,13 @@ export default function SettingsAdmin() {
         )}
       </div>
 
-      {['food','confectionery','retail','florist','rentals','printing3d'].includes(businessProfile.id)&&<section className="admin-card settings-stock-mode" aria-label="Preferência de estoque"><h2>Estoque</h2><p>{multiLocation === true ? 'Seu estoque está separado por local. Consulte cada ponto em Gerenciar locais; o saldo geral é a soma dos locais.' : 'Um único saldo é suficiente para começar. Seu estoque físico e reservado continuam disponíveis na tela Estoque.'}</p>{stockModeLoading?<p role="status">Consultando configuração...</p>:stockModeError?<p role="alert">Configuração de múltiplos locais indisponível neste ambiente. {stockModeError}</p>:<><label className="switch-row"><span><strong>Ativar múltiplos locais</strong><small>Para depósitos, pontos de retirada e transferências; dados existentes são preservados.</small></span><input type="checkbox" checked={multiLocation===true} disabled={changingStockMode} onChange={event=>void (async()=>{const target=event.target.checked;if(!target&&!window.confirm('Usar estoque simples? Saldos em locais secundários precisam ter sido transferidos para o principal.'))return;setChangingStockMode(true);try{await stockModeApi.set(settings.id,target);await reloadStockMode();showToast(target?'Múltiplos locais ativados.':'Estoque simples ativado.','success');}catch(cause){showToast(cause instanceof Error?cause.message:'Não foi possível alterar o modo.','error');}finally{setChangingStockMode(false);}})()}/></label>{multiLocation===true&&<a className="secondary-button" href="/admin/estoque-locais">Gerenciar locais</a>}</>}</section>}
+      <nav className="settings-index" aria-label="Ir para uma configuração">
+        {settingsGroups.map(group => <div className="settings-index__group" key={group.label}><strong>{group.label}</strong><div>{group.items.filter(item => item.id !== 'stock' || ['food','confectionery','retail','florist','rentals','printing3d'].includes(businessProfile.id)).map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => goToSection(id)}><Icon size={16}/>{label}</button>)}</div></div>)}
+      </nav>
+      {['food','confectionery','retail','florist','rentals','printing3d'].includes(businessProfile.id)&&<section id="settings-stock" className="admin-card settings-stock-mode" aria-label="Preferência de estoque"><h2>Estoque</h2><p>{multiLocation === true ? 'Seu estoque está separado por local. Consulte cada ponto em Gerenciar locais; o saldo geral é a soma dos locais.' : 'Um único saldo é suficiente para começar. Seu estoque físico e reservado continuam disponíveis na tela Estoque.'}</p>{stockModeLoading?<p role="status">Consultando configuração...</p>:stockModeError?<p role="alert">Configuração de múltiplos locais indisponível neste ambiente. {stockModeError}</p>:<><label className="switch-row"><span><strong>Ativar múltiplos locais</strong><small>Para depósitos, pontos de retirada e transferências; dados existentes são preservados.</small></span><input type="checkbox" checked={multiLocation===true} disabled={changingStockMode} onChange={event=>void (async()=>{const target=event.target.checked;if(!target&&!window.confirm('Usar estoque simples? Saldos em locais secundários precisam ter sido transferidos para o principal.'))return;setChangingStockMode(true);try{await stockModeApi.set(settings.id,target);await reloadStockMode();showToast(target?'Múltiplos locais ativados.':'Estoque simples ativado.','success');}catch(cause){showToast(cause instanceof Error?cause.message:'Não foi possível alterar o modo.','error');}finally{setChangingStockMode(false);}})()}/></label>{multiLocation===true&&<a className="secondary-button" href="/admin/estoque-locais">Gerenciar locais</a>}</>}</section>}
       <ReceiptContactsSettings key={settings.id} storeId={settings.id} demo={dataMode === 'demo'}/>
       <form id="settings-form" className="admin-form-layout" onSubmit={submit}>
-        <section className={`admin-card form-section settings-collapsible ${collapsedSections.identity ? 'is-collapsed' : ''}`}>
+        <section id="settings-identity" className={`admin-card form-section settings-collapsible ${collapsedSections.identity ? 'is-collapsed' : ''}`}>
           {sectionToggle('identity', 'Dados do estabelecimento')}
           <div className="admin-card__header"><div><span className="eyebrow">IDENTIDADE</span><h2>Dados do estabelecimento</h2></div></div>
           <div className="form-grid">
@@ -304,7 +317,7 @@ export default function SettingsAdmin() {
         </section>
 
         <aside>
-          <section className={`admin-card form-section settings-collapsible ${collapsedSections.service ? 'is-collapsed' : ''}`}>
+          <section id="settings-service" className={`admin-card form-section settings-collapsible ${collapsedSections.service ? 'is-collapsed' : ''}`}>
             {sectionToggle('service', 'Pedido e recebimento')}
             <span className="eyebrow">ATENDIMENTO</span>
             <h2>Pedido e recebimento</h2>
@@ -319,7 +332,7 @@ export default function SettingsAdmin() {
             {form.kdsEnabled && <label className="switch-row"><span><strong>Preparar mensagem ao mudar status</strong><small>Ao avançar o pedido, abre o WhatsApp com uma mensagem pronta para o lojista apenas confirmar o envio.</small></span><input type="checkbox" checked={form.kdsNotifyCustomer} onChange={(e)=>update('kdsNotifyCustomer',e.target.checked)} /></label>}
           </section>
 
-          <section className={`admin-card form-section settings-collapsible ${collapsedSections.alerts ? 'is-collapsed' : ''}`}>
+          <section id="settings-alerts" className={`admin-card form-section settings-collapsible ${collapsedSections.alerts ? 'is-collapsed' : ''}`}>
             {sectionToggle('alerts', 'Notificações do painel')}
             <span className="eyebrow">ALERTAS DA OPERAÇÃO</span>
             <h2>Notificações do painel</h2>
@@ -333,7 +346,7 @@ export default function SettingsAdmin() {
             <button type="button" className="secondary-button" onClick={() => void sendTestNotification()}>Enviar notificação de teste</button>
           </section>
 
-          <section className={`admin-card form-section growth-settings-v062 settings-collapsible ${collapsedSections.growth ? 'is-collapsed' : ''}`}>
+          <section id="settings-growth" className={`admin-card form-section growth-settings-v062 settings-collapsible ${collapsedSections.growth ? 'is-collapsed' : ''}`}>
             {sectionToggle('growth', 'Vendas e relacionamento')}
             <span className="eyebrow">VENDAS E RELACIONAMENTO</span>
             <h2>Recorrência e aumento de ticket</h2>
@@ -346,7 +359,7 @@ export default function SettingsAdmin() {
             <div className="admin-info-box"><Info size={17}/><span>Esses recursos usam os dados operacionais que a VendeWeb já possui e não criam uma nova área de ERP.</span></div>
           </section>
 
-          <section className={`admin-card form-section message-templates-v063 settings-collapsible ${collapsedSections.messages ? 'is-collapsed' : ''}`}>
+          <section id="settings-messages" className={`admin-card form-section message-templates-v063 settings-collapsible ${collapsedSections.messages ? 'is-collapsed' : ''}`}>
             {sectionToggle('messages', 'Mensagens programadas')}
             <span className="eyebrow">COMUNICAÇÃO</span>
             <h2>Mensagens programadas</h2>
@@ -366,13 +379,13 @@ export default function SettingsAdmin() {
             <button type="button" className="secondary-button" onClick={()=>setForm((current)=>({...current,messageTemplates:normalizeCustomerMessageTemplates(DEFAULT_CUSTOMER_MESSAGE_TEMPLATES)}))}>Restaurar mensagens padrão</button>
           </section>
 
-          <section className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.confirm ? 'is-collapsed' : ''}`}>
+          <section id="settings-confirm" className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.confirm ? 'is-collapsed' : ''}`}>
             {sectionToggle('confirm', 'Confirmação manual')}
             <div className="admin-card__header"><div><span className="eyebrow">PAGAMENTOS</span><h2>Confirmação manual</h2></div><Info size={21} /></div>
             <label className="switch-row"><span><strong>Confirmar com a loja</strong><small>Permite finalizar sem escolher PIX, cartão ou dinheiro. A loja combina o pagamento pelo WhatsApp.</small></span><input type="checkbox" checked={form.confirmationPaymentEnabled} onChange={(e) => update('confirmationPaymentEnabled', e.target.checked)} /></label>
           </section>
 
-          <section className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.pix ? 'is-collapsed' : ''}`}>
+          <section id="settings-pix" className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.pix ? 'is-collapsed' : ''}`}>
             {sectionToggle('pix', 'PIX')}
             <div className="admin-card__header"><div><span className="eyebrow">PAGAMENTOS</span><h2>PIX</h2></div><QrCode size={21} /></div>
             <label className="switch-row"><span><strong>PIX habilitado</strong><small>Mostrar PIX como opção no checkout</small></span><input type="checkbox" checked={form.pixEnabled} onChange={(e) => update('pixEnabled', e.target.checked)} /></label>
@@ -416,7 +429,7 @@ export default function SettingsAdmin() {
             )}
           </section>
 
-          <section className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.card ? 'is-collapsed' : ''}`}>
+          <section id="settings-card" className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.card ? 'is-collapsed' : ''}`}>
             {sectionToggle('card', 'Cartão')}
             <div className="admin-card__header"><div><span className="eyebrow">PAGAMENTOS</span><h2>Cartão</h2></div><CreditCard size={21} /></div>
             <label className="switch-row"><span><strong>Pagamento por cartão por aproximação (NFC)</strong><small>Permite cartão de crédito ou débito na entrega/retirada, com o WhatsApp disponível para confirmação.</small></span><input type="checkbox" checked={form.cardPaymentEnabled} disabled={form.showWhatsApp === false || !form.whatsapp.trim()} onChange={(e) => update('cardPaymentEnabled', e.target.checked)} /></label>
@@ -424,14 +437,14 @@ export default function SettingsAdmin() {
             {(!form.whatsapp.trim() || form.showWhatsApp === false) && <div className="admin-info-box"><Info size={17} /><span>Cadastre um WhatsApp e deixe a exibição ativa para liberar esta forma de pagamento.</span></div>}
           </section>
 
-          <section className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.cash ? 'is-collapsed' : ''}`}>
+          <section id="settings-cash" className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.cash ? 'is-collapsed' : ''}`}>
             {sectionToggle('cash', 'Dinheiro')}
             <div className="admin-card__header"><div><span className="eyebrow">PAGAMENTOS</span><h2>Dinheiro</h2></div><Banknote size={21} /></div>
             <label className="switch-row"><span><strong>Pagamento em dinheiro</strong><small>Permitir que o cliente escolha pagar em dinheiro na entrega ou retirada.</small></span><input type="checkbox" checked={form.cashPaymentEnabled} onChange={(e) => update('cashPaymentEnabled', e.target.checked)} /></label>
             {form.cashPaymentEnabled && <div className="admin-info-box"><Info size={17} /><span>O pedido será registrado como pagamento em dinheiro. Se o cliente precisar de troco, o valor informado ficará registrado no pedido.</span></div>}
           </section>
 
-          <section className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.order ? 'is-collapsed' : ''}`}>
+          <section id="settings-order" className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.order ? 'is-collapsed' : ''}`}>
             {sectionToggle('order', 'Ordem no checkout')}
             <div className="admin-card__header"><div><span className="eyebrow">EXIBIÇÃO</span><h2>Ordem no checkout</h2></div></div>
             <p>Defina a sequência das formas de pagamento mostradas ao cliente. Opções desativadas ficam ocultas, mas mantêm sua posição.</p>
