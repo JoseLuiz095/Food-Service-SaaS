@@ -312,7 +312,7 @@ export const platformApi = {
     return {...result, warning:[result.warning,warning].filter(Boolean).join(' ') || undefined};
   },
 
-  async updateStoreCredentials(input: { storeId:string; email:string; password?:string; forcePasswordChange?:boolean }): Promise<{ok:boolean;email:string;emailChanged:boolean;passwordChanged:boolean;linkedStoreCount?:number}> {
+  async updateStoreCredentials(input: { storeId:string; email:string; password?:string; forcePasswordChange?:boolean; linkOwner?:boolean }): Promise<{ok:boolean;email:string;emailChanged:boolean;passwordChanged:boolean;linkedStoreCount?:number}> {
     if (isDemoMode) return {ok:true,email:input.email,emailChanged:true,passwordChanged:Boolean(input.password),linkedStoreCount:1};
     return invokeFunction<{ok:boolean;email:string;emailChanged:boolean;passwordChanged:boolean;linkedStoreCount?:number}>('food-platform-manage-store-user', input);
   },
