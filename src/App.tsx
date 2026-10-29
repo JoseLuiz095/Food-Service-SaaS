@@ -20,8 +20,8 @@ const OrdersAdmin=lazy(()=>import('./pages/admin/Orders'));
 const Onboarding=lazy(()=>import('./pages/admin/Onboarding'));
 const ProductForm=lazy(()=>import('./pages/admin/ProductForm'));
 const ProductsAdmin=lazy(()=>import('./pages/admin/Products'));
-const InventoryAdmin=lazy(()=>import('./pages/admin/Inventory'));
-const StockLocationsAdmin=lazy(()=>import('./pages/admin/StockLocations'));
+const InventoryWorkspace=lazy(()=>import('./pages/admin/InventoryWorkspace'));
+const LegacyStockLocations=lazy(()=>import('./pages/admin/InventoryWorkspace').then(module=>({default:module.LegacyStockLocations})));
 const SettingsAdmin=lazy(()=>import('./pages/admin/Settings'));
 const DeliveryZonesAdmin=lazy(()=>import('./pages/admin/DeliveryZones'));
 const AdminPlan=lazy(()=>import('./pages/admin/Plan'));
@@ -125,8 +125,8 @@ export default function App() {
       <Route path="/admin/analytics" element={<Analytics />} />
       <Route path="/admin/financeiro" element={<Finance />} />
       <Route path="/admin/produtos" element={<ProductsAdmin />} />
-      <Route path="/admin/estoque" element={<InventoryAdmin />} />
-      <Route path="/admin/estoque-locais" element={<StockLocationsAdmin />} />
+      <Route path="/admin/estoque" element={<InventoryWorkspace />} />
+      <Route path="/admin/estoque-locais" element={<LegacyStockLocations />} />
       <Route path="/admin/produtos/novo" element={<ProductForm />} />
       <Route path="/admin/produtos/:id" element={<ProductForm />} />
       <Route path="/admin/categorias" element={<CategoriesAdmin />} />

@@ -75,7 +75,7 @@ export default function MasterStores(){
   const[showPassword,setShowPassword]=useState(false);
   const[showEditPassword,setShowEditPassword]=useState(false);
   const[confirmTemporaryPassword,setConfirmTemporaryPassword]=useState('');
-  const[editAccessForm,setEditAccessForm]=useState({email:'',password:'',confirmPassword:'',forcePasswordChange:true});
+  const[editAccessForm,setEditAccessForm]=useState({email:'',password:'',confirmPassword:'',forcePasswordChange:true,linkOwner:false});
   const[createForm,setCreateForm]=useState({
     businessSegment:'food' as BusinessSegment,
     name:'',slug:'',city:'',state:'',ownerName:'',ownerEmail:'',planId:'',accessStatus:'online' as StoreAccessStatus,
@@ -180,7 +180,7 @@ export default function MasterStores(){
 
   const openEdit=(store:PlatformStoreSummary)=>{
     setEditing({...store,billingMode:store.billingMode||(store.billingAmount===0?'complimentary':'standard')});
-    setEditAccessForm({email:store.ownerEmail||'',password:'',confirmPassword:'',forcePasswordChange:true});
+    setEditAccessForm({email:store.ownerEmail||'',password:'',confirmPassword:'',forcePasswordChange:true,linkOwner:store.adminUserCount===0});
     setShowEditPassword(false);
   };
 
@@ -200,9 +200,10 @@ export default function MasterStores(){
         email:normalizeEmail(editAccessForm.email),
         password:editAccessForm.password||undefined,
         forcePasswordChange:editAccessForm.forcePasswordChange,
+        linkOwner:editAccessForm.linkOwner,
       }),{storeId:editing.id,successKind:'audit'});
       setEditing((current)=>current?{...current,ownerEmail:result.email}:current);
-      setEditAccessForm((current)=>({...current,email:result.email,password:'',confirmPassword:''}));
+      setEditAccessForm((current)=>({...current,email:result.email,password:'',confirmPassword:'',linkOwner:false}));
       showToast(result.passwordChanged?'E-mail e/ou senha do lojista atualizados.':'E-mail de acesso atualizado.','success');
       if((result.linkedStoreCount||0)>1)showToast(`Este login está vinculado a ${result.linkedStoreCount} lojas; a alteração de acesso vale para todas elas.`,'info');
       await refreshStores();
@@ -293,7 +294,7 @@ export default function MasterStores(){
           <td><div className="master-store-cell"><span className={`master-store-dot ${store.accessStatus}`}/><div><strong>{store.name}</strong><small>{getBusinessSegment(store.businessSegment).label}</small><small>{store.city}/{store.state} · {store.ownerName||store.ownerEmail||'sem responsável'}</small>{store.ownerName&&store.ownerEmail&&<small>{store.ownerEmail}</small>}<span className={`commercial-stage-badge ${stage.tone}`}>{stage.label}</span>{warning&&<span className={`trial-expiry-badge ${isWarning?'warning':''}`}>{warning}</span>}</div></div></td>
           <td data-label="Plano"><select className="master-inline-select" aria-label={`Plano de ${store.name}`} value={store.planId||''} disabled={Boolean(rowSaving)||store.billingMode==='introductory'} title={store.billingMode==='introductory'?'Abra Gerenciar para mudar o plano e revisar o acordo.':undefined} onChange={(e)=>void quickUpdate(store,{planId:e.target.value})}>{plans.filter((p)=>(p.active||p.id===store.planId)&&(platformSettings.demoEnabled||p.code!=='DEMO'||p.id===store.planId)).map((p)=><option value={p.id} key={p.id}>{p.name}</option>)}</select><small>{store.subscriptionStatus==='trial'?'Teste':store.subscriptionStatus||'—'}</small></td>
           <td data-label="Acesso"><select className={`master-inline-select access-select ${store.accessStatus}`} aria-label={`Status de ${store.name}`} value={store.accessStatus} disabled={Boolean(rowSaving)} onChange={(e)=>void quickUpdate(store,{accessStatus:e.target.value as StoreAccessStatus})}><option value="online">Online</option><option value="suspended">Desativada</option></select></td>
-          <td data-label="Uso"><strong>{store.activeProductCount} ativos</strong><small>{store.productCount} cadastrados · {store.ownerEmail?'acesso principal configurado':'sem acesso principal'}</small></td>
+          <td data-label="Uso"><strong>{store.activeProductCount} ativos</strong><small>{store.productCount} cadastrados · {store.adminUserCount>0?'acesso ativo vinculado':store.ownerEmail?'sem usuário vinculado':'sem acesso principal'}</small></td>
           <td data-label="Mensalidade"><strong>{store.planCode==='DEMO'?'Grátis':store.billingMode==='complimentary'?'Isenta':store.billingMode==='introductory'&&store.introFirstChargeOn&&store.introFirstChargeOn>new Date().toISOString().slice(0,10)?'Cortesia ativa':currency.format(store.billingAmount||0)}</strong><small>{store.planCode==='DEMO'&&store.expiresAt?`até ${new Date(store.expiresAt).toLocaleDateString('pt-BR')}`:store.billingMode==='complimentary'?'acordo individual':store.billingMode==='introductory'?`${currency.format(store.billingAmount||0)}/mês após ${dateBr(store.introFirstChargeOn)}`:'mensal'}</small></td>
           <td data-label="Vencimento"><div className={`master-due-cell-v046 ${paymentOverdue?'is-overdue':''}`}><strong>{store.planCode==='DEMO'||store.billingMode==='complimentary'?'—':store.dueDay?`Dia ${store.dueDay}`:'Não definido'}</strong><small>{store.planCode==='DEMO'?'Demonstração':store.billingMode==='complimentary'?'Sem cobrança recorrente':store.billingMode==='introductory'&&store.introFirstChargeOn&&store.introFirstChargeOn>new Date().toISOString().slice(0,10)?`Primeira cobrança em ${dateBr(store.introFirstChargeOn)}`:store.nextDueDate?`${paymentOverdue?'Atrasado desde':'Próximo'} ${dateBr(store.nextDueDate)}`:'Sem próxima data'}</small></div></td>
           <td data-label="URL"><div className="master-url-cell"><a href={publicUrlFor(store)} target="_blank" rel="noreferrer"><ExternalLink size={15}/>{store.customDomain?'Domínio próprio':`/${store.slug}`}</a><button onClick={()=>void copyText(publicUrlFor(store)).then(()=>showToast('Link copiado.','success'))} aria-label={`Copiar URL de ${store.name}`}><Copy size={14}/></button></div></td>
@@ -350,9 +351,11 @@ export default function MasterStores(){
     <details className="operational-details master-segment-details"><summary>Segmento da loja: {getBusinessSegment(editing.businessSegment).label}</summary><div className="master-segment-disclosure"><BusinessSegmentPicker compact value={editing.businessSegment || 'food'} onChange={(businessSegment)=>setEditing(current=>current?{...current,businessSegment}:current)}/></div></details>
     <details className="operational-details master-access-details"><summary>Alterar e-mail ou senha do lojista</summary><div className="credential-setup-card master-credential-edit-v048">
       <div className="master-credential-edit-head-v048"><KeyRound size={21}/><div><span className="eyebrow">ACESSO DO LOJISTA</span><strong>E-mail e senha de acesso</strong><small>Use esta área quando o lojista perder o acesso ou precisar trocar o e-mail. A senha só será alterada se você preencher os dois campos de nova senha.</small></div></div>
+      {editing.adminUserCount===0&&<div className="master-warning"><TriangleAlert size={18}/><span>Esta loja não tem usuário ativo vinculado. Confirme que o e-mail acima pertence ao responsável cadastrado; ao salvar, a conta existente receberá acesso de proprietário.</span></div>}
       {credentialFunctionReady===false&&<div className="master-warning"><TriangleAlert size={18}/><span>{credentialFunctionError||'Publique food-platform-manage-store-user antes de alterar o acesso.'}</span></div>}
       <div className="master-credential-grid-v048">
         <label className="full">E-mail de acesso<input type="email" value={editAccessForm.email} onChange={(e)=>setEditAccessForm((f)=>({...f,email:e.target.value}))}/><small className={editEmailError?'field-help-error':''}>{editEmailError||'Este será o e-mail usado no login do painel do lojista.'}</small></label>
+        {editing.adminUserCount===0&&<label className="full checkbox-row"><input type="checkbox" checked={editAccessForm.linkOwner} onChange={(e)=>setEditAccessForm((f)=>({...f,linkOwner:e.target.checked}))}/>Confirmo que devo vincular este e-mail como proprietário desta loja</label>}
         <label>Nova senha <span className="optional-label">opcional</span><div className="input-with-icon"><KeyRound size={17}/><input minLength={10} value={editAccessForm.password} onChange={(e)=>setEditAccessForm((f)=>({...f,password:e.target.value}))} type={showEditPassword?'text':'password'} autoComplete="new-password" placeholder="Deixe vazio para manter a atual"/><button type="button" onClick={()=>setShowEditPassword((v)=>!v)} aria-label="Mostrar nova senha">{showEditPassword?<EyeOff size={17}/>:<Eye size={17}/>}</button></div><small className={editPasswordError?'field-help-error':''}>{editPasswordError||'Mínimo 10 caracteres, com maiúscula, minúscula e número.'}</small></label>
         <label>Confirmar nova senha<input minLength={10} value={editAccessForm.confirmPassword} onChange={(e)=>setEditAccessForm((f)=>({...f,confirmPassword:e.target.value}))} type={showEditPassword?'text':'password'} autoComplete="new-password" disabled={!editAccessForm.password}/></label>
         <label className="full checkbox-row"><input type="checkbox" checked={editAccessForm.forcePasswordChange} onChange={(e)=>setEditAccessForm((f)=>({...f,forcePasswordChange:e.target.checked}))} disabled={!editAccessForm.password}/>Exigir troca da senha no próximo acesso</label>

@@ -1,3 +1,4 @@
+import './orders-settings-navigation.css';
 import {orderSchedulePresentation} from '../../utils/orderSchedulePresentation';
 import './orders-future.css';
 import { createOrderPaymentLink, paymentLinksEnabled } from '../../services/orderPaymentApi';
@@ -741,6 +742,23 @@ export default function OrdersAdmin() {
   const processingOrders = useMemo(() => activeOrders.filter((order) => order.paymentStatus === 'paid'&&!orderSchedulePresentation(order,nowTick,scheduleZone)?.future), [activeOrders,nowTick,scheduleZone]);
   const [futureOpen,setFutureOpen]=useState(false);
   useEffect(()=>{if(scheduledDateFilter||query.trim()||futureOrders.some(o=>o.id===highlightedOrderId))setFutureOpen(true);},[scheduledDateFilter,query,highlightedOrderId,futureOrders]);
+  const workCounts = useMemo(() => ({
+    payment: orders.filter(order => !isHistoryOrder(order) && order.paymentStatus !== 'paid').length,
+    fulfillment: orders.filter(order => !isHistoryOrder(order) && order.paymentStatus === 'paid' && !orderSchedulePresentation(order, nowTick, scheduleZone)?.future).length,
+    scheduled: orders.filter(order => !isHistoryOrder(order) && order.paymentStatus === 'paid' && Boolean(order.scheduledFor) && orderSchedulePresentation(order, nowTick, scheduleZone)?.future).length,
+  }), [orders, nowTick, scheduleZone]);
+  const focusWorkQueue = (id: string) => {
+    setQuery(''); setStatusFilter('all'); setPaymentFilter('all'); setScheduledDateFilter(null);
+    if (id === 'orders-scheduled') setFutureOpen(true);
+    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+  };
+  useEffect(() => {
+    const queue = searchParams.get('queue');
+    if (!queue || !['payment', 'fulfillment', 'scheduled'].includes(queue)) return;
+    const timer = window.setTimeout(() => focusWorkQueue(`orders-${queue}`), 80);
+    return () => window.clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.toString()]);
   const historyOrders = useMemo(() => filtered.filter((order) => isHistoryOrder(order)), [filtered]);
   const overdueOrders = useMemo(() => orders.filter((order) => {
     if (isHistoryOrder(order) || !order.scheduledFor) return false;
@@ -760,9 +778,8 @@ export default function OrdersAdmin() {
   }, [activeOrders.length, historyOrders.length, query]);
 
   const awaitingPaymentOrders = useMemo(() => orders
-    .filter((order) => order.paymentStatus !== 'paid' && order.status !== 'cancelled' && (!scheduledDateFilter || (order.scheduledFor && dateKey(new Date(order.scheduledFor)) === scheduledDateFilter)))
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-    .slice(0, 12), [orders, scheduledDateFilter]);
+    .filter((order) => !isHistoryOrder(order) && order.paymentStatus !== 'paid' && (!scheduledDateFilter || (order.scheduledFor && dateKey(new Date(order.scheduledFor)) === scheduledDateFilter)))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), [orders, scheduledDateFilter]);
   const detailsOrder = detailsOrderId ? orders.find((order) => order.id === detailsOrderId) || null : null;
   const scheduledFilterLabel = scheduledDateFilter ? formatCalendarDate(scheduledDateFilter) : '';
 
@@ -916,7 +933,13 @@ export default function OrdersAdmin() {
   if (error) return <ErrorState message={error} onRetry={() => void reloadAdmin()} />;
 
   return <>
-    <div className="admin-page-title"><div><span className="eyebrow">OPERAÇÃO</span><h1>Pedidos</h1><p>Fila operacional, recuperação de vendas e relacionamento com clientes usando os pedidos já registrados.</p></div><button type="button" className="primary-button" onClick={openManualOrder} disabled={!manualProducts.length}><Plus size={17}/>Lançar pedido avulso</button></div>
+    <div className="admin-page-title"><div><span className="eyebrow">OPERAÇÃO</span><h1>Pedidos</h1><p>Comece pelos pagamentos a conferir, acompanhe as entregas e prepare os agendados.</p></div><button type="button" className="primary-button" onClick={openManualOrder} disabled={!manualProducts.length}><Plus size={17}/>Lançar pedido avulso</button></div>
+
+    <nav className="orders-priority-nav" aria-label="Filas de pedidos">
+      <button type="button" onClick={() => focusWorkQueue('orders-payment')}><CircleDollarSign size={22}/><span><strong>Conferir pagamento</strong><small>Verificar antes de confirmar</small></span><b>{workCounts.payment}</b></button>
+      <button type="button" onClick={() => focusWorkQueue('orders-fulfillment')}><ShoppingBag size={22}/><span><strong>Entregar ou retirar</strong><small>Pagos e em andamento</small></span><b>{workCounts.fulfillment}</b></button>
+      <button type="button" onClick={() => focusWorkQueue('orders-scheduled')}><CalendarDays size={22}/><span><strong>Agendados futuros</strong><small>Preparar na data combinada</small></span><b>{workCounts.scheduled}</b></button>
+    </nav>
 
     <div className="sales-ops-grid-v061">
       <details className="sales-ops-panel-v061" open={recoveryOpen} onToggle={(event) => setRecoveryOpen(event.currentTarget.open)}>
@@ -934,7 +957,7 @@ export default function OrdersAdmin() {
 
     {settings.kdsEnabled && <section className="kds-board-v061"><div className="kds-board-v061__heading"><div><span className="eyebrow">COZINHA / KDS</span><h2><ChefHat size={21}/>Fila operacional</h2><p>O quadro é opcional e usa os mesmos pedidos da operação, sem uma nova tela ou permissão.</p></div><span>{kdsOrders.length} em andamento</span></div><div className="kds-columns-v061">{kdsStatuses.map((status) => <section key={status}><header><strong>{statusLabel[status]}</strong><span>{kdsOrders.filter((order) => order.status === status).length}</span></header><div>{kdsOrders.filter((order) => order.status === status).map((order) => <article key={order.id}><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{currency.format(order.total)} · {order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</span><div className="kds-status-buttons-v062">{operationalStatuses(order).filter((option)=>option.value !== 'cancelled').map((option)=><button type="button" key={option.value} className={order.status===option.value?'active':''} disabled={updatingId===order.id || order.status===option.value} onClick={()=>void changeStatusWithCustomerDraft(order,option.value)}>{option.label}</button>)}</div><button type="button" className="kds-cancel-v062" disabled={updatingId===order.id || order.status==='cancelled'} onClick={()=>void changeStatus(order.id,'cancelled')}>Cancelar</button>{settings.kdsNotifyCustomer && whatsappButton(order, 'status')}</article>)}</div></section>)}</div></section>}
 
-    <section className="admin-card orders-payment-inbox" aria-labelledby="orders-payment-inbox-title">
+    <section id="orders-payment" className="admin-card orders-payment-inbox" aria-labelledby="orders-payment-inbox-title">
       <div className="orders-payment-inbox__heading"><div><span className="eyebrow">FINANCEIRO</span><h2 id="orders-payment-inbox-title">A receber do cliente</h2><p>Confirme somente depois de conferir o pagamento. A confirmação registra a entrada no Financeiro. Conclua entrega ou retirada separadamente para baixar o estoque.</p></div><strong>{awaitingPaymentOrders.length}</strong></div>
       {awaitingPaymentOrders.length ? <div className="orders-payment-inbox__list">{awaitingPaymentOrders.map((order) => {
         return <article key={order.id} className={scheduleInfo(order)?.future?'order-payment-future':''}><div><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{scheduleInfo(order)?.label || 'Pedido aguardando conferência do recebimento'}</small></div><div className="orders-payment-inbox__actions"><button type="button" className="secondary-button compact-button" onClick={() => setDetailsOrderId(order.id)}><Eye size={15}/>Detalhes / editar</button>{order.paymentMethod === 'pix' && <button type="button" className="secondary-button compact-button" onClick={() => openPaymentPix(order)}><QrCode size={15}/>Mostrar QR Code</button>}<button type="button" className="orders-payment-cancel-button" onClick={() => void cancelOrderFromPaymentCard(order.id)}><Ban size={15}/>Cancelar pedido</button><button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button></div></article>;
@@ -965,17 +988,17 @@ export default function OrdersAdmin() {
         <div className="orders-toolbar__sync" aria-live="polite"><span>{pendingOrders.length} no Financeiro · {processingOrders.length} na operação · {futureOrders.length} agendados futuros nesta lista · {historyOrders.length} no histórico</span>{scheduledDateFilter && <button type="button" className="orders-active-filter" onClick={clearScheduledFilter}><CalendarDays size={14}/>Agendados: {scheduledFilterLabel}<Slash size={14}/></button>}{refreshError ? <strong className="orders-refresh-error" role="status">{refreshError}</strong> : <small>{lastUpdatedAt ? `Atualizado às ${lastUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Atualização automática ativa'}</small>}<button type="button" className="secondary-button compact-button" onClick={() => void refreshOrders()} disabled={refreshing} aria-busy={refreshing}><RefreshCw size={15} className={refreshing ? 'spin' : ''}/>{refreshing ? 'Atualizando...' : refreshError ? 'Tentar novamente' : 'Atualizar'}</button></div>
       </div>
       {highlightedOrderId && <div className="highlight-order-banner">O pedido relacionado vindo do Financeiro foi destacado abaixo.</div>}
-       {filtered.length === 0 ? <div className="admin-empty"><ShoppingBag size={32}/><strong>Nenhum pedido encontrado</strong><span>Ajuste os filtros ou aguarde o próximo pedido.</span></div> : (processingOrders.length === 0 && futureOrders.length === 0 && historyOrders.length === 0) ? <div className="admin-empty"><CircleDollarSign size={32}/><strong>Pedidos pendentes no Financeiro</strong><span>Os pedidos aguardando pagamento ficam exclusivamente no card “A receber do cliente” acima.</span></div> : <>
-        <section className="orders-collection-section orders-collection-section--processing" aria-labelledby="processing-orders-title">
+       {filtered.length === 0 && <div className="admin-empty"><ShoppingBag size={32}/><strong>Nenhum pedido encontrado</strong><span>Ajuste os filtros ou aguarde o próximo pedido.</span></div>}
+        <section id="orders-fulfillment" className="orders-collection-section orders-collection-section--processing" aria-labelledby="processing-orders-title">
           <header className="orders-collection-heading"><div><span className="eyebrow">OPERAÇÃO</span><h2 id="processing-orders-title">Recebidos · hoje e em andamento</h2><p>Pedidos sem agendamento futuro ou com prazo até hoje. Entregas dos próximos dias ficam no grupo separado abaixo.</p></div><strong>{processingOrders.length}</strong></header>
           {processingOrders.length ? renderOrderCollection(processingOrders, 'Pedidos recebidos em processamento') : <div className="orders-collection-empty"><CheckCircle2 size={18}/>Nenhum pedido recebido em processamento.</div>}
         </section>
-        {futureOrders.length>0&&<details className="orders-future-panel" open={futureOpen} onToggle={event=>setFutureOpen(event.currentTarget.open)}><summary><span><CalendarDays size={20}/><strong>Agendados · próximos dias</strong><small>Pagamento recebido. Entrega ou retirada programada para outra data; não está atrasada.</small></span><b>{futureOrders.length} nesta lista</b></summary><p>Próximo prazo: {scheduleInfo(futureOrders[0])?.label}. Horário da loja: {scheduleZone}. Abra para conferir ou editar; o status e as reservas continuam iguais.</p>{renderOrderCollection(futureOrders,'Pedidos agendados para próximos dias')}</details>}
+        <details id="orders-scheduled" className="orders-future-panel" open={futureOpen} onToggle={event=>setFutureOpen(event.currentTarget.open)}><summary><span><CalendarDays size={20}/><strong>Agendados · próximos dias</strong><small>Pagamento recebido. Entrega ou retirada programada para outra data; não está atrasada.</small></span><b>{futureOrders.length} nesta lista</b></summary>{futureOrders.length > 0 && <p>Próximo prazo: {scheduleInfo(futureOrders[0])?.label}. Horário da loja: {scheduleZone}. Abra para conferir ou editar; o status e as reservas continuam iguais.</p>}{futureOrders.length ? renderOrderCollection(futureOrders,'Pedidos agendados para próximos dias') : <div className="orders-collection-empty">Nenhum pedido futuro com os filtros atuais.</div>}</details>
         <details className="orders-history-panel" open={historyOpen} onToggle={(event) => setHistoryOpen(event.currentTarget.open)}>
           <summary><span><ShoppingBag size={18}/><strong>Histórico de pedidos</strong><small>Entregues e cancelados ficam aqui para não disputar espaço com a operação.</small></span><b>{historyOrders.length}</b></summary>
           {historyOrders.length ? renderOrderCollection(historyOrders, 'Histórico de pedidos') : <div className="orders-collection-empty"><CheckCircle2 size={18}/>Nenhum pedido finalizado com estes filtros.</div>}
         </details>
-      </>}
+
     </section>
     {selectedOrderIds.length > 0 && <aside className="orders-batch-status-bar" aria-live="polite">
       <div><strong>{selectedOrderIds.length} {selectedOrderIds.length === 1 ? 'pedido selecionado' : 'pedidos selecionados'}</strong><span>{pendingStatusChanges.length ? `${pendingStatusChanges.length} alteração${pendingStatusChanges.length === 1 ? '' : 'ões'} de status pendente${pendingStatusChanges.length === 1 ? '' : 's'}.` : 'Escolha o novo status nos pedidos selecionados.'}</span></div>

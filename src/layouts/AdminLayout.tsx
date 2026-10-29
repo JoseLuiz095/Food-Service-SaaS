@@ -23,7 +23,6 @@ import {
   Truck,
   UtensilsCrossed,
   X,
-  Warehouse,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useState, useSyncExternalStore, type CSSProperties } from 'react';
@@ -42,7 +41,6 @@ import { getBusinessSegment, resolveBusinessTheme, isDefaultStoreImage } from '.
 import { PLATFORM_BRAND } from '../lib/brand';
 import '../segments/segments.css';
 import { useBusinessStatus } from '../platform/useBusinessStatus';
-import { useStockMode } from '../hooks/useStockMode';
 import { useAdminMobileNavigation } from '../hooks/useAdminMobileNavigation';
 import { moduleIsActive } from '../platform/api';
 import { usePwaIdentity } from '../services/pwaIdentity';
@@ -63,30 +61,29 @@ const navSections: Array<{ label: string; items: Array<{ to: string; label: stri
     label: 'Operação',
     items: [
       { to: '/admin/pedidos', label: 'Pedidos', icon: ShoppingBag },
+      { to: '/admin/financeiro', label: 'Financeiro', icon: Landmark, requiresFeature: 'finance' },
       { to: '/admin/analytics', label: 'Análises', icon: BarChart3, requiresFeature: 'analytics' },
     ],
   },
   {
-    label: 'Catálogo',
+    label: 'Produtos e entregas',
     items: [
       { to: '/admin/produtos', label: 'Produtos', icon: Package },
-      { to: '/admin/estoque', label: 'Estoque', icon: Boxes },
-      { to: '/admin/estoque-locais', label: 'Locais de estoque', icon: Warehouse },
+      { to: '/admin/estoque', label: 'Estoque e locais', icon: Boxes },
       { to: '/admin/categorias', label: 'Categorias', icon: Tags },
       { to: '/admin/entregas', label: 'Entregas', icon: Truck },
     ],
   },
   {
-    label: 'Minha loja',
+    label: 'Loja e conta',
     items: [
-      { to: '/admin/configuracoes', label: 'Configurações', icon: Settings },
+      { to: '/admin/configuracoes', label: 'Configurações da loja', icon: Settings },
+      { to: '/admin/plano', label: 'Meu plano', icon: BadgeDollarSign },
     ],
   },
   {
     label: 'Mais ferramentas',
     items: [
-      { to: '/admin/financeiro', label: 'Financeiro', icon: Landmark, requiresFeature: 'finance' },
-      { to: '/admin/plano', label: 'Meu plano', icon: BadgeDollarSign },
       { to: '/admin/modulos', label: 'Módulos opcionais', icon: Boxes },
       { to: '/admin/negocio', label: 'Segmento e permissões', icon: ShieldCheck },
     ],
@@ -99,7 +96,6 @@ export default function AdminLayout() {
   const { settings, planUsage, dataMode, products } = useStore();
   const { user, signOut, platformAdmin, membership, memberships, selectStore } = useAuth();
   const {state:business}=useBusinessStatus(membership?.storeId||'');
-  const {enabled:multiLocation}=useStockMode(membership?.storeId||'');
   const navigate = useNavigate();
   const location = useLocation();
   usePwaIdentity(settings.id&&settings.slug?{kind:'admin',slug:settings.slug,storeId:settings.id,name:settings.name,iconUrl:settings.logoUrl}:null);
@@ -201,7 +197,6 @@ export default function AdminLayout() {
             const deliverySegments = ['food', 'confectionery', 'retail', 'printing3d', 'rentals', 'florist'];
             const items = section.items.filter((item) => (!item.requiresFeature || planHasFeature(planUsage.plan, item.requiresFeature))
               && (!membership?.limitedAccess || preparationNavAllowed.has(item.to))
-              && (item.to !== '/admin/estoque-locais' || multiLocation !== false)
               && (item.to !== '/admin/entregas' || deliverySegments.includes(segment.id))
               && (item.to !== '/admin/estoque' || deliverySegments.includes(segment.id) || products.some((product) => product.trackStock)));
             if (!items.length) return null;
@@ -215,7 +210,7 @@ export default function AdminLayout() {
               </details>
             );
             return <div className="admin-nav__group" key={section.label}>
-              <span className="admin-nav__label">{section.label==='Catálogo'&&segmentPresentation?segment.catalogLabel:section.label}</span>{links}
+              <span className="admin-nav__label">{section.label==='Produtos e entregas'&&segmentPresentation?segment.catalogLabel:section.label}</span>{links}{section.label === 'Operação' && !membership?.limitedAccess && location.pathname.startsWith('/admin/pedidos') && <div className="admin-nav__subitems"><NavLink to="/admin/pedidos?queue=payment" className={location.search === '?queue=payment' ? 'active' : ''} onClick={() => setOpen(false)}>Conferir pagamentos</NavLink><NavLink to="/admin/pedidos?queue=fulfillment" className={location.search === '?queue=fulfillment' ? 'active' : ''} onClick={() => setOpen(false)}>Entregas pendentes</NavLink><NavLink to="/admin/pedidos?queue=scheduled" className={location.search === '?queue=scheduled' ? 'active' : ''} onClick={() => setOpen(false)}>Agendados</NavLink></div>}
             </div>;
           })}
         </nav>
