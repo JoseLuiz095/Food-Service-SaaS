@@ -113,14 +113,14 @@ export function StoreHeader(){
           {settings.minimumOrder>0&&<span><Store size={14}/>Mínimo R$ {settings.minimumOrder.toFixed(2).replace('.',',')}</span>}
         </div>
       </div>
-      <details className="food-store-profile-more"><summary>Entrega e contato da loja</summary><div className="food-store-profile-actions">
+      <div className="food-store-profile-more"><h2>Entrega e contato da loja</h2><div className="food-store-profile-actions">
         <div className="food-open-details"><span className={`open-pill ${status.open?'is-open':'is-closed'}`}>{status.label}</span><small>{status.detail}</small><span className="food-service-summary"><Truck size={13}/>{fulfillment}</span></div>
         {settings.deliveryEnabled&&<a className={`food-fulfillment-pill ${preferredFulfillment==='delivery'?'active':''}`} href="#cardapio" onClick={()=>{saveFulfillmentPreference(settings.id,'delivery');setPreferredFulfillment('delivery');}}><Truck size={16}/><span><strong>Delivery</strong><small>Escolher endereço depois</small></span></a>}
         {settings.pickupEnabled&&<a className={`food-fulfillment-pill ${preferredFulfillment==='pickup'?'active':''}`} href="#cardapio" onClick={()=>{saveFulfillmentPreference(settings.id,'pickup');setPreferredFulfillment('pickup');}}><ShoppingBag size={16}/><span><strong>Retirada</strong><small>Disponível {pickupWindowLabel}</small></span></a>}
-        {instagramUrl&&<a className="food-social-link food-social-link--instagram" href={instagramUrl} target="_blank" rel="noopener noreferrer" aria-label={`Abrir Instagram ${instagramHandle}`}><InstagramGlyph/><span><strong>Instagram</strong><small>@{instagramHandle}</small></span></a>}
+        {instagramUrl&&<a className="food-social-link food-social-link--instagram" href={instagramUrl} target="_blank" rel="noopener noreferrer" aria-label={`Abrir Instagram ${instagramHandle}`}><InstagramGlyph size={21}/><span><strong>Acompanhe no Instagram</strong><small>@{instagramHandle}</small></span><span className="food-social-link__action" aria-hidden="true">Ver perfil →</span></a>}
         {settings.showWhatsApp !== false && whatsapp&&<a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer"><MessageCircle size={17}/>Falar com a loja</a>}
         <button type="button" className="food-share-store-button" onClick={()=>setShareOpen(true)}><Share2 size={17}/><span><strong>Compartilhar loja</strong><small>QR Code e link</small></span></button>
-      </div></details>
+      </div></div>
     </section>
     {settings.storefrontNotice?.trim() && <section className="container food-store-operation-notices" aria-label="Informações importantes da loja">
       {settings.storefrontNotice?.trim() && <div><Info size={18}/><span><strong>Antes de pedir</strong>{settings.storefrontNotice.trim()}</span></div>}

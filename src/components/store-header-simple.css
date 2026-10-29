@@ -1,7 +1,12 @@
 .food-store-profile-more{min-width:0;align-self:start}
-.food-store-profile-more>summary,.food-order-guide>summary{display:list-item;cursor:pointer;font-weight:700;color:var(--food-store-primary,var(--color-primary,#206c60));min-height:44px;align-content:center;padding:8px 0;font-size:.9rem;line-height:1.4}
-.food-store-profile-more>summary:focus-visible,.food-order-guide>summary:focus-visible{outline:3px solid var(--food-store-primary,var(--color-primary,#206c60));outline-offset:3px;border-radius:6px}
-.food-store-profile-more[open]>.food-store-profile-actions{margin-top:8px}
+.food-store-profile-more>h2{margin:0 0 10px;font-size:.88rem;line-height:1.35;color:var(--food-store-primary,var(--color-primary,#206c60))}
+.food-store-profile-more .food-store-profile-actions>a.food-social-link--instagram{min-height:58px;padding:10px 14px;border-width:1.5px;background:color-mix(in srgb,#e1306c 12%,var(--food-store-surface,#fff));box-shadow:0 6px 18px rgba(165,45,87,.08)}
+.food-store-profile-more .food-social-link--instagram>svg{flex:0 0 21px}
+.food-store-profile-more .food-social-link--instagram strong{font-size:.84rem}
+.food-store-profile-more .food-social-link--instagram small{font-size:.72rem;opacity:1}
+.food-social-link__action{margin-left:auto;white-space:nowrap;font-size:.72rem;font-weight:800}
+.food-order-guide>summary{display:list-item;cursor:pointer;font-weight:700;color:var(--food-store-primary,var(--color-primary,#206c60));min-height:44px;align-content:center;padding:8px 0;font-size:.9rem;line-height:1.4}
+.food-order-guide>summary:focus-visible{outline:3px solid var(--food-store-primary,var(--color-primary,#206c60));outline-offset:3px;border-radius:6px}
 .food-order-guide{margin:8px 0}
 .food-order-guide .food-order-summary{margin:8px 0 16px}
 @media(max-width:600px){
@@ -10,9 +15,9 @@
  .food-storefront-header-v43 .food-store-hero-v43 .container>span{display:none}
  .food-storefront-header-v43 .food-store-hero-v43 .container>strong{font-size:1rem;line-height:1.35}
  .food-storefront-header-v43 .food-store-profile-v43{margin-top:-12px;padding:14px;gap:10px}
- .food-store-profile-more{grid-column:1/-1;width:100%;border-top:1px solid #e4e9e5}
- .food-store-profile-more>summary{padding-block:4px;min-height:44px}
+ .food-store-profile-more{grid-column:1/-1;width:100%;border-top:1px solid #e4e9e5;padding-top:13px}
  .food-store-profile-more .food-store-profile-actions{width:100%}
+ .food-store-profile-more .food-store-profile-actions>a.food-social-link--instagram{min-height:64px}
  .food-marketplace-body .food-discovery-bar{margin-top:12px;margin-bottom:16px}
  .food-marketplace-body .food-featured-section{margin-top:14px}
 }
