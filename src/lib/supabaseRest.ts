@@ -87,8 +87,9 @@ export const storageDelete = async (bucket: string, paths: string[]) => {
   if (error) throw error;
 };
 
-export const requestPasswordRecovery = async (email: string, redirectTo: string): Promise<void> => {
-  const { error } = await getSupabaseClient().auth.resetPasswordForEmail(email, { redirectTo });
+export const requestPasswordRecovery = async (email: string, redirectTo: string, captchaToken: string): Promise<void> => {
+  if (!captchaToken.trim()) throw new Error('Conclua a verificação de segurança.');
+  const { error } = await getSupabaseClient().auth.resetPasswordForEmail(email, { redirectTo, captchaToken });
   if (error) throw error;
 };
 
