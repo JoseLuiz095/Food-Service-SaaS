@@ -197,7 +197,7 @@ export default function AdminLayout() {
           <label className="admin-store-switcher">
             <span>Loja ativa</span>
             <select value={membership?.storeId || ''} onChange={(event) => selectStore(event.target.value)}>
-              {memberships.map((item) => <option value={item.storeId} key={item.storeId}>{item.storeName || item.storeId}</option>)}
+              {memberships.map((item) => <option value={item.storeId} key={item.storeId}>{item.storeId === settings.id ? settings.name : item.storeName || item.storeId}</option>)}
             </select>
           </label>
         )}
@@ -265,7 +265,7 @@ export default function AdminLayout() {
               <AdminStoreShare />
               <a className="admin-topbar__store-link" href={storefrontHref} target="_blank" rel="noreferrer"><ExternalLink size={15} />Abrir vitrine</a>
             </div>
-            <div className="admin-user"><span>{(user?.email || 'AD').slice(0, 2).toUpperCase()}</span><div><strong>{membership?.storeName || 'Administrador'}</strong><small>{user?.email}</small></div></div>
+            <div className="admin-user"><span>{(user?.email || 'AD').slice(0, 2).toUpperCase()}</span><div><strong>{settings.id === membership?.storeId ? settings.name : membership?.storeName || 'Administrador'}</strong><small>{user?.email}</small></div></div>
           </div>
         </header>
         {membership?.approvalStatus === 'pending' && <div className={`self-service-approval-banner ${membership.limitedAccess?'is-limited':'is-trial'}`}><ShieldCheck size={18}/><div><strong>{membership.limitedAccess?'Cadastro em preparação':'Cadastro em análise'}</strong><span>{membership.limitedAccess?'Você pode configurar cardápio, identidade, entregas e configurações. Pedidos, Analytics, Financeiro, cobrança e a vitrine ficam bloqueados até a aprovação do Admin Master.':'Seu Demo está disponível enquanto o Admin Master revisa o cadastro.'}</span></div></div>}

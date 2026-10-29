@@ -1,3 +1,6 @@
+import StoreNameField from '../../components/admin/StoreNameField';
+import { assertStoreNameAvailable } from '../../services/storeIdentityApi';
+import { cleanStoreName, storeNameValidation } from '../../utils/storeName';
 import { receiptContactsEnabled } from '../../services/receiptContactsApi';
 import ReceiptContactsSettings from '../../components/admin/ReceiptContactsSettings';
 import { ArrowDown, ArrowUp, Banknote, ChevronDown, Clock3, CreditCard, ImagePlus, Info, QrCode, RotateCcw } from 'lucide-react';
@@ -156,6 +159,9 @@ export default function SettingsAdmin() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (saving) return;
+    const nameError = storeNameValidation(form.name);
+    if (nameError) { showToast(nameError, 'error'); return; }
     if (!form.deliveryEnabled && !form.pickupEnabled) {
       showToast('Mantenha pelo menos uma opção ativa: Entrega ou Retirada.', 'error');
       return;
@@ -208,7 +214,8 @@ export default function SettingsAdmin() {
 
     setSaving(true);
     try {
-      let next = { ...form, openingHours: formatOpeningSchedule(form.openingSchedule), messageTemplates: normalizeCustomerMessageTemplates(messageTemplates) };
+      if (form.name !== settings.name) await assertStoreNameAvailable(form.id, form.name);
+      let next = { ...form, name: cleanStoreName(form.name), openingHours: formatOpeningSchedule(form.openingSchedule), messageTemplates: normalizeCustomerMessageTemplates(messageTemplates) };
       if (!canUseDoceLua && next.visualTheme.preset === 'doce_lua') next = { ...next, visualTheme: { ...DEFAULT_STORE_VISUAL_THEME } };
       if (logoFile) {
         const upload = await uploadStoreAsset(logoFile, 'logo');
@@ -251,7 +258,7 @@ export default function SettingsAdmin() {
           {sectionToggle('identity', 'Dados do estabelecimento')}
           <div className="admin-card__header"><div><span className="eyebrow">IDENTIDADE</span><h2>Dados do estabelecimento</h2></div></div>
           <div className="form-grid">
-            <label className="full">Nome<input required value={form.name} onChange={(e) => update('name', e.target.value)} /></label>
+            <StoreNameField key={settings.id} storeId={form.id} value={form.name} originalName={settings.name} disabled={saving} onChange={name => update('name', name)} />
             <div className="full"><strong>Segmento: {businessProfile.label}</strong><p className="field-help">As regras iniciais e os módulos são gerenciados em <a href="/admin/negocio">Segmento e permissões</a>. A troca do segmento principal exige o Admin Master. As cores e a identidade continuam editáveis aqui.</p></div>
             <label className="full">Frase da loja<input value={form.tagline} onChange={(e) => update('tagline', e.target.value)} /></label>
             <label>Cidade<input value={form.city} onChange={(e) => update('city', e.target.value)} /></label>

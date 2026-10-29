@@ -31,6 +31,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test:seo
+      - run: node --test scripts/store-name-test.mjs
+      - run: node scripts/store-name-db-test.mjs
       - run: node scripts/receipt-contacts-db-test.mjs
       - run: node scripts/receipt-source-db-test.mjs
       - run: npm run test:payment-links
@@ -44,6 +46,10 @@ jobs:
       - run: node scripts/dashboard-error-test.mjs
       - name: PostgreSQL isolado para concorrência
         run: npm install --prefix "$RUNNER_TEMP/food-db-runtime" --no-save --no-audit --no-fund embedded-postgres@17.9.0-beta.17 pg@8.16.3
+      - name: Nomes de loja únicos em duas sessões
+        env:
+          FOOD_DB_TEST_RUNTIME: ${{ runner.temp }}/food-db-runtime/node_modules
+        run: node scripts/store-name-postgres-test.mjs
       - name: Reservas e transferências concorrentes
         env:
           FOOD_DB_TEST_RUNTIME: ${{ runner.temp }}/food-db-runtime/node_modules

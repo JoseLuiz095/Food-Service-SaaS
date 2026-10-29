@@ -1,3 +1,4 @@
+import { storeNameValidation } from '../../utils/storeName';
 import { ArrowLeft, ArrowRight, Check, Clock3, Eye, EyeOff, ShieldCheck, Store, UserPlus } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -58,7 +59,7 @@ export default function SelfSignup(){
   const setField=<K extends keyof SelfServiceSignupInput>(key:K,value:SelfServiceSignupInput[K])=>setForm((current)=>({...current,[key]:value}));
 
   const advance=()=>{
-    if(form.storeName.trim().length<2){setError('Informe o nome do estabelecimento.');return;}
+    if(storeNameValidation(form.storeName)){setError(storeNameValidation(form.storeName));return;}
     if(form.ownerName.trim().length<2){setError('Informe o nome do responsável.');return;}
     if(!/^\S+@\S+\.\S+$/.test(form.email.trim())){setError('Informe um e-mail válido.');return;}
     const digits=form.contactPhone.replace(/\D/g,'');
@@ -70,7 +71,7 @@ export default function SelfSignup(){
     if(stage===1){advance();return;}
     if(loading)return;
     setError('');setSuccess('');setPresentationNeedsReview(false);
-    if(form.storeName.trim().length<2){setError('Informe o nome do estabelecimento.');return;}
+    if(storeNameValidation(form.storeName)){setError(storeNameValidation(form.storeName));return;}
     if(form.ownerName.trim().length<2){setError('Informe o nome do responsável.');return;}
     if(!/^\S+@\S+\.\S+$/.test(form.email.trim())){setError('Informe um e-mail válido.');return;}
     const phoneDigits=form.contactPhone.replace(/\D/g,'');
@@ -131,7 +132,7 @@ export default function SelfSignup(){
           <ol className="self-signup-progress" aria-label="Etapas até a publicação"><li><Store size={14} aria-hidden="true"/>Prepare sua loja</li><li><ShieldCheck size={14} aria-hidden="true"/>Aguarde a revisão</li><li><Check size={14} aria-hidden="true"/>Comece após a liberação</li></ol>
 
           <fieldset className="self-signup-step" hidden={stage!==1} disabled={stage!==1}><legend>1. Seu negócio</legend>
-            <label>Nome do estabelecimento<input required value={form.storeName} onChange={e=>setField('storeName',e.target.value)} placeholder="Ex.: Sua loja ou ateliê"/></label>
+            <label>Nome do estabelecimento<input required maxLength={120} value={form.storeName} onChange={e=>setField('storeName',e.target.value)} placeholder="Ex.: Sua loja ou ateliê"/></label>
             <BusinessSegmentPicker value={form.businessSegment || 'food'} onChange={segment=>setField('businessSegment',segment)}/>
             {mode==='existing'&&<p className="business-picker__note">Se sua conta já tem uma loja, os dados atuais serão preservados.</p>}
             <div className="self-signup-grid"><label>Responsável<input required value={form.ownerName} onChange={e=>setField('ownerName',e.target.value)} placeholder="Seu nome"/></label><label>E-mail<input required type="email" autoComplete="email" value={form.email} onChange={e=>setField('email',e.target.value)} placeholder="voce@empresa.com"/></label></div>

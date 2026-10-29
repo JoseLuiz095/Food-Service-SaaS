@@ -1,3 +1,4 @@
+import { isStoreNameConflict, STORE_NAME_TAKEN } from '../utils/storeName';
 import { appConfig } from '../lib/config';
 import { getSupabaseClient } from '../lib/supabase';
 import { invokePublicFunction, restFetch, SupabaseHttpError } from '../lib/supabaseRest';
@@ -79,6 +80,7 @@ const rpc = <T>(name: string, body: Record<string, unknown> = {}) =>
   restFetch<T>(`rpc/${name}`, { method: 'POST', body });
 
 const authError = (error: unknown) => {
+  if (isStoreNameConflict(error)) return new Error(STORE_NAME_TAKEN);
   const message = error instanceof Error ? error.message : String(error || '');
   const normalized = message.toLowerCase();
   if (normalized.includes('email rate limit exceeded') || normalized.includes('rate limit exceeded')) {
@@ -128,7 +130,8 @@ const createAccountWithoutEmail = async (input: SelfServiceSignupInput) => {
 };
 
 export async function completeFoodSelfServiceSignup(input?: Partial<SelfServiceSignupInput>) {
-  return rpc<SelfServiceCompletion>('food_complete_self_service_signup_v2', completionBody(input));
+  try { return await rpc<SelfServiceCompletion>('food_complete_self_service_signup_v2', completionBody(input)); }
+  catch (error) { throw authError(error); }
 }
 
 export async function createFoodSelfServiceAccount(input: SelfServiceSignupInput) {

@@ -1,3 +1,4 @@
+import { cleanStoreName, isStoreNameConflict, STORE_NAME_TAKEN, storeNameValidation } from '../utils/storeName';
 import { appConfig, isDemoMode } from '../lib/config';
 import { invokePublicFunction, restFetch, storageDelete, storageUpload, SupabaseHttpError } from '../lib/supabaseRest';
 import { seedAddons, seedCategories, seedDeliveryZones, seedOrders, seedPlan, seedProducts, seedSettings } from '../data/seed';
@@ -542,9 +543,11 @@ export const storeApi = {
   async resetDemo() { const db = createDemoDb(); writeDemo(db); return db; },
 
   async saveSettings(settings: StoreSettings): Promise<StoreSettings> {
+    const nameError = storeNameValidation(settings.name);
+    if (nameError) throw new Error(nameError);
     if (isDemoMode) { const db = readDemo(); db.settings = clone(settings); writeDemo(db); return settings; }
     const payload = {
-      name:settings.name, description:settings.tagline, logo_url:settings.logoUrl, logo_storage_path:settings.logoStoragePath ?? null,
+      name:cleanStoreName(settings.name), description:settings.tagline, logo_url:settings.logoUrl, logo_storage_path:settings.logoStoragePath ?? null,
       cover_url:settings.heroUrl, cover_storage_path:settings.heroStoragePath ?? null, whatsapp:settings.whatsapp, show_whatsapp:settings.showWhatsApp !== false, instagram:settings.instagram,
       address:settings.address, city:settings.city, state:settings.state, zip_code:settings.zipCode || null, delivery_enabled:settings.deliveryEnabled, pickup_enabled:settings.pickupEnabled,
       visual_theme:normalizeStoreVisualTheme(settings.visualTheme), storefront_notice:settings.storefrontNotice?.trim() || null, pickup_instructions:settings.pickupInstructions?.trim() || null, hide_public_address:settings.hidePublicAddress,
@@ -568,6 +571,7 @@ export const storeApi = {
         rows = await restFetch<StoreRow[]>(`food_stores?id=eq.${encode(settings.id)}&select=*`, { method:'PATCH', body:requestPayload, prefer:'return=representation' });
         break;
       } catch (error) {
+        if (isStoreNameConflict(error)) throw new Error(STORE_NAME_TAKEN);
         const missingColumn = pilotColumns.find((column) => isMissingSchemaColumn(error, column) && column in requestPayload);
         if (!missingColumn || attempt >= pilotColumns.length) throw error;
         delete requestPayload[missingColumn];
