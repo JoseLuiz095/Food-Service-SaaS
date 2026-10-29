@@ -1,3 +1,4 @@
+import { restFetch } from '../../lib/supabaseRest';
 import { CreditCard, MapPin, Pencil, Save, Store, Truck, X, Minus, Plus, Trash2, Ban } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useModalAccessibility } from '../useModalAccessibility';
@@ -25,11 +26,16 @@ const toLocalDateTimeInput = (value?: string) => {
 
 export function OrderDetailsModal({ order, settings, onClose, onSave, onCancelOrder, saving }: OrderDetailsModalProps) {
   const [editing, setEditing] = useState(false);
+  const [points,setPoints]=useState<Array<{id:string;name:string;stock_location_id:string}>>([]);
+  const [pointsError,setPointsError]=useState('');
+  useEffect(()=>{let active=true;void restFetch<Array<{id:string;name:string;stock_location_id:string}>>(`food_pickup_locations?store_id=eq.${encodeURIComponent(order.storeId)}&active=eq.true&select=id,name,stock_location_id`).then(rows=>{if(active)setPoints(rows.filter(p=>p.stock_location_id));}).catch(()=>{if(active)setPointsError('Não foi possível carregar os pontos. Tente reabrir o detalhe.');});return()=>{active=false};},[order.storeId]);
   const [cancelling, setCancelling] = useState(false);
   const dialogRef=useRef<HTMLElement>(null);
   useModalAccessibility(true,dialogRef,onClose,!saving&&!cancelling);
   const [draftItems, setDraftItems] = useState(() => order.items || []);
   const [draft, setDraft] = useState<OrderDetailsUpdate>({
+    pickupLocationId: order.pickupLocationId,
+    expectedPickupLocationId: order.pickupLocationId,
     customerName: order.customerName,
     customerPhone: order.customerPhone || '',
     scheduledFor: toLocalDateTimeInput(order.scheduledFor),
@@ -49,19 +55,23 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, onCancelOr
   ].filter(Boolean).join(' · ');
 
   useEffect(() => {
-    setEditing(false);
+    if (editing) return;
     setDraftItems(order.items || []);
     setDraft({
-      customerName: order.customerName,
+      pickupLocationId: order.pickupLocationId,
+    expectedPickupLocationId: order.pickupLocationId,
+    customerName: order.customerName,
       customerPhone: order.customerPhone || '',
       scheduledFor: toLocalDateTimeInput(order.scheduledFor),
       notes: order.notes || '',
     });
-  }, [order]);
+  }, [order, editing]);
 
   const submit = async () => {
     try {
       await onSave({
+        pickupLocationId: draft.pickupLocationId && draft.pickupLocationId !== draft.expectedPickupLocationId ? draft.pickupLocationId : undefined,
+        expectedPickupLocationId: draft.expectedPickupLocationId,
         customerName: draft.customerName.trim(),
         customerPhone: draft.customerPhone?.trim() || undefined,
         scheduledFor: draft.scheduledFor || undefined,
@@ -119,6 +129,7 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, onCancelOr
         <p className="order-details-modal__hint">Edite contato, agendamento e observações. Enquanto o pagamento estiver pendente, também é possível corrigir quantidades ou remover produtos; o sistema recalcula o total e a reserva de estoque.</p>
         {canEditItems && <div className="order-details-modal__edit-items"><strong className="order-details-modal__edit-label">Produtos do pedido</strong>{draftItems.map((item) => <article className="order-details-modal__edit-item" key={item.id}><div><strong>{item.productName}</strong>{item.variantName && <small>{item.variantName}</small>}{item.options.length > 0 && <small>{item.options.map((option) => `${option.quantity > 1 ? `${option.quantity}x ` : ''}${option.optionName}`).join(' · ')}</small>}</div><div className="order-details-modal__edit-item-actions"><div className="order-details-modal__quantity"><button type="button" onClick={() => changeItemQuantity(item.id, item.quantity - 1)} disabled={item.quantity <= 1} aria-label={`Diminuir ${item.productName}`}><Minus size={14}/></button><strong>{item.quantity}</strong><button type="button" onClick={() => changeItemQuantity(item.id, item.quantity + 1)} disabled={item.quantity >= 99} aria-label={`Aumentar ${item.productName}`}><Plus size={14}/></button></div><button type="button" className="order-details-modal__remove-item" onClick={() => removeItem(item.id)} disabled={draftItems.length <= 1} aria-label={`Remover ${item.productName}`}><Trash2 size={14}/></button></div></article>)}{draftItems.length === 0 && <p className="order-details-modal__empty">Mantenha pelo menos um produto no pedido.</p>}<small className="order-details-modal__hint">O preço é recalculado pelo servidor. Produtos com personalização obrigatória devem ser ajustados no pedido original.</small></div>}
         <div className="order-details-modal__edit-grid">
+          {order.deliveryType==='pickup' && <label className="full">Ponto de retirada<select value={draft.pickupLocationId || ''} disabled={saving || ['cancelled','delivered','picked_up'].includes(order.status)} onChange={event=>setDraft(current=>({...current,pickupLocationId:event.target.value}))}><option value="">Manter local atual</option>{points.map(point=><option key={point.id} value={point.id}>{point.name}</option>)}</select><small>A reserva muda para o estoque vinculado ao ponto. A baixa física ocorre ao concluir a retirada. Saldo insuficiente impede a troca imediata.</small>{pointsError&&<small role="alert">{pointsError}</small>}</label>}
           <label>Cliente<input required value={draft.customerName} onChange={(event) => setDraft((current) => ({ ...current, customerName: event.target.value }))} /></label>
           <label>Telefone<input value={draft.customerPhone || ''} onChange={(event) => setDraft((current) => ({ ...current, customerPhone: event.target.value }))} /></label>
           <label>Agendamento<input type="datetime-local" value={draft.scheduledFor || ''} onChange={(event) => setDraft((current) => ({ ...current, scheduledFor: event.target.value }))} /></label>

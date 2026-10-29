@@ -529,6 +529,8 @@ export type OrderItem = {
 };
 
 export type Order = {
+  pickupLocationId?: string;
+  stockLocationId?: string;
   id: string;
   orderNumber: number;
   storeId: string;
@@ -578,6 +580,8 @@ export type Order = {
 };
 
 export type OrderDetailsUpdate = {
+  pickupLocationId?: string;
+  expectedPickupLocationId?: string;
   customerName: string;
   customerPhone?: string;
   scheduledFor?: string;
