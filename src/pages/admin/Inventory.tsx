@@ -1,5 +1,6 @@
 import { AlertTriangle, Bell, Boxes, CheckCircle2, ClipboardList, Download, Edit3, Filter, Layers3, Minus, Package, Plus, RotateCcw, Search, ShoppingCart, Sparkles, Trash2, TrendingDown, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { FloatingSaveBar } from '../../components/admin/FloatingSaveBar';
 import { useStore } from '../../contexts/StoreContext';
@@ -61,7 +62,7 @@ function ProductStockCard({ product, onAdjust, onSet, busy, expanded, onToggle, 
       {canAdjust ? <div className="inventory-product-stock-actions">
         <form className="inventory-product-count-form" onSubmit={saveCount}><label>Definir físico<input aria-label={`Definir estoque físico de ${product.name}`} type="number" min="0" step="1" inputMode="numeric" value={draft} onChange={(event) => setDraft(event.target.value)} disabled={busy} /></label><label>Motivo<input aria-label={`Motivo do ajuste de ${product.name}`} value={reason} onChange={(event) => setReason(event.target.value)} maxLength={160} placeholder="Conferência, reposição..." disabled={busy} /></label><button type="submit" className="secondary-button compact-button" disabled={busy || !reason.trim() || !/^\d+$/.test(draft) || Number(draft) < 0}>{busy ? 'Salvando…' : 'Definir'}</button></form>
         <div className="inventory-product-adjust-control"><label>Adicionar/remover unidades<input aria-label={`Quantidade para ajuste rápido de ${product.name}`} type="number" min="1" step="1" inputMode="numeric" value={adjustmentDraft} onChange={(event) => setAdjustmentDraft(event.target.value)} disabled={busy} /></label><div className="inventory-stepper" aria-label={`Ajustar estoque de ${product.name}`}><button type="button" onClick={() => adjustBy(-1)} disabled={busy || !Number.isInteger(adjustmentQuantity) || adjustmentQuantity < 1 || quantity - adjustmentQuantity < 0} aria-label={`Remover ${adjustmentQuantity} unidade(s) de ${product.name}`}><Minus size={16} /></button><span>{quantity}</span><button type="button" onClick={() => adjustBy(1)} disabled={busy || !Number.isInteger(adjustmentQuantity) || adjustmentQuantity < 1} aria-label={`Adicionar ${adjustmentQuantity} unidade(s) de ${product.name}`}><Plus size={16} /></button></div></div>
-      </div> : <p>Para ajustar um local específico, abra <a href="/admin/estoque-locais">Estoque por local</a>.</p>}
+      </div> : <p>Para ajustar um local específico, abra <Link to="/admin/estoque?visao=locais">Estoque por local</Link>.</p>}
     </div>}
   </article>;
 }
@@ -384,15 +385,15 @@ export default function InventoryAdmin() {
           <p className="inventory-command__context">
             <span className={`inventory-command__dot${locationLoading || multiLocation ? ' is-pending' : locationError ? ' is-unavailable' : ' is-confirmed'}`} />
             {locationLoading ? 'Verificando locais…' : locationError ? 'Locais indisponíveis · total da loja' : multiLocation ? 'Locais separados · consulte o local ativo' : 'Total da loja · local padrão'}
-            <a href="/admin/estoque-locais">Ver locais</a>
+            <Link to="/admin/estoque?visao=locais">Ver locais</Link>
           </p>
         </div>
         <span className="inventory-command__sync" role="status" aria-live="polite">{busyId && trackedProducts.some((product) => product.id === busyId) ? 'Salvando…' : stockFeedback || 'Dados carregados'}</span>
       </div>
-      {multiLocation && <p className="inventory-command__notice" role="status">Ajustes de locais separados devem ser feitos em <a href="/admin/estoque-locais">Estoque por local</a>. Os saldos abaixo são totais da loja.</p>}
+      {multiLocation && <p className="inventory-command__notice" role="status">Ajustes de locais separados devem ser feitos em <Link to="/admin/estoque?visao=locais">Estoque por local</Link>. Os saldos abaixo são totais da loja.</p>}
       <div className="inventory-command__toolbar">
         <label className="inventory-command__search"><Search size={18} aria-hidden="true" /><span className="sr-only">Buscar produto</span><input type="search" value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Buscar produto" aria-label="Buscar produto no estoque" /></label>
-        {multiLocation ? <a className="primary-button" href="/admin/estoque-locais"><ClipboardList size={17} />Conferir por local</a> : <button className="primary-button" type="button" aria-pressed={countMode} onClick={() => { setCountMode((value) => !value); setProductFilter('all'); setExpandedProductId(countMode ? '' : trackedProducts[0]?.id || ''); }}><ClipboardList size={17} />{countMode ? 'Encerrar conferência' : 'Conferir estoque'}</button>}
+        {multiLocation ? <Link className="primary-button" to="/admin/estoque?visao=locais"><ClipboardList size={17} />Conferir por local</Link> : <button className="primary-button" type="button" aria-pressed={countMode} onClick={() => { setCountMode((value) => !value); setProductFilter('all'); setExpandedProductId(countMode ? '' : trackedProducts[0]?.id || ''); }}><ClipboardList size={17} />{countMode ? 'Encerrar conferência' : 'Conferir estoque'}</button>}
         <button className="secondary-button compact-button" type="button" disabled={!filteredProducts.length || multiLocation === true} onClick={() => { setCountMode(false); setExpandedProductId(filteredProducts[0].id); document.getElementById(`stock-row-${filteredProducts[0].id}`)?.scrollIntoView({ block: 'nearest' }); }}>Entrada rápida</button>
       </div>
       <div className="inventory-command__filters" role="group" aria-label="Filtrar produtos">
@@ -403,7 +404,7 @@ export default function InventoryAdmin() {
         {filteredProducts.map((product) => <ProductStockCard key={product.id} product={product} onAdjust={(current,delta,reason) => void adjustProduct(current,delta,reason)} onSet={(current,quantity,reason) => void setProductStock(current,quantity,reason)} busy={Boolean(busyId && trackedProducts.some((entry) => entry.id === busyId))} expanded={expandedProductId === product.id} onToggle={() => setExpandedProductId((id) => id === product.id ? '' : product.id)} canAdjust={multiLocation !== true} />)}
         {!filteredProducts.length && <div className="inventory-empty"><Package size={22}/><strong>{trackedProducts.length ? 'Nenhum produto neste filtro' : 'Sem produtos com controle de estoque'}</strong><span>{trackedProducts.length ? 'Ajuste a busca ou escolha Todos.' : 'Ative o controle no cadastro do produto.'}</span></div>}
       </div>
-      <div className="inventory-command__footer"><a className="text-link" href="/admin/produtos">Gerenciar produtos →</a></div>
+      <div className="inventory-command__footer"><Link className="text-link" to="/admin/produtos">Gerenciar produtos →</Link></div>
     </section>
     <section className="admin-card inventory-advanced-choice"><div><h2>Produção e insumos</h2><p>Compras, fichas técnicas e conferência de ingredientes são opcionais. Abra quando sua operação precisar deles.</p></div><button className="secondary-button" type="button" aria-expanded={advanced} onClick={()=>{if(advanced&&pendingQuantityChanges.length&&!window.confirm('Descartar saldos digitados que ainda não foram salvos?'))return;if(advanced&&pendingQuantityChanges.length)discardQuantityChanges();setAdvanced(!advanced);}}>{advanced?'Fechar ferramentas avançadas':'Abrir ferramentas avançadas'}</button></section>
     {advanced && (loading?<p role="status" className="admin-card">Carregando ferramentas de produção...</p>:inventoryError?<div role="alert" className="admin-card">{inventoryError}<button type="button" onClick={()=>void loadItems()}>Tentar novamente</button></div>:<>
