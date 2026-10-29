@@ -29,6 +29,7 @@ export type StoreBillingSettings={
 export type BillingOverviewPlan={id:string;code:string;name:string;monthlyPrice:number};
 export type BillingOverviewSubscription={
   id:string;status:'trial'|'active'|'suspended'|'cancelled';billingAmount:number;dueDay?:number;nextDueDate?:string;
+  introFreeMonths?:number;introFirstChargeOn?:string;
   billingMode?:SubscriptionBillingMode;billingState:'current'|'overdue'|'trial'|'suspended'|'cancelled'|'complimentary'|'none';daysOverdue:number;lastPayment?:SubscriptionPayment|null;
 };
 export type StoreBillingOverview={
@@ -76,7 +77,19 @@ export const billingApi={
       settings:{provider:'manual',pixKeyType:'CNPJ',pixKey:'12.345.678/0001-90',pixHolderName:'FoodWeb',pixCity:'Linhares',pixCopyPaste:'',whatsapp:'5527999999999',proofRequired:true,autoRenew:false,graceDays:3},
       payments:[],
     });
-    return normalizeOverview(await restFetch<OverviewRaw>('rpc/food_get_store_billing_overview_v1',{method:'POST',body:{p_store_id:storeId}}));
+    const overview=normalizeOverview(await restFetch<OverviewRaw>('rpc/food_get_store_billing_overview_v1',{method:'POST',body:{p_store_id:storeId}}));
+    if(overview.subscription){
+      try{
+        const rows=await restFetch<Array<{billing_mode:SubscriptionBillingMode;intro_free_months:number|null;intro_first_charge_on:string|null}>>(
+          `food_store_subscriptions?select=billing_mode,intro_free_months,intro_first_charge_on&id=eq.${encodeURIComponent(overview.subscription.id)}&store_id=eq.${encodeURIComponent(storeId)}&limit=1`);
+        if(rows[0])overview.subscription={...overview.subscription,billingMode:overview.currentPlan?.code!=='DEMO'&&overview.subscription.billingAmount===0?'complimentary':rows[0].billing_mode,
+          introFreeMonths:rows[0].intro_free_months||undefined,introFirstChargeOn:rows[0].intro_first_charge_on||undefined};
+      }catch(error){
+        const message=error instanceof Error?error.message:'';
+        if(!/(intro_free_months|intro_first_charge_on|billing_mode)/i.test(message)||!/(column|schema cache)/i.test(message))throw error;
+      }
+    }
+    return overview;
   },
 
   async createManualCharge(storeId:string,planId:string):Promise<SubscriptionCharge>{

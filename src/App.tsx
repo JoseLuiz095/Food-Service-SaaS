@@ -52,7 +52,7 @@ function ProtectedAdmin() {
   const { user, membership, loading } = useAuth();
   const location = useLocation();
   if (loading) return <div className="page-center"><LoadingState label="Validando acesso..."/></div>;
-  if (!user) return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
+  if (!user) return <Navigate to="/admin/login" replace state={{ from: location.pathname + location.search }} />;
   if (!membership) return <div className="access-denied"><h1>Acesso indisponível</h1><p>Este usuário não possui vínculo administrativo ativo ou a loja está temporariamente indisponível.</p><a href="/admin/login">Voltar ao login</a></div>;
   if (membership.mustChangePassword && location.pathname !== '/admin/primeiro-acesso') return <Navigate to="/admin/primeiro-acesso" replace />;
   const preparationRouteAllowed = location.pathname === '/admin'

@@ -9,6 +9,8 @@ import '../components/admin/admin-navigation.css';
 import '../segments/segments.css';
 import '../pages/master/master-refinements.css';
 import './operational-navigation.css';
+import { usePwaIdentity } from '../services/pwaIdentity';
+import { PwaAccessCard } from '../components/PwaAccessCard';
 
 type MasterNavItem = { to: string; label: string; icon: LucideIcon; end?: boolean };
 const navSections: Array<{ label: string; items: MasterNavItem[] }> = [
@@ -29,6 +31,7 @@ const navSections: Array<{ label: string; items: MasterNavItem[] }> = [
 const nav: MasterNavItem[] = navSections.flatMap(({ items }) => items);
 
 export default function MasterLayout() {
+  usePwaIdentity({kind:'master'});
   const { platformAdmin, user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -96,7 +99,7 @@ export default function MasterLayout() {
             </div>
           </div>
         </header>
-        <main id="master-main" tabIndex={-1} className="admin-page"><div key={location.pathname}><Outlet /></div></main>
+        <main id="master-main" tabIndex={-1} className="admin-page"><PwaAccessCard role="master" scope={user?.id||''} name="Admin Master" notifications/><div key={location.pathname}><Outlet /></div></main>
       </section>
       <PlatformHelpButton/>
     </div>
