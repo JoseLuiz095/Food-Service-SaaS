@@ -1,0 +1,68 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { PGlite } from '@electric-sql/pglite';
+
+const db = new PGlite();
+const query = async (sql, params=[]) => (await db.query(sql, params)).rows;
+const one = async (sql, params=[]) => (await query(sql, params))[0];
+const purchaseSource = readFileSync('supabase/migrations/202610091500_foodweb_inventory_foundation.sql','utf8');
+const start = purchaseSource.indexOf('create or replace function public.food_record_inventory_purchase(');
+const end = purchaseSource.indexOf('$$;',start);
+assert.ok(start>=0&&end>start);
+let checks=0;
+const check=(value,label)=>{assert.ok(value,label);checks++};
+const reject=async(fn,label)=>{await assert.rejects(fn,undefined,label);checks++};
+const owner=randomUUID(),other=randomUUID(),store=randomUUID(),foreignStore=randomUUID(),item=randomUUID(),foreignItem=randomUUID(),category=randomUUID();
+try{
+  await db.exec(`
+    create role anon; create role authenticated;
+    create schema auth;
+    create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('test.user',true),'')::uuid$$;
+    create table public.food_stores(id uuid primary key);
+    create table public.food_inventory_items(id uuid primary key,store_id uuid,active boolean default true,current_quantity numeric(14,3) default 0,average_unit_cost numeric(14,4) default 0,last_unit_cost numeric(14,4));
+    create table public.food_inventory_purchases(id uuid primary key default gen_random_uuid(),store_id uuid,supplier text,document_type text,document_number text,occurred_on date,payment_method text,notes text,idempotency_key text,created_by uuid,total_amount numeric(14,2) default 0,status text default 'draft',unique(id,store_id),unique(store_id,idempotency_key));
+    create table public.food_inventory_purchase_items(id uuid primary key default gen_random_uuid(),purchase_id uuid,store_id uuid,inventory_item_id uuid,quantity numeric(14,3),unit_cost numeric(14,4),notes text);
+    create table public.food_inventory_movements(id uuid primary key default gen_random_uuid(),store_id uuid,inventory_item_id uuid,movement_type text,quantity_delta numeric,quantity_before numeric,quantity_after numeric,unit_cost numeric,total_cost numeric,source_type text,source_id uuid,reason text,notes text,idempotency_key text,created_by uuid);
+    create table public.food_financial_categories(id uuid primary key,store_id uuid,name text,direction text default 'expense',active boolean default true);
+    create table public.food_financial_entries(id uuid primary key default gen_random_uuid(),store_id uuid,direction text,source text,category_id uuid,description text,amount numeric,occurred_on date,paid_at timestamptz,status text,payment_method text,counterparty text,document_type text,document_number text,notes text,created_by uuid,order_id uuid, due_on date,
+      constraint food_financial_entries_source_check check(source in ('manual','order','adjustment')));
+    create function public.food_is_store_admin(p_store uuid) returns boolean language sql stable as $$select p_store::text=current_setting('test.store',true) and auth.uid() is not null$$;
+    create function public.food_can_manage_finance(p_store uuid) returns boolean language sql stable as $$select public.food_is_store_admin(p_store) and current_setting('test.finance',true)='yes'$$;
+  `);
+  await db.exec(purchaseSource.slice(start,end+3));
+  await db.exec(readFileSync('supabase/migrations/20261028215344_finance_inventory_purchase_link.sql','utf8'));
+  await query('insert into food_stores values($1),($2)',[store,foreignStore]);
+  await query("insert into food_inventory_items(id,store_id,current_quantity,average_unit_cost) values($1,$2,5,2),($3,$4,9,3)",[item,store,foreignItem,foreignStore]);
+  await query("insert into food_financial_categories values($1,$2,'Ingredientes','expense',true)",[category,store]);
+  await query("select set_config('test.user',$1,false),set_config('test.store',$2,false),set_config('test.finance','yes',false)",[owner,store]);
+  const key=randomUUID();
+  const request={store_id:store,items:[{inventory_item_id:item,quantity:2,unit_cost:10}],category_id:category,payment_status:'pending',supplier:'Fornecedor teste',idempotency_key:key};
+  const buy=async(payload=request)=>(await one('select public.food_record_financed_purchase_v1($1) result',[payload])).result;
+  const first=await buy();
+  check(first.purchase_id&&first.financial_entry_id&&!first.duplicate&&Number(first.total_amount)===20,'atomic purchase returns both links');
+  check(Number((await one('select current_quantity from food_inventory_items where id=$1',[item])).current_quantity)===7,'inventory incremented');
+  check((await one('select source,status,amount,purchase_id from food_financial_entries where id=$1',[first.financial_entry_id])).purchase_id===first.purchase_id,'expense linked to purchase');
+  check((await one("select count(*) n from food_inventory_movements where source_type='purchase'")).n===1,'one stock movement');
+  check((await buy()).duplicate,'retry is idempotent');
+  check((await one('select count(*) n from food_financial_entries')).n===1,'retry does not duplicate expense');
+  await reject(()=>buy({...request,items:[{inventory_item_id:item,quantity:3,unit_cost:10}]}),'reused key rejects different purchase');
+  await reject(()=>buy({...request,idempotency_key:randomUUID(),items:[{inventory_item_id:foreignItem,quantity:1,unit_cost:10}]}),'foreign item rejected');
+  check((await one('select count(*) n from food_inventory_purchases')).n===1,'cross-tenant failure rolls back purchase');
+  await reject(()=>buy({...request,idempotency_key:randomUUID(),items:[{inventory_item_id:item,quantity:1,unit_cost:0}]}),'zero-cost purchase rolls back');
+  await query("select set_config('test.finance','no',false)");
+  await reject(()=>buy({...request,idempotency_key:randomUUID()}),'no finance access cannot move inventory');
+  await query("select set_config('test.finance','yes',false)");
+  await query("update food_financial_entries set status='paid',paid_at=now() where id=$1",[first.financial_entry_id]);
+  check((await one('select status from food_financial_entries where id=$1',[first.financial_entry_id])).status==='paid','pending expense can be paid');
+  await reject(()=>query('update food_financial_entries set amount=1 where id=$1',[first.financial_entry_id]),'linked amount immutable');
+  await reject(()=>query("insert into food_financial_entries(store_id,direction,source,purchase_id,description,amount,occurred_on,status) values ($1,'expense','purchase',$2,'Compra inválida',1,current_date,'pending')",[store,first.purchase_id]),'direct linked expense cannot differ from purchase total');
+  await query("insert into food_financial_entries(store_id,direction,source,description,amount,occurred_on,status) values ($1,'expense','manual','Despesa avulsa',1,current_date,'paid')",[store]);
+  await reject(()=>query("update food_financial_entries set source='purchase',purchase_id=$1 where source='manual'",[first.purchase_id]),'manual expense cannot be relinked to stock');
+  await reject(()=>query('delete from food_financial_entries where id=$1',[first.financial_entry_id]),'linked expense cannot be deleted');
+  check(Number((await one('select current_quantity from food_inventory_items where id=$1',[item])).current_quantity)===7,'payment does not move stock twice');
+  await query("select set_config('test.user',$1,false)",[other]);
+  await query("select set_config('test.store',$1,false)",[foreignStore]);
+  await reject(()=>buy({...request,idempotency_key:randomUUID()}),'other tenant denied');
+  console.log(`Finance + stock purchase: ${checks} checks passed in disposable PostgreSQL.`);
+} finally { await db.close(); }

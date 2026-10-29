@@ -1,16 +1,18 @@
-import { ArrowDownRight, ArrowUpRight, Camera, ChevronDown, Download, FileSearch2, Info, Loader2, Pencil, Plus, ReceiptText, Save, TrendingUp, Upload, WalletCards, X } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Camera, ChevronDown, Download, FileSearch2, Info, Loader2, Pencil, Plus, ReceiptText, Save, ShoppingCart, TrendingUp, Upload, WalletCards, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
 import { financeApi } from '../../services/financeApi';
+import { inventoryApi, inventoryUnitLabels } from '../../services/inventoryApi';
 import { trackInteraction } from '../../services/interactionTelemetry';
-import type { FinancialCategory, FinancialDirection, FinancialDocumentType, FinancialEntry, FinancialEntryStatus } from '../../types';
+import type { FinancialCategory, FinancialDirection, FinancialDocumentType, FinancialEntry, FinancialEntryStatus, InventoryItem } from '../../types';
 import { currency } from '../../utils/format';
 import { planHasFeature } from '../../utils/plan';
 import { normalizeCounterpartyKey, readLocalFinancialDocument, type LocalFinancialReadProgress, type LocalFinancialReadResult } from '../../utils/localFinancialDocumentReader';
 import { downloadCsv } from '../../utils/exportCsv';
+import { createId } from '../../utils/id';
 
-const today=()=>new Date().toISOString().slice(0,10);
+const today=()=>{const date=new Date();return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`};
 const documentTypes:{value:FinancialDocumentType;label:string}[]=[
   {value:'none',label:'Sem documento'},{value:'coupon',label:'Cupom fiscal'},{value:'nfe',label:'NF-e'},
   {value:'nfce',label:'NFC-e'},{value:'nfse',label:'NFS-e'},{value:'boleto',label:'Boleto'},
@@ -46,6 +48,13 @@ export default function Finance(){
   const[quickExpenseOpen,setQuickExpenseOpen]=useState(false);
   const[quickExpense,setQuickExpense]=useState(()=>({...emptyForm(settings.id,'expense'),description:'Despesa operacional'}));
   const[quickExpenseSaving,setQuickExpenseSaving]=useState(false);
+  const[entryFormOpen,setEntryFormOpen]=useState(false);
+  const[purchaseOpen,setPurchaseOpen]=useState(false);
+  const[purchaseItems,setPurchaseItems]=useState<InventoryItem[]>([]);
+  const[purchaseLoading,setPurchaseLoading]=useState(false);
+  const[purchaseSaving,setPurchaseSaving]=useState(false);
+  const[purchaseDraft,setPurchaseDraft]=useState({itemId:'',quantity:'',total:'',supplier:'',status:'paid' as 'paid'|'pending',paymentMethod:''});
+  const purchaseKeyRef=useRef({signature:'',key:''});
   const[selectedMonthKey,setSelectedMonthKey]=useState<string|null>(null);
   const[selectedExpenseCategory,setSelectedExpenseCategory]=useState<string|null>(null);
   const fileRef=useRef<HTMLInputElement|null>(null);
@@ -76,6 +85,7 @@ export default function Finance(){
   useEffect(()=>{
     setForm(emptyForm(settings.id));
     setQuickExpense({...emptyForm(settings.id,'expense'),description:'Despesa operacional'});
+    setPurchaseOpen(false);setPurchaseItems([]);purchaseKeyRef.current={signature:'',key:''};
     if(enabled)void reload();else setLoading(false);
   },[settings.id,enabled]);
 
@@ -137,6 +147,7 @@ export default function Finance(){
   };
 
   const startEntry=(direction:FinancialDirection)=>{
+    setEntryFormOpen(true);
     setForm(emptyForm(settings.id,direction));
     setExtractionInfo(null);
     setReadResult(null);
@@ -152,11 +163,51 @@ export default function Finance(){
     setQuickExpenseOpen(true);
     requestAnimationFrame(()=>document.getElementById('finance-quick-expense')?.scrollIntoView({behavior:'smooth',block:'nearest'}));
   };
+  const openPurchase=async()=>{
+    setPurchaseOpen(true);setPurchaseLoading(true);
+    try{
+      const items=await inventoryApi.listItems(settings.id);
+      setPurchaseItems(items.filter(item=>item.active));
+    }catch(error){
+      showToast(error instanceof Error?error.message:'Não foi possível carregar os insumos.','error');
+    }finally{setPurchaseLoading(false)}
+  };
+  const submitPurchase=async(event:FormEvent)=>{
+    event.preventDefault();
+    const item=purchaseItems.find(current=>current.id===purchaseDraft.itemId);
+    const quantity=Number(purchaseDraft.quantity),total=Number(purchaseDraft.total);
+    if(!item||!Number.isFinite(quantity)||quantity<=0||!Number.isFinite(total)||total<=0){
+      showToast('Selecione um insumo e informe a quantidade e o custo real da compra.','error');return;
+    }
+    const intent=JSON.stringify([settings.id,item.id,quantity,total,purchaseDraft.supplier.trim(),purchaseDraft.status,purchaseDraft.paymentMethod]);
+    if(purchaseKeyRef.current.signature!==intent)purchaseKeyRef.current={signature:intent,key:createId()};
+    setPurchaseSaving(true);
+    try{
+      const result=await inventoryApi.recordFinancedPurchase({
+        storeId:settings.id,items:[{inventoryItemId:item.id,quantity,unitCost:total/quantity}],
+        supplier:purchaseDraft.supplier.trim(),paymentStatus:purchaseDraft.status,
+        paymentMethod:purchaseDraft.status==='paid'?purchaseDraft.paymentMethod:undefined,
+        idempotencyKey:purchaseKeyRef.current.key,
+        categoryId:categories.find(category=>category.name.toLocaleLowerCase('pt-BR')==='ingredientes'&&category.active)?.id,
+        description:`Compra de ${item.name}`,
+      });
+      purchaseKeyRef.current={signature:'',key:''};
+      setPurchaseDraft({itemId:'',quantity:'',total:'',supplier:'',status:'paid',paymentMethod:''});
+      setPurchaseOpen(false);
+      await reload();
+      showToast(result.duplicate?'Compra já registrada; estoque e financeiro conferidos.':'Compra registrada no estoque e no financeiro.','success');
+    }catch(error){showToast(error instanceof Error?error.message:'Não foi possível registrar a compra. Nenhuma operação parcial foi confirmada.','error')}
+    finally{setPurchaseSaving(false)}
+  };
+  const payPurchase=async(entry:FinancialEntry)=>{
+    try{await financeApi.markPurchasePaid(settings.id,entry.id);await reload();showToast('Pagamento da compra confirmado. O estoque não foi alterado novamente.','success')}
+    catch(error){showToast(error instanceof Error?error.message:'Não foi possível confirmar o pagamento.','error')}
+  };
 
   const submitQuickExpense=async(event:FormEvent)=>{
     event.preventDefault();
-    if(!quickExpense.categoryId||!quickExpense.paymentMethod||!quickExpense.description.trim()||quickExpense.amount<=0){
-      showToast('Informe categoria, descrição, valor e forma de pagamento.','error');return;
+    if(!quickExpense.description.trim()||quickExpense.amount<=0){
+      showToast('Informe descrição e valor maior que zero.','error');return;
     }
     setQuickExpenseSaving(true);
     try{
@@ -172,6 +223,7 @@ export default function Finance(){
 
   const upload=async(file?:File)=>{
     if(!file)return;
+    setEntryFormOpen(true);
     try{
       setExtracting(true);
       setExtractionInfo(null);
@@ -265,6 +317,8 @@ export default function Finance(){
   };
 
   const editEntry=(entry:FinancialEntry)=>{
+    if(entry.source==='purchase')return;
+    setEntryFormOpen(true);
     setEditingEntryId(entry.id);
     setForm({storeId:entry.storeId,direction:entry.direction,categoryId:entry.categoryId||'',description:entry.description,amount:entry.amount,occurredOn:entry.occurredOn,dueOn:entry.dueOn||'',status:entry.status,paymentMethod:entry.paymentMethod||'',counterparty:entry.counterparty||'',documentType:entry.documentType,documentNumber:entry.documentNumber||'',notes:entry.notes||''});
     setExtractionInfo(null);setReadResult(null);setDocumentItems([]);setExcludedItemIndexes([]);
@@ -298,6 +352,7 @@ export default function Finance(){
       showToast('Lançamento financeiro salvo.','success');
       setForm(emptyForm(settings.id));
       setEditingEntryId(null);
+      setEntryFormOpen(false);
       setExtractionInfo(null);
       setReadResult(null);
       setDocumentItems([]);
@@ -313,12 +368,7 @@ export default function Finance(){
 
   return <>
     <div className="admin-page-title finance-heading finance-heading-v4">
-      <div><span className="eyebrow">GESTÃO DO NEGÓCIO</span><h1>Financeiro</h1><p>Veja rapidamente quanto entrou, quanto saiu e o que está consumindo sua margem.</p></div>
-       <div className="finance-title-actions">
-         <button className="secondary-button" onClick={exportFinancialEntries}><Download size={17}/>Exportar CSV</button>
-        <button className="secondary-button" onClick={()=>startEntry('expense')}><ArrowDownRight size={17}/>Registrar saída</button>
-        <button className="primary-button" onClick={()=>startEntry('income')}><Plus size={17}/>Registrar entrada</button>
-      </div>
+      <div><span className="eyebrow">GESTÃO DO NEGÓCIO</span><h1>Financeiro</h1><p>Registre uma compra uma vez: a despesa e a entrada de insumos ficam vinculadas.</p></div>
     </div>
 
     <section className="finance-summary-band finance-summary-band-v4">
@@ -329,6 +379,24 @@ export default function Finance(){
     </section>
     {hasMoreEntries&&<div className="finance-data-notice" role="status"><Info size={15}/> Indicadores calculados sobre os lançamentos carregados. Carregue mais registros no histórico para ampliar a análise.</div>}
 
+    <section className="finance-daily-actions" aria-label="Ações do dia">
+      <button type="button" className="primary-button" onClick={()=>void openPurchase()}><ShoppingCart size={17}/>Compra de insumos</button>
+      <button type="button" className="secondary-button" onClick={openQuickExpense}><WalletCards size={17}/>Despesa rápida</button>
+      <button type="button" className="secondary-button" onClick={()=>startEntry('income')}><ArrowUpRight size={17}/>Entrada</button>
+    </section>
+    {purchaseOpen&&<section className="admin-card finance-purchase-panel" aria-labelledby="finance-purchase-title">
+      <div className="finance-quick-expense__heading"><div><span className="eyebrow">UMA AÇÃO, DOIS REGISTROS</span><h2 id="finance-purchase-title">Compra recebida</h2><p>Confirme o item e o custo real. O saldo de insumos e a despesa são salvos juntos.</p></div><button type="button" className="icon-button" aria-label="Fechar compra" onClick={()=>setPurchaseOpen(false)}><X size={18}/></button></div>
+      {purchaseLoading?<p role="status">Carregando insumos…</p>:purchaseItems.length===0?<p>Nenhum insumo ativo. <a href="/admin/estoque">Cadastre o primeiro em Estoque.</a></p>:<form className="finance-purchase-form" onSubmit={submitPurchase}>
+        <label>Insumo<select value={purchaseDraft.itemId} onChange={event=>setPurchaseDraft(current=>({...current,itemId:event.target.value}))} required><option value="">Selecione</option>{purchaseItems.map(item=><option key={item.id} value={item.id}>{item.name} · {inventoryUnitLabels[item.unit]}</option>)}</select></label>
+        <label>Quantidade recebida<input type="number" min="0.001" step="0.001" inputMode="decimal" value={purchaseDraft.quantity} onChange={event=>setPurchaseDraft(current=>({...current,quantity:event.target.value}))} required/></label>
+        <label>Custo total (R$)<input type="number" min="0.01" step="0.01" inputMode="decimal" value={purchaseDraft.total} onChange={event=>setPurchaseDraft(current=>({...current,total:event.target.value}))} required/></label>
+        <label>Pagamento<select value={purchaseDraft.status} onChange={event=>setPurchaseDraft(current=>({...current,status:event.target.value as 'paid'|'pending'}))}><option value="paid">Já paguei</option><option value="pending">Vou pagar depois</option></select></label>
+        <details className="finance-purchase-more"><summary>Fornecedor e forma de pagamento <small>opcional</small></summary><div><label>Fornecedor<input value={purchaseDraft.supplier} onChange={event=>setPurchaseDraft(current=>({...current,supplier:event.target.value}))}/></label>{purchaseDraft.status==='paid'&&<label>Forma de pagamento<select value={purchaseDraft.paymentMethod} onChange={event=>setPurchaseDraft(current=>({...current,paymentMethod:event.target.value}))}><option value="">Não informado</option><option value="pix">PIX</option><option value="cash">Dinheiro</option><option value="credit_card">Crédito</option><option value="debit_card">Débito</option><option value="transfer">Transferência</option><option value="other">Outro</option></select></label>}</div></details>
+        <p className="finance-purchase-note">O saldo entra agora. Se o pagamento estiver pendente, a saída aparecerá em Próximos compromissos.</p>
+        <button type="submit" className="primary-button" disabled={purchaseSaving}>{purchaseSaving?'Salvando…':'Registrar compra e atualizar estoque'}</button>
+      </form>}
+    </section>}
+    <details className="finance-insights-disclosure"><summary><TrendingUp size={18}/>Análises e gráficos <small>abrir quando precisar</small></summary>
     <section className="finance-insights-grid">
       <article className="admin-card finance-evolution-card">
         <div className="section-heading"><div><span className="eyebrow">ÚLTIMOS 6 MESES</span><h2>Entradas × saídas</h2><p>Uma leitura simples da evolução do caixa gerencial.</p></div><TrendingUp size={21}/></div>
@@ -356,29 +424,28 @@ export default function Finance(){
         {selectedExpense&&<div className="finance-expense-selection" aria-live="polite"><span>Categoria selecionada</span><strong>{selectedExpense[0]}</strong><b>{currency.format(selectedExpense[1])} realizados</b></div>}
       </article>
     </section>
+    </details>
 
-    <section className="finance-quick-actions">
-      <button type="button" className="finance-quick-expense-trigger" onClick={openQuickExpense}><span className="expense"><WalletCards/></span><strong>Despesa rápida</strong><small>Categoria, valor e pagamento em poucos campos</small></button>
-      <button onClick={()=>startEntry('income')}><span className="income"><ArrowUpRight/></span><strong>Nova entrada</strong><small>Venda, recebimento ou outra receita</small></button>
-      <button onClick={()=>startEntry('expense')}><span className="expense"><ArrowDownRight/></span><strong>Nova saída</strong><small>Compra, conta ou despesa operacional</small></button>
+    <details className="finance-extra-actions"><summary>Documentos e opções detalhadas</summary><section className="finance-quick-actions">
+      <button type="button" onClick={()=>startEntry('expense')}><span className="expense"><ArrowDownRight/></span><strong>Saída detalhada</strong><small>Contas, vencimentos e documentos</small></button>
       <button type="button" onClick={()=>fileRef.current?.click()}><span className="document"><Upload/></span><strong>Abrir galeria</strong><small>Selecione foto ou PDF do cupom</small></button>
       <button type="button" onClick={()=>cameraRef.current?.click()}><span className="document"><Camera/></span><strong>Fotografar documento</strong><small>A câmera traseira abre para enquadrar o cupom</small></button>
+      <button type="button" onClick={exportFinancialEntries}><span className="document"><Download/></span><strong>Exportar CSV</strong><small>Baixar o histórico filtrado</small></button>
       <input aria-label="Fotografar documento financeiro" ref={cameraRef} className="sr-only" type="file" accept="image/*" capture="environment" onChange={(event)=>void upload(event.target.files?.[0])}/>
-    </section>
+    </section></details>
 
     {quickExpenseOpen&&<section className="finance-quick-expense" id="finance-quick-expense" aria-labelledby="finance-quick-expense-title">
       <div className="finance-quick-expense__heading"><div><span className="eyebrow">LANÇAMENTO OPERACIONAL</span><h2 id="finance-quick-expense-title">Registrar despesa rápida</h2><p>Registre um gasto do dia sem abrir todos os campos do financeiro.</p></div><button type="button" className="icon-button" aria-label="Fechar despesa rápida" onClick={()=>setQuickExpenseOpen(false)}><X size={18}/></button></div>
       <form className="finance-quick-expense__form" onSubmit={submitQuickExpense}>
         <label>Descrição<input value={quickExpense.description} onChange={(event)=>setQuickExpense((current)=>({...current,description:event.target.value}))} placeholder="Ex.: Leite em pó" required/></label>
-        <label>Categoria<select value={quickExpense.categoryId} onChange={(event)=>setQuickExpense((current)=>({...current,categoryId:event.target.value}))} required><option value="">Selecione</option>{categories.filter((category)=>category.direction==='expense'||category.direction==='both').map((category)=><option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
         <label>Valor (R$)<input type="number" min="0.01" step="0.01" value={quickExpense.amount||''} onChange={(event)=>setQuickExpense((current)=>({...current,amount:Number(event.target.value)}))} placeholder="0,00" required/></label>
-        <label>Data<input type="date" value={quickExpense.occurredOn} onChange={(event)=>setQuickExpense((current)=>({...current,occurredOn:event.target.value}))} required/></label>
-        <label>Forma de pagamento<select value={quickExpense.paymentMethod} onChange={(event)=>setQuickExpense((current)=>({...current,paymentMethod:event.target.value}))} required><option value="">Selecione</option><option value="pix">PIX</option><option value="credit_card">Cartão de crédito</option><option value="debit_card">Cartão de débito</option><option value="cash">Dinheiro</option><option value="transfer">Transferência</option><option value="other">Outro</option></select></label>
+        <details className="finance-quick-more"><summary>Categoria, data e pagamento <small>opcionais</small></summary><div><label>Categoria<select value={quickExpense.categoryId} onChange={(event)=>setQuickExpense((current)=>({...current,categoryId:event.target.value}))}><option value="">Sem categoria</option>{categories.filter((category)=>category.direction==='expense'||category.direction==='both').map((category)=><option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label>Data<input type="date" value={quickExpense.occurredOn} onChange={(event)=>setQuickExpense((current)=>({...current,occurredOn:event.target.value}))}/></label><label>Forma de pagamento<select value={quickExpense.paymentMethod} onChange={(event)=>setQuickExpense((current)=>({...current,paymentMethod:event.target.value}))}><option value="">Não informado</option><option value="pix">PIX</option><option value="credit_card">Cartão de crédito</option><option value="debit_card">Cartão de débito</option><option value="cash">Dinheiro</option><option value="transfer">Transferência</option><option value="other">Outro</option></select></label></div></details>
         <div className="finance-quick-expense__actions"><button type="button" className="secondary-button" onClick={()=>setQuickExpenseOpen(false)}>Cancelar</button><button type="submit" className="primary-button" disabled={quickExpenseSaving}><Save size={15}/>{quickExpenseSaving?'Salvando...':'Salvar despesa'}</button></div>
       </form>
     </section>}
 
     <section className="finance-workspace finance-workspace-v4" id="finance-entry-form">
+      <details className="finance-entry-disclosure" open={entryFormOpen} onToggle={event=>setEntryFormOpen(event.currentTarget.open)}><summary>Lançamento detalhado <small>para contas, ajustes e documentos</small></summary>
       <form className="finance-entry-form finance-entry-form-v4" onSubmit={submit}>
         <div className="section-heading"><div><span className="eyebrow">CADASTRO RÁPIDO</span><h2>{editingEntryId?'Editar lançamento':'Novo lançamento'}</h2><p>Primeiro escolha se é entrada ou saída. O documento pode preencher os demais campos.</p></div>{editingEntryId&&<button type="button" className="secondary-button" onClick={()=>{setEditingEntryId(null);setForm(emptyForm(settings.id));}}>Cancelar edição</button>}</div>
 
@@ -422,6 +489,7 @@ export default function Finance(){
         <label>Observação<textarea rows={3} value={form.notes} onChange={(event)=>setForm((current)=>({...current,notes:event.target.value}))}/></label>
         <button className="primary-button" disabled={saving} type="submit"><Save size={17}/>{saving?'Salvando...':`${editingEntryId?'Atualizar':'Salvar'} ${form.direction==='income'?'entrada':'saída'}`}</button>
       </form>
+      </details>
 
       <div className="finance-ledger finance-ledger-v4">
         <div className="section-heading finance-ledger-heading"><div><span className="eyebrow">MOVIMENTAÇÕES</span><h2>Histórico recente</h2><p>Pedidos com recebimento confirmado entram automaticamente como receita; lançamentos manuais aparecem junto.</p></div><FileSearch2 size={21}/></div>
@@ -434,8 +502,8 @@ export default function Finance(){
         :filteredEntries.length===0?<div className="empty-ledger finance-ledger-empty-filter"><ReceiptText/><strong>Nenhum lançamento encontrado</strong><span>Altere a busca ou o filtro de situação.</span></div>
         :<><div className="finance-ledger-list">{filteredEntries.map((entry)=><article key={entry.id}>
           <span className={`finance-entry-icon ${entry.direction}`}>{entry.direction==='income'?<ArrowUpRight/>:<ArrowDownRight/>}</span>
-          <div><strong>{entry.description}</strong><small>{new Date(`${entry.occurredOn}T12:00:00`).toLocaleDateString('pt-BR')} · {categories.find((category)=>category.id===entry.categoryId)?.name||'Sem categoria'}</small><span className={`finance-origin-badge-r69 ${entry.source==='order'?'is-order':'is-manual'}`}>{entry.source==='order'?'Pedido automático':entry.source==='adjustment'?'Ajuste':'Lançamento manual'}</span>{entry.source==='order'&&entry.orderId?<a className="finance-order-link-r69" href={`/admin/pedidos?highlight=${encodeURIComponent(entry.orderId)}`}>Ver pedido relacionado</a>:null}</div>
-          <div className="finance-entry-value"><strong>{entry.direction==='income'?'+':'−'} {currency.format(entry.amount)}</strong><span className={`status-dot ${entry.status}`}>{entry.status==='paid'?'Realizado':entry.status==='pending'?'Pendente':'Cancelado'}</span><button type="button" className="finance-entry-action" onClick={()=>editEntry(entry)}><Pencil size={13}/>Editar</button><details className="finance-entry-details"><summary><ChevronDown size={13}/>Detalhes</summary><div><span>Documento: {documentTypes.find((item)=>item.value===entry.documentType)?.label||'Sem documento'}</span>{entry.documentNumber&&<span>Número: {entry.documentNumber}</span>}{entry.counterparty&&<span>Fornecedor/origem: {entry.counterparty}</span>}{entry.paymentMethod&&<span>Pagamento: {entry.paymentMethod}</span>}{entry.dueOn&&<span>Vencimento: {new Date(`${entry.dueOn}T12:00:00`).toLocaleDateString('pt-BR')}</span>}{entry.notes&&<span>Observação: {entry.notes}</span>}<button type="button" className="secondary-button" onClick={()=>editEntry(entry)}><Pencil size={13}/>Editar lançamento</button></div></details></div>
+          <div><strong>{entry.description}</strong><small>{new Date(`${entry.occurredOn}T12:00:00`).toLocaleDateString('pt-BR')} · {categories.find((category)=>category.id===entry.categoryId)?.name||'Sem categoria'}</small><span className={`finance-origin-badge-r69 ${entry.source==='order'?'is-order':'is-manual'}`}>{entry.source==='order'?'Pedido automático':entry.source==='purchase'?'Compra · estoque atualizado':entry.source==='adjustment'?'Ajuste':'Lançamento manual'}</span>{entry.source==='order'&&entry.orderId?<a className="finance-order-link-r69" href={`/admin/pedidos?highlight=${encodeURIComponent(entry.orderId)}`}>Ver pedido relacionado</a>:null}</div>
+          <div className="finance-entry-value"><strong>{entry.direction==='income'?'+':'−'} {currency.format(entry.amount)}</strong><span className={`status-dot ${entry.status}`}>{entry.status==='paid'?'Realizado':entry.status==='pending'?'Pendente':'Cancelado'}</span>{entry.source==='purchase' ? entry.status==='pending' ? <button type="button" className="finance-entry-action" onClick={()=>void payPurchase(entry)}>Marcar como pago</button> : null : <button type="button" className="finance-entry-action" onClick={()=>editEntry(entry)}><Pencil size={13}/>Editar</button>}<details className="finance-entry-details"><summary><ChevronDown size={13}/>Detalhes</summary><div><span>Documento: {documentTypes.find((item)=>item.value===entry.documentType)?.label||'Sem documento'}</span>{entry.documentNumber&&<span>Número: {entry.documentNumber}</span>}{entry.counterparty&&<span>Fornecedor/origem: {entry.counterparty}</span>}{entry.paymentMethod&&<span>Pagamento: {entry.paymentMethod}</span>}{entry.dueOn&&<span>Vencimento: {new Date(`${entry.dueOn}T12:00:00`).toLocaleDateString('pt-BR')}</span>}{entry.notes&&<span>Observação: {entry.notes}</span>}{entry.source==='purchase' ? <span>Valor vinculado à compra e ao movimento de estoque.</span> : <button type="button" className="secondary-button" onClick={()=>editEntry(entry)}><Pencil size={13}/>Editar lançamento</button>}</div></details></div>
         </article>)}</div><div className="finance-ledger-footer"><span>Exibindo {filteredEntries.length} de {entries.length} lançamento{entries.length===1?'':'s'} carregado{entries.length===1?'':'s'}.</span>{hasMoreEntries&&<button type="button" className="secondary-button" onClick={()=>void loadMoreEntries()} disabled={loadingMoreEntries}>{loadingMoreEntries?<Loader2 className="spin" size={15}/>:<Plus size={15}/>} {loadingMoreEntries?'Carregando...':'Carregar mais'}</button>}</div></>}
       </div>
     </section>
