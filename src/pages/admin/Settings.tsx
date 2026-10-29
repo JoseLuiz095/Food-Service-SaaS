@@ -2,7 +2,7 @@ import './orders-settings-navigation.css';
 import StoreNameField from '../../components/admin/StoreNameField';
 import { assertStoreNameAvailable } from '../../services/storeIdentityApi';
 import { cleanStoreName, storeNameValidation } from '../../utils/storeName';
-import { receiptContactsEnabled } from '../../services/receiptContactsApi';
+import StoreAppearanceEditor from '../../components/admin/StoreAppearanceEditor';
 import ReceiptContactsSettings from '../../components/admin/ReceiptContactsSettings';
 import { ArrowDown, ArrowUp, Banknote, ChevronDown, Clock3, CreditCard, ImagePlus, Info, QrCode, RotateCcw, Store, Truck, Bell, MessageCircle, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
@@ -10,14 +10,14 @@ import { ImageWithFallback } from '../../components/ui/ImageWithFallback';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { useStore } from '../../contexts/StoreContext';
 import { useToast } from '../../contexts/ToastContext';
-import type { PaymentMethod, StoreSettings, StoreVisualTheme } from '../../types';
+import type { PaymentMethod, StoreSettings } from '../../types';
 import { buildPixCopyPasteWithAmount, validatePixCopyPasteBase } from '../../utils/pix';
 import { formatOpeningSchedule, openingDayName } from '../../utils/storeHours';
 import { PasswordChangeCard } from '../../components/admin/PasswordChangeCard';
 import { FloatingSaveBar } from '../../components/admin/FloatingSaveBar';
 import { planHasFeature } from '../../utils/plan';
 import { DEFAULT_CUSTOMER_MESSAGE_TEMPLATES, ensureCustomerMessageVariables, insertCustomerMessageVariable, normalizeCustomerMessageTemplates } from '../../utils/customerSales';
-import { DEFAULT_STORE_VISUAL_THEME, getStorefrontThemeStyle, isStoreVisualColor, STORE_VISUAL_THEME_PRESETS } from '../../utils/storeVisualTheme';
+import { DEFAULT_STORE_VISUAL_THEME, isStoreVisualColor } from '../../utils/storeVisualTheme';
 import { pwaPushStatus, requestPwaNotificationPermission, showPwaNotification, subscribeToPwaPush } from '../../services/pwaNotifications';
 import { useAuth } from '../../contexts/AuthContext';
 import { useStockMode } from '../../hooks/useStockMode';
@@ -66,7 +66,12 @@ export default function SettingsAdmin() {
   };
   const sectionToggle = (id: string, label: string) => <button type="button" className="settings-section-toggle" onClick={() => toggleSection(id)} aria-expanded={!collapsedSections[id]}><span>{label}</span><ChevronDown size={17} /></button>;
 
-  useEffect(() => setForm(cloneSettingsForForm(settings)), [settings]);
+  const draftScope = useRef({storeId:form.id,dirty:hasUnsavedChanges});
+  draftScope.current={storeId:form.id,dirty:hasUnsavedChanges};
+  useEffect(() => {
+    if(draftScope.current.storeId===settings.id && draftScope.current.dirty)return;
+    setForm(cloneSettingsForForm(settings));
+  }, [settings]);
   const logoPreview = useMemo(() => logoFile ? URL.createObjectURL(logoFile) : form.logoUrl, [logoFile, form.logoUrl]);
   const coverPreview = useMemo(() => coverFile ? URL.createObjectURL(coverFile) : form.heroUrl, [coverFile, form.heroUrl]);
   useEffect(() => () => { if (logoFile) URL.revokeObjectURL(logoPreview); }, [logoFile, logoPreview]);
@@ -93,11 +98,6 @@ export default function SettingsAdmin() {
     // Sem entrega, a operação precisa continuar com uma forma de recebimento.
     pickupEnabled: mode === 'none' ? true : current.pickupEnabled,
   }));
-  const updateVisualTheme = <K extends keyof StoreVisualTheme>(key: K, value: StoreVisualTheme[K]) => setForm((current) => ({
-    ...current,
-    visualTheme: { ...current.visualTheme, [key]: value, preset: key === 'preset' ? value as StoreVisualTheme['preset'] : 'custom' },
-  }));
-  const applyVisualPreset = (preset: keyof typeof STORE_VISUAL_THEME_PRESETS) => setForm((current) => ({ ...current, visualTheme: resolveBusinessTheme({ ...STORE_VISUAL_THEME_PRESETS[preset], businessSegment:current.visualTheme.businessSegment }) }));
   const updateMessageTemplate = (key: keyof NonNullable<StoreSettings['messageTemplates']>, value: string) => setForm((current) => ({ ...current, messageTemplates: { ...normalizeCustomerMessageTemplates(current.messageTemplates), [key]: ensureCustomerMessageVariables(key, value) } }));
   const insertMessageVariable = (variable: string) => {
     const current = messageTemplates[messageCursor.key];
@@ -265,7 +265,7 @@ export default function SettingsAdmin() {
         {settingsGroups.map(group => <div className="settings-index__group" key={group.label}><strong>{group.label}</strong><div>{group.items.filter(item => item.id !== 'stock' || ['food','confectionery','retail','florist','rentals','printing3d'].includes(businessProfile.id)).map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => goToSection(id)}><Icon size={16}/>{label}</button>)}</div></div>)}
       </nav>
       {['food','confectionery','retail','florist','rentals','printing3d'].includes(businessProfile.id)&&<section id="settings-stock" className="admin-card settings-stock-mode" aria-label="Preferência de estoque"><h2>Estoque</h2><p>{multiLocation === true ? 'Seu estoque está separado por local. Consulte cada ponto em Gerenciar locais; o saldo geral é a soma dos locais.' : 'Um único saldo é suficiente para começar. Seu estoque físico e reservado continuam disponíveis na tela Estoque.'}</p>{stockModeLoading?<p role="status">Consultando configuração...</p>:stockModeError?<p role="alert">Configuração de múltiplos locais indisponível neste ambiente. {stockModeError}</p>:<><label className="switch-row"><span><strong>Ativar múltiplos locais</strong><small>Para depósitos, pontos de retirada e transferências; dados existentes são preservados.</small></span><input type="checkbox" checked={multiLocation===true} disabled={changingStockMode} onChange={event=>void (async()=>{const target=event.target.checked;if(!target&&!window.confirm('Usar estoque simples? Saldos em locais secundários precisam ter sido transferidos para o principal.'))return;setChangingStockMode(true);try{await stockModeApi.set(settings.id,target);await reloadStockMode();showToast(target?'Múltiplos locais ativados.':'Estoque simples ativado.','success');}catch(cause){showToast(cause instanceof Error?cause.message:'Não foi possível alterar o modo.','error');}finally{setChangingStockMode(false);}})()}/></label>{multiLocation===true&&<a className="secondary-button" href="/admin/estoque-locais">Gerenciar locais</a>}</>}</section>}
-      {receiptContactsEnabled&&<ReceiptContactsSettings key={settings.id} storeId={settings.id} demo={dataMode === 'demo'}/>}
+      <ReceiptContactsSettings key={settings.id} storeId={settings.id} demo={dataMode === 'demo'}/>
       <form id="settings-form" className="admin-form-layout" onSubmit={submit}>
         <section id="settings-identity" className={`admin-card form-section settings-collapsible ${collapsedSections.identity ? 'is-collapsed' : ''}`}>
           {sectionToggle('identity', 'Dados do estabelecimento')}
@@ -303,44 +303,7 @@ export default function SettingsAdmin() {
             <div><span className="eyebrow">CAPA</span><ImageWithFallback src={coverPreview} alt="Prévia da capa" />{canCustomBanner?<><label className="secondary-button"><ImagePlus size={16} />Selecionar capa<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => { selectStoreImage(e.target.files?.[0], 'cover'); e.target.value = ''; }} /></label><small>JPG, PNG ou WEBP, até 5 MB. A prévia só será publicada ao salvar.</small>{coverFile && <button type="button" className="secondary-button compact-button" onClick={() => setCoverFile(null)}>Descartar nova capa</button>}</>:<div className="plan-locked-inline"><strong>Banner disponível no Starter</strong><span>Seu banner atual é preservado, mas novas alterações ficam bloqueadas no Essencial.</span></div>}</div>
           </div>
 
-          <section className="subform-section">
-            <span className="eyebrow">APARÊNCIA DA VITRINE</span>
-            <h3>Uma identidade que parece sua</h3>
-            <p className="muted">O ramo orienta a vitrine e o painel. Escolha a base do ramo ou refine as cores da sua loja.</p>
-            <div style={{ display: 'grid', gap: 8, marginTop: 14 }} role="radiogroup" aria-label="Tema visual da vitrine">
-              <label className="switch-row"><span><strong>Identidade do ramo</strong><small>Base visual para {businessProfile.label.toLowerCase()}, com a marca da sua loja.</small></span><input type="radio" name="visual-theme-preset" checked={form.visualTheme.preset === 'foodweb'} onChange={() => applyVisualPreset('foodweb')} /></label>
-              {canUseDoceLua && <label className="switch-row"><span><strong>Doce Lua</strong><small>Creme, chocolate, pêssego e dourado para uma vitrine delicada.</small></span><input type="radio" name="visual-theme-preset" checked={form.visualTheme.preset === 'doce_lua'} onChange={() => applyVisualPreset('doce_lua')} /></label>}
-            </div>
-            <div style={{ marginTop: 16, padding: 18, border: `1px solid ${form.visualTheme.borderColor}`, borderRadius: form.visualTheme.radius, background: form.visualTheme.backgroundColor, color: form.visualTheme.textColor }}>
-               <div className="settings-storefront-preview" style={{ ...getStorefrontThemeStyle(form.visualTheme), borderRadius: form.visualTheme.radius, background: form.visualTheme.backgroundColor, color: form.visualTheme.textColor }}>
-                 <div className="settings-storefront-preview__bar"><strong>{form.name || 'Sua loja'}</strong><span>Pedido direto</span></div>
-                 <div className="settings-storefront-preview__hero" style={{ background: form.visualTheme.surfaceColor, borderColor: form.visualTheme.borderColor }}>
-                   <span style={{ color: form.visualTheme.preset === 'doce_lua' ? '#82351e' : form.visualTheme.accentColor }}>{canUseDoceLua ? 'ENCOMENDAS ONLINE' : businessProfile.heroEyebrow}</span>
-                   <strong>{form.tagline || (canUseDoceLua ? 'Sabores que dão vontade de voltar' : businessProfile.heroTitle)}</strong>
-                   <small>{form.storefrontNotice || 'Encomendas confirmadas conforme o horário da loja.'}</small>
-                 </div>
-                 <div className="settings-storefront-preview__body">
-                   <div className="settings-storefront-preview__section-title"><span>DESTAQUES</span><small>Prévia ilustrativa · produtos e preços fictícios</small></div>
-                   <div className="settings-storefront-preview__products">
-                     {(canUseDoceLua ? ['Doce especial', 'Caixa para compartilhar', 'Favorito da casa'] : businessProfile.examples).map((product, index) => <div className="settings-storefront-preview__product" key={product} style={{ background: form.visualTheme.surfaceColor, borderColor: form.visualTheme.borderColor }}><span style={{ background: index === 1 ? form.visualTheme.highlightColor : form.visualTheme.accentColor }} /> <strong>{product}</strong><small>R$ {(18 + index * 7).toFixed(2).replace('.', ',')}</small></div>)}
-                   </div>
-                   <div className="settings-storefront-preview__pickup" style={{ borderColor: form.visualTheme.borderColor, color: form.visualTheme.mutedColor }}>{form.pickupInstructions || 'Retirada combinada após a confirmação do pedido.'}</div>
-                 </div>
-               </div>
-               <small className="muted">A prévia acompanha as alterações sem sair desta tela. Salve as configurações para publicar na vitrine.</small>
-            </div>
-            <div className="form-grid" style={{ marginTop: 16 }}>
-              <label>Cor principal<input type="color" value={form.visualTheme.primaryColor} onChange={(e) => updateVisualTheme('primaryColor', e.target.value)} /></label>
-              <label>Cor de apoio<input type="color" value={form.visualTheme.accentColor} onChange={(e) => updateVisualTheme('accentColor', e.target.value)} /></label>
-              <label>Destaques dourados<input type="color" value={form.visualTheme.highlightColor} onChange={(e) => updateVisualTheme('highlightColor', e.target.value)} /></label>
-              <label>Fundo da página<input type="color" value={form.visualTheme.backgroundColor} onChange={(e) => updateVisualTheme('backgroundColor', e.target.value)} /></label>
-              <label>Fundo dos cards<input type="color" value={form.visualTheme.surfaceColor} onChange={(e) => updateVisualTheme('surfaceColor', e.target.value)} /></label>
-              <label>Texto principal<input type="color" value={form.visualTheme.textColor} onChange={(e) => updateVisualTheme('textColor', e.target.value)} /></label>
-              <label>Texto secundário<input type="color" value={form.visualTheme.mutedColor} onChange={(e) => updateVisualTheme('mutedColor', e.target.value)} /></label>
-              <label>Bordas e divisórias<input type="color" value={form.visualTheme.borderColor} onChange={(e) => updateVisualTheme('borderColor', e.target.value)} /></label>
-              <label>Arredondamento dos cards (px)<input type="number" min="8" max="32" value={form.visualTheme.radius} onChange={(e) => updateVisualTheme('radius', Number(e.target.value))} /></label>
-            </div>
-          </section>
+          <StoreAppearanceEditor key={settings.id} theme={form.visualTheme} saved={pristineSettings.visualTheme} name={form.name} tagline={form.tagline} examples={canUseDoceLua ? ['Doce especial','Caixa para compartilhar','Favorito da casa'] : businessProfile.examples} disabled={saving} onChange={theme=>update('visualTheme',theme)}/>
 
           <section className="subform-section">
             <span className="eyebrow">COMUNICAÇÃO DA VITRINE</span>

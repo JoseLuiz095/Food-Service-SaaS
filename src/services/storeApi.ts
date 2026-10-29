@@ -89,6 +89,7 @@ type PlanFeatureRow = { plan_id:string; feature_code:string; enabled:boolean; li
 type SubscriptionRow = { id: string; store_id: string; plan_id: string; status: 'trial' | 'active' | 'suspended' | 'cancelled'; started_at: string; expires_at: string | null };
 type StoreDomainRow = { store_id: string; domain: string; active: boolean; is_primary: boolean };
 type OrderRow = {
+  payment_reported_by_customer?: boolean;
   pickup_location_id?: string | null; stock_location_id?: string | null;
   id: string; order_number?: number | string | null; store_id: string; customer_name: string; customer_phone: string | null; customer_email?: string | null;
   delivery_type: 'delivery'|'pickup'; desired_date?: string | null; desired_period?: string | null; recipient_name?: string | null; recipient_phone?: string | null;
@@ -239,6 +240,7 @@ const mapAddon = (row: AddonRow): Addon => ({ id: row.id, storeId: row.store_id,
 const mapDeliveryZone = (row: DeliveryZoneRow): DeliveryZone => ({ id: row.id, storeId: row.store_id, name: row.name, aliases: row.aliases || [], city: row.city, state: row.state, fee: toNumber(row.fee), active: row.active, sortOrder: row.sort_order });
 const mapPlan = (row: PlanRow, features: PlanFeatureRow[] = []): Plan => ({ id: row.id, code: row.code, name: row.name, productLimit: row.product_limit, imageLimitPerProduct: row.image_limit_per_product, customDomain: row.custom_domain, reports: row.reports, prioritySupport: row.priority_support, monthlyPrice:toNumber(row.monthly_price), setupPrice:toNumber(row.setup_price), categoryLimit:row.category_limit, addonLimit:row.addon_limit, adminUserLimit:row.admin_user_limit, sortOrder:row.sort_order ?? 0, active: row.active, featureCodes:features.filter((feature)=>feature.plan_id===row.id&&feature.enabled).map((feature)=>feature.feature_code), featureLimits:Object.fromEntries(features.filter((feature)=>feature.plan_id===row.id&&feature.enabled).map((feature)=>[feature.feature_code,feature.limit_value])) });
 const mapOrder = (row: OrderRow): Order => ({
+  paymentReportedByCustomer: row.payment_reported_by_customer === true,
   pickupLocationId: row.pickup_location_id || undefined, stockLocationId: row.stock_location_id || undefined,
   id: row.id, orderNumber: toNumber(row.order_number), storeId: row.store_id, customerName: row.customer_name, customerPhone: row.customer_phone || undefined, customerEmail: row.customer_email || undefined,
   deliveryType: row.delivery_type, desiredDate: row.desired_date || undefined, desiredPeriod: row.desired_period || undefined, recipientName: row.recipient_name || undefined, recipientPhone: row.recipient_phone || undefined,
@@ -779,8 +781,8 @@ export const storeApi = {
       const id=createId();const orderNumber=Math.max(28623,...db.orders.map((order)=>order.orderNumber||0))+1;const deliveryFee=selectedZone?.fee??0;const total=roundMoney(subtotal+deliveryFee);const extraPrep=items.reduce((max,item)=>Math.max(max,db.products.find((product)=>product.id===item.productId)?.preparationTimeMinutes||0),0);const prep=Math.max(store.averagePreparationMin,store.averagePreparationMax)+extraPrep;
       db.orders.unshift({id,orderNumber,storeId:store.id,customerName:form.customerName,customerPhone:form.customerPhone||undefined,customerEmail:form.customerEmail||undefined,deliveryType:form.fulfillment,deliveryAddress:deliveryAddress||undefined,deliveryZipCode:form.zipCode||undefined,deliveryStreet:form.street||undefined,deliveryNumber:form.addressNumber||undefined,deliveryComplement:form.complement||undefined,deliveryNeighborhood:selectedZone?.name||form.neighborhood||undefined,deliveryZoneId:selectedZone?.id,deliveryZoneName:selectedZone?.name,deliveryFee,deliveryCity:form.deliveryCity||undefined,deliveryState:form.deliveryState||undefined,referencePoint:form.referencePoint||undefined,notes:form.notes||undefined,paymentMethod:form.paymentMethod,subtotal:roundMoney(subtotal),total,status:'received',paymentStatus:'pending',needsChange:form.paymentMethod==='cash'&&form.needsChange,changeFor:form.changeFor||undefined,changeAmount:form.changeFor?roundMoney(form.changeFor-total):undefined,scheduledFor:form.scheduledFor||undefined,preparationEstimateMinutes:prep,source:'site',customerInstagram:form.customerInstagram?.trim()||undefined,acquisitionSource:form.acquisitionSource,createdAt:new Date().toISOString()});writeDemo(db);return{orderId:id,orderNumber,total};
     }
-    const created=await invokePublicFunction<{orderId:string;orderNumber:number|string;total:number|string;receiptPickupLocationId?:string|null}>('food-public-checkout',{payload,turnstileToken:security.turnstileToken||'',analyticsSessionId:security.analyticsSessionId||'',requestId:security.requestId||''});
-    if(!created?.orderId)throw new Error('O pedido foi registrado, mas o identificador não foi retornado.');return{orderId:created.orderId,orderNumber:toNumber(created.orderNumber),total:toNumber(created.total),receiptPickupLocationId:created.receiptPickupLocationId};
+    const created=await invokePublicFunction<{orderId:string;orderNumber:number|string;total:number|string;receiptPickupLocationId?:string|null;receiptToken?:string}>('food-public-checkout',{payload,turnstileToken:security.turnstileToken||'',analyticsSessionId:security.analyticsSessionId||'',requestId:security.requestId||''});
+    if(!created?.orderId)throw new Error('O pedido foi registrado, mas o identificador não foi retornado.');return{orderId:created.orderId,orderNumber:toNumber(created.orderNumber),total:toNumber(created.total),receiptPickupLocationId:created.receiptPickupLocationId,receiptToken:created.receiptToken};
   },
 
   async createManualOrder(store: StoreSettings, products: Product[], input: ManualOrderInput): Promise<CreateOrderResult> {
@@ -907,7 +909,7 @@ export const storeApi = {
     return { orderId: created.order_id, orderNumber: toNumber(created.order_number), total: toNumber(created.order_total) };
   },
 
-  async confirmOrderPayment(orderId:string):Promise<{alreadyPaid:boolean;paymentReceivedAt?:string}>{
+  async confirmOrderPayment(orderId:string,customerReported=false):Promise<{alreadyPaid:boolean;paymentReceivedAt?:string}>{
     if(isDemoMode){
       const db=readDemo();
       const index=db.orders.findIndex((order)=>order.id===orderId);
@@ -919,10 +921,11 @@ export const storeApi = {
       writeDemo(db);
       return {alreadyPaid,paymentReceivedAt:receivedAt};
     }
-    const result=await restFetch<{ok:boolean;alreadyPaid?:boolean;paymentReceivedAt?:string}>('rpc/food_confirm_order_payment_v1',{method:'POST',body:{p_order_id:orderId}});
+    const result=await restFetch<{ok:boolean;alreadyPaid?:boolean;paymentReceivedAt?:string}>(customerReported?'rpc/food_review_receipt_report_v1':'rpc/food_confirm_order_payment_v1',{method:'POST',body:customerReported?{p_order_id:orderId,p_accept:true}:{p_order_id:orderId}});
     return {alreadyPaid:Boolean(result?.alreadyPaid),paymentReceivedAt:result?.paymentReceivedAt};
   },
 
+  async returnReceiptToReceivable(orderId:string):Promise<void>{await restFetch('rpc/food_review_receipt_report_v1',{method:'POST',body:{p_order_id:orderId,p_accept:false}});},
   async updateOrderDetails(storeId: string, orderId: string, input: OrderDetailsUpdate): Promise<void> {
     const customerName = input.customerName.trim();
     if (customerName.length < 2) throw new Error('Informe o nome do cliente.');

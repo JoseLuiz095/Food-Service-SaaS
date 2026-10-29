@@ -1,3 +1,4 @@
+import {receiptPolicyApi} from './receiptPolicyApi';
 import { restFetch } from '../lib/supabaseRest';
 export const receiptContactsEnabled = import.meta.env.VITE_RECEIPT_CONTACTS_ENABLED === 'true';
 export type ReceiptContact = { slot: number; name: string; phone: string };
@@ -13,6 +14,7 @@ export const receiptContactsApi={
   restFetch<ReceiptContact[]>(`food_receipt_contacts?store_id=eq.${encodeURIComponent(id)}&select=slot,name,phone&order=slot`),
   restFetch<Array<{pickup_location_id:string;contact_slot:number}>>(`food_pickup_receipt_contacts?store_id=eq.${encodeURIComponent(id)}&select=pickup_location_id,contact_slot`),
   restFetch<Array<{id:string;name:string}>>(`food_pickup_locations?store_id=eq.${encodeURIComponent(id)}&active=eq.true&is_public=eq.true&select=id,name&order=name`),
+  receiptPolicyApi.load(id),
  ]),
  save:(id:string,contacts:ReceiptContact[],points:Array<{pickup_location_id:string;contact_slot:number}>)=>restFetch('rpc/food_save_receipt_contacts_v1',{method:'POST',body:{p_store_id:id,p_contacts:contacts,p_points:points}}),
 };

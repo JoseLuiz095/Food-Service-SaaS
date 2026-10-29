@@ -58,9 +58,10 @@ export default function OrderPayment() {
         {qr && <details><summary>Mostrar QR Code</summary><img src={qr} alt={`QR Code Pix no valor de ${currency.format(payment.total!)}`} width="260" height="260"/></details>}
         <p>Link válido até {new Date(payment.expiresAt!).toLocaleString('pt-BR')}. A expiração do link não cancela um Pix já copiado.</p>
         <button type="button" className="secondary-button" onClick={retry}>Já paguei · verificar status</button>
-        {payment.receiptDestinations&&<ReceiptDestination destinations={payment.receiptDestinations} message={`Olá! Quero enviar o comprovante do pedido #${formatOrderNumber(payment.orderNumber)} da ${payment.storeName}, no valor de ${currency.format(payment.total!)}.`}/>}
-        <small>O pagamento é feito no seu banco. A cópia ou o envio de comprovante não confirma o recebimento.</small>
-      </> : <p role="status">{payment.status === 'paid' ? 'Pagamento confirmado pela loja. Não pague novamente.' : 'Pedido cancelado. Não efetue o pagamento.'}</p>}
+
+        <small>O pagamento é feito no seu banco. A cópia do Pix não confirma o recebimento bancário.</small>
+      </> : <p role="status">{payment.status === 'paid' ? payment.paymentReportedByCustomer?'Pago informado pelo cliente. Envie o comprovante para a loja conferir.':'Pagamento confirmado pela loja. Não pague novamente.' : 'Pedido cancelado. Não efetue o pagamento.'}</p>}
+        {payment.status!=='cancelled'&&payment.receiptDestinations&&<ReceiptDestination receiptToken={payment.receiptToken} onReported={()=>setPayment(current=>current?{...current,status:'paid',paymentReportedByCustomer:true}:current)} destinations={payment.receiptDestinations} message={`Olá! Quero enviar o comprovante do pedido #${formatOrderNumber(payment.orderNumber)} da ${payment.storeName}, no valor de ${currency.format(payment.total!)}.`}/>}
     </>}
   </section></main>;
 }

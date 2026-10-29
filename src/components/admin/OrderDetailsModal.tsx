@@ -106,7 +106,7 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, onCancelOr
           <h2 id="order-details-title">Pedido #{formatOrderNumber(order.orderNumber)}</h2>
           <p>{order.customerName} · criado em {formatDateTimeBR(order.createdAt)}</p>
         </div>
-        <span className={`order-details-modal__payment-status ${order.paymentStatus === 'paid' ? 'is-paid' : ''}`}>{order.paymentStatus === 'paid' ? 'Recebido' : 'A receber'}</span>
+        <span className={`order-details-modal__payment-status ${order.paymentStatus === 'paid' ? 'is-paid' : ''}`}>{order.paymentStatus === 'paid' ? order.paymentReportedByCustomer?'Pago informado pelo cliente':'Recebido' : 'A receber'}</span>
       </div>
 
       <section className="order-details-modal__section">

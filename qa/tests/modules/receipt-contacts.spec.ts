@@ -34,7 +34,7 @@ test('erro não encaminha ao contato errado; retry e ponto indisponível são ex
 test('configuração salva dois contatos e vínculo sem regravar configurações gerais',async({page})=>{
  const {external}=await setup(page,true);let saved:any;
  await page.route('**/rest/v1/food_receipt_contacts?**',(r:any)=>r.fulfill({json:contacts}));await page.route('**/rest/v1/food_pickup_receipt_contacts?**',(r:any)=>r.fulfill({json:[{pickup_location_id:point,contact_slot:2}]}));await page.route('**/rest/v1/food_pickup_locations?**',(r:any)=>r.fulfill({json:[{id:point,name:'Ponto sintético'}]}));await page.route('**/rest/v1/rpc/food_save_receipt_contacts_v1',(r:any)=>{saved=r.request().postDataJSON();return r.fulfill({json:null})});
- await page.goto('/admin/configuracoes');const section=page.getByRole('region',{name:'Contatos para comprovantes'});await expect(section.getByRole('combobox')).toHaveValue('2');await section.getByRole('button',{name:'Salvar contatos de comprovantes'}).click();await expect(section.getByRole('status')).toHaveText('Contatos e destinos dos pontos salvos.');expect(saved).toEqual({p_store_id:STORE,p_contacts:contacts,p_points:[{pickup_location_id:point,contact_slot:2}]});expect(external).toEqual([]);
+ await page.goto('/admin/configuracoes');const section=page.getByRole('region',{name:'Telefones para confirmação e comprovantes'});await expect(section.getByRole('combobox')).toHaveValue('2');await section.getByRole('checkbox',{name:'Conferi os números e o contato que receberá o comprovante de cada ponto.'}).check();await section.getByRole('button',{name:'Salvar contatos de comprovantes'}).click();await expect(section.getByRole('status')).toHaveText('Contatos e destinos dos pontos salvos.');expect(saved).toEqual({p_store_id:STORE,p_contacts:contacts,p_points:[{pickup_location_id:point,contact_slot:2}]});expect(external).toEqual([]);
 });
 test('zero e um contato preservam compatibilidade; abrir conversa só registra clique',async({page,context})=>{
  const {writes}=await setup(page);let list:any[]=[],clicked=0;
@@ -49,7 +49,7 @@ test('falha ao carregar cadastro impede salvar configuração vazia',async({page
  await setup(page,true);let saves=0;
  await page.route('**/rest/v1/food_receipt_contacts?**',r=>r.fulfill({status:503,json:{message:'Erro sintético'}}));
  await page.route('**/rest/v1/rpc/food_save_receipt_contacts_v1',r=>{saves++;return r.fulfill({json:null})});
- await page.goto('/admin/configuracoes');const section=page.getByRole('region',{name:'Contatos para comprovantes'});await expect(section.getByRole('alert')).toBeVisible();await expect(section.getByRole('button',{name:'Salvar contatos de comprovantes'})).toBeDisabled();expect(saves).toBe(0);
+ await page.goto('/admin/configuracoes');const section=page.getByRole('region',{name:'Telefones para confirmação e comprovantes'});await expect(section.getByRole('alert')).toBeVisible();await expect(section.getByRole('button',{name:'Salvar contatos de comprovantes'})).toBeDisabled();expect(saves).toBe(0);
 });
 test('compra de entrega pelo link do ponto preserva origem sem mudar retirada/estoque',async({page})=>{
  await setup(page);let payload:any;

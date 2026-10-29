@@ -48,6 +48,7 @@ type StoreContextValue = {
   updateOrderDetails: (orderId: string, input: OrderDetailsUpdate) => Promise<void>;
   markOrderWhatsAppClicked: typeof storeApi.markOrderWhatsAppClicked;
   confirmOrderPayment: typeof storeApi.confirmOrderPayment;
+  returnReceiptToReceivable: (orderId:string)=>Promise<void>;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
   updateOrderStatuses: (updates: Array<{ orderId: string; status: Order['status'] }>) => Promise<void>;
 };
@@ -317,7 +318,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateManualOrder: async (orderId, input) => { await runAdminMutation(() => storeApi.updateManualOrder(orderId, input), 'orders'); },
     updateOrderDetails: async (orderId, input) => { const storeId = assertAdminScope(); await runAdminMutation(() => storeApi.updateOrderDetails(storeId, orderId, input), 'orders'); },
     markOrderWhatsAppClicked: storeApi.markOrderWhatsAppClicked,
-    confirmOrderPayment: async (orderId) => runAdminMutation(() => storeApi.confirmOrderPayment(orderId), 'orders'),
+    confirmOrderPayment: async (orderId) => runAdminMutation(() => storeApi.confirmOrderPayment(orderId,orders.find(order=>order.id===orderId)?.paymentReportedByCustomer===true), 'orders'),
+    returnReceiptToReceivable: async (orderId) => {assertAdminScope();await runAdminMutation(()=>storeApi.returnReceiptToReceivable(orderId),'orders');},
     updateOrderStatus: async (orderId, status) => { await runAdminMutation(() => storeApi.updateOrderStatus(orderId, status), 'orders'); },
     updateOrderStatuses: async (updates) => { await runAdminMutation(() => storeApi.updateOrderStatuses(updates), 'orders'); },
   }), [products,categories,addons,deliveryZones,settings,orders,planUsage,loading,error,storeUnavailable,unavailableStoreName,reloadPublic,reloadAdmin,reloadOrders,applySnapshot,storeBasePath,publicStoreSlug,hasCurrentSnapshot,hasCurrentLoad,dataScope,adminScope,assertAdminScope,runAdminMutation]);

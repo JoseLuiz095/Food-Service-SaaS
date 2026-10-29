@@ -1,3 +1,4 @@
+import ReceiptContactsSettings from '../../components/admin/ReceiptContactsSettings';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeftRight, Boxes, Copy, Download, LoaderCircle, MapPin, Plus, RefreshCw, Search, Warehouse } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -15,7 +16,7 @@ import './stock-locations.css';
 const operationId = () => crypto.randomUUID();
 
 export default function StockLocationsAdmin() {
-  const { settings, products } = useStore();
+  const { settings, products, dataMode } = useStore();
   const { showToast } = useToast();
   const {enabled:multiLocation,loading:modeLoading,error:modeError,reload:reloadMode}=useStockMode(settings.id);
   const [changingMode,setChangingMode]=useState(false);
@@ -408,5 +409,6 @@ export default function StockLocationsAdmin() {
         </form>
       </details></section>
     </div>
+    <ReceiptContactsSettings key={settings.id} storeId={settings.id} demo={dataMode==='demo'}/>
   </section>;
 }
