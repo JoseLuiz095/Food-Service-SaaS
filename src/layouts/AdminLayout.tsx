@@ -63,11 +63,12 @@ const navSections: Array<{ label: string; items: Array<{ to: string; label: stri
     label: 'Operação',
     items: [
       { to: '/admin/pedidos', label: 'Pedidos', icon: ShoppingBag },
+      { to: '/admin/financeiro', label: 'Financeiro', icon: Landmark, requiresFeature: 'finance' },
       { to: '/admin/analytics', label: 'Análises', icon: BarChart3, requiresFeature: 'analytics' },
     ],
   },
   {
-    label: 'Catálogo',
+    label: 'Produtos e entregas',
     items: [
       { to: '/admin/produtos', label: 'Produtos', icon: Package },
       { to: '/admin/estoque', label: 'Estoque', icon: Boxes },
@@ -77,16 +78,15 @@ const navSections: Array<{ label: string; items: Array<{ to: string; label: stri
     ],
   },
   {
-    label: 'Minha loja',
+    label: 'Loja e conta',
     items: [
-      { to: '/admin/configuracoes', label: 'Configurações', icon: Settings },
+      { to: '/admin/configuracoes', label: 'Configurações da loja', icon: Settings },
+      { to: '/admin/plano', label: 'Meu plano', icon: BadgeDollarSign },
     ],
   },
   {
     label: 'Mais ferramentas',
     items: [
-      { to: '/admin/financeiro', label: 'Financeiro', icon: Landmark, requiresFeature: 'finance' },
-      { to: '/admin/plano', label: 'Meu plano', icon: BadgeDollarSign },
       { to: '/admin/modulos', label: 'Módulos opcionais', icon: Boxes },
       { to: '/admin/negocio', label: 'Segmento e permissões', icon: ShieldCheck },
     ],
@@ -215,7 +215,7 @@ export default function AdminLayout() {
               </details>
             );
             return <div className="admin-nav__group" key={section.label}>
-              <span className="admin-nav__label">{section.label==='Catálogo'&&segmentPresentation?segment.catalogLabel:section.label}</span>{links}
+              <span className="admin-nav__label">{section.label==='Produtos e entregas'&&segmentPresentation?segment.catalogLabel:section.label}</span>{links}{section.label === 'Operação' && !membership?.limitedAccess && location.pathname.startsWith('/admin/pedidos') && <div className="admin-nav__subitems"><NavLink to="/admin/pedidos?queue=payment" className={location.search === '?queue=payment' ? 'active' : ''} onClick={() => setOpen(false)}>Conferir pagamentos</NavLink><NavLink to="/admin/pedidos?queue=fulfillment" className={location.search === '?queue=fulfillment' ? 'active' : ''} onClick={() => setOpen(false)}>Entregas pendentes</NavLink><NavLink to="/admin/pedidos?queue=scheduled" className={location.search === '?queue=scheduled' ? 'active' : ''} onClick={() => setOpen(false)}>Agendados</NavLink></div>}
             </div>;
           })}
         </nav>
