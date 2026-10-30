@@ -78,7 +78,7 @@ export default function StockLocationsAdmin() {
     setTransferError('');
     batchKeys.current.clear();
   }, [settings.id]);
-  const [pickupPoints, setPickupPoints] = useState<Array<{ id: string; name: string; short_code: string; stock_location_id: string }>>([]);
+  const [pickupPoints, setPickupPoints] = useState<Array<{ id: string; name: string; short_code: string; stock_location_id: string; active: boolean; is_public: boolean }>>([]);
   const [pickupName, setPickupName] = useState('');
   const [pickupCode, setPickupCode] = useState('');
   const [pickupStockId, setPickupStockId] = useState('');
@@ -88,13 +88,14 @@ export default function StockLocationsAdmin() {
     url.searchParams.set('ponto', code);
     return url.toString();
   };
+  const publishedPickupPoints = useMemo(() => pickupPoints.filter((point) => point.active && point.is_public), [pickupPoints]);
   useEffect(() => {
     let active = true;
-    void Promise.all(pickupPoints.map(async (point) => [point.id, await QRCode.toDataURL(pointLink(point.short_code), { errorCorrectionLevel: 'M', margin: 2, width: 240 })] as const))
+    void Promise.all(publishedPickupPoints.map(async (point) => [point.id, await QRCode.toDataURL(pointLink(point.short_code), { errorCorrectionLevel: 'M', margin: 2, width: 240 })] as const))
       .then((entries) => { if (active) setPointQrs(Object.fromEntries(entries)); })
       .catch(() => { if (active) setPointQrs({}); });
     return () => { active = false; };
-  }, [pickupPoints, settings.slug]);
+  }, [publishedPickupPoints, settings.slug]);
 
   const trackedProducts = useMemo(() => products.filter((product) => product.trackStock && product.active), [products]);
   const activeLocations = useMemo(() => locations.filter((item) => item.active), [locations]);
@@ -151,7 +152,7 @@ export default function StockLocationsAdmin() {
         } catch { /* armazenamento opcional */ }
         return nextLocations.find((item) => item.is_default && item.active)?.id || nextLocations.find((item) => item.active)?.id || '';
       });
-      const points = await restFetch<Array<{ id: string; name: string; short_code: string; stock_location_id: string }>>(`food_pickup_locations?store_id=eq.${encodeURIComponent(settings.id)}&select=id,name,short_code,stock_location_id&order=name.asc`);
+      const points = await restFetch<Array<{ id: string; name: string; short_code: string; stock_location_id: string; active: boolean; is_public: boolean }>>(`food_pickup_locations?store_id=eq.${encodeURIComponent(settings.id)}&select=id,name,short_code,stock_location_id,active,is_public&order=active.desc,name.asc`);
       if (activeStoreId.current !== settings.id) return;
       setPickupPoints(points);
       setPickupStockId((current) => current || nextLocations.find((item) => item.is_default)?.id || '');
@@ -305,6 +306,30 @@ export default function StockLocationsAdmin() {
     finally { setSaving(false); }
   };
 
+  const setPickupPointActive = async (point: typeof pickupPoints[number], active: boolean) => {
+    if (saving) return;
+    const stockLocation = locations.find((location) => location.id === point.stock_location_id);
+    if (active && !stockLocation?.active) {
+      showToast('Ative o local de estoque vinculado antes de reativar este ponto.', 'error');
+      return;
+    }
+    const confirmation = active
+      ? `Reativar o ponto “${point.name}”? Ele voltará a receber pedidos usando o estoque de “${stockLocation?.name}”.`
+      : `Excluir o ponto “${point.name}” da vitrine? Ele deixará de receber novos pedidos. O estoque, as reservas e os pedidos anteriores serão preservados.`;
+    if (!window.confirm(confirmation)) return;
+    setSaving(true);
+    try {
+      const rows = await restFetch<Array<{ id: string }>>(`food_pickup_locations?id=eq.${encodeURIComponent(point.id)}&store_id=eq.${encodeURIComponent(settings.id)}&select=id`, {
+        method: 'PATCH', prefer: 'return=representation', body: { active, is_public: active, updated_at: new Date().toISOString() },
+      });
+      if (!rows.some((row) => row.id === point.id)) throw new Error('O ponto não foi alterado. Atualize a tela e tente novamente.');
+      showToast(active ? 'Ponto reativado e publicado.' : 'Ponto removido da vitrine; estoque e histórico preservados.', 'success');
+      await refresh();
+    } catch (cause) {
+      showToast(cause instanceof Error ? cause.message : 'Não foi possível alterar o ponto.', 'error');
+    } finally { setSaving(false); }
+  };
+
   if (modeLoading || (multiLocation !== false && loading)) return <LoadingState label="Carregando locais de estoque..." />;
   if(multiLocation === false) return <section className="admin-page"><header className="page-header"><div><span className="eyebrow">ESTOQUE OPCIONAL</span><h1>Múltiplos locais</h1><InfoHint label="Sobre Múltiplos locais">Sua loja começa com um estoque principal. Use Produtos e insumos nesta mesma área para adicionar, remover ou definir quantidades.</InfoHint></div></header><section className="admin-card"><h2>Precisa separar estoques?</h2><InfoHint label="Sobre Precisa separar estoques?">Ative quando quiser controlar depósitos, pontos de retirada e transferências. Os saldos atuais continuam no local principal.</InfoHint><button type="button" className="primary-button" disabled={changingMode} onClick={()=>void (async()=>{setChangingMode(true);try{await stockModeApi.set(settings.id,true);await reloadMode();showToast('Múltiplos locais ativados.','success');}catch(cause){showToast(cause instanceof Error?cause.message:'Não foi possível ativar.','error');}finally{setChangingMode(false);}})()}>{changingMode?'Ativando...':'Ativar múltiplos locais'}</button></section></section>;
   if (error && !locations.length) return <ErrorState message={error || "Locais indisponíveis."} onRetry={() => void refresh()} />;
@@ -383,7 +408,8 @@ export default function StockLocationsAdmin() {
         <button className="primary-button" disabled={saving || !newName.trim()}><Plus size={16}/> Adicionar local</button>
       </form>
     </section>
-    <section className="admin-card"><h2>Pontos de retirada</h2><InfoHint label="Sobre Pontos de retirada">O pedido usa o estoque do local vinculado ao ponto.</InfoHint>
+    <section className="admin-card"><h2>Pontos de retirada</h2><InfoHint label="Sobre Pontos de retirada">O pedido usa o estoque do local vinculado ao ponto. Para vender pela sua loja em outro endereço, crie um local de estoque para esse endereço, transfira o saldo disponível e vincule o ponto a ele.</InfoHint>
+      <div className="stock-location-grid">{pickupPoints.map((point) => { const published = point.active && point.is_public; const stockLocation = locations.find((location) => location.id === point.stock_location_id); return <article className="stock-location-card stock-location-card--pickup" key={point.id}><MapPin size={18}/><div><strong>{point.name}</strong><p>{published ? 'Publicado na vitrine' : 'Arquivado · não recebe novos pedidos'}</p><p>Estoque: {stockLocation?.name || 'Sem estoque'}</p>{published ? <details className="stock-location-point-details"><summary>Link e QR</summary><p>Código: {point.short_code}</p><div className="stock-location-point-actions"><button type="button" className="secondary-button" onClick={() => void navigator.clipboard.writeText(pointLink(point.short_code)).then(() => showToast('Link deste ponto copiado.', 'success')).catch(() => showToast('Não foi possível copiar o link.', 'error'))}><Copy size={15}/> Copiar link</button>{pointQrs[point.id] && <a className="secondary-button" href={pointQrs[point.id]} download={`${point.short_code.toLowerCase()}-qr.png`}><Download size={15}/> Baixar QR</a>}</div>{pointQrs[point.id] && <img className="stock-location-point-qr" src={pointQrs[point.id]} alt={`QR Code do ponto ${point.name}`}/>}</details> : <p>O estoque e o histórico dos pedidos continuam vinculados ao local.</p>}<button type="button" className="stock-location-manage-button" disabled={saving || (!published && !stockLocation?.active)} onClick={() => void setPickupPointActive(point, !published)}>{published ? 'Excluir ponto' : 'Reativar ponto'}</button></div></article>; })}</div>
       <div className="stock-location-grid">{pickupPoints.map((point) => <article className="stock-location-card stock-location-card--pickup" key={point.id}><MapPin size={18}/><div><strong>{point.name}</strong><p>Estoque: {locations.find((location) => location.id === point.stock_location_id)?.name || 'Sem estoque'}</p><details className="stock-location-point-details"><summary>Link e QR</summary><p>Código: {point.short_code}</p><div className="stock-location-point-actions"><button type="button" className="secondary-button" onClick={() => void navigator.clipboard.writeText(pointLink(point.short_code)).then(() => showToast('Link deste ponto copiado.', 'success')).catch(() => showToast('Não foi possível copiar o link.', 'error'))}><Copy size={15}/> Copiar link</button>{pointQrs[point.id] && <a className="secondary-button" href={pointQrs[point.id]} download={`${point.short_code.toLowerCase()}-qr.png`}><Download size={15}/> Baixar QR</a>}</div>{pointQrs[point.id] && <img className="stock-location-point-qr" src={pointQrs[point.id]} alt={`QR Code do ponto ${point.name}`}/>}</details></div></article>)}</div>
       <form className="stock-location-create" onSubmit={submitPickupPoint}>
         <label>Nome do ponto<input required maxLength={80} value={pickupName} onChange={(event) => setPickupName(event.target.value)} placeholder="Ex.: Vendas com Ana"/></label>
