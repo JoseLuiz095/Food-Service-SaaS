@@ -256,6 +256,18 @@ try {
   check(Number((await one('select count(*) as count from public.food_order_items where order_id=$1', [pickupOrderId])).count) === 1,
     'valid pickup item persists');
 
+  const stockBeforePickupArchive = await balance(firstProductId, targetId);
+  await q('update public.food_pickup_locations set active=false,is_public=false where id=$1 and store_id=$2',
+    [pickupLocationId, storeId]);
+  const archivedPoint = await one('select active,is_public from public.food_pickup_locations where id=$1', [pickupLocationId]);
+  check(archivedPoint.active === false && archivedPoint.is_public === false,
+    'archiving a pickup point removes it from new public orders');
+  check((await one('select pickup_location_id from public.food_orders where id=$1', [pickupOrderId])).pickup_location_id === pickupLocationId,
+    'archiving preserves the point reference on existing orders');
+  check(await balance(firstProductId, targetId) === stockBeforePickupArchive,
+    'archiving a pickup point does not change its stock or reservations');
+  await rejects(() => insertOrder(pickupLocationId, targetId), 'archived pickup point rejects new orders', /ponto de retirada está indisponível/i);
+
   await db.exec('reset role');
   await q('insert into public.food_products(id,store_id,name) values ($1,$2,$3)',
     [newlyCreatedProductId, storeId, 'New tracked product']);
