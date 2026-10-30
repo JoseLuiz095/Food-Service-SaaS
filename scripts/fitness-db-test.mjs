@@ -336,6 +336,9 @@ try {
   await session(owner);
   const offer=await rpc('food_fitness_offer_save_v1',[store,null,'workout','Ficha Iniciante','Modelo aprovado de treino iniciante.',5000,approved.id,null,owner,true]);
   assert.equal(offer.published,true);
+  await assert.rejects(()=>rpc('food_fitness_offer_save_v1',[store,null,'combo','Avaliação e ficha','Pacote com avaliação e ficha.',10000,approved.id,service.id,owner,true]),'combo sem reserva paga ainda não publica');
+  const draftCombo=await rpc('food_fitness_offer_save_v1',[store,null,'combo','Avaliação e ficha','Pacote com avaliação e ficha.',10000,approved.id,service.id,owner,false]);
+  assert.equal(draftCombo.published,false);
   assert.equal((await rpc('food_fitness_offers_v1',[store,false])).length,1);
   assert.deepEqual(await rpc('food_fitness_offers_v1',[other,false]),[]);
   await session(student2);
