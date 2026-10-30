@@ -48,6 +48,8 @@ create table public.food_fitness_offer_orders (
     or (state in ('pending','cancelled') and paid_at is null and confirmed_by is null and revoked_at is null)
     or (state='refunded' and paid_at is not null and confirmed_by is not null and revoked_at is not null))
 );
+alter table public.food_fitness_workout_assignments add column purchase_id uuid references public.food_fitness_offer_orders(id);
+
 create index food_fitness_orders_admin on public.food_fitness_offer_orders(store_id,created_at desc);
 create index food_fitness_orders_student on public.food_fitness_offer_orders(store_id,student_user_id,created_at desc);
 
@@ -94,6 +96,14 @@ begin
     select 1 from public.food_store_users u where u.store_id=p_store and u.user_id=auth.uid()
       and u.active and u.role in ('owner','admin')
   ) then raise exception 'Sem permissão para administrar ofertas.' using errcode='42501'; end if;
+  if p_id is not null and exists(
+    select 1 from public.food_fitness_offers old
+    where old.id=p_id and old.store_id=p_store
+      and (old.kind is distinct from p_kind or old.price_cents is distinct from p_price_cents
+        or old.workout_id is distinct from p_workout or old.service_id is distinct from p_service
+        or old.professional_user_id is distinct from p_professional)
+      and exists(select 1 from public.food_fitness_offer_orders ord where ord.offer_id=old.id and ord.store_id=old.store_id)
+  ) then raise exception 'Oferta com pedidos não pode mudar preço ou entrega; crie uma nova versão.' using errcode='23P01'; end if;
   if p_id is not null and not exists(select 1 from public.food_fitness_offers where id=p_id and store_id=p_store) then
     raise exception 'Oferta não encontrada nesta loja.' using errcode='42501';
   end if;
@@ -134,7 +144,7 @@ end; $$;
 create function public.food_fitness_order_v1(p_store uuid,p_offer uuid,p_request uuid)
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare v public.food_fitness_offers%rowtype; student uuid; result public.food_fitness_offer_orders%rowtype;
-  purpose text;
+  v_purpose text;
 begin
   if auth.uid() is null or p_request is null then raise exception 'Sessão de aluno obrigatória.' using errcode='42501'; end if;
   select client_id into student from public.food_fitness_students where store_id=p_store and user_id=auth.uid();
@@ -143,10 +153,10 @@ begin
   end if;
   select * into v from public.food_fitness_offers where id=p_offer and store_id=p_store;
   if v.id is null or not food_fitness_private.offer_ready(v) then raise exception 'Oferta indisponível.' using errcode='22023'; end if;
-  purpose:=case when v.kind in ('nutrition_consult','nutrition_plan') then 'nutrition' else 'training' end;
+  v_purpose:=case when v.kind in ('nutrition_consult','nutrition_plan') then 'nutrition' else 'training' end;
   if not exists(select 1 from public.food_fitness_professional_authorizations au where au.store_id=p_store
       and au.student_user_id=auth.uid() and au.professional_user_id=v.professional_user_id
-      and au.purpose=purpose and au.active) then
+      and au.purpose=v_purpose and au.active) then
     raise exception 'Autorize o profissional desta oferta antes de comprar.' using errcode='42501';
   end if;
   insert into public.food_fitness_offer_orders(store_id,offer_id,student_user_id,client_id,request_id,price_cents,offer_name)
@@ -197,9 +207,15 @@ begin
     end if;
     update public.food_fitness_offer_orders set state='paid',paid_at=now(),confirmed_by=auth.uid() where id=v.id;
     if offer.workout_id is not null then
-      insert into public.food_fitness_workout_assignments(store_id,workout_id,client_id,assigned_by)
-      values(p_store,offer.workout_id,v.client_id,offer.professional_user_id)
-      on conflict(store_id,workout_id,client_id) do update set active=true,assigned_by=excluded.assigned_by,assigned_at=now();
+      if exists(select 1 from public.food_fitness_workout_assignments a where a.store_id=p_store
+        and a.workout_id=offer.workout_id and a.client_id=v.client_id and a.purchase_id is null and not a.active) then
+        raise exception 'Atribuição manual revogada exige revisão profissional.' using errcode='42501';
+      end if;
+      insert into public.food_fitness_workout_assignments(store_id,workout_id,client_id,assigned_by,purchase_id)
+      values(p_store,offer.workout_id,v.client_id,offer.professional_user_id,v.id)
+      on conflict(store_id,workout_id,client_id) do update set active=true,assigned_by=excluded.assigned_by,
+        assigned_at=now(),purchase_id=excluded.purchase_id
+      where food_fitness_workout_assignments.purchase_id is not null;
     end if;
   else
     if v.state='refunded' then return jsonb_build_object('id',v.id,'state','refunded'); end if;
@@ -210,7 +226,7 @@ begin
       where other.store_id=p_store and other.client_id=v.client_id and other.id<>v.id and other.state='paid'
         and f.workout_id=offer.workout_id) then
       update public.food_fitness_workout_assignments set active=false
-      where store_id=p_store and workout_id=offer.workout_id and client_id=v.client_id;
+      where store_id=p_store and workout_id=offer.workout_id and client_id=v.client_id and purchase_id is not null;
     end if;
   end if;
   insert into public.food_business_audit(store_id,actor_id,action,details)
@@ -219,13 +235,13 @@ begin
 end; $$;
 
 create function public.food_fitness_pix_v1(p_store uuid)
-returns jsonb language sql stable security definer set search_path='' as $
+returns jsonb language sql stable security definer set search_path='' as $$
   select case when s.active and s.access_status='online' and s.pix_enabled
     then jsonb_build_object('pix_key',s.pix_key,'pix_copy_paste',s.pix_copy_paste,'holder_name',s.pix_holder_name)
     else '{}'::jsonb end
   from public.food_stores s join public.food_business_profiles b on b.store_id=s.id and b.primary_segment='fitness'
   where s.id=p_store
-$;
+$$;
 
 revoke all on function public.food_fitness_offer_save_v1(uuid,uuid,text,text,text,integer,uuid,uuid,uuid,boolean),
   public.food_fitness_offers_v1(uuid,boolean),public.food_fitness_order_v1(uuid,uuid,uuid),
