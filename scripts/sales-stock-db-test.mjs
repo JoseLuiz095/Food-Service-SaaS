@@ -53,6 +53,7 @@ try {
     create trigger fulfill after update of status on food_orders
       for each row execute function food_commit_inventory_on_fulfillment();
   `);
+  await db.exec(readFileSync('supabase/migrations/20261030140812_fix_multi_item_quick_sale_reservation.sql', 'utf8'));
   await query('insert into auth.users values ($1)', [owner]);
   await query("select set_config('test.user',$1,false)", [owner]);
   await query('insert into food_stores(id) values ($1)', [store]);
@@ -109,20 +110,25 @@ try {
     create table food_order_item_options(order_item_id uuid,option_group_id uuid,option_item_id uuid,group_name text,option_name text,option_kind text,price_delta numeric,quantity int);
   `);
   await db.exec(fn('food_create_admin_order_v1'));
-  const category = randomUUID(), pacoca = randomUUID();
+  const category = randomUUID(), pacoca = randomUUID(), ninho = randomUUID();
   await query("insert into food_store_users values($1,$2,true,'owner')", [store,owner]);
   await query('insert into food_categories values($1,$2,true)', [category,store]);
   await query("insert into food_products(id,store_id,name,track_stock,stock_quantity,stock_reserved_quantity,stock_status,availability_status,category_id) values($1,$2,'Paçoca sintética',true,5,0,'available','available',$3)", [pacoca,store,category]);
+  await query("insert into food_products(id,store_id,name,track_stock,stock_quantity,stock_reserved_quantity,stock_status,availability_status,category_id) values($1,$2,'Ninho sintético',true,5,0,'available','available',$3)", [ninho,store,category]);
   await query('insert into food_product_location_stock(store_id,product_id,location_id,stock_quantity,stock_reserved_quantity) values($1,$2,$3,0,0),($1,$2,$4,5,0)', [store,pacoca,pointA,pointB]);
+  await query('insert into food_product_location_stock(store_id,product_id,location_id,stock_quantity,stock_reserved_quantity) values($1,$2,$3,0,0),($1,$2,$4,5,0)', [store,ninho,pointA,pointB]);
   const payload = (status, quantity = 1, key = randomUUID()) => ({ store_id:store,stock_location_id:pointB,admin_request_id:key,customer_name:'Venda sintética',delivery_type:'pickup',source:'counter',payment_method:'cash',status,received:false,items:[{product_id:pacoca,quantity,options:[]}] });
   const create = input => one('select * from food_create_admin_order_v1($1::jsonb)', [JSON.stringify(input)]);
   await create(payload('received',2));
   const locationStock = () => one('select stock_quantity,stock_reserved_quantity from food_product_location_stock where product_id=$1 and location_id=$2',[pacoca,pointB]);
   equal((await locationStock()).stock_reserved_quantity,2,'avulso aberto reserva duas no ponto');
   const sale = payload('delivered');
+  sale.items.push({product_id:ninho,quantity:1,options:[]});
   const saved = await create(sale);
-  equal((await locationStock()).stock_quantity,4,'avulso entregue debita uma das três disponíveis');
+  equal((await locationStock()).stock_quantity,4,'avulso com várias linhas debita no local escolhido');
   equal((await locationStock()).stock_reserved_quantity,2,'reserva de outro pedido preservada');
+  equal((await one('select stock_quantity from food_product_location_stock where product_id=$1 and location_id=$2',[ninho,pointB])).stock_quantity,4,'segunda linha do avulso também é baixada');
+  equal((await one('select count(*) n from food_order_stock_movements where order_id=$1',[saved.order_id])).n,2,'avulso com várias linhas grava um movimento por item');
   const replay = await create(sale);
   assert.equal(replay.order_id,saved.order_id); checks++;
   equal((await locationStock()).stock_quantity,4,'retry do RPC não duplica baixa');
