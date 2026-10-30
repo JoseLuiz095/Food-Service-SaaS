@@ -6,6 +6,7 @@ import { businessApi, moduleIsActive, type BusinessRecord } from './api';
 import { useBusinessStatus } from './useBusinessStatus';
 import { fitnessApi, type FitnessBlock, type FitnessStatus, type FitnessStudent, type FitnessWindow } from '../services/fitnessApi';
 import { FitnessWorkouts } from './FitnessWorkouts';
+import { FitnessOffersAdmin } from './FitnessOffersAdmin';
 import './fitness.css';
 
 const weekDays = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
@@ -183,5 +184,6 @@ export default function FitnessAdminPage() {
       :<ul className="fitness-records">{studentSessions.map(student=><li key={student.client_id}><strong>{student.name}</strong><span>{student.session_active?'Sessão autorizada':'Sem sessão ativa'}</span>{student.session_active&&<button type="button" className="secondary-button" disabled={busy} onClick={()=>releaseStudentSession(student)}>Liberar troca de sessão</button>}</li>)}</ul>}
     </section>}
     {moduleIsActive(business,'training')&&<div id="treinos"><FitnessWorkouts store={store} professional={professional}/></div>}
+    {moduleIsActive(business,'training')&&<FitnessOffersAdmin store={store}/>}
   </div>;
 }
