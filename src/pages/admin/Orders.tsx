@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { useSearchParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { InfoHint } from '../../components/ui/InfoHint';
 import { OrderDetailsModal } from '../../components/admin/OrderDetailsModal';
 import { QuantityControl } from '../../components/QuantityControl';
 import { useStore } from '../../contexts/StoreContext';
@@ -154,7 +155,12 @@ export default function OrdersAdmin() {
   const [stockLocations, setStockLocations] = useState<StockLocation[]>([]);
   const [locationBalances, setLocationBalances] = useState<ProductLocationStock[]>([]);
   const [manualLocationId, setManualLocationId] = useState('');
-  const [manualRequestId, setManualRequestId] = useState(() => crypto.randomUUID());
+  const manualAttempts = useRef(new Map<string, string>());
+  const manualInFlight = useRef(false);
+  const manualSession = useRef(0);
+  const activeStore = useRef(settings.id);
+  activeStore.current = settings.id;
+  const [manualLocationsLoading, setManualLocationsLoading] = useState(false);
   const [manualOrderMode, setManualOrderMode] = useState<ManualOrderMode>('quick');
   const [manualOrder, setManualOrder] = useState<Omit<ManualOrderInput, 'items'>>(newManualOrder);
   const [manualItems, setManualItems] = useState<ManualOrderItemInput[]>([]);
@@ -190,6 +196,21 @@ export default function OrdersAdmin() {
     setManualFormError(message);
     showToast(`Pedido avulso não salvo: ${message}`, 'error');
   };
+  useEffect(() => {
+    ++manualSession.current;
+    manualAttempts.current.clear();
+    setManualOrderOpen(false);
+    setManualLocationId('');
+    setStockLocations([]);
+    setLocationBalances([]);
+    return () => { ++manualSession.current; };
+  }, [settings.id]);
+  const productAtLocation = (product: (typeof products)[number], balances = locationBalances) => {
+    const balance = balances.find(row => row.product_id === product.id && row.location_id === manualLocationId);
+    return { ...product, stockQuantity: Number(balance?.stock_quantity || 0), stockReservedQuantity: Number(balance?.stock_reserved_quantity || 0) };
+  };
+  const manualStockLabel = (product: (typeof products)[number]) => !product.trackStock ? 'sem controle de estoque'
+    : manualLocationsLoading ? 'consultando saldo…' : `${availableStock(productAtLocation(product))} disponíveis no ponto`;
 
   useEffect(() => {
     let cancelled = false;
@@ -237,9 +258,9 @@ export default function OrdersAdmin() {
   const manualUnavailableItem = useMemo(() => manualItems.map((item) => {
     const product = products.find((current) => current.id === item.productId);
     if (!product) return null;
-    const unavailable = productNeedsFutureScheduling(product, item.quantity);
+    const unavailable = productNeedsFutureScheduling(productAtLocation(product), item.quantity);
     return unavailable ? { item, product } : null;
-  }).find(Boolean) || null, [manualItems, products]);
+  }).find(Boolean) || null, [manualItems, products, locationBalances, manualLocationId]);
 
   const manualPixPreview = useMemo(() => {
     if (!manualPixChargeNow || manualOrder.paymentMethod !== 'pix') return { payload: '', error: '' };
@@ -278,11 +299,20 @@ export default function OrdersAdmin() {
   }, [manualPixPreviewPayload]);
 
   const openManualOrder = () => {
+    const session = ++manualSession.current;
+    const storeId = settings.id;
+    manualAttempts.current.clear();
+    setManualLocationsLoading(true);
+    setStockLocations([]);
+    setLocationBalances([]);
     void stockLocationsApi.list(settings.id).then(([locations, balances]) => {
-      setStockLocations(locations.filter((location) => location.active));
+      if (session !== manualSession.current || activeStore.current !== storeId) return;
+      const active = locations.filter(location => location.active);
+      setStockLocations(active);
       setLocationBalances(balances);
-      setManualLocationId((current) => current || locations.find((location) => location.is_default)?.id || locations[0]?.id || '');
-    }).catch(() => reportManualError('Não foi possível carregar os estoques. Atualize a página e tente novamente.'));
+      setManualLocationId(current => active.some(location => location.id === current) ? current : active.find(location => location.is_default)?.id || active[0]?.id || '');
+    }).catch(() => { if (session === manualSession.current) reportManualError('Não foi possível carregar os estoques. Feche e abra o lançamento para tentar novamente.'); })
+      .finally(() => { if (session === manualSession.current) setManualLocationsLoading(false); });
 
     setManualOrder(newManualOrder());
     setManualOrderMode('quick');
@@ -310,12 +340,11 @@ export default function OrdersAdmin() {
     if (!manualProductId || manualItems.some((item) => item.productId === manualProductId)) return;
     const quantity = Math.max(1, Math.min(99, Number(manualQuantityDraft) || 1));
     const product = manualProducts.find((current) => current.id === manualProductId);
-    const needsFutureSchedule = product ? productNeedsFutureScheduling(product, quantity) : false;
+    const needsFutureSchedule = product ? productNeedsFutureScheduling(productAtLocation(product), quantity) : false;
     setManualItems((items) => [...items, { productId: manualProductId, quantity, options: [] }]);
-    // Produtos pré-produzidos podem começar em um status operacional próprio.
-    // Aplicamos a sugestão apenas no primeiro item para não sobrescrever uma
-    // escolha manual quando o lançamento tiver produtos diferentes.
-    if (!manualItems.length && product?.defaultOrderStatus) {
+    // A venda rápida mantém o status escolhido (Entregue por padrão).
+    // A sugestão do produto só se aplica a encomendas, que ainda terão preparo.
+    if (manualOrderMode === 'scheduled' && !manualItems.length && product?.defaultOrderStatus) {
       setManualOrder((current) => ({ ...current, status: product.defaultOrderStatus!, received: product.defaultOrderStatus === 'cancelled' ? false : current.received }));
     }
     // Ao adicionar um item sem saldo, já preparamos a encomenda para amanhã.
@@ -359,16 +388,10 @@ export default function OrdersAdmin() {
 
   const saveManualOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (manualInFlight.current || manualLocationsLoading) return;
     const customerName = manualOrderMode === 'quick' ? 'Venda anônima' : manualOrder.customerName.trim();
     if (!customerName || !manualItems.length) return;
     if (!manualLocationId) { reportManualError('Selecione um estoque para registrar esta venda.'); return; }
-    const insufficientAtLocation = manualItems.find((item) => {
-      const product = products.find((candidate) => candidate.id === item.productId);
-      if (!product?.trackStock) return false;
-      const balance = locationBalances.find((row) => row.product_id === item.productId && row.location_id === manualLocationId);
-      return !balance || Number(balance.stock_quantity) - Number(balance.stock_reserved_quantity) < item.quantity;
-    });
-    if (insufficientAtLocation && manualOrderMode === 'quick') { reportManualError('Saldo insuficiente no estoque escolhido. Selecione outro ponto ou registre uma encomenda.'); return; }
     if (manualOrder.status === 'cancelled' && manualOrder.received) return;
     if (manualOrder.fulfillment === 'delivery' && !settings.deliveryEnabled) {
       reportManualError('O delivery está desativado nas configurações da loja. Selecione retirada ou ative o delivery.');
@@ -390,18 +413,6 @@ export default function OrdersAdmin() {
         return;
       }
     }
-    const unavailableItem = manualItems.find((item) => {
-      const product = products.find((current) => current.id === item.productId);
-      return !product || productNeedsFutureScheduling(product, item.quantity);
-    });
-    if (unavailableItem && manualOrder.received) {
-      reportManualError('Este produto precisa de reposição. Mantenha “A receber do cliente” e confirme o pagamento somente depois que o estoque for reposto.');
-      return;
-    }
-    if (unavailableItem && !scheduledAt) {
-      reportManualError('Há produto sem disponibilidade ou estoque suficiente. Informe uma data a partir de amanhã para registrar como encomenda futura.');
-      return;
-    }
     const incompleteProduct = manualItems.find((item) => {
       const product = products.find((current) => current.id === item.productId);
       return product?.optionGroups.some((group) => group.active && new Set(item.options.filter((option) => option.groupId === group.id).map((option) => option.itemId)).size < group.minChoices);
@@ -415,9 +426,37 @@ export default function OrdersAdmin() {
       return;
     }
     setManualFormError('');
+    manualInFlight.current = true;
     setManualSaving(true);
+    const session = manualSession.current;
+    const storeId = settings.id;
+    const input = { ...manualOrder, customerName, items: manualItems, stockLocationId: manualLocationId };
+    const intent = JSON.stringify([storeId, input]);
     try {
-      const result = await trackInteraction('manual_order_create', () => createManualOrder({ ...manualOrder, customerName, items: manualItems, stockLocationId: manualLocationId, requestId: manualRequestId }), { storeId: settings.id });
+      let requestId = manualAttempts.current.get(intent);
+      // An identical retry must reach the RPC even when its first response was
+      // lost after committing the sale. Rechecking its own debit would block it.
+      if (!requestId) {
+        const [locations, balances] = await stockLocationsApi.list(storeId);
+        if (session !== manualSession.current || activeStore.current !== storeId) return;
+        setStockLocations(locations.filter(location => location.active));
+        setLocationBalances(balances);
+        const location = locations.find(location => location.id === manualLocationId && location.active);
+        if (!location) throw new Error('O ponto selecionado não está mais disponível. Selecione outro ponto.');
+        const missing = manualItems.find(item => {
+          const product = products.find(candidate => candidate.id === item.productId);
+          return !product || productNeedsFutureScheduling(productAtLocation(product, balances), item.quantity);
+        });
+        if (missing && (!scheduledAt || manualOrder.received || ['delivered', 'picked_up'].includes(manualOrder.status))) {
+          const product = products.find(candidate => candidate.id === missing.productId);
+          const available = product ? availableStock(productAtLocation(product, balances)) : 0;
+          throw new Error(`${product?.name || 'Produto'}: ${Number.isFinite(available) ? available : 0} disponíveis em ${location.name}; solicitado: ${missing.quantity}. Atualize o estoque, escolha outro ponto ou agende uma encomenda a receber.`);
+        }
+        requestId = crypto.randomUUID();
+        manualAttempts.current.set(intent, requestId);
+      }
+      const result = await trackInteraction('manual_order_create', () => createManualOrder({ ...input, requestId }), { storeId });
+      if (session !== manualSession.current || activeStore.current !== storeId) return;
       setLastUpdatedAt(new Date());
       setManualOrderOpen(false);
       if (manualOrder.paymentMethod === 'pix' && manualPixChargeNow) {
@@ -441,8 +480,9 @@ export default function OrdersAdmin() {
         setManualPixCopied(false);
       }
     } catch (manualOrderError) {
-      reportManualError(manualOrderError instanceof Error ? manualOrderError.message : 'Não foi possível lançar o pedido avulso.');
+      if (session === manualSession.current && activeStore.current === storeId) reportManualError(manualOrderError instanceof Error ? manualOrderError.message : 'Não foi possível lançar o pedido avulso.');
     } finally {
+      manualInFlight.current = false;
       setManualSaving(false);
     }
   };
@@ -941,7 +981,7 @@ export default function OrdersAdmin() {
   if (error) return <ErrorState message={error} onRetry={() => void reloadAdmin()} />;
 
   return <>
-    <div className="admin-page-title"><div><span className="eyebrow">OPERAÇÃO</span><h1>Pedidos</h1><p>Comece pelos pagamentos a conferir, acompanhe as entregas e prepare os agendados.</p></div><button type="button" className="primary-button" onClick={openManualOrder} disabled={!manualProducts.length}><Plus size={17}/>Lançar pedido avulso</button></div>
+    <div className="admin-page-title"><div><span className="eyebrow">OPERAÇÃO</span><h1>Pedidos</h1><InfoHint label="Sobre Pedidos">Comece pelos pagamentos a conferir, acompanhe as entregas e prepare os agendados.</InfoHint></div><button type="button" className="primary-button" onClick={openManualOrder} disabled={!manualProducts.length}><Plus size={17}/>Lançar pedido avulso</button></div>
 
     <nav className="orders-priority-nav" aria-label="Filas de pedidos">
       <button type="button" onClick={() => focusWorkQueue('orders-payment')}><CircleDollarSign size={22}/><span><strong>Conferir pagamento</strong><small>Verificar antes de confirmar</small></span><b>{workCounts.payment}</b></button>
@@ -963,10 +1003,10 @@ export default function OrdersAdmin() {
       </details>}
     </div>
 
-    {settings.kdsEnabled && <section className="kds-board-v061"><div className="kds-board-v061__heading"><div><span className="eyebrow">COZINHA / KDS</span><h2><ChefHat size={21}/>Fila operacional</h2><p>O quadro é opcional e usa os mesmos pedidos da operação, sem uma nova tela ou permissão.</p></div><span>{kdsOrders.length} em andamento</span></div><div className="kds-columns-v061">{kdsStatuses.map((status) => <section key={status}><header><strong>{statusLabel[status]}</strong><span>{kdsOrders.filter((order) => order.status === status).length}</span></header><div>{kdsOrders.filter((order) => order.status === status).map((order) => <article key={order.id}><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{currency.format(order.total)} · {order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</span><div className="kds-status-buttons-v062">{operationalStatuses(order).filter((option)=>option.value !== 'cancelled').map((option)=><button type="button" key={option.value} className={order.status===option.value?'active':''} disabled={updatingId===order.id || order.status===option.value} onClick={()=>void changeStatusWithCustomerDraft(order,option.value)}>{option.label}</button>)}</div><button type="button" className="kds-cancel-v062" disabled={updatingId===order.id || order.status==='cancelled'} onClick={()=>void changeStatus(order.id,'cancelled')}>Cancelar</button>{settings.kdsNotifyCustomer && whatsappButton(order, 'status')}</article>)}</div></section>)}</div></section>}
+    {settings.kdsEnabled && <section className="kds-board-v061"><div className="kds-board-v061__heading"><div><span className="eyebrow">COZINHA / KDS</span><h2><ChefHat size={21}/>Fila operacional</h2><InfoHint>O quadro é opcional e usa os mesmos pedidos da operação, sem uma nova tela ou permissão.</InfoHint></div><span>{kdsOrders.length} em andamento</span></div><div className="kds-columns-v061">{kdsStatuses.map((status) => <section key={status}><header><strong>{statusLabel[status]}</strong><span>{kdsOrders.filter((order) => order.status === status).length}</span></header><div>{kdsOrders.filter((order) => order.status === status).map((order) => <article key={order.id}><strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{currency.format(order.total)} · {order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}</span><div className="kds-status-buttons-v062">{operationalStatuses(order).filter((option)=>option.value !== 'cancelled').map((option)=><button type="button" key={option.value} className={order.status===option.value?'active':''} disabled={updatingId===order.id || order.status===option.value} onClick={()=>void changeStatusWithCustomerDraft(order,option.value)}>{option.label}</button>)}</div><button type="button" className="kds-cancel-v062" disabled={updatingId===order.id || order.status==='cancelled'} onClick={()=>void changeStatus(order.id,'cancelled')}>Cancelar</button>{settings.kdsNotifyCustomer && whatsappButton(order, 'status')}</article>)}</div></section>)}</div></section>}
 
     <section id="orders-payment" className="admin-card orders-payment-inbox" aria-labelledby="orders-payment-inbox-title">
-      <div className="orders-payment-inbox__heading"><div><span className="eyebrow">FINANCEIRO</span><h2 id="orders-payment-inbox-title">Recebimentos a conferir</h2><p>Confirme somente depois de conferir o pagamento. A confirmação registra a entrada no Financeiro. Conclua entrega ou retirada separadamente para baixar o estoque.</p></div><strong>{awaitingPaymentOrders.length}</strong></div>
+      <div className="orders-payment-inbox__heading"><div><span className="eyebrow">FINANCEIRO</span><h2 id="orders-payment-inbox-title">Recebimentos a conferir</h2><InfoHint>Confirme somente depois de conferir o pagamento. A confirmação registra a entrada no Financeiro. Conclua entrega ou retirada separadamente para baixar o estoque.</InfoHint></div><strong>{awaitingPaymentOrders.length}</strong></div>
       {awaitingPaymentOrders.length ? <div className="orders-payment-inbox__list">{awaitingPaymentOrders.map((order) => {
         return <article key={order.id} className={scheduleInfo(order)?.future?'order-payment-future':''}><div>{order.paymentReportedByCustomer&&<strong>Pago informado pelo cliente · conferir</strong>}<strong>#{formatOrderNumber(order.orderNumber)} · {order.customerName}</strong><span>{paymentLabel[order.paymentMethod]} · {currency.format(order.total)} · {formatDateTimeBR(order.createdAt)}</span><small>{scheduleInfo(order)?.label || 'Pedido aguardando conferência do recebimento'}</small></div><div className="orders-payment-inbox__actions">{order.paymentReportedByCustomer&&<button type="button" className="secondary-button compact-button" onClick={()=>void returnReceipt(order)}>Voltar para A receber</button>}<button type="button" className="secondary-button compact-button" onClick={() => setDetailsOrderId(order.id)}><Eye size={15}/>Detalhes / editar</button>{order.paymentMethod === 'pix' && <button type="button" className="secondary-button compact-button" onClick={() => openPaymentPix(order)}><QrCode size={15}/>Mostrar QR Code</button>}<button type="button" className="orders-payment-cancel-button" onClick={() => void cancelOrderFromPaymentCard(order.id)}><Ban size={15}/>Cancelar pedido</button><button type="button" className="order-payment-confirm-button order-payment-confirm-button--prominent" disabled={confirmingPaymentId === order.id} onClick={() => void confirmPayment(order.id, order.orderNumber, order.total)}><CircleDollarSign size={16}/>{confirmingPaymentId === order.id ? 'Confirmando...' : 'Confirmar recebimento'}</button></div></article>;
       })}</div> : <div className="orders-payment-inbox__empty"><CheckCircle2 size={18}/>Nenhum pedido pendente de recebimento.</div>}
@@ -974,7 +1014,7 @@ export default function OrdersAdmin() {
 
     <section className="admin-card orders-calendar-card" aria-labelledby="orders-calendar-title">
       <div className="orders-calendar-card__header">
-        <div><span className="eyebrow">AGENDA</span><h2 id="orders-calendar-title"><CalendarDays size={19}/>Pedidos agendados</h2><p>Escolha um dia para filtrar somente as encomendas programadas.</p></div>
+        <div><span className="eyebrow">AGENDA</span><h2 id="orders-calendar-title"><CalendarDays size={19}/>Pedidos agendados</h2><InfoHint>Escolha um dia para filtrar somente as encomendas programadas.</InfoHint></div>
         <div className="orders-calendar-card__actions"><button type="button" className="icon-button" onClick={() => moveCalendarMonth(-1)} aria-label="Mês anterior"><ChevronLeft size={17}/></button><strong>{calendarMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</strong><button type="button" className="icon-button" onClick={() => moveCalendarMonth(1)} aria-label="Próximo mês"><ChevronRight size={17}/></button></div>
       </div>
       <div className="orders-calendar-weekdays" aria-hidden="true">{['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => <span key={day}>{day}</span>)}</div>
@@ -998,7 +1038,7 @@ export default function OrdersAdmin() {
       {highlightedOrderId && <div className="highlight-order-banner">O pedido relacionado vindo do Financeiro foi destacado abaixo.</div>}
        {filtered.length === 0 && <div className="admin-empty"><ShoppingBag size={32}/><strong>Nenhum pedido encontrado</strong><span>Ajuste os filtros ou aguarde o próximo pedido.</span></div>}
         <section id="orders-fulfillment" className="orders-collection-section orders-collection-section--processing" aria-labelledby="processing-orders-title">
-          <header className="orders-collection-heading"><div><span className="eyebrow">OPERAÇÃO</span><h2 id="processing-orders-title">Recebidos · hoje e em andamento</h2><p>Pedidos sem agendamento futuro ou com prazo até hoje. Entregas dos próximos dias ficam no grupo separado abaixo.</p></div><strong>{processingOrders.length}</strong></header>
+          <header className="orders-collection-heading"><div><span className="eyebrow">OPERAÇÃO</span><h2 id="processing-orders-title">Recebidos · hoje e em andamento</h2><InfoHint>Pedidos sem agendamento futuro ou com prazo até hoje. Entregas dos próximos dias ficam no grupo separado abaixo.</InfoHint></div><strong>{processingOrders.length}</strong></header>
           {processingOrders.length ? renderOrderCollection(processingOrders, 'Pedidos recebidos em processamento') : <div className="orders-collection-empty"><CheckCircle2 size={18}/>Nenhum pedido recebido em processamento.</div>}
         </section>
         <details id="orders-scheduled" className="orders-future-panel" open={futureOpen} onToggle={event=>setFutureOpen(event.currentTarget.open)}><summary><span><CalendarDays size={20}/><strong>Agendados · próximos dias</strong><small>Pagamento recebido. Entrega ou retirada programada para outra data; não está atrasada.</small></span><b>{futureOrders.length} nesta lista</b></summary>{futureOrders.length > 0 && <p>Próximo prazo: {scheduleInfo(futureOrders[0])?.label}. Horário da loja: {scheduleZone}. Abra para conferir ou editar; o status e as reservas continuam iguais.</p>}{futureOrders.length ? renderOrderCollection(futureOrders,'Pedidos agendados para próximos dias') : <div className="orders-collection-empty">Nenhum pedido futuro com os filtros atuais.</div>}</details>
@@ -1014,16 +1054,17 @@ export default function OrdersAdmin() {
     </aside>}
     {detailsOrder && <OrderDetailsModal key={`${detailsOrder.storeId}:${detailsOrder.id}`} order={detailsOrder} settings={settings} onClose={() => setDetailsOrderId(null)} onSave={saveOrderDetails} onCancelOrder={cancelOrderFromDetails} saving={detailsSaving} />}
     {manualOrderOpen && <div className="modal-overlay" role="presentation">
-      <form ref={manualDialogRef} tabIndex={-1} className="master-modal master-modal--wide manual-order-modal" role="dialog" aria-modal="true" aria-labelledby="manual-order-title" onSubmit={saveManualOrder}>
+      <form ref={manualDialogRef} tabIndex={-1} className="master-modal master-modal--wide manual-order-modal" data-order-mode={manualOrderMode} role="dialog" aria-modal="true" aria-labelledby="manual-order-title" onSubmit={saveManualOrder}>
         <button type="button" className="modal-close" aria-label="Fechar lançamento de pedido avulso" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}><X/></button>
         <span className="eyebrow">LANÇAMENTO OPERACIONAL</span>
         <h2 id="manual-order-title">Pedido avulso</h2>
-         <p>Registre uma venda feita fora do site. Escolha o fluxo mais rápido para o atendimento.</p>
+         <InfoHint>Registre uma venda feita fora do site. Escolha o fluxo mais rápido para o atendimento.</InfoHint>
+         <fieldset className="manual-order-fields" disabled={manualSaving}>
          <div className="manual-order-mode-switch" role="tablist" aria-label="Tipo de lançamento">
            <button type="button" role="tab" aria-selected={manualOrderMode === 'quick'} className={manualOrderMode === 'quick' ? 'is-active' : ''} onClick={() => changeManualOrderMode('quick')}>Venda rápida <small>anônima</small></button>
            <button type="button" role="tab" aria-selected={manualOrderMode === 'scheduled'} className={manualOrderMode === 'scheduled' ? 'is-active' : ''} onClick={() => changeManualOrderMode('scheduled')}>Agendar pedido <small>cliente e data</small></button>
          </div>
-         <p className="manual-order-mode-hint">{manualOrderMode === 'quick' ? 'Preencha somente pagamento e produto. O PIX é preparado automaticamente quando selecionado.' : 'Use este fluxo para identificar o cliente, delivery/retirada e pedidos sob encomenda.'}</p>
+         <p className="manual-order-mode-hint">{manualOrderMode === 'quick' ? 'Escolha o ponto, o pagamento e os produtos.' : 'Use este fluxo para identificar o cliente, delivery/retirada e pedidos sob encomenda.'}</p>
         {manualFormError && <div className="manual-order-feedback manual-order-feedback--error" role="alert"><AlertCircle size={17}/><span>{manualFormError}</span></div>}
         <div className="form-grid">
            {manualOrderMode === 'scheduled' && <>
@@ -1032,28 +1073,28 @@ export default function OrdersAdmin() {
              <label>Agendar pedido <span className="optional-label">opcional</span><input type="datetime-local" min={localDateTimeInputValue(manualOrder.fulfillment === 'delivery' ? nextDeliveryWindow(settings.deliveryStartTime) : tomorrowStart())} value={manualOrder.scheduledFor || ''} onChange={(event) => { setManualFormError(''); setManualOrder((current) => ({ ...current, scheduledFor: event.target.value || undefined })); }}/><span className="manual-order-schedule-actions"><button type="button" className="text-button" onClick={scheduleManualRestock}>Amanhã{manualOrder.fulfillment === 'delivery' ? ` às ${settings.deliveryStartTime || '18:00'}` : ''}</button><small>Para encomendas sem estoque, disponível somente a partir de amanhã{manualOrder.fulfillment === 'delivery' && settings.deliveryStartTime ? ` e delivery após ${settings.deliveryStartTime}` : ''}.</small></span></label>
              <details className="manual-order-more-options"><summary>Mais opções <small>telefone, origem e recebimento</small></summary><div className="form-grid manual-order-more-options__grid"><label>Telefone <span className="optional-label">opcional</span><input value={manualOrder.customerPhone || ''} onChange={(event) => setManualOrder((current) => ({ ...current, customerPhone: event.target.value }))} placeholder="(27) 99999-9999"/></label><label>Origem<select value={manualOrder.source} onChange={(event) => setManualOrder((current) => ({ ...current, source: event.target.value as ManualOrderSource }))}>{manualSourceOptions.map((source) => <option key={source.value} value={source.value}>{source.label}</option>)}</select></label><label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label><label>Recebimento<select value={manualOrder.received ? 'paid' : 'pending'} disabled={manualOrder.status === 'cancelled'} onChange={(event) => setManualOrder((current) => ({ ...current, received: event.target.value === 'paid' }))}><option value="pending">A receber do cliente</option><option value="paid">Recebido</option></select><small>Use “A receber” para confirmar depois no painel.</small></label></div></details>
            </>}
-           <label>Estoque de saída<select required value={manualLocationId} onChange={(event) => setManualLocationId(event.target.value)}><option value="">Selecione o ponto</option>{stockLocations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select><small>A venda usa somente o saldo do ponto selecionado.</small></label>
+           <div className="manual-location-field"><div className="manual-location-field__heading"><label htmlFor="manual-stock-location">Estoque de saída</label><InfoHint label="Como funciona o estoque de saída">A venda usa somente o saldo disponível do ponto selecionado. Entregue ou retirado faz a baixa física; os demais status mantêm a reserva.</InfoHint></div><select id="manual-stock-location" required disabled={manualLocationsLoading} value={manualLocationId} onChange={(event) => { setManualLocationId(event.target.value); setManualFormError(''); }}><option value="">Selecione o ponto</option>{stockLocations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></div>
            <label>Pagamento<select value={manualOrder.paymentMethod} onChange={(event) => { const paymentMethod = event.target.value as PaymentMethod; setManualOrder((current) => ({ ...current, paymentMethod })); if (paymentMethod !== 'pix') setManualPixChargeNow(false); else if (manualOrderMode === 'quick') setManualPixChargeNow(true); }}>{Object.entries(paymentLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
            {manualOrderMode === 'quick' && <label>Recebimento<select value={manualOrder.received ? 'paid' : 'pending'} onChange={(event) => { const paid = event.target.value === 'paid'; setManualOrder((current) => ({ ...current, received: paid })); if (paid) setManualPixChargeNow(false); }}><option value="pending">A receber</option><option value="paid">Recebido e conferido</option></select></label>}
-           {manualOrderMode === 'quick' && <label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{quickManualStatusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select><small>A venda rápida já começa como “Entregue”. O recebimento do PIX continua separado até a conferência.</small></label>}
+           {manualOrderMode === 'quick' && <label>Status inicial<select value={manualOrder.status} onChange={(event) => { const status = event.target.value as OrderStatus; setManualOrder((current) => ({ ...current, status, received: status === 'cancelled' ? false : current.received })); }}>{quickManualStatusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select><small>{['delivered', 'picked_up'].includes(manualOrder.status) ? 'Baixa física ao registrar.' : 'Reserva até a entrega ou retirada.'} Pagamento conferido separadamente.</small></label>}
         </div>
 
         <section>
           <h3>Produtos</h3>
           {manualUnavailableItem && <div className={`manual-stock-schedule-card ${manualOrder.scheduledFor ? 'is-scheduled' : ''}`} role="status" aria-live="polite"><AlertCircle size={18}/><div><strong>{manualUnavailableItem.product.name} precisa de reposição</strong><span>{manualOrder.scheduledFor ? `Encomenda sob demanda preparada para ${new Date(manualOrder.scheduledFor).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}. O estoque só será baixado após a reposição e confirmação.` : 'Registre como encomenda futura e o estoque só será baixado após a reposição e confirmação.'}</span></div>{!manualOrder.scheduledFor && <button type="button" className="secondary-button" onClick={scheduleManualRestock}>Agendar amanhã</button>}</div>}
           <div className="manual-product-quick-add">
-            <label className="manual-product-quick-add__product">Adicionar produto<select value={manualProductId} onChange={(event) => setManualProductId(event.target.value)}><option value="">Selecione</option>{manualProducts.filter((product) => !manualItems.some((item) => item.productId === product.id)).map((product) => <option key={product.id} value={product.id}>{product.name} · {currency.format(product.promotionalPrice ?? product.price)}{product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable' ? ' · encomenda' : ''}</option>)}</select></label>
+            <label className="manual-product-quick-add__product">Adicionar produto<select value={manualProductId} onChange={(event) => setManualProductId(event.target.value)}><option value="">Selecione</option>{manualProducts.filter((product) => !manualItems.some((item) => item.productId === product.id)).map((product) => <option key={product.id} value={product.id}>{product.name} · {currency.format(product.promotionalPrice ?? product.price)} · {manualStockLabel(product)}{product.availabilityStatus !== 'available' || product.stockStatus === 'unavailable' ? ' · encomenda' : ''}</option>)}</select></label>
             <div className="manual-product-quick-add__quantity"><span>Qtd.</span><QuantityControl value={manualQuantityDraft} onChange={setManualQuantityDraft}/></div>
-            <button className="secondary-button" type="button" onClick={addManualProduct} disabled={!manualProductId}><Plus size={15}/>Adicionar</button>
+            <button className="secondary-button" type="button" onClick={addManualProduct} disabled={!manualProductId || manualLocationsLoading || !manualLocationId}><Plus size={15}/>Adicionar</button>
           </div>
-          <small className="manual-product-quick-add__hint">Escolha o produto e a quantidade uma única vez. Você pode ajustar opções e quantidades abaixo.</small>
+          <InfoHint label="Como adicionar produtos">Escolha o produto e a quantidade. Depois, ajuste as opções e quantidades nos itens abaixo.</InfoHint>
           {!manualItems.length ? <p>Nenhum produto selecionado.</p> : manualItems.map((item) => {
             const product = products.find((current) => current.id === item.productId);
             if (!product) return null;
             return <fieldset key={item.productId}>
               <legend>{product.name}</legend>
               <div className="form-grid">
-                <div className="manual-quantity-field"><span>Quantidade</span><QuantityControl value={item.quantity} onChange={(quantity) => updateManualItem(item.productId, { quantity })}/></div>
+                <p className="manual-item-stock">{stockLocations.find(location => location.id === manualLocationId)?.name}: {manualStockLabel(product)}</p><div className="manual-quantity-field"><span>Quantidade</span><QuantityControl value={item.quantity} onChange={(quantity) => updateManualItem(item.productId, { quantity })}/></div>
                 <div><strong>{currency.format(roundMoney(((product.promotionalPrice ?? product.price) + item.options.reduce((sum, option) => { const group = product.optionGroups.find((current) => current.id === option.groupId); const choice = group?.items.find((current) => current.id === option.itemId); return sum + (choice?.priceDelta || 0) * option.quantity; }, 0)) * item.quantity))}</strong><br/><button type="button" className="secondary-button" onClick={() => setManualItems((items) => items.filter((current) => current.productId !== item.productId))}>Remover item</button></div>
                 {product.optionGroups.filter((group) => group.active).map((group) => <label key={group.id} className="full">{group.name}{group.minChoices > 0 ? ' (obrigatório)' : ' (opcional)'}<select multiple={group.maxChoices > 1} value={group.maxChoices > 1 ? item.options.filter((option) => option.groupId === group.id).map((option) => option.itemId) : item.options.find((option) => option.groupId === group.id)?.itemId || ''} onChange={(event) => updateManualOptionGroup(item.productId, group.id, Array.from(event.currentTarget.selectedOptions, (option) => option.value))}>{group.minChoices === 0 && group.maxChoices <= 1 ? <option value="">Sem seleção</option> : null}{group.items.filter((choice) => choice.active).map((choice) => <option key={choice.id} value={choice.id}>{choice.name}{choice.priceDelta ? ` · ${choice.priceDelta > 0 ? '+' : ''}${currency.format(choice.priceDelta)}` : ''}</option>)}</select><small>{group.maxChoices > 1 ? `Selecione até ${group.maxChoices} opções.` : 'Selecione uma opção.'}</small></label>)}
               </div>
@@ -1066,7 +1107,8 @@ export default function OrdersAdmin() {
            {manualOrderMode === 'scheduled' && <label className="manual-pix-charge-toggle"><input type="checkbox" checked={manualPixChargeNow} disabled={manualOrder.status === 'cancelled'} onChange={(event) => { const checked = event.target.checked; setManualPixChargeNow(checked); if (checked) setManualOrder((current) => ({ ...current, received: false })); }}/><span><strong>Cobrar agora via PIX</strong><small>Gera o QR Code e o PIX Copia e Cola com o valor final. O recebimento continua “A receber” até a conferência.</small></span></label>}
           {manualPixChargeNow && <div className="manual-pix-live-preview"><div><QrCode size={18}/><span><strong>Cobrança via PIX</strong><small>O QR Code e o PIX Copia e Cola usam o valor atualizado do pedido.</small></span></div>{manualPixPreviewPayload ? <div className="manual-pix-live-preview__content">{manualPixPreviewQrCode ? <img src={manualPixPreviewQrCode} alt={`QR Code PIX no valor de ${currency.format(manualSubtotal)}`} /> : manualPixPreviewQrCodeError ? <span className="manual-pix-live-preview__error">{manualPixPreviewQrCodeError}</span> : <span className="manual-pix-result-loading">Gerando QR Code…</span>}<div><strong>{currency.format(manualSubtotal)}</strong><button type="button" className="text-button" onClick={() => void copyText(manualPixPreviewPayload).then(() => { setManualPixCopied(true); window.setTimeout(() => setManualPixCopied(false), 1800); })}><Copy size={14}/>{manualPixCopied ? 'Copiado' : 'Copiar PIX'}</button></div></div> : <div className="manual-pix-live-preview__error">{manualPixPreview.error}</div>}</div>}
         </section>}
-         <div className="master-modal-actions"><button type="button" className="secondary-button" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}>Cancelar</button><button className="primary-button" type="submit" disabled={manualSaving || !manualLocationId || !manualItems.length || (manualOrderMode === 'scheduled' && !manualOrder.customerName.trim())}>{manualSaving ? 'Salvando...' : `Registrar ${manualOrderMode === 'quick' ? 'venda' : 'pedido'} · ${currency.format(manualSubtotal)}`}</button></div>
+         </fieldset>
+         <div className="master-modal-actions"><button type="button" className="secondary-button" onClick={() => setManualOrderOpen(false)} disabled={manualSaving}>Cancelar</button><button className="primary-button" type="submit" disabled={manualSaving || manualLocationsLoading || !stockLocations.length || !manualLocationId || !manualItems.length || (manualOrderMode === 'scheduled' && !manualOrder.customerName.trim())}>{manualSaving ? 'Salvando...' : `Registrar ${manualOrderMode === 'quick' ? 'venda' : 'pedido'} · ${currency.format(manualSubtotal)}`}</button></div>
       </form>
     </div>}
     {manualPixView && <div className="modal-overlay" role="presentation">
@@ -1074,7 +1116,7 @@ export default function OrdersAdmin() {
         <button type="button" className="modal-close" aria-label="Fechar PIX do pedido avulso" onClick={() => setManualPixView(null)}><X/></button>
         <span className="eyebrow">PAGAMENTO DO PEDIDO AVULSO</span>
         <h2 id="manual-pix-result-title">PIX do pedido #{formatOrderNumber(manualPixView.orderNumber)}</h2>
-        <p>Use este QR Code ou o PIX Copia e Cola para enviar a cobrança ao cliente. O recebimento ainda deve ser conferido no painel.</p>
+        <InfoHint>Use este QR Code ou o PIX Copia e Cola para enviar a cobrança ao cliente. O recebimento ainda deve ser conferido no painel.</InfoHint>
         {manualPixView.payload ? <>
           {manualPixQrCode ? <img className="manual-pix-result-qr" src={manualPixQrCode} alt={`QR Code PIX no valor de ${currency.format(manualPixView.total)}`} /> : manualPixQrCodeError ? <div className="manual-pix-live-preview__error">{manualPixQrCodeError}</div> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
           <strong>Total: {currency.format(manualPixView.total)}</strong>
@@ -1092,7 +1134,7 @@ export default function OrdersAdmin() {
         <button type="button" className="modal-close" aria-label="Fechar PIX do pedido" onClick={() => setPaymentPixView(null)}><X/></button>
         <span className="eyebrow">CONFERÊNCIA FINANCEIRA</span>
         <h2 id="payment-pix-result-title">PIX do pedido #{formatOrderNumber(paymentPixView.orderNumber)}</h2>
-        <p>Confira este valor com o comprovante recebido antes de confirmar o pagamento do cliente.</p>
+        <InfoHint>Confira este valor com o comprovante recebido antes de confirmar o pagamento do cliente.</InfoHint>
         {paymentPixView.payload ? <>
           {paymentPixQrCode ? <img className="manual-pix-result-qr" src={paymentPixQrCode} alt={`QR Code PIX no valor de ${currency.format(paymentPixView.total)}`} /> : paymentPixQrCodeError ? <div className="manual-pix-live-preview__error">{paymentPixQrCodeError}</div> : <div className="manual-pix-result-loading"><QrCode size={18}/>Gerando QR Code…</div>}
           <strong>Total: {currency.format(paymentPixView.total)}</strong>

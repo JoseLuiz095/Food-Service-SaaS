@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { ArrowDownRight, ArrowUpRight, Camera, ChevronDown, Download, FileSearch2, Loader2, Pencil, Plus, ReceiptText, Save, ShoppingCart, TrendingUp, Upload, WalletCards, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useStore } from '../../contexts/StoreContext';
@@ -376,7 +377,7 @@ export default function Finance(){
 
   return <>
     <div className="admin-page-title finance-heading finance-heading-v4">
-      <div><span className="eyebrow">GESTÃO DO NEGÓCIO</span><h1>Financeiro</h1><p>Registre uma compra uma vez: a despesa e a entrada de insumos ficam vinculadas.</p></div>
+      <div><span className="eyebrow">GESTÃO DO NEGÓCIO</span><h1>Financeiro</h1><InfoHint label="Sobre Financeiro">Registre uma compra uma vez: a despesa e a entrada de insumos ficam vinculadas.</InfoHint></div>
     </div>
 
     <section className="finance-summary-band finance-summary-band-v4">
@@ -392,7 +393,7 @@ export default function Finance(){
       <button type="button" className="secondary-button" onClick={()=>startEntry('income')}><ArrowUpRight size={17}/>Entrada</button>
     </section>
     {purchaseOpen&&<section className="admin-card finance-purchase-panel" aria-labelledby="finance-purchase-title">
-      <div className="finance-quick-expense__heading"><div><span className="eyebrow">UMA AÇÃO, DOIS REGISTROS</span><h2 id="finance-purchase-title">Compra recebida</h2><p>Confirme o item e o custo real. O saldo de insumos e a despesa são salvos juntos.</p></div><button type="button" className="icon-button" aria-label="Fechar compra" onClick={()=>setPurchaseOpen(false)}><X size={18}/></button></div>
+      <div className="finance-quick-expense__heading"><div><span className="eyebrow">UMA AÇÃO, DOIS REGISTROS</span><h2 id="finance-purchase-title">Compra recebida</h2><InfoHint>Confirme o item e o custo real. O saldo de insumos e a despesa são salvos juntos.</InfoHint></div><button type="button" className="icon-button" aria-label="Fechar compra" onClick={()=>setPurchaseOpen(false)}><X size={18}/></button></div>
       {purchaseLoading?<p role="status">Carregando insumos…</p>:purchaseItems.length===0?<p>Nenhum insumo ativo. <a href="/admin/estoque">Cadastre o primeiro em Estoque.</a></p>:<form className="finance-purchase-form" onSubmit={submitPurchase}>
         <label>Insumo<select value={purchaseDraft.itemId} onChange={event=>setPurchaseDraft(current=>({...current,itemId:event.target.value}))} required><option value="">Selecione</option>{purchaseItems.map(item=><option key={item.id} value={item.id}>{item.name} · {inventoryUnitLabels[item.unit]}</option>)}</select></label>
         <label>Quantidade recebida<input type="number" min="0.001" step="0.001" inputMode="decimal" value={purchaseDraft.quantity} onChange={event=>setPurchaseDraft(current=>({...current,quantity:event.target.value}))} required/></label>
@@ -406,7 +407,7 @@ export default function Finance(){
     <details className="finance-insights-disclosure"><summary><TrendingUp size={18}/>Análises e gráficos <small>abrir quando precisar</small></summary>
     <section className="finance-insights-grid">
       <article className="admin-card finance-evolution-card">
-        <div className="section-heading"><div><span className="eyebrow">ÚLTIMOS 6 MESES</span><h2>Entradas × saídas</h2><p>Uma leitura simples da evolução do caixa gerencial.</p></div><TrendingUp size={21}/></div>
+        <div className="section-heading"><div><span className="eyebrow">ÚLTIMOS 6 MESES</span><h2>Entradas × saídas</h2><InfoHint label="Sobre Entradas × saídas">Uma leitura simples da evolução do caixa gerencial.</InfoHint></div><TrendingUp size={21}/></div>
         <div className="finance-mini-chart">
           {monthly.map((row)=><div className="finance-month" key={row.key}>
             <div className="finance-month-bars">
@@ -421,7 +422,7 @@ export default function Finance(){
       </article>
 
       <article className="admin-card finance-expense-card">
-        <div className="section-heading"><div><span className="eyebrow">ONDE ESTOU GASTANDO?</span><h2>Principais despesas</h2><p>Ranking por categoria considerando valores realizados.</p></div><WalletCards size={21}/></div>
+        <div className="section-heading"><div><span className="eyebrow">ONDE ESTOU GASTANDO?</span><h2>Principais despesas</h2><InfoHint label="Sobre Principais despesas">Ranking por categoria considerando valores realizados.</InfoHint></div><WalletCards size={21}/></div>
         {expenseRanking.length===0?<p className="analytics-empty">Registre despesas para visualizar a distribuição.</p>:<div className="finance-expense-ranking">
           {expenseRanking.map(([name,value])=><button type="button" className={`finance-expense-row${selectedExpenseCategory===name?' is-selected':''}`} aria-pressed={selectedExpenseCategory===name} onClick={()=>setSelectedExpenseCategory(name)} key={name}>
             <span className="finance-expense-row__heading"><span>{name}</span><strong>{currency.format(value)}</strong></span>
@@ -442,7 +443,7 @@ export default function Finance(){
     </section></details>
 
     {quickExpenseOpen&&<section className="finance-quick-expense" id="finance-quick-expense" aria-labelledby="finance-quick-expense-title">
-      <div className="finance-quick-expense__heading"><div><span className="eyebrow">LANÇAMENTO OPERACIONAL</span><h2 id="finance-quick-expense-title">Registrar despesa rápida</h2><p>Registre um gasto do dia sem abrir todos os campos do financeiro.</p></div><button type="button" className="icon-button" aria-label="Fechar despesa rápida" onClick={()=>setQuickExpenseOpen(false)}><X size={18}/></button></div>
+      <div className="finance-quick-expense__heading"><div><span className="eyebrow">LANÇAMENTO OPERACIONAL</span><h2 id="finance-quick-expense-title">Registrar despesa rápida</h2><InfoHint>Registre um gasto do dia sem abrir todos os campos do financeiro.</InfoHint></div><button type="button" className="icon-button" aria-label="Fechar despesa rápida" onClick={()=>setQuickExpenseOpen(false)}><X size={18}/></button></div>
       <form className="finance-quick-expense__form" onSubmit={submitQuickExpense}>
         <label>Descrição<input value={quickExpense.description} onChange={(event)=>setQuickExpense((current)=>({...current,description:event.target.value}))} placeholder="Ex.: Leite em pó" required/></label>
         <label>Valor (R$)<input type="number" min="0.01" step="0.01" value={quickExpense.amount||''} onChange={(event)=>setQuickExpense((current)=>({...current,amount:Number(event.target.value)}))} placeholder="0,00" required/></label>
@@ -454,7 +455,7 @@ export default function Finance(){
     <section className="finance-workspace finance-workspace-v4" id="finance-entry-form">
       <details className="finance-entry-disclosure" open={entryFormOpen} onToggle={event=>setEntryFormOpen(event.currentTarget.open)}><summary>Lançamento detalhado <small>para contas, ajustes e documentos</small></summary>
       <form className="finance-entry-form finance-entry-form-v4" onSubmit={submit}>
-        <div className="section-heading"><div><span className="eyebrow">CADASTRO RÁPIDO</span><h2>{editingEntryId?'Editar lançamento':'Novo lançamento'}</h2><p>Primeiro escolha se é entrada ou saída. O documento pode preencher os demais campos.</p></div>{editingEntryId&&<button type="button" className="secondary-button" onClick={()=>{setEditingEntryId(null);setForm(emptyForm(settings.id));}}>Cancelar edição</button>}</div>
+        <div className="section-heading"><div><span className="eyebrow">CADASTRO RÁPIDO</span><h2>{editingEntryId?'Editar lançamento':'Novo lançamento'}</h2><InfoHint>Primeiro escolha se é entrada ou saída. O documento pode preencher os demais campos.</InfoHint></div>{editingEntryId&&<button type="button" className="secondary-button" onClick={()=>{setEditingEntryId(null);setForm(emptyForm(settings.id));}}>Cancelar edição</button>}</div>
 
         <div className="finance-direction-toggle finance-direction-toggle-v4">
           <button type="button" className={form.direction==='income'?'active income':''} onClick={()=>setForm((current)=>({...current,direction:'income',categoryId:''}))}><ArrowUpRight/><span><strong>Entrada / ganho</strong><small>Dinheiro que entrou no negócio</small></span></button>
@@ -475,7 +476,7 @@ export default function Finance(){
         </div>}
 
         {documentItems.length>0&&<section className="finance-document-items" aria-labelledby="finance-document-items-title">
-          <div className="finance-document-items__heading"><div><span className="eyebrow">CONFERÊNCIA DO DOCUMENTO</span><h3 id="finance-document-items-title">Itens identificados</h3><p>Marque apenas o que não deve entrar neste lançamento. O valor será recalculado, mas você continua podendo revisá-lo manualmente.</p></div><span>{documentItems.length} item{documentItems.length===1?'':'s'}</span></div>
+          <div className="finance-document-items__heading"><div><span className="eyebrow">CONFERÊNCIA DO DOCUMENTO</span><h3 id="finance-document-items-title">Itens identificados</h3><InfoHint>Marque apenas o que não deve entrar neste lançamento. O valor será recalculado, mas você continua podendo revisá-lo manualmente.</InfoHint></div><span>{documentItems.length} item{documentItems.length===1?'':'s'}</span></div>
           <div className="finance-document-items__list">{documentItems.map((item,index)=>{const excluded=excludedItemIndexes.includes(index);return <div key={`${item.description}-${index}`} className={`finance-document-item${excluded?' is-excluded':''}`}><input aria-label={`Desconsiderar ${item.description}`} type="checkbox" checked={excluded} onChange={()=>toggleDocumentItem(index)}/><div className="finance-document-items__copy"><input aria-label="Descrição do item" value={item.description} onChange={(event)=>updateDocumentItem(index,'description',event.target.value)}/><div className="finance-document-item__fields"><label>Qtd.<input type="number" min="0" step="0.001" value={item.quantity??''} onChange={(event)=>updateDocumentItem(index,'quantity',event.target.value)}/></label><label>Unitário<input type="number" min="0" step="0.01" value={item.unitPrice??''} onChange={(event)=>updateDocumentItem(index,'unitPrice',event.target.value)}/></label></div><small>{item.confidence<0.75?'Confira a leitura deste item.':'Identificado automaticamente'}</small></div><label className="finance-document-item__total">Total<input type="number" min="0" step="0.01" value={item.total} onChange={(event)=>updateDocumentItem(index,'total',event.target.value)}/></label><button type="button" className="icon-button" aria-label={`Remover ${item.description}`} title="Remover item" onClick={()=>removeDocumentItem(index)}>×</button><em>{excluded?'Desconsiderado':'Considerar'}</em></div>})}</div>
           <button type="button" className="secondary-button finance-document-items__add" onClick={addDocumentItem}><Plus size={15}/>Adicionar item</button>
           <div className="finance-document-items__summary"><span>Total do documento <strong>{currency.format(documentGrossAmount)}</strong></span><span>Desconsiderado <strong>− {currency.format(excludedAmount)}</strong></span><span>Valor a lançar <strong>{currency.format(consideredDocumentAmount)}</strong></span></div>
@@ -499,7 +500,7 @@ export default function Finance(){
       </details>
 
       <div className="finance-ledger finance-ledger-v4">
-        <div className="section-heading finance-ledger-heading"><div><span className="eyebrow">MOVIMENTAÇÕES</span><h2>Histórico recente</h2><p>Pedidos com recebimento confirmado entram automaticamente como receita; lançamentos manuais aparecem junto.</p></div><FileSearch2 size={21}/></div>
+        <div className="section-heading finance-ledger-heading"><div><span className="eyebrow">MOVIMENTAÇÕES</span><h2>Histórico recente</h2><InfoHint label="Sobre Histórico recente">Pedidos com recebimento confirmado entram automaticamente como receita; lançamentos manuais aparecem junto.</InfoHint></div><FileSearch2 size={21}/></div>
         <div className="finance-ledger-filters" role="search" aria-label="Filtrar lançamentos">
           <label><span className="sr-only">Buscar lançamento</span><input value={ledgerQuery} onChange={(event)=>setLedgerQuery(event.target.value)} placeholder="Buscar por descrição, fornecedor ou documento" /></label>
           <label><span className="sr-only">Filtrar situação</span><select value={ledgerStatus} onChange={(event)=>setLedgerStatus(event.target.value as typeof ledgerStatus)}><option value="all">Todas as situações</option><option value="paid">Realizados</option><option value="pending">Pendentes</option><option value="cancelled">Cancelados</option></select></label>

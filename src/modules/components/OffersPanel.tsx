@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { useState } from 'react';
 import { moduleMoney } from '../calculator';
 import { offerKindLabels } from '../types';
@@ -10,7 +11,7 @@ export default function OffersPanel({ settings, offers, command, busy }: { setti
   const [editing, setEditing] = useState<string>();
   const kinds = (Object.keys(offerKindLabels) as OfferKind[]).filter(kind => kind === 'rental' ? settings.rentals_enabled : ['printing3d','custom'].includes(kind) ? settings.custom_enabled : settings.events_enabled);
   return <section className="module-card"><h2>Catálogo dos módulos</h2>
-    <p>Cadastre saldo destinado a eventos e encomendas. Esse saldo é separado do catálogo da venda normal.</p>
+    <InfoHint label="Sobre Catálogo dos módulos">Cadastre saldo destinado a eventos e encomendas. Esse saldo é separado do catálogo da venda normal.</InfoHint>
     <form onSubmit={async e => { e.preventDefault(); if (await command('offer_save', { id: editing, name: form.name, kind: kinds.includes(form.kind) ? form.kind : kinds[0], price_cents: Math.round(Number(form.price) * 100), stock_quantity: form.stock === '' ? null : Number(form.stock), max_quantity: form.max, lead_hours: form.lead, ready_now: form.ready, published: form.published })) { setForm(empty); setEditing(undefined); } }}>
       <div className="module-grid">
         <label>Nome<input required minLength={2} maxLength={150} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>

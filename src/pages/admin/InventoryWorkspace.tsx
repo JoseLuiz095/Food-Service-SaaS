@@ -29,7 +29,7 @@ function Workspace({ storeName, multiLocation }: { storeName: string; multiLocat
     search.set('visao', next);
     return { pathname: '/admin/estoque', search: `?${search}`, hash: location.hash };
   };
-  return <div className="inventory-workspace">
+  return <div className="inventory-workspace-shell">
     <div className="inventory-workspace__context"><span>Loja ativa: <strong>{storeName}</strong></span></div>
     <nav className="inventory-workspace__navigation" aria-label="Visões do estoque">
       <Link to={destination('locais')} aria-current={view === 'locais' ? 'page' : undefined}>

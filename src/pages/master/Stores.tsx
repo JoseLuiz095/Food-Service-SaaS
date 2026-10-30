@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { CloudCog, Copy, ExternalLink, Eye, EyeOff, KeyRound, Plus, Search, TriangleAlert, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -278,7 +279,7 @@ export default function MasterStores(){
   };
 
   return <>
-    <div className="admin-page-title master-store-page-title"><div><span className="eyebrow">CLIENTES</span><h1>Lojas e assinaturas</h1><p>Crie estabelecimentos, escolha o plano e suspenda o acesso sem apagar nenhum dado.</p></div><button type="button" className="primary-button" onClick={()=>setCreating(true)}><Plus size={18}/>Nova loja</button></div>
+    <div className="admin-page-title master-store-page-title"><div><span className="eyebrow">CLIENTES</span><h1>Lojas e assinaturas</h1><InfoHint label="Sobre Lojas e assinaturas">Crie estabelecimentos, escolha o plano e suspenda o acesso sem apagar nenhum dado.</InfoHint></div><button type="button" className="primary-button" onClick={()=>setCreating(true)}><Plus size={18}/>Nova loja</button></div>
 
     {createFunctionReady===false&&<section className="admin-card master-service-alert"><TriangleAlert size={22}/><div><strong>Criação automática de lojas indisponível</strong><p>{createFunctionError}</p><small>O frontend está publicado, mas a Edge Function do Supabase não está disponível. Vá em <b>Diagnóstico</b> para ver o comando de deploy.</small></div></section>}
     {createFunctionReady===true&&<div className="master-service-ok"><CloudCog size={16}/> Serviço de criação de lojas disponível</div>}
@@ -302,7 +303,7 @@ export default function MasterStores(){
         </tr>})}</tbody></table></div><nav className="master-store-pagination" aria-label="Paginação de lojas"><span aria-live="polite">Mostrando {firstResult+1}–{Math.min(firstResult+STORE_PAGE_SIZE,filtered.length)} de {filtered.length} lojas</span><div><button type="button" className="secondary-button compact-button" disabled={currentPage===1} onClick={()=>setPage(currentPage-1)}>Anterior</button><span>Página {currentPage} de {pageCount}</span><button type="button" className="secondary-button compact-button" disabled={currentPage===pageCount} onClick={()=>setPage(currentPage+1)}>Próxima</button></div></nav></>}
     </section>
 
-    {creating&&<div className="modal-overlay"><form className="master-modal master-modal--wide" role="dialog" aria-modal="true" aria-labelledby="master-create-title" onSubmit={createStore}><button type="button" className="modal-close" aria-label="Fechar criação de loja" disabled={saving} onClick={()=>setCreating(false)}><X/></button><h2 id="master-create-title">Criar loja e acesso do responsável</h2><p>Escolha como o responsável receberá o acesso. O catálogo, os pedidos e a equipe ficam separados por loja.</p>
+    {creating&&<div className="modal-overlay"><form className="master-modal master-modal--wide" role="dialog" aria-modal="true" aria-labelledby="master-create-title" onSubmit={createStore}><button type="button" className="modal-close" aria-label="Fechar criação de loja" disabled={saving} onClick={()=>setCreating(false)}><X/></button><h2 id="master-create-title">Criar loja e acesso do responsável</h2><InfoHint>Escolha como o responsável receberá o acesso. O catálogo, os pedidos e a equipe ficam separados por loja.</InfoHint>
       {createFunctionReady===false&&<div className="master-warning"><TriangleAlert size={18}/><span>Não será possível concluir enquanto <code>food-platform-create-store</code> não estiver publicada no Supabase.</span></div>}
       <div className="form-grid">
         <label className="full">Nome da loja<input required minLength={2} maxLength={120} value={createForm.name} onChange={(e)=>setCreateForm((f)=>({...f,name:e.target.value,slug:f.slug||slugify(e.target.value)}))}/></label>

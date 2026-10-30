@@ -1,3 +1,4 @@
+import { InfoHint } from '../components/ui/InfoHint';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useStore } from '../contexts/StoreContext';
@@ -120,7 +121,7 @@ export function FitnessBookingOffers(){
   };
 
   return <section className="business-public fitness-booking" aria-label="Agendamento Fitness/Academia">
-    <div className="food-section-title"><div><span>FITNESS/ACADEMIA</span><h2>Acompanhamento com horário reservado</h2><p>Escolha um horário disponível. As regras aparecem antes da confirmação.</p></div></div>
+    <div className="food-section-title"><div><span>FITNESS/ACADEMIA</span><h2>Acompanhamento com horário reservado</h2><InfoHint label="Sobre Acompanhamento com horário reservado">Escolha um horário disponível. As regras aparecem antes da confirmação.</InfoHint></div></div>
     {error&&<div className="business-message business-message--error" role="alert"><strong>Agenda indisponível</strong><p>{error}</p><button type="button" onClick={()=>setRefresh(value=>value+1)}>Tentar novamente</button></div>}
     {notice&&<div className="business-message" role="status">{notice}</div>}
     {loading?<p role="status">Consultando horários no servidor…</p>:offers.length===0?<p className="business-muted">Não há horários publicados e disponíveis para reserva neste momento.</p>:<>

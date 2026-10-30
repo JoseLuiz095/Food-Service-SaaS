@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { Activity, BarChart3, CreditCard, Eye, MapPin, PackageCheck, ShieldCheck, ShoppingBag, ShoppingCart, Truck } from 'lucide-react';
 import { useEffect, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -127,7 +128,7 @@ export default function Analytics(){
   ];
 
   return <>
-    <div className="admin-page-title analytics-title"><div><span className="eyebrow">ANÁLISES</span><h1>Desempenho comercial</h1><p>Funil de conversão e indicadores operacionais para entender a jornada de compra.</p></div><div className="analytics-title-actions"><select aria-label="Período dos indicadores" value={rangeDays} onChange={(e)=>setRangeDays(Number(e.target.value))}><option value={7}>Últimos 7 dias</option><option value={30}>Últimos 30 dias</option><option value={90}>Últimos 90 dias</option></select></div></div>
+    <div className="admin-page-title analytics-title"><div><span className="eyebrow">ANÁLISES</span><h1>Desempenho comercial</h1><InfoHint label="Sobre Desempenho comercial">Funil de conversão e indicadores operacionais para entender a jornada de compra.</InfoHint></div><div className="analytics-title-actions"><select aria-label="Período dos indicadores" value={rangeDays} onChange={(e)=>setRangeDays(Number(e.target.value))}><option value={7}>Últimos 7 dias</option><option value={30}>Últimos 30 dias</option><option value={90}>Últimos 90 dias</option></select></div></div>
 
     <details className="analytics-privacy-note"><summary><ShieldCheck size={17}/>Privacidade das métricas</summary><p>O funil usa um identificador aleatório de navegação e eventos de uso da vitrine. Essa telemetria não recebe nome, telefone, e-mail, endereço, mensagem do cartão ou observações. Os dados do pedido continuam armazenados normalmente na área de Pedidos.</p></details>
 

@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { Ban, CalendarDays, CheckCircle2, RefreshCw, ReceiptText, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
@@ -78,11 +79,11 @@ export default function MasterPayments(){
   };
 
   return <>
-    <div className="admin-page-title"><div><h1>Pagamentos e alterações de plano</h1><p>Confirme somente após conferir o PIX. Se a renovação não ocorreu, registre a negativa sem avançar o vencimento da loja.</p></div><button className="secondary-button" disabled={loading} onClick={()=>void load()}><RefreshCw size={16}/>Atualizar</button></div>
+    <div className="admin-page-title"><div><h1>Pagamentos e alterações de plano</h1><InfoHint label="Sobre Pagamentos e alterações de plano">Confirme somente após conferir o PIX. Se a renovação não ocorreu, registre a negativa sem avançar o vencimento da loja.</InfoHint></div><button className="secondary-button" disabled={loading} onClick={()=>void load()}><RefreshCw size={16}/>Atualizar</button></div>
 
     <section className="master-payment-summary-v046"><span><strong>{stats.waiting}</strong><small>Aguardando decisão</small></span><span><strong>{stats.paid}</strong><small>Pagamentos confirmados</small></span><span><strong>{stats.rejected}</strong><small>Não renovados</small></span></section>
 
-    <section className="admin-card billing-payment-table"><div className="section-heading"><div><span className="eyebrow">PIX + WHATSAPP</span><h2>Histórico de cobranças</h2><p>A VendeWeb não confirma mensalidades sozinha. A decisão permanece sob controle do Admin Master.</p></div><ReceiptText size={21}/></div>
+    <section className="admin-card billing-payment-table"><div className="section-heading"><div><span className="eyebrow">PIX + WHATSAPP</span><h2>Histórico de cobranças</h2><InfoHint label="Sobre Histórico de cobranças">A VendeWeb não confirma mensalidades sozinha. A decisão permanece sob controle do Admin Master.</InfoHint></div><ReceiptText size={21}/></div>
       {loading?<div role="status"><LoadingState label="Carregando cobranças…"/></div>:loadError?<div role="alert"><ErrorState message={loadError} onRetry={()=>void load()}/></div>:payments.length===0?<p>Nenhuma cobrança registrada.</p>:<div className="food-master-payment-list-v046">
         {payments.map((payment)=><article key={payment.id} className="food-master-payment-card-v046">
           <div className="food-payment-status-v046"><ReceiptText/><div><span>{payment.storeName||payment.storeId}</span><h2>{payment.paymentIntent==='plan_change'?`${payment.previousPlanName||'Plano atual'} → ${payment.planName||'Novo plano'}`:payment.planName||'Renovação mensal'}</h2></div><b className={`status-${payment.status}`}>{statusLabel(payment)}</b></div>
@@ -106,6 +107,6 @@ export default function MasterPayments(){
       </div>}
     </section>
 
-    {rejecting&&<div className="modal-overlay"><div className="master-modal master-payment-reject-modal-v046"><button type="button" className="modal-close" onClick={()=>setRejecting(null)}><X/></button><span className="eyebrow">DECISÃO DO FINANCEIRO</span><h2>{rejecting.paymentIntent==='plan_change'?'Negar alteração de plano':'Registrar mensalidade não renovada'}</h2><p>A data de vencimento da assinatura não será avançada. Se ela estiver vencida, o lojista verá o alerta vermelho no painel.</p><label>Motivo<textarea value={rejectReason} onChange={(event)=>setRejectReason(event.target.value)} placeholder="Ex.: crédito não identificado, comprovante inválido ou renovação não realizada."/></label><div className="master-modal-actions"><button className="secondary-button" onClick={()=>setRejecting(null)}>Cancelar</button><button className="primary-button danger-primary-v046" disabled={busy===rejecting.id||rejectReason.trim().length<5} onClick={()=>void reject()}><Ban size={16}/>{busy===rejecting.id?'Registrando...':'Confirmar não renovação'}</button></div></div></div>}
+    {rejecting&&<div className="modal-overlay"><div className="master-modal master-payment-reject-modal-v046"><button type="button" className="modal-close" onClick={()=>setRejecting(null)}><X/></button><span className="eyebrow">DECISÃO DO FINANCEIRO</span><h2>{rejecting.paymentIntent==='plan_change'?'Negar alteração de plano':'Registrar mensalidade não renovada'}</h2><InfoHint>A data de vencimento da assinatura não será avançada. Se ela estiver vencida, o lojista verá o alerta vermelho no painel.</InfoHint><label>Motivo<textarea value={rejectReason} onChange={(event)=>setRejectReason(event.target.value)} placeholder="Ex.: crédito não identificado, comprovante inválido ou renovação não realizada."/></label><div className="master-modal-actions"><button className="secondary-button" onClick={()=>setRejecting(null)}>Cancelar</button><button className="primary-button danger-primary-v046" disabled={busy===rejecting.id||rejectReason.trim().length<5} onClick={()=>void reject()}><Ban size={16}/>{busy===rejecting.id?'Registrando...':'Confirmar não renovação'}</button></div></div></div>}
   </>;
 }

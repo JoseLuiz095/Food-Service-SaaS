@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { useState } from 'react';
 import PrintCalculator from './PrintCalculator';
 import { moduleMoney } from '../calculator';
@@ -19,7 +20,7 @@ export default function CustomPanel({ requests, files, command, busy, urgencyBps
     try { await modulesApi.upload(request, file); await reload(); } catch (e) { onError((e as Error).message); } finally { setUploading(false); }
   };
   return <><PrintCalculator urgencyBps={urgencyBps} onApply={(costs, finalCents, isUrgent) => { setQuote(costs); setUrgent(isUrgent); setForm({ ...form, final: (finalCents / 100).toFixed(2) }); }} />
-    <section className="module-card"><h2>Pedidos personalizados e avulsos</h2><p>Chaveiros, brindes, peças e encomendas para Doce Lua ou outras empresas. Conversa e aprovação de arte pelo WhatsApp.</p>
+    <section className="module-card"><h2>Pedidos personalizados e avulsos</h2><InfoHint label="Sobre Pedidos personalizados e avulsos">Chaveiros, brindes, peças e encomendas para Doce Lua ou outras empresas. Conversa e aprovação de arte pelo WhatsApp.</InfoHint>
       <form onSubmit={async e => { e.preventDefault(); if (await command('custom_save', { ...form, id: editing?.id, quote, urgent, final_cents: form.final === '' ? null : Math.round(Number(form.final) * 100), due_at: new Date(form.due_at).toISOString() })) { setEditing(undefined); setForm(empty); setQuote(undefined); } }}>
         <div className="module-grid">
           <label>Cliente ou empresa<input required minLength={2} maxLength={120} value={form.customer_name} onChange={e => setForm({ ...form, customer_name: e.target.value })} /></label>

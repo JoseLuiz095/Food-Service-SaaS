@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { useState } from 'react';
 import { moduleMoney } from '../calculator';
 import type { ComboItem, ComboVersion, Offer } from '../types';
@@ -7,7 +8,7 @@ export default function CombosPanel({ directory, approvals, versions, command, b
   const [name, setName] = useState('');
   const [combo, setCombo] = useState('');
   const [selected, setSelected] = useState<Record<string, { quantity: number; discount_bps: number }>>({});
-  return <><section className="module-card"><h2>Propor combo</h2><p>Cada fornecedor aprova os próprios itens, quantidades, preços e descontos. Editar sempre cria uma nova versão.</p>
+  return <><section className="module-card"><h2>Propor combo</h2><InfoHint label="Sobre Propor combo">Cada fornecedor aprova os próprios itens, quantidades, preços e descontos. Editar sempre cria uma nova versão.</InfoHint>
     <form onSubmit={async e => { e.preventDefault(); if (await command('combo_save', { name, combo_id: combo || undefined, items: Object.entries(selected).map(([offer_id, terms]) => ({ offer_id, ...terms })) })) { setSelected({}); setName(''); setCombo(''); } }}>
       <div className="module-grid"><label>Nome do combo<input required minLength={2} maxLength={150} value={name} onChange={e => setName(e.target.value)} /></label>
         <label>Versionamento<select value={combo} onChange={e => setCombo(e.target.value)}><option value="">Criar novo combo</option>{versions.filter((v,i,all) => all.findIndex(x => x.combo_id === v.combo_id) === i).map(v => <option key={v.combo_id} value={v.combo_id}>Nova versão: {v.name}</option>)}</select></label></div>

@@ -1,3 +1,4 @@
+import { InfoHint } from '../components/ui/InfoHint';
 import { ArrowLeft, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -21,7 +22,7 @@ export function FitnessCatalog({ products, categories }: CatalogProps) {
   const visible = published.filter(product => (categoryId === 'all' || product.categoryId === categoryId) && normalizeText(`${product.name} ${product.description}`).includes(normalizeText(query)));
 
   return <section className="fitness-catalog" aria-labelledby="fitness-catalog-title">
-    <div className="food-section-title"><div><span>CATÁLOGO</span><h2 id="fitness-catalog-title">Produtos da loja</h2><p>Consulte os itens publicados e seus detalhes.</p></div></div>
+    <div className="food-section-title"><div><span>CATÁLOGO</span><h2 id="fitness-catalog-title">Produtos da loja</h2><InfoHint>Consulte os itens publicados e seus detalhes.</InfoHint></div></div>
     {published.length > 0 ? <>
       <label className="fitness-catalog-search"><Search size={19}/><span className="sr-only">Buscar produtos</span><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar produtos"/></label>
       <div className="fitness-catalog-filters" role="group" aria-label="Categorias de produtos"><button type="button" aria-pressed={categoryId === 'all'} onClick={() => setCategoryId('all')}>Todos</button>{visibleCategories.map(category => <button type="button" key={category.id} aria-pressed={categoryId === category.id} onClick={() => setCategoryId(category.id)}>{category.name}</button>)}</div>

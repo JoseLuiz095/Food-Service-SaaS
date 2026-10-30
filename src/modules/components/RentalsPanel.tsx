@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { useState } from 'react';
 import { moduleMoney } from '../calculator';
 import type { Offer, RentalAsset, RentalReservation } from '../types';
@@ -18,7 +19,7 @@ function ReservationForm({ reservation: r, command, busy }: { reservation: Renta
 }
 
 export default function RentalsPanel({ assets, offers, reservations, command, busy }: { assets: RentalAsset[]; offers: Offer[]; reservations: RentalReservation[]; command: ModuleCommand; busy: boolean }) {
-  return <section className="module-card"><h2>Aluguel e manutenção</h2><p>Um cadastro por equipamento físico. Reservas sobrepostas e ativos em manutenção são bloqueados pelo servidor.</p>
+  return <section className="module-card"><h2>Aluguel e manutenção</h2><InfoHint label="Sobre Aluguel e manutenção">Um cadastro por equipamento físico. Reservas sobrepostas e ativos em manutenção são bloqueados pelo servidor.</InfoHint>
     {assets.map(a => <article className="module-row" key={a.offer_id}><div><strong>{offers.find(o => o.id === a.offer_id)?.name || 'Equipamento'}</strong><p>{a.maintenance ? 'Em manutenção' : 'Disponível para novas reservas'}</p><p>{a.maintenance_notes}</p></div><button className="button" disabled={busy} onClick={() => void command('rental_asset', { offer_id: a.offer_id, maintenance: !a.maintenance, notes: a.maintenance_notes })}>{a.maintenance ? 'Concluir manutenção' : 'Colocar em manutenção'}</button></article>)}
     {reservations.map(r => <ReservationForm key={`${r.id}:${r.deposit_cents}:${r.contract}:${JSON.stringify(r.assembly_checklist)}:${JSON.stringify(r.return_checklist)}`} reservation={r} command={command} busy={busy} />)}
     {!reservations.length && <p>Orçamentos e reservas começam pelo catálogo de eventos da loja. Use a revisão do pedido antes de emitir a cobrança.</p>}

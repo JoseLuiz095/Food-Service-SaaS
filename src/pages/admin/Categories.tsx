@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { CheckCircle2, Edit3, EyeOff, Layers, PackageCheck, Plus, Save, Search, Trash2, X } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useStore } from '../../contexts/StoreContext';
@@ -76,7 +77,7 @@ export default function CategoriesAdmin() {
       <div>
         <span className="eyebrow">ORGANIZAÇÃO</span>
         <h1>Categorias</h1>
-        <p>Organize a vitrine sem poluir o catálogo. Categorias ocultas deixam de aparecer para o cliente.</p>
+        <InfoHint label="Sobre Categorias">Organize a vitrine sem poluir o catálogo. Categorias ocultas deixam de aparecer para o cliente.</InfoHint>
       </div>
       <button className="primary-button category-new-mobile" type="button" onClick={() => setSelected(null)}><Plus size={18}/>Nova categoria</button>
     </div>

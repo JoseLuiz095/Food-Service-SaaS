@@ -1,4 +1,5 @@
-.inventory-workspace { min-width: 0; }
+.inventory-workspace-shell { min-width: 0; width: 100%; }
+.inventory-workspace__pane { min-width: 0; max-width: 100%; }
 .inventory-workspace__context { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .4rem 1rem; margin-bottom: .75rem; overflow-wrap: anywhere; }
 .inventory-workspace__context span { color: #475569; }
 .inventory-workspace__navigation { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
