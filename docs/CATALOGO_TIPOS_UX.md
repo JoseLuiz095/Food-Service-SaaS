@@ -29,4 +29,4 @@ Definir por tipo: formação de preço e tributos, estoque e reserva de produto 
 
 ## Validação desta branch
 
-`npm run build` e Playwright `fitness-catalog.spec.ts` (11 cenários, incluindo a vitrine de Nutrição) passaram localmente. Os cenários responsivos exercitam 320, 390, 768 e 1366 px no Chromium com dados simulados e verificam ausência de rolagem horizontal. Admin autenticado, backend remoto e transações de pagamento/agenda em produção não foram validados por esses testes.
+`npm run build`, Playwright `fitness-catalog.spec.ts` (11 cenários, incluindo a vitrine de Nutrição) e `catalog-navigation.spec.ts` (4 cenários de Admin autenticado) passaram localmente. A suíte Admin usou Chromium headless com uma configuração temporária equivalente à configuração de módulos; a instalação local não tinha o canal Chrome completo. Os cenários responsivos exercitam 320, 390, 768 e 1366 px no Chromium com dados simulados e verificam ausência de rolagem horizontal. Admin autenticado, backend remoto e transações de pagamento/agenda em produção não foram validados por esses testes.
