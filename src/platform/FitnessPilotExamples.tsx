@@ -1,10 +1,11 @@
 import { createElement, useState } from 'react';
+import { normalizeText } from '../utils/text';
 import './fitness.css';
 
 const programs = [
-  { level: 'Iniciante', price: 'R$ 49,00', focus: 'Primeiros movimentos', exercises: ['Sentar e levantar de banco', 'Remada com elástico', 'Ponte de quadril'], tone: 'basic' },
-  { level: 'Intermediário', price: 'R$ 79,00', focus: 'Força e controle', exercises: ['Agachamento com halter', 'Remada unilateral', 'Terra romeno com halteres'], tone: 'medium' },
-  { level: 'Avançado', price: 'R$ 119,00', focus: 'Progressão supervisionada', exercises: ['Agachamento com barra', 'Remada curvada', 'Avanço com halteres'], tone: 'advanced' },
+  { level: 'Iniciante', price: 'R$ 49,00', focus: 'Primeiros movimentos', muscles: 'Pernas, costas e glúteos', equipment: 'Banco, elástico e solo', exercises: ['Sentar e levantar de banco', 'Remada com elástico', 'Ponte de quadril'], tone: 'basic' },
+  { level: 'Intermediário', price: 'R$ 79,00', focus: 'Força e controle', muscles: 'Pernas, costas e glúteos', equipment: 'Halteres e banco', exercises: ['Agachamento com halter', 'Remada unilateral', 'Terra romeno com halteres'], tone: 'medium' },
+  { level: 'Avançado', price: 'R$ 119,00', focus: 'Progressão supervisionada', muscles: 'Pernas, costas e glúteos', equipment: 'Barra e halteres', exercises: ['Agachamento com barra', 'Remada curvada', 'Avanço com halteres'], tone: 'advanced' },
 ] as const;
 
 const demoOffers = [
@@ -31,7 +32,9 @@ function SquatDiagram() {
   </svg>;
 }
 
-export function FitnessPilotExamples() {
+export function FitnessPilotExamples({ query = '' }: { query?: string }) {
+  const [muscle, setMuscle] = useState('all');
+  const [equipment, setEquipment] = useState('all');
   const [view3d, setView3d] = useState(false);
   const [loading3d, setLoading3d] = useState(false);
   const [error3d, setError3d] = useState('');
@@ -47,17 +50,22 @@ export function FitnessPilotExamples() {
       setError3d('A demonstração 3D não carregou neste aparelho. A prévia 2D permanece disponível.');
     } finally { setLoading3d(false); }
   };
+  const filtered = programs.filter(program => (muscle === 'all' || normalizeText(program.muscles).includes(normalizeText(muscle)))
+    && (equipment === 'all' || normalizeText(program.equipment).includes(normalizeText(equipment)))
+    && normalizeText([program.level, program.focus, program.muscles, program.equipment, ...program.exercises].join(' ')).includes(normalizeText(query)));
   return <section className="fitness-pilot-examples" aria-labelledby="fitness-examples-title">
     <div className="fitness-examples-heading">
       <div><span className="eyebrow">CONHEÇA O PILOTO</span><h2 id="fitness-examples-title">Exemplos de treinos e atendimentos</h2>
         <p>Explore o formato das fichas. São amostras fictícias para avaliação do piloto, sem compra nem prescrição individual.</p></div>
       <span className="fitness-demo-status">Demonstração</span>
     </div>
+    <div className="fitness-example-filters"><label>Músculo<select value={muscle} onChange={event => setMuscle(event.target.value)}><option value="all">Todos</option><option value="Pernas">Pernas</option><option value="Costas">Costas</option><option value="Glúteos">Glúteos</option></select></label><label>Equipamento<select value={equipment} onChange={event => setEquipment(event.target.value)}><option value="all">Todos</option><option value="Elástico">Elástico</option><option value="Halteres">Halteres</option><option value="Barra">Barra</option><option value="Solo">Solo</option></select></label></div>
     <div className="fitness-example-layout">
       <div className="fitness-example-programs">
-        {programs.map(program => <article className="fitness-example-program" key={program.level}>
+        {filtered.length === 0 && <p role="status" className="business-muted">Nenhuma ficha de exemplo corresponde à busca ou aos filtros.</p>}
+        {filtered.map(program => <article className="fitness-example-program" key={program.level}>
           <div className="fitness-example-program-top"><span className={'fitness-level fitness-level--' + program.tone}>{program.level}</span><strong>{program.price}</strong></div>
-          <h3>Ficha {program.level.toLowerCase()}</h3><p>{program.focus}</p>
+          <h3>Ficha {program.level.toLowerCase()}</h3><p>{program.focus}</p><small>{program.muscles} · {program.equipment}</small>
           <details><summary>Ver exercícios de exemplo</summary><ol>{program.exercises.map(item => <li key={item}>{item}</li>)}</ol></details>
         </article>)}
       </div>
