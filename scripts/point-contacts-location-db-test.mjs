@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {PGlite} from '@electric-sql/pglite';
 const db=new PGlite();const A='10000000-0000-4000-8000-000000000001',B='10000000-0000-4000-8000-000000000002',U='20000000-0000-4000-8000-000000000001';
-const L='30000000-0000-4000-8000-000000000001',D='30000000-0000-4000-8000-000000000002',E='30000000-0000-4000-8000-000000000003',P='40000000-0000-4000-8000-000000000001';
+const L='30000000-0000-4000-8000-000000000001',D='30000000-0000-4000-8000-000000000002',E='30000000-0000-4000-8000-000000000003',P='40000000-0000-4000-8000-000000000001',P2='40000000-0000-4000-8000-000000000002';
 const q=async(sql,args=[])=>(await db.query(sql,args)).rows;
 const one=async(sql,args=[])=> (await q(sql,args))[0];
 try{
@@ -23,14 +23,18 @@ try{
  create table food_order_stock_movements(store_id uuid,location_id uuid);
  insert into food_stores(id) values('${A}'),('${B}');insert into food_store_users values('${A}','${U}',true);
  insert into food_stock_locations values('${L}','${A}',true,true,now()),('${D}','${A}',true,false,now()),('${E}','${A}',true,false,now()),('${B}','${B}',true,true,now());
- insert into food_pickup_locations values('${P}','${A}','${D}','Ponto A',true,true,now());`);
+ insert into food_pickup_locations values('${P}','${A}','${D}','Ponto A',true,true,now()),('${P2}','${A}','${D}','Ponto B',true,true,now());`);
  await db.exec(readFileSync('supabase/migrations/20261030185746_food_point_contacts_and_location_lifecycle.sql','utf8'));
  // Simulate an existing two-contact point: retain the explicit proof destination.
  await db.exec(`insert into food_pickup_point_contacts values
  ('${A}','${P}',1,'Pessoa A','5511000000001','both'),
- ('${A}','${P}',2,'Pessoa B','5511000000002','confirmation')`);
+ ('${A}','${P}',2,'Pessoa B','5511000000002','confirmation'),
+ ('${A}','${P2}',2,'Confirmação','5511000000003','confirmation');
+ insert into food_receipt_contacts values('${A}',1,'Contato legado','5511000000004');
+ insert into food_pickup_receipt_contacts values('${A}','${P2}',1);`);
  await db.exec(readFileSync('supabase/migrations/20261030213000_food_single_point_receipt_contact.sql','utf8'));
  assert.deepEqual((await q('select slot,name,purpose from food_pickup_point_contacts')),[{slot:1,name:'Pessoa A',purpose:'proof'}]);
+ assert.deepEqual((await one('select food_get_receipt_destinations_v1($1,$2) as v',[A,P2])).v,{mode:'unassigned',contacts:[]});
  await db.exec(`set role authenticated;select set_config('test.user','${U}',false)`);
  const contacts=[{slot:1,name:'Pessoa A',phone:'5511000000001',purpose:'proof'}];
  await q('select food_save_pickup_point_contacts_v1($1,$2,$3::jsonb)',[A,P,JSON.stringify(contacts)]);
