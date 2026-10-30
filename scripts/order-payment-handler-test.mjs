@@ -23,7 +23,7 @@ test('authorized issue returns opaque encrypted capability; resolve uses authori
  const f=fixture(), a=await f.issue(), b=await f.issue(); assert.equal(a.status,200);assert.notEqual(a.body.token,b.body.token);
  assert.equal(a.body.token.includes(oid),false);assert.equal(a.body.token.includes(sid),false);
  const r=await f.resolve(a.body.token);assert.equal(r.status,200);assert.equal(r.body.total,12.5);assert.equal(r.body.status,'pending');assert.match(r.body.pixPayload,/540512.50/);
- assert.deepEqual(Object.keys(r.body).sort(),['status','storeName','orderNumber','total','receiver','pixPayload','expiresAt'].sort());
+ assert.deepEqual(Object.keys(r.body).sort(),['status','storeName','orderNumber','total','receiver','pixPayload','expiresAt','fulfillmentStatus'].sort());
  assert.match(r.headers.get('cache-control'),/no-store/); assert.equal(r.headers.get('referrer-policy'),'no-referrer');
 });
 test('issue rejects anonymous, wrong tenant and unverified JWT; no public lookup by order ID',async()=>{
