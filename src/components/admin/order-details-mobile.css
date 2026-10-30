@@ -1,4 +1,8 @@
 /* Os controles de quantidade precisam de área de toque e nomes completos. */
+.order-stock-audit__toggle{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:8px 0;border:0;background:none;color:inherit;font:inherit;font-weight:700;text-align:left;cursor:pointer}
+.order-stock-audit__toggle span{margin-left:auto;color:var(--muted);font-size:.8rem;font-weight:500}
+.order-stock-audit__body{padding:8px 12px;border-radius:10px;background:var(--surface,#fff);border:1px solid var(--line,#ddd);font-size:.85rem}
+.order-stock-audit__body p{margin:8px 0;overflow-wrap:anywhere}.order-stock-audit__body ul{margin:10px 0;padding-left:20px}.order-stock-audit__body li{margin:8px 0}
 @media(max-width:600px){
   .order-details-modal-overlay{padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}
   .order-details-modal{max-height:calc(100dvh - 20px);overscroll-behavior:contain;scroll-padding-bottom:140px}
