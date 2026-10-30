@@ -1,3 +1,4 @@
+import { InfoHint } from '../components/ui/InfoHint';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { fitnessApi, type FitnessStudent, type FitnessWorkout } from '../services/fitnessApi';
 
@@ -51,7 +52,7 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
 
   return <section className="business-card fitness-workouts" aria-label="Fichas de treino">
     <h2>Fichas de treino</h2>
-    <p>Modelos genéricos para revisão. O Personal Trainer deve conferir, ajustar ao aluno e aprovar antes de atribuir. Estas fichas não são prescrição individualizada.</p>
+    <InfoHint label="Sobre Fichas de treino">Modelos genéricos para revisão. O Personal Trainer deve conferir, ajustar ao aluno e aprovar antes de atribuir. Estas fichas não são prescrição individualizada.</InfoHint>
     {error&&<div className="business-message business-message--error" role="alert">{error} <button type="button" onClick={()=>void reload().catch(cause=>setError((cause as Error).message))}>Tentar novamente</button></div>}
     {notice&&<div className="business-message" role="status">{notice}</div>}
     {loading?<p role="status">Consultando fichas no servidor…</p>:<>

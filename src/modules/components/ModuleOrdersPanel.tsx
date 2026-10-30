@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { useState } from 'react';
 import { moduleMoney } from '../calculator';
 import type { ModuleOrder, ModuleOrderItem, OrderPart, Receivable, Refund } from '../types';
@@ -11,7 +12,7 @@ export default function ModuleOrdersPanel({ orders, parts, items, receivables, r
   const [amounts, setAmounts] = useState<Record<string,string>>({});
   const [cancelling, setCancelling] = useState<string>();
   const orderIds = [...new Set([...orders.map(o => o.id), ...parts.map(p => p.order_id)])];
-  return <section className="module-card"><h2>Pedidos dos módulos</h2><p>Um código para o cliente. Cada loja recebe acesso aos próprios itens e valores. O vendedor confere a cobrança única; o Master consulta a composição completa.</p>
+  return <section className="module-card"><h2>Pedidos dos módulos</h2><InfoHint label="Sobre Pedidos dos módulos">Um código para o cliente. Cada loja recebe acesso aos próprios itens e valores. O vendedor confere a cobrança única; o Master consulta a composição completa.</InfoHint>
     {orderIds.map(id => { const order = orders.find(o => o.id === id); const orderParts = parts.filter(p => p.order_id === id); const code = order?.code || orderParts[0]?.code; return <article className="module-card" key={id}>
       <h3>FW-E{code} {order ? `· ${order.status}` : ''}</h3>
       {master && <button className="button" disabled={busy} onClick={() => void onDetail(id)}>Consultar composição completa</button>}

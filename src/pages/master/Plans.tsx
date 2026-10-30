@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import {
   BarChart3,
   BadgeDollarSign,
@@ -212,7 +213,7 @@ export default function MasterPlans() {
         <div>
           <span className="eyebrow">PLANOS</span>
           <h1>Planos e cobrança</h1>
-          <p>Centralize degustação, planos pagos e configuração do PIX com o mesmo padrão visual do FloriWeb.</p>
+          <InfoHint label="Sobre Planos e cobrança">Centralize degustação, planos pagos e configuração do PIX com o mesmo padrão visual do FloriWeb.</InfoHint>
         </div>
         <a className="secondary-button" href="/admin-master/pagamentos">
           <WalletCards size={16} />

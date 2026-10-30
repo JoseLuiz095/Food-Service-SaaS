@@ -1,0 +1,39 @@
+/* Let nested grids shrink to the viewport; scroll belongs to the table/list. */
+.admin-shell .admin-content, .admin-shell .admin-page,
+.admin-shell .admin-page > div, .master-shell .admin-page, .master-shell .admin-page > div { min-width: 0; max-width: 100%; }
+.admin-shell .admin-page :is(.admin-card, .form-grid, .inventory-workspace, .inventory-section-heading) { min-width: 0; }
+.manual-order-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.manual-order-modal > .manual-order-fields { border: 0; border-radius: 0; margin: 0; padding: 0; background: transparent; }
+.admin-page :is(h1,h2,h3):has(+ .info-hint), .master-shell .admin-page :is(h1,h2,h3):has(+ .info-hint) { display: inline; }
+.admin-page div:has(> :is(h1,h2,h3) + .info-hint) > .eyebrow { display: block; }
+.manual-order-modal > .eyebrow { display: block; }
+.manual-order-modal > h2:has(+ .info-hint) { display: inline; }
+.manual-order-modal { scroll-padding-block: 20px 170px; }
+.manual-order-modal .manual-item-stock { margin: 0 0 8px; font-size: .8rem; color: var(--muted); overflow-wrap: anywhere; }
+.manual-location-field { min-width: 0; display: grid; align-content: start; gap: 4px; }
+.manual-location-field__heading { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-weight: 650; }
+.manual-location-field select { width: 100%; min-width: 0; }
+.inventory-model-card--compact .inventory-section-heading { margin: 0; align-items: center; }
+.inventory-model-card--compact .inventory-section-heading > div { display: flex; align-items: center; gap: 6px; }
+.inventory-model-card--compact h2 { margin: 0; }
+.master-shell .admin-page :is(.admin-card, .edge-function-status > div, .diagnostic-command) { min-width: 0; max-width: 100%; }
+.master-shell .admin-page .diagnostic-command { overflow-x: auto; }
+.master-shell .admin-page .diagnostic-command code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.master-shell .admin-page .diagnostic-help-block { grid-template-columns: minmax(0,1fr); overflow-wrap: anywhere; }
+.master-shell .admin-page .diagnostic-help-block > * { min-width: 0; }
+@media (max-width: 820px) {
+  .admin-shell .admin-page { overflow: visible; }
+  .admin-shell .admin-page :is(input, select, textarea) { min-width: 0; max-width: 100%; }
+  .admin-shell .admin-page :is(.admin-page-title, .inventory-section-heading) { flex-wrap: wrap; }
+  .admin-shell .admin-page :is(h1, h2, h3, .admin-card__header) { overflow-wrap: anywhere; }
+  .admin-shell .inventory-command__filters { flex-wrap: wrap; overflow: visible; padding-bottom: 4px; }
+  .admin-shell .inventory-command__filters button { min-height: 44px; }
+  .admin-shell .inventory-command-row__name strong { white-space: normal; overflow-wrap: anywhere; }
+  .admin-shell .inventory-command-row__action { min-height: 44px; }
+  .manual-order-modal { max-width: calc(100vw - 20px); }
+  .manual-order-modal :is(.form-grid, .manual-product-quick-add) { min-width: 0; }
+  .manual-order-modal :is(select, input, textarea) { min-width: 0; max-width: 100%; font-size: 16px; }
+  /* Overrides the legacy mobile .form-grid rule, which uses !important. */
+  .manual-order-modal[data-order-mode="quick"] .manual-order-fields > .form-grid { grid-template-columns: repeat(2,minmax(0,1fr)) !important; gap: 10px; }
+  .manual-order-modal[data-order-mode="quick"] .manual-order-fields > .form-grid > :is(.manual-location-field, label:last-child) { grid-column: 1 / -1; }
+}

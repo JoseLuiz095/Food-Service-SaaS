@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import './orders-settings-navigation.css';
 import StoreNameField from '../../components/admin/StoreNameField';
 import { assertStoreNameAvailable } from '../../services/storeIdentityApi';
@@ -250,7 +251,7 @@ export default function SettingsAdmin() {
   return (
     <>
       <div className="admin-page-title">
-        <div><span className="eyebrow">LOJA</span><h1>Configurações</h1><p>Identidade, horários, recebimento e formas de pagamento do estabelecimento.</p></div>
+        <div><span className="eyebrow">LOJA</span><h1>Configurações</h1><InfoHint label="Sobre Configurações">Identidade, horários, recebimento e formas de pagamento do estabelecimento.</InfoHint></div>
         {dataMode === 'demo' && (
           <button className="secondary-button" onClick={() => void (async () => {
             if (confirm('Restaurar todos os dados da demonstração?')) {
@@ -363,7 +364,7 @@ export default function SettingsAdmin() {
             {sectionToggle('messages', 'Mensagens programadas')}
             <span className="eyebrow">COMUNICAÇÃO</span>
             <h2>Mensagens programadas</h2>
-            <p>Edite as mensagens abertas manualmente no WhatsApp. As variáveis entre chaves são protegidas: se alguma for apagada, ela será recolocada automaticamente e também será corrigida ao salvar.</p>
+            <InfoHint label="Sobre Mensagens programadas">Edite as mensagens abertas manualmente no WhatsApp. As variáveis entre chaves são protegidas: se alguma for apagada, ela será recolocada automaticamente e também será corrigida ao salvar.</InfoHint>
             <div className="message-template-variables-v063" aria-label="Inserir variável na posição do cursor"><span>Toque para inserir:</span>{['{cliente}','{pedido}','{loja}','{total}','{previsao}','{status}'].map((variable)=><button type="button" key={variable} onMouseDown={(event)=>event.preventDefault()} onClick={()=>insertMessageVariable(variable)}>{variable}</button>)}</div>
             <details open><summary>Status do pedido</summary><div className="message-template-grid-v063">
               <label>Recebido<textarea data-message-template="received" rows={3} value={messageTemplates.received} onFocus={(e)=>rememberMessageCursor('received',e.currentTarget)} onSelect={(e)=>rememberMessageCursor('received',e.currentTarget)} onChange={(e)=>updateMessageTemplate('received',e.target.value)} /></label>

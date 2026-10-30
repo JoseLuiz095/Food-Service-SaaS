@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { MapPinned, Plus, Search, Trash2, Truck } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
@@ -99,7 +100,7 @@ export default function DeliveryZonesAdmin() {
         <div>
           <span className="eyebrow">LOGÍSTICA</span>
           <h1>Áreas e taxas de entrega</h1>
-          <p>Defina os bairros e cidades atendidos. Somente áreas ativas aparecem no checkout.</p>
+          <InfoHint label="Sobre Áreas e taxas de entrega">Defina os bairros e cidades atendidos. Somente áreas ativas aparecem no checkout.</InfoHint>
         </div>
         <span className="delivery-save-hint">{hasUnsavedChanges ? 'Alterações pendentes' : 'Tudo salvo'}</span>
       </div>
@@ -142,7 +143,7 @@ export default function DeliveryZonesAdmin() {
         <aside className="admin-card delivery-new-zone-card">
           <span className="eyebrow">NOVA ÁREA</span>
           <h2>Adicionar bairro ou cidade</h2>
-          <p>Use também para atender municípios ou regiões fora de Linhares.</p>
+          <InfoHint label="Sobre Adicionar bairro ou cidade">Use também para atender municípios ou regiões fora de Linhares.</InfoHint>
           <form onSubmit={addZone}>
             <label>Nome da área<input required value={newZone.name} onChange={(e) => setNewZone((current) => ({ ...current, name: e.target.value }))} placeholder="Ex.: Bairro Novo" /></label>
             <div className="form-grid">

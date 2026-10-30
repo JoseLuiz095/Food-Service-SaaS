@@ -18,7 +18,12 @@ export function useModalAccessibility(open: boolean, ref: RefObject<HTMLElement|
     const controls=()=>Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')).filter(node=>node.getClientRects().length>0);
     (controls()[0]||dialog).focus();
     const onKey=(event:KeyboardEvent)=>{
-      if(event.key==='Escape'){event.preventDefault();event.stopPropagation();if(options.current.canClose)options.current.close();}
+      if(event.key==='Escape'){
+        event.preventDefault();event.stopPropagation();
+        const popover=dialog.querySelector<HTMLElement>('[popover]:popover-open');
+        if(popover){popover.hidePopover();return;}
+        if(options.current.canClose)options.current.close();
+      }
       if(event.key==='Tab'){
         const nodes=controls();const first=nodes[0],last=nodes[nodes.length-1];
         if(!first){event.preventDefault();dialog.focus();return;}

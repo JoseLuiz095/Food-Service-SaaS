@@ -26,13 +26,13 @@ for (const width of [320, 390, 768, 1366]) test(`uma área preserva busca e loca
   const nav = page.getByRole('navigation', { name: 'Visões do estoque' });
   await expect(nav.getByRole('link', { name: 'Saldos por local' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('heading', { name: 'Estoque e locais', exact: true })).toBeVisible();
-  await page.getByRole('combobox', { name: 'Local', exact: true }).selectOption(OTHER);
+  await page.getByRole('combobox', { name: 'Local de estoque', exact: true }).selectOption(OTHER);
   await page.getByRole('searchbox', { name: 'Buscar no local' }).fill(product.name);
   await expect(page.getByText('Repor 2 unidade(s) para atender às reservas.')).toBeVisible();
   await nav.getByRole('link', { name: 'Produtos e insumos' }).click();
   await expect(page.getByRole('region', { name: 'Estoque de produtos' })).toBeVisible();
   await nav.getByRole('link', { name: 'Saldos por local' }).click();
-  await expect(page.getByRole('combobox', { name: 'Local', exact: true })).toHaveValue(OTHER);
+  await expect(page.getByRole('combobox', { name: 'Local de estoque', exact: true })).toHaveValue(OTHER);
   await expect(page.getByRole('searchbox', { name: 'Buscar no local' })).toHaveValue(product.name);
   expect(documentLoads).toBe(1);
   await nav.getByRole('link', { name: 'Produtos e insumos' }).focus();

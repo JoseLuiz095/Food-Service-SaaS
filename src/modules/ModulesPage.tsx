@@ -1,3 +1,4 @@
+import { InfoHint } from '../components/ui/InfoHint';
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { restFetch } from '../lib/supabaseRest';
@@ -84,7 +85,7 @@ export default function ModulesPage({ master = false }: { master?: boolean }) {
   const tabs = [{ id: 'settings', label: 'Configuração' }, { id: 'offers', label: 'Catálogo' }, { id: 'combos', label: 'Combos' },
     { id: 'orders', label: 'Pedidos e valores' }, { id: 'custom', label: 'Personalizados / 3D' }, { id: 'rentals', label: 'Aluguel' }];
   const hasModule = data.settings.events_enabled || data.settings.combos_enabled || data.settings.rentals_enabled || data.settings.custom_enabled;
-  return <div className="food-modules"><header className="module-row"><div><h1>Eventos e módulos</h1><p>Recursos opcionais por loja.</p></div>{master && <label>Loja<select disabled={busy} value={store} onChange={e => setSelected(e.target.value)}>{stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}</header>
+  return <div className="food-modules"><header className="module-row"><div><h1>Eventos e módulos</h1><InfoHint label="Sobre Eventos e módulos">Recursos opcionais por loja.</InfoHint></div>{master && <label>Loja<select disabled={busy} value={store} onChange={e => setSelected(e.target.value)}>{stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}</header>
     {error && <p className="module-message module-error" role="alert">{error}</p>}{notice && <p className="module-message" role="status">{notice}</p>}
     {loading ? <p role="status">Carregando módulos...</p> : store && <>
       <nav className="module-tabs" aria-label="Seções dos módulos">{tabs.filter(t => t.id === 'orders' || (t.id === 'settings' && canManage) || (t.id === 'offers' && hasModule && canManage) || (t.id === 'combos' && data.settings.combos_enabled && canManage) || (t.id === 'custom' && data.settings.custom_enabled && canManage) || (t.id === 'rentals' && data.settings.rentals_enabled && canManage)).map(t => <button type="button" key={t.id} aria-pressed={tab === t.id} onClick={() => setTab(t.id)}>{t.label}</button>)}</nav>

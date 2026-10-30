@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { AlertCircle, AlertTriangle, Building2, CalendarClock, CircleDollarSign, Clock3, CreditCard, Gift, PackageX, Power, RefreshCw, Store, TrendingUp, UsersRound } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -67,10 +68,10 @@ export default function MasterDashboard(){
     {label:'Ticket mensal médio',value:currency.format(averageRevenue),icon:TrendingUp},
   ];
   return <>
-    <div className="admin-page-title"><div><h1>Gestão comercial da {PLATFORM_BRAND}</h1><p>Acompanhe aquisição, demonstrações, clientes ativos e receita recorrente em uma única visão.</p></div><div className="master-dashboard-actions"><button type="button" className="secondary-button" onClick={()=>void load()}><RefreshCw size={16}/>Atualizar</button><Link className="primary-button" to="/admin-master/lojas">Gerenciar lojas</Link></div></div>
+    <div className="admin-page-title"><div><h1>Gestão comercial da {PLATFORM_BRAND}</h1><InfoHint>Acompanhe aquisição, demonstrações, clientes ativos e receita recorrente em uma única visão.</InfoHint></div><div className="master-dashboard-actions"><button type="button" className="secondary-button" onClick={()=>void load()}><RefreshCw size={16}/>Atualizar</button><Link className="primary-button" to="/admin-master/lojas">Gerenciar lojas</Link></div></div>
 
     <section className="admin-card master-pending-center-r69">
-      <div className="admin-card__header"><div><span className="eyebrow">CENTRO DE PENDÊNCIAS</span><h2>O que precisa de atenção agora</h2><p>Ações financeiras, vencimentos e falhas recentes reunidos em um só lugar.</p></div><AlertCircle size={23}/></div>
+      <div className="admin-card__header"><div><span className="eyebrow">CENTRO DE PENDÊNCIAS</span><h2>O que precisa de atenção agora</h2><InfoHint label="Sobre O que precisa de atenção agora">Ações financeiras, vencimentos e falhas recentes reunidos em um só lugar.</InfoHint></div><AlertCircle size={23}/></div>
       {(paymentsUnavailable||eventsUnavailable)&&<div role="alert" className="master-source-warning"><AlertTriangle size={18}/><p>{paymentsUnavailable?'Não foi possível carregar pagamentos. ':''}{eventsUnavailable?'Não foi possível carregar o histórico de falhas. ':''}Os totais dessas fontes estão indisponíveis. <button type="button" className="secondary-button compact-button" onClick={()=>void load()}>Tentar novamente</button></p></div>}
       <div className="master-pending-grid-r69">
         <Link to="/admin-master/pagamentos"><span className="is-payment"><CreditCard size={18}/></span><div><strong className={paymentsUnavailable?'is-unavailable':undefined}>{paymentsUnavailable?'Indisponível':pendingPayments.length}</strong><small>pagamento(s) aguardando decisão</small></div></Link>
@@ -83,7 +84,7 @@ export default function MasterDashboard(){
     <details className="operational-details master-report-details"><summary>Indicadores e relatórios comerciais</summary>
     <div className="stat-grid master-stat-grid">{cards.map(({label,value,icon:Icon})=><article className="stat-card" key={label}><div className="stat-icon"><Icon size={20}/></div><span>{label}</span><strong>{value}</strong></article>)}</div>
     <div className="master-commercial-grid">
-      <section className="admin-card master-commercial-summary"><span className="eyebrow">RECEITA RECORRENTE</span><h2>{currency.format(annualRecurringRevenue)} / ano</h2><p>ARR projetado a partir do MRR atual. Valores de setup não entram nesta projeção.</p><div><span>MRR atual</span><strong>{currency.format(stats.monthlyRecurringRevenue)}</strong></div><div><span>Clientes pagantes</span><strong>{payingStores.length}</strong></div><div><span>Ticket mensal médio</span><strong>{currency.format(averageRevenue)}</strong></div></section>
+      <section className="admin-card master-commercial-summary"><span className="eyebrow">RECEITA RECORRENTE</span><h2>{currency.format(annualRecurringRevenue)} / ano</h2><InfoHint>ARR projetado a partir do MRR atual. Valores de setup não entram nesta projeção.</InfoHint><div><span>MRR atual</span><strong>{currency.format(stats.monthlyRecurringRevenue)}</strong></div><div><span>Clientes pagantes</span><strong>{payingStores.length}</strong></div><div><span>Ticket mensal médio</span><strong>{currency.format(averageRevenue)}</strong></div></section>
       <section className="admin-card"><div className="admin-card__header"><div><span className="eyebrow">MIX COMERCIAL</span><h2>Clientes por plano</h2></div><Store size={21}/></div>{planDistribution.length?<div className="master-plan-distribution">{planDistribution.map(([plan,count])=><div key={plan}><span>{plan}</span><strong>{count}</strong></div>)}</div>:<p className="analytics-empty">Ainda não há clientes pagantes ativos.</p>}</section>
     </div>
 

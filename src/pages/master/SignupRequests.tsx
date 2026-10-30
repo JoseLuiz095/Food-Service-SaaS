@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { CheckCircle2, Clock3, RefreshCw, ShieldCheck, UserPlus, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
@@ -49,7 +50,7 @@ export default function SignupRequests(){
   };
 
   return <>
-    <div className="admin-page-title"><div><span className="eyebrow">AUTO CADASTRO</span><h1>Solicitações de novos clientes</h1><p>Revise quem entrou sozinho pela página comercial antes da liberação definitiva.</p></div><button className="secondary-button" onClick={()=>void load()} disabled={loading}><RefreshCw size={17}/>Atualizar</button></div>
+    <div className="admin-page-title"><div><span className="eyebrow">AUTO CADASTRO</span><h1>Solicitações de novos clientes</h1><InfoHint label="Sobre Solicitações de novos clientes">Revise quem entrou sozinho pela página comercial antes da liberação definitiva.</InfoHint></div><button className="secondary-button" onClick={()=>void load()} disabled={loading}><RefreshCw size={17}/>Atualizar</button></div>
 
     <section className="signup-request-summary"><article><UserPlus/><div><strong>{pending}</strong><span>Aguardando decisão</span></div></article><article><ShieldCheck/><div><strong>{items.filter((item)=>item.status==='approved').length}</strong><span>Liberados</span></div></article><article><Clock3/><div><strong>{items.filter((item)=>item.trialGranted&&item.status==='pending').length}</strong><span>Demos em análise</span></div></article></section>
 

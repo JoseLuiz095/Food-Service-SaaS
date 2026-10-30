@@ -10,6 +10,7 @@ import { installGlobalInteractionTelemetry } from './services/interactionTelemet
 import { startInstallCapture } from './services/pwaInstall';
 import './styles.css';
 import './segments/doce-lua-accessibility.css';
+import './layouts/mobile-workspace.css';
 
 const OrderPayment = lazy(() => import('./pages/store/OrderPayment'));
 const isPaymentPage = /^\/pagamento\/pix\/?$/.test(window.location.pathname);

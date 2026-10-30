@@ -1,3 +1,4 @@
+import { InfoHint } from '../../components/ui/InfoHint';
 import { useMemo, useState } from 'react';
 import { calculatePrintPrice, defaultPrintCosts, moduleMoney } from '../calculator';
 import type { PrintCosts } from '../types';
@@ -18,7 +19,7 @@ export default function PrintCalculator({ urgencyBps, onApply }: { urgencyBps: n
     try { return { price: calculatePrintPrice(costs, urgent ? urgencyBps : 0), error: '' }; }
     catch (error) { return { price: null, error: (error as Error).message }; }
   }, [costs, urgent, urgencyBps]);
-  return <section className="module-card"><h2>Calculadora de impressão 3D</h2><p>Custos por unidade. Margem sobre o preço de venda. A urgência depende de aceite da loja.</p>
+  return <section className="module-card"><h2>Calculadora de impressão 3D</h2><InfoHint label="Sobre Calculadora de impressão 3D">Custos por unidade. Margem sobre o preço de venda. A urgência depende de aceite da loja.</InfoHint>
     <div className="module-grid">{fields.map(({ key, label, factor = 1 }) => <label key={key}>{label}<input type="number" min="0" step="0.01" value={costs[key] / factor}
       onChange={e => setCosts({ ...costs, [key]: Number(e.target.value) * factor })} /></label>)}</div>
     <label className="module-check"><input type="checkbox" checked={urgent} onChange={e => setUrgent(e.target.checked)} />Urgência ({urgencyBps / 100}%)</label>

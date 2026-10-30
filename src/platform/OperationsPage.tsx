@@ -1,3 +1,4 @@
+import { InfoHint } from '../components/ui/InfoHint';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -84,11 +85,11 @@ export default function OperationsPage() {
     const next:Record<string,string>={};for(const field of fields[tab])next[field.key]=field.type==='datetime-local'?localDate(item[field.key]):field.key==='price_cents'?String(Number(item[field.key]||0)/100):String(item[field.key]??'');
     setEditing(item.id);setValues(next);document.getElementById('business-record-form')?.scrollIntoView({block:'center',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
   };
-  return <div className="business-workspace"><header className="business-heading"><div><span className="eyebrow">{profile?.label||'OPERAÇÃO'}</span><h1>{profile?.adminTitle||'Minha operação'}</h1><p>Contatos, compromissos e tarefas com acesso verificado por negócio.</p></div><Link className="secondary-button" to="/admin/negocio">Ver meus módulos</Link></header>
+  return <div className="business-workspace"><header className="business-heading"><div><span className="eyebrow">{profile?.label||'OPERAÇÃO'}</span><h1>{profile?.adminTitle||'Minha operação'}</h1><InfoHint>Contatos, compromissos e tarefas com acesso verificado por negócio.</InfoHint></div><Link className="secondary-button" to="/admin/negocio">Ver meus módulos</Link></header>
     {(statusError||error)&&<div className="business-message business-message--error" role="alert"><strong>Não foi possível carregar ou salvar</strong><p>{error||statusError}</p><button type="button" onClick={()=>{void reloadStatus();if(permissionKey)void load().then(next=>{if(isCurrent())setLists(next);}).catch(e=>{if(isCurrent())setError((e as Error).message);});}}>Tentar novamente</button></div>}
     {notice&&<p className="business-message" role="status">{notice}</p>}
     {(statusLoading||loading)&&<p role="status">Carregando operação…</p>}
-    {!statusLoading&&!loading&&state&&!permitted.length&&<section className="business-card"><h2>Prepare os módulos do negócio</h2><p>Seu catálogo e os pedidos continuam disponíveis. Configure o segmento ou solicite ao Master os módulos complementares.</p><Link className="primary-button" to="/admin/negocio">Configurar segmento e módulos</Link></section>}
+    {!statusLoading&&!loading&&state&&!permitted.length&&<section className="business-card"><h2>Prepare os módulos do negócio</h2><InfoHint label="Sobre Prepare os módulos do negócio">Seu catálogo e os pedidos continuam disponíveis. Configure o segmento ou solicite ao Master os módulos complementares.</InfoHint><Link className="primary-button" to="/admin/negocio">Configurar segmento e módulos</Link></section>}
     {!statusLoading&&!loading&&permitted.length>0&&<><nav className="business-tabs" aria-label="Operação por módulo">{permitted.map(key=><button key={key} type="button" aria-pressed={tab===key} onClick={()=>changeTab(key)}>{labels[key]}</button>)}</nav>
       {['personal','nutrition'].includes(profile?.id||'')&&<p className="business-muted">Área administrativa de atendimento. Não registre prontuários, diagnósticos ou informações de saúde nestes formulários.</p>}
       {tab==='campaigns'||tab==='links'?<p className="business-muted">Planejamento comercial e links. As campanhas não publicam automaticamente em redes sociais.</p>:null}
