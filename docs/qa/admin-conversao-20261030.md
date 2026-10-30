@@ -28,6 +28,8 @@ Base inspecionada: `904cee3` em `main`. Foram consultados os 40 PRs mais recente
 
 A descrição do #136 registra dependências ainda não implantadas naquela entrega: migrations de comprovante, Edge Function `food-order-payment` e flags de ativação. Não foi consultado o catálogo remoto nesta revisão. Merge, build do frontend, banco e configuração de produção precisam ser conferidos separadamente; não atribuir tudo a conflitos de branch.
 
+Durante a publicação deste PR, o [#139](https://github.com/JoseLuiz095/vendeweb/pull/139) entrou na main com a mesma atualização do contrato Pix. A branch foi sincronizada com `044b355`, preservando a correção integrada e a verificação adicional do valor de `fulfillmentStatus`. O conflito ficou restrito ao teste; não houve alteração no handler ou em Estoque e locais.
+
 ## Validação e prevenção
 
 - Build e typecheck aprovados; aviso local de Turnstile sem chave de ambiente.
