@@ -61,7 +61,9 @@ grant all on public.food_fitness_offers,public.food_fitness_offer_orders to serv
 -- No direct table write grants: all mutations below validate store, role, identity and status.
 create function food_fitness_private.offer_ready(p_offer public.food_fitness_offers)
 returns boolean language sql stable security definer set search_path='' as $$
-  select p_offer.published and exists (
+  -- Only the approved digital workout has an automatic paid fulfillment path today.
+  -- Appointment and nutrition products stay drafts until paid booking/delivery is implemented.
+  select p_offer.published and p_offer.kind='workout' and exists (
     select 1 from public.food_stores s join public.food_business_profiles b on b.store_id=s.id
     join public.food_store_subscriptions sub on sub.store_id=s.id
     where s.id=p_offer.store_id and s.active and s.access_status='online'

@@ -72,6 +72,7 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
   const needsService = draft.kind !== 'workout';
   const professionalKind = draft.kind.startsWith('nutrition') ? 'nutrition' : 'training';
   const availableStaff = staff.filter(item => item.kind === professionalKind && item.council === (professionalKind === 'nutrition' ? 'CRN' : 'CREF'));
+  const publicationAvailable = draft.kind === 'workout';
   const serviceKind = professionalKind;
   const activeServices = services.filter(item => item.active && item.kind === serviceKind && item.professional_user_id === draft.professional_user_id);
 
@@ -88,7 +89,7 @@ export function FitnessOffersAdmin({ store }: { store: string }) {
       {needsWorkout && <label>Modelo aprovado<select required value={draft.workout_id || ''} onChange={e => setDraft({ ...draft, workout_id: e.target.value || null })}><option value="">Selecione</option>{workouts.filter(item => item.status === 'approved' && item.professional?.user_id === draft.professional_user_id).map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>}
       {needsService && <label>Serviço da agenda<select required value={draft.service_id || ''} onChange={e => setDraft({ ...draft, service_id: e.target.value || null })}><option value="">Selecione</option>{activeServices.map(item => <option key={item.id} value={item.id}>{String(item.name)}</option>)}</select></label>}
       <label className="fitness-wide">Descrição<textarea required minLength={10} maxLength={2000} rows={3} value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })}/></label>
-      <label className="fitness-check"><input type="checkbox" checked={draft.published} onChange={e => setDraft({ ...draft, published: e.target.checked })}/><span>Publicar após revisar preço, responsável e entrega</span></label>
+      <label className="fitness-check"><input type="checkbox" checked={draft.published && publicationAvailable} disabled={!publicationAvailable} onChange={e => setDraft({ ...draft, published: e.target.checked })}/><span>{publicationAvailable ? 'Publicar após revisar preço, responsável e entrega' : 'Somente rascunho: o agendamento ou plano ainda precisa estar vinculado à compra paga'}</span></label>
       <div className="business-actions"><button className="primary-button" disabled={busy}>{busy ? 'Salvando…' : draft.id ? 'Atualizar oferta' : 'Cadastrar oferta'}</button>{draft.id && <button type="button" className="secondary-button" onClick={() => { setDraft(blank); setPrice(''); }}>Cancelar edição</button>}</div>
     </form>
     <h3>Ofertas da loja</h3>
