@@ -106,7 +106,7 @@ export default function StockLocationsAdmin() {
     try { localStorage.setItem(`food_stock_location:${settings.id}`, selectedLocationId); } catch { /* armazenamento opcional */ }
   }, [settings.id, selectedLocationId]);
   useEffect(() => {
-    if (!isMobileStock || !selectedLocation?.id) { setSalesToday(null); return; }
+    if (!selectedLocation?.id) { setSalesToday(null); return; }
     let active = true;
     setSalesToday(null);
     void restFetch<Array<{ product_id: string; net_sold: number }>>('rpc/food_get_location_sales_today_v1', {
@@ -114,7 +114,7 @@ export default function StockLocationsAdmin() {
     }).then((rows) => { if (active) setSalesToday(Array.isArray(rows) ? rows : []); })
       .catch(() => { if (active) setSalesToday(null); });
     return () => { active = false; };
-  }, [settings.id, isMobileStock, selectedLocation?.id]);
+  }, [settings.id, selectedLocation?.id]);
   const selectedBalances = useMemo(() => selectedLocation ? balances.filter((item) => item.location_id === selectedLocation.id) : [], [balances, selectedLocation]);
   const locationStock = useMemo(() => new Map(balances.filter((row) => row.location_id === fromId).map((row) => [row.product_id, row])), [balances, fromId]);
   const destinationStock = useMemo(() => new Map(balances.filter((row) => row.location_id === toId).map((row) => [row.product_id, row])), [balances, toId]);
@@ -345,6 +345,7 @@ export default function StockLocationsAdmin() {
       {!selectedLocation ? <p className="stock-location-empty">Nenhum local ativo cadastrado.</p> : <>
         {pickupPoints.some((point) => point.stock_location_id === selectedLocation.id) && <p className="stock-location-linked-points"><MapPin size={15}/> Retirada: {pickupPoints.filter((point) => point.stock_location_id === selectedLocation.id).map((point) => point.name).join(' · ')}</p>}
         <div className="stock-location-summary"><span><strong>{selectedBalances.reduce((sum, item) => sum + item.stock_quantity - item.stock_reserved_quantity, 0)}</strong> disponíveis</span><span><strong>{selectedBalances.reduce((sum, item) => sum + item.stock_reserved_quantity, 0)}</strong> reservadas</span><span><strong>{selectedBalances.reduce((sum, item) => sum + item.stock_quantity, 0)}</strong> total físico</span></div>
+        <div className="stock-location-closeout" role="status"><strong>Conferência do dia</strong><p>{salesToday===null?'Consultando baixas por venda…':`${salesToday.reduce((sum,row)=>sum+row.net_sold,0)} unidade(s) baixada(s) por venda neste local hoje.`}</p><p>No fechamento, conte o estoque físico e use <strong>Definir</strong> em cada produto. O saldo reservado é preservado e o ajuste fica no histórico.</p></div>
         <label className="stock-location-search">Buscar no local<input type="search" value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder={`Nome do ${stockItemLabel}`}/></label>
         <div className="stock-location-list">{trackedProducts.filter((product) => product.name.toLocaleLowerCase('pt-BR').includes(productQuery.trim().toLocaleLowerCase('pt-BR'))).map((product) => {
           const balance = balanceFor(product, selectedLocation);
@@ -356,7 +357,7 @@ export default function StockLocationsAdmin() {
             <div className="stock-location-product__overview"><strong>{product.name}</strong><span className={available < 0 ? 'stock-location-shortage' : available === 0 ? 'stock-location-unavailable' : ''}>{available} {available === 1 ? 'disponível' : 'disponíveis'}</span></div>
             {available < 0 && <p className="stock-location-inconsistency" role="alert">Repor {-available} unidade(s) para atender às reservas.</p>}
             <details className="stock-location-product__details"><summary>Detalhes e ações</summary><p>{physical} total físico · {reserved} reservado(s)</p>
-              {isMobileStock && <p>{salesToday === null ? 'Vendas de hoje: consultando ou indisponíveis' : `Vendido hoje: ${salesToday.find((row) => row.product_id === product.id)?.net_sold || 0}`}</p>}
+              <p>{salesToday === null ? 'Vendido hoje: consultando ou indisponível' : `Vendido hoje: ${salesToday.find((row) => row.product_id === product.id)?.net_sold || 0}`}</p>
               <div className="stock-location-product__action"><button type="button" className="secondary-button" disabled={saving} onClick={() => startQuickAdjust(product, selectedLocation, 'add')}>Adicionar</button><button type="button" className="secondary-button" disabled={saving || physical < 1} onClick={() => startQuickAdjust(product, selectedLocation, 'remove')}>Remover</button><button type="button" className="secondary-button" disabled={saving} onClick={() => startQuickAdjust(product, selectedLocation, 'set')}>Definir</button>{isMobileStock && home && home.id !== selectedLocation.id && <button type="button" className="secondary-button" disabled={saving} onClick={() => startQuickTransfer(product, home, selectedLocation.id)}>Repor</button>}<button type="button" className="secondary-button" disabled={saving || available < 1 || activeLocations.length < 2} onClick={() => startQuickTransfer(product, selectedLocation, home?.id)}>{isMobileStock && home && home.id !== selectedLocation.id ? 'Devolver' : 'Transferir'}</button></div>
               <details className="stock-location-product__other"><summary>Este produto em outros locais</summary><ul>{locations.filter((location) => location.id !== selectedLocation.id).map((location) => { const other = balanceFor(product, location); return <li key={location.id}><strong>{location.name}{!location.active ? ' (inativo)' : ''}</strong><span>{(other?.stock_quantity || 0) - (other?.stock_reserved_quantity || 0)} disponíveis · {other?.stock_reserved_quantity || 0} reservado(s) · {other?.stock_quantity || 0} físico</span></li>; })}</ul></details>
             </details>

@@ -5,7 +5,7 @@ async function pickup(page:any,available=3){
  await page.route('**/rest/v1/rpc/food_get_public_pickup_locations_v1', (r:any)=>r.fulfill({json:[point]}));
  await page.route('**/rest/v1/rpc/food_get_public_location_availability_v1', (r:any)=>r.fulfill({json:[{product_id:PRODUCT,available}]}));
 }
-for(const width of [390,768,1366]){
+for(const width of [320,390,768,1366]){
  test(`compra visitante em um toque, limite por ponto e checkout editável ${width}px`,async({page},info)=>{
   await page.setViewportSize({width,height:844});
   const {writes}=await mockBackend(page);
@@ -37,11 +37,14 @@ for(const width of [390,768,1366]){
   await expect(page.locator('.summary-total')).toContainText('20,00');
   await page.getByLabel('Nome',{exact:true}).fill('Cliente visitante');
   await page.getByLabel(/WhatsApp \/ telefone/).fill('11999999999');
+  await expect(page.getByRole('checkbox',{name:/Salvar meus dados neste navegador/})).toBeChecked();
   if(width===390)await expect(page.locator('#foodweb-splash-screen')).toHaveCount(0);
   if(width===390)await page.screenshot({path:info.outputPath('checkout-depois.png'),fullPage:true});
   await page.getByRole('button',{name:/Registrar pedido|^Finalizar$/}).filter({visible:true}).first().click();
   await expect(page).toHaveURL(new RegExp(ORDER));
   await expect(page.getByLabel('Código Pix',{exact:true})).toHaveValue(/^000201/);
+  const savedProfile=await page.evaluate(storeId=>{const key=`foodweb_customer_profile_v1_${storeId.replace(/[^a-zA-Z0-9_-]/g,'_')}=`;const raw=document.cookie.split('; ').find(value=>value.startsWith(key))?.slice(key.length);return raw?JSON.parse(decodeURIComponent(raw)):null;},STORE);
+  expect(savedProfile).toMatchObject({customerName:'Cliente visitante',customerPhone:'11999999999'});
   const order=writes.find(w=>w.url.endsWith('/food-public-checkout'));
   expect(order?.body.payload).toMatchObject({store_id:STORE,delivery_type:'pickup',pickup_location_id:point.id});
   expect(order?.body.payload.items[0].quantity).toBe(2);
@@ -110,11 +113,12 @@ test('falha no backend mantém carrinho e dados sem confirmar pedido',async({pag
 });
 
 
-test('rascunho de contato fica na sessão; perfil duradouro requer consentimento',async({page})=>{
+test('rascunho fica na sessão quando o cliente desmarca o salvamento duradouro',async({page})=>{
  await mockBackend(page); await pickup(page);
  await page.goto('/doce-lua?ponto=trabalho');
  await page.getByRole('button',{name:'Adicionar Brigadeiro teste',exact:true}).click();
  await page.goto('/doce-lua/finalizar');
+ const saveProfile=page.getByRole('checkbox',{name:/Salvar meus dados neste navegador/});await expect(saveProfile).toBeChecked();await saveProfile.uncheck();
  await page.getByLabel('Nome',{exact:true}).fill('Cliente privado');
  const key=`foodweb_checkout_draft_v1:${STORE}`;
  await expect.poll(()=>page.evaluate(key=>JSON.parse(sessionStorage.getItem(key)||'{}').customerName,key)).toBe('Cliente privado');

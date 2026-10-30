@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.4';
 import { createOrderPaymentHandler } from './handler.ts';
 
 const autoPaidEnabled=Deno.env.get('ORDER_RECEIPT_AUTOPAID_ENABLED')==='true';
-const orderFields = 'id,store_id,order_number,total,payment_method,payment_status,status,pickup_location_id'+(autoPaidEnabled?',payment_reported_by_customer,payment_receipt_version':'');
+const orderFields = 'id,store_id,order_number,total,payment_method,payment_status,status,pickup_location_id,delivery_type,scheduled_for'+(autoPaidEnabled?',payment_reported_by_customer,payment_receipt_version':'');
 Deno.serve(async (req: Request) => {
   const url = Deno.env.get('SUPABASE_URL') || '';
   const service = Deno.env.get('SUPABASE_SECRET_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';

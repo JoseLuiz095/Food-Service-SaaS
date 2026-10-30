@@ -30,6 +30,7 @@
 .stock-location-summary{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0}
 .stock-location-summary span{display:flex;align-items:baseline;gap:6px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;font-size:.78rem;color:var(--muted)}
 .stock-location-summary strong{font-size:1.15rem;color:var(--ink)}
+.stock-location-closeout{display:grid;gap:4px;margin:0 0 16px;padding:12px 14px;border:1px solid #d9e8dc;border-radius:12px;background:#f5fbf6;color:#315743;font-size:.82rem;line-height:1.45}.stock-location-closeout p{margin:0}.stock-location-closeout strong{color:#244a34}
 .stock-location-list{max-height:380px;overflow:auto;border-top:1px solid var(--line)}
 .stock-location-product{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:13px 2px;border-bottom:1px solid var(--line)}
 .stock-location-product strong,.stock-location-product small{display:block}
