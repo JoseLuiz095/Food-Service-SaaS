@@ -590,7 +590,7 @@ export type OrderDetailsUpdate = {
   scheduledFor?: string;
   notes?: string;
   /** Ajustes de quantidade dos itens enquanto o pagamento ainda está pendente. */
-  items?: Array<{ itemId: string; quantity: number }>;
+  items?: Array<{ itemId?: string; productId?: string; quantity: number }>;
 };
 export type SaveProductInput = Omit<Product, 'imageUrl' | 'gallery' | 'images'> & {
   images?: ProductImage[];

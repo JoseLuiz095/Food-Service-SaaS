@@ -197,6 +197,18 @@ try {
   eq((await one('select inventory_status from food_orders where id=$1',[service.order])).inventory_status,'not_tracked','serviço não recebe reserva física');
   await rejects(()=>edit(service.order,[{product_id:a.product,quantity:1}]),/não disponível/);
   eq(Number((await one('select quantity from food_order_items where id=$1',[service.item])).quantity),2,'troca de loja/produto não altera serviço');
+  await asUser(a.owner);
+  const alternative = randomUUID();
+  await q("insert into food_products(id,store_id,name,price) values($1,$2,'Outro sabor sintético',17)",[alternative,a.store]);
+  await q('insert into food_product_location_stock(store_id,product_id,location_id,stock_quantity) values($1,$2,$3,2)',[a.store,alternative,a.point]);
+  const swap = await createOrder(a);
+  const oldReservation = await reserved(a,a.point);
+  await rejects(() => edit(swap.order,[{product_id:alternative,quantity:3}]), /Estoque insuficiente/);
+  eq(await reserved(a,a.point),oldReservation,'troca sem saldo reverte reserva original');
+  await edit(swap.order,[{product_id:alternative,quantity:2}]);
+  eq(await reserved(a,a.point),oldReservation-1,'troca libera reserva do sabor antigo');
+  eq(Number((await one('select stock_reserved_quantity n from food_product_location_stock where product_id=$1 and location_id=$2',[alternative,a.point])).n),2,'novo sabor reservado no mesmo ponto');
+  eq((await one('select product_id,quantity,item_total from food_order_items where order_id=$1',[swap.order])),{product_id:alternative,quantity:2,item_total:'34.00'},'troca substitui linha e recalcula preço');
   if (concurrentCases) await concurrentCases({ db, check, eq, rejects });
   await db.exec(readFileSync('docs/rollback/food_order_item_location.sql', 'utf8'));
   eq((await one("select regexp_replace(prosrc, '\\s+', '', 'g') body from pg_proc where oid='food_update_order_items_v1(uuid,jsonb)'::regprocedure")).body, source('food_update_order_items_v1').match(/AS \$function\$([\s\S]*?)\$function\$/)[1].replace(/\s+/g,''), 'rollback restaura exatamente o corpo observado');
