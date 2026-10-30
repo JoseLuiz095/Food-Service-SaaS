@@ -1,5 +1,5 @@
 import { restFetch } from '../../lib/supabaseRest';
-import { CreditCard, MapPin, Pencil, Save, Store, Truck, X, Minus, Plus, Trash2, Ban } from 'lucide-react';
+import { CreditCard, MapPin, Pencil, Save, Store, Truck, X, Minus, Plus, Trash2, Ban, History } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useModalAccessibility } from '../useModalAccessibility';
 import type { Order, OrderDetailsUpdate, StoreSettings } from '../../types';
@@ -28,6 +28,22 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, onCancelOr
   const [editing, setEditing] = useState(false);
   const [points,setPoints]=useState<Array<{id:string;name:string;stock_location_id:string}>>([]);
   const [pointsError,setPointsError]=useState('');
+  const [auditOpen,setAuditOpen]=useState(false);
+  const [auditLoading,setAuditLoading]=useState(false);
+  const [auditError,setAuditError]=useState('');
+  const [audit,setAudit]=useState<{items:Array<{product_id:string;product_name:string;quantity:number;inventory_reserved_quantity:number}>;movements:Array<{product_id:string;location_id:string;event_type:string;quantity:number;created_at:string}>;locations:Array<{id:string;name:string}>}|null>(null);
+  useEffect(()=>{
+    if(!auditOpen)return;
+    let active=true;setAuditLoading(true);setAuditError('');
+    void Promise.all([
+      restFetch<Array<{product_id:string;product_name:string;quantity:number;inventory_reserved_quantity:number}>>(`food_order_items?order_id=eq.${encodeURIComponent(order.id)}&select=product_id,product_name,quantity,inventory_reserved_quantity`),
+      restFetch<Array<{product_id:string;location_id:string;event_type:string;quantity:number;created_at:string}>>(`food_order_stock_movements?store_id=eq.${encodeURIComponent(order.storeId)}&order_id=eq.${encodeURIComponent(order.id)}&select=product_id,location_id,event_type,quantity,created_at&order=created_at.desc`),
+      restFetch<Array<{id:string;name:string}>>(`food_stock_locations?store_id=eq.${encodeURIComponent(order.storeId)}&select=id,name`),
+    ]).then(([items,movements,locations])=>{if(active)setAudit({items,movements,locations});})
+      .catch(()=>{if(active)setAuditError('Não foi possível carregar as movimentações.');})
+      .finally(()=>{if(active)setAuditLoading(false);});
+    return()=>{active=false};
+  },[auditOpen,order.id,order.storeId,order.inventoryStatus]);
   useEffect(()=>{let active=true;void restFetch<Array<{id:string;name:string;stock_location_id:string}>>(`food_pickup_locations?store_id=eq.${encodeURIComponent(order.storeId)}&active=eq.true&select=id,name,stock_location_id`).then(rows=>{if(active)setPoints(rows.filter(p=>p.stock_location_id));}).catch(()=>{if(active)setPointsError('Não foi possível carregar os pontos. Tente reabrir o detalhe.');});return()=>{active=false};},[order.storeId]);
   const [cancelling, setCancelling] = useState(false);
   const dialogRef=useRef<HTMLElement>(null);
@@ -122,6 +138,17 @@ export function OrderDetailsModal({ order, settings, onClose, onSave, onCancelOr
         <div className="order-details-modal__fact"><span><CreditCard size={16} />Pagamento</span><strong>{paymentLabel(order)}</strong></div>
         <div className="order-details-modal__fact"><span>{order.deliveryType === 'delivery' ? <Truck size={16} /> : <Store size={16} />}Forma de recebimento</span><strong>{order.deliveryType === 'delivery' ? 'Delivery' : 'Retirada'}{order.deliveryZoneName ? ` · ${order.deliveryZoneName}` : ''}</strong></div>
         <div className="order-details-modal__fact"><span>{order.deliveryType === 'delivery' ? <MapPin size={16} /> : <Store size={16} />}Local / horário</span><strong>{order.scheduledFor ? formatDateTimeBR(order.scheduledFor) : 'Sem horário agendado'}</strong>{order.deliveryType === 'delivery' ? <small>{address || order.deliveryAddress || 'Endereço não informado'}{order.referencePoint ? ` · Ref.: ${order.referencePoint}` : ''}</small> : order.pickupLocationId ? <small>{points.find(point=>point.id===order.pickupLocationId)?.name || 'Ponto de retirada vinculado ao pedido'}</small> : settings.pickupInstructions ? <small>{settings.pickupInstructions}</small> : null}</div>
+      </section>
+
+      <section className="order-details-modal__section order-stock-audit">
+        <button type="button" className="order-stock-audit__toggle" aria-expanded={auditOpen} onClick={()=>setAuditOpen(value=>!value)}><History size={17}/> Estoque deste pedido <span>{auditOpen?'Ocultar':'Ver movimentos'}</span></button>
+        {auditOpen&&<div className="order-stock-audit__body">
+          <p>Local de saída: <strong>{audit?.locations.find(location=>location.id===order.stockLocationId)?.name||'Estoque principal da loja'}</strong>. A baixa ocorre ao concluir a entrega ou retirada.</p>
+          {auditLoading?<p>Consultando movimentações…</p>:auditError?<p role="alert">{auditError} <button type="button" onClick={()=>{setAuditOpen(false);setTimeout(()=>setAuditOpen(true),0);}}>Tentar novamente</button></p>:<>
+            {audit?.items.map((item,index)=><p key={index}><strong>{item.product_name}</strong> · {item.quantity} pedido(s) · {item.inventory_reserved_quantity} reservado(s)</p>)}
+            {audit?.movements.length?<ul>{audit.movements.map((movement,index)=><li key={index}><strong>{movement.event_type==='sale'?'Saída':movement.event_type==='return'?'Devolução':movement.event_type}</strong> {movement.event_type==='sale'?'-':'+'}{movement.quantity} {audit.items.find(item=>item.product_id===movement.product_id)?.product_name||'produto'} · {audit.locations.find(location=>location.id===movement.location_id)?.name||'Local não encontrado'} · {formatDateTimeBR(movement.created_at)}</li>)}</ul>:<small>Sem saída física registrada. Reservas são exibidas pelo saldo atual dos itens; alterações anteriores de reserva não possuem histórico individual.</small>}
+          </>}
+        </div>}
       </section>
 
       {editing ? <section className="order-details-modal__section">
