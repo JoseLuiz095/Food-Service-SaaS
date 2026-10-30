@@ -117,3 +117,10 @@
 
 .stock-location-product__overview>.stock-location-shortage{color:#ae4138}
 .stock-location-summary span:nth-child(2) strong{color:#ae4138}
+
+.point-contacts-editor { display:grid; gap:12px; min-width:0; padding:12px 0; }
+.point-contacts-editor h4,.point-contacts-editor p { margin:0; overflow-wrap:anywhere; }
+.point-contacts-editor fieldset { display:grid; gap:10px; min-width:0; margin:0; padding:12px; border:1px solid var(--border,#dedfdc); border-radius:12px; }
+.point-contacts-editor label { display:grid; gap:5px; min-width:0; }
+.point-contacts-editor input,.point-contacts-editor select { width:100%; min-width:0; max-width:100%; min-height:44px; }
+.point-contacts-editor a,.point-contacts-editor button { justify-self:start; max-width:100%; overflow-wrap:anywhere; }

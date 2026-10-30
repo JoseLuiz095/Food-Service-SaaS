@@ -34,7 +34,7 @@ export default function ReceiptDestination({storeId,pointId,destinations,legacyP
  return <section className="receipt-destination" aria-label="Enviar comprovante"><h2>Envie o comprovante à loja</h2>
  {state.key!==key||state.loading?<p role="status">Consultando contato…</p>:state.error?<><p role="alert">{state.error}</p><button type="button" className="secondary-button" onClick={()=>setAttempt(x=>x+1)}>Tentar consultar contatos</button></>:<>
  {data?.mode==='unavailable'?<p>O contato deste ponto não está disponível. Fale com a loja para conferir o destino antes de enviar.</p>:<>
- {data?.mode==='unassigned'&&<p>Este ponto ainda não tem contato definido. Escolha quem receberá o comprovante.</p>}
+ {data?.mode==='unassigned'&&<p>Este ponto ainda não tem contato definido. Solicite o número correto ao local antes de enviar o comprovante.</p>}
  {contacts.length>1&&<label>Para qual contato deseja enviar?<select value={selected?.slot||''} onChange={e=>setChoice({key,slot:Number(e.target.value)})}><option value="">Selecione um contato</option>{contacts.map(c=><option key={c.slot} value={c.slot}>{c.name}</option>)}</select></label>}
  {selected&&<p>Destino: <strong>{selected.name}</strong> · +{selected.phone}</p>}
  {phone?<a href={getWhatsAppUrl(phone,message)} target="_blank" rel="noopener noreferrer" onClick={openReceipt}>Abrir WhatsApp e enviar comprovante</a>:contacts.length>1?<p>Selecione um contato para abrir a conversa.</p>:<p>A loja ainda não cadastrou um destino para comprovantes.</p>}

@@ -1,5 +1,5 @@
 import { InfoHint } from '../../components/ui/InfoHint';
-import ReceiptContactsSettings from '../../components/admin/ReceiptContactsSettings';
+import PointContactsEditor from '../../components/admin/PointContactsEditor';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeftRight, Boxes, Copy, Download, LoaderCircle, MapPin, Plus, RefreshCw, Search, Warehouse } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -19,7 +19,7 @@ import './stock-locations.css';
 const operationId = () => crypto.randomUUID();
 
 export default function StockLocationsAdmin() {
-  const { settings, products, dataMode } = useStore();
+  const { settings, products } = useStore();
   const { state: business } = useBusinessStatus(settings.id);
   const segment = getBusinessSegment(business?.profile?.primary_segment || settings.visualTheme);
   const stockItemLabel = segment.id === 'printing3d' ? 'peça' : segment.id === 'rentals' ? 'item' : segment.id === 'florist' ? 'arranjo' : 'produto';
@@ -227,6 +227,20 @@ export default function StockLocationsAdmin() {
       showToast(cause instanceof Error ? cause.message : 'Não foi possível alterar o local.', 'error');
     } finally { setSaving(false); }
   };
+  const retireLocation = async (location: StockLocation) => {
+    if (!window.confirm(`Retirar o local “${location.name}”? Se não houver vínculos, ele será excluído. Com pedidos, pontos ou movimentações, será arquivado e ficará fora das escolhas operacionais. Saldo e reservas precisam ser transferidos antes.`)) return;
+    setSaving(true);
+    try {
+      const result = await restFetch<{action:'deleted'|'archived';reason?:string}>('rpc/food_retire_stock_location_v1', {
+        method:'POST',body:{p_store_id:settings.id,p_location_id:location.id},
+      });
+      showToast(result.action === 'deleted' ? `Local “${location.name}” excluído.` : `Local “${location.name}” arquivado: ${result.reason || 'histórico preservado'}.`, 'success');
+      setEditingLocationId('');
+      await refresh();
+    } catch (cause) {
+      showToast(cause instanceof Error ? cause.message : 'Não foi possível retirar o local.', 'error');
+    } finally { setSaving(false); }
+  };
   const submitAdjustment = async (event: FormEvent) => {
     event.preventDefault();
     const value = Number(quantity);
@@ -401,7 +415,7 @@ export default function StockLocationsAdmin() {
       <div className="section-heading"><div><h2>Locais cadastrados</h2><InfoHint label="Sobre Locais cadastrados">O estoque existente foi preservado no local principal.</InfoHint></div><Warehouse size={20}/></div>
       <div className="stock-location-grid">{locations.map((location) => <article className="stock-location-card stock-location-card--manage" key={location.id}>
         <div className="stock-location-card__icon"><MapPin size={18}/></div><div><strong>{location.name}</strong><p>{location.is_default ? 'Principal' : location.location_type === 'vehicle' ? 'Carga móvel' : location.location_type === 'pickup' ? 'Retirada' : 'Local secundário'}{!location.active ? ' · Inativo' : ''}</p><p>{balances.filter((balance) => balance.location_id === location.id && balance.stock_quantity > 0).length} produtos · {balances.filter((balance) => balance.location_id === location.id).reduce((sum, balance) => sum + balance.stock_quantity - balance.stock_reserved_quantity, 0)} disponíveis</p><button type="button" className="stock-location-manage-button" disabled={saving} onClick={() => { setEditingLocationId(editingLocationId === location.id ? '' : location.id); setEditingLocationName(location.name); }}>Gerenciar</button></div>
-        {editingLocationId === location.id && <div className="stock-location-manage"><label>Nome<input value={editingLocationName} maxLength={80} onChange={(event) => setEditingLocationName(event.target.value)}/></label><button type="button" disabled={saving || !editingLocationName.trim() || editingLocationName.trim() === location.name} onClick={() => void updateLocation(location, { name: editingLocationName.trim() })}>Salvar nome</button>{!location.is_default && <button type="button" disabled={saving} onClick={() => void updateLocation(location, { active: !location.active })}>{location.active ? 'Desativar' : 'Ativar'}</button>}</div>}
+        {editingLocationId === location.id && <div className="stock-location-manage"><label>Nome<input value={editingLocationName} maxLength={80} onChange={(event) => setEditingLocationName(event.target.value)}/></label><button type="button" disabled={saving || !editingLocationName.trim() || editingLocationName.trim() === location.name} onClick={() => void updateLocation(location, { name: editingLocationName.trim() })}>Salvar nome</button>{!location.is_default && <button type="button" disabled={saving} onClick={() => void updateLocation(location, { active: !location.active })}>{location.active ? 'Desativar' : 'Ativar'}</button>}{!location.is_default && <button type="button" className="text-button" disabled={saving} onClick={() => void retireLocation(location)}>Excluir ou arquivar local</button>}</div>}
       </article>)}</div>
       <form className="stock-location-create" onSubmit={submitLocation}>
         <label>Nome do local<input value={newName} onChange={(event) => setNewName(event.target.value)} maxLength={80} placeholder="Ex.: Loja Centro, Veículo 1" required/></label>
@@ -410,8 +424,7 @@ export default function StockLocationsAdmin() {
       </form>
     </section>
     <section className="admin-card"><h2>Pontos de retirada</h2><InfoHint label="Sobre Pontos de retirada">O pedido usa o estoque do local vinculado ao ponto. Para vender pela sua loja em outro endereço, crie um local de estoque para esse endereço, transfira o saldo disponível e vincule o ponto a ele.</InfoHint>
-      <div className="stock-location-grid">{pickupPoints.map((point) => { const published = point.active && point.is_public; const stockLocation = locations.find((location) => location.id === point.stock_location_id); return <article className="stock-location-card stock-location-card--pickup" key={point.id}><MapPin size={18}/><div><strong>{point.name}</strong><p>{published ? 'Publicado na vitrine' : 'Arquivado · não recebe novos pedidos'}</p><p>Estoque: {stockLocation?.name || 'Sem estoque'}</p>{published ? <details className="stock-location-point-details"><summary>Link e QR</summary><p>Código: {point.short_code}</p><div className="stock-location-point-actions"><button type="button" className="secondary-button" onClick={() => void navigator.clipboard.writeText(pointLink(point.short_code)).then(() => showToast('Link deste ponto copiado.', 'success')).catch(() => showToast('Não foi possível copiar o link.', 'error'))}><Copy size={15}/> Copiar link</button>{pointQrs[point.id] && <a className="secondary-button" href={pointQrs[point.id]} download={`${point.short_code.toLowerCase()}-qr.png`}><Download size={15}/> Baixar QR</a>}</div>{pointQrs[point.id] && <img className="stock-location-point-qr" src={pointQrs[point.id]} alt={`QR Code do ponto ${point.name}`}/>}</details> : <p>O estoque e o histórico dos pedidos continuam vinculados ao local.</p>}<button type="button" className="stock-location-manage-button" disabled={saving || (!published && !stockLocation?.active)} onClick={() => void setPickupPointActive(point, !published)}>{published ? 'Excluir ponto' : 'Reativar ponto'}</button></div></article>; })}</div>
-      <div className="stock-location-grid">{pickupPoints.map((point) => <article className="stock-location-card stock-location-card--pickup" key={point.id}><MapPin size={18}/><div><strong>{point.name}</strong><p>Estoque: {locations.find((location) => location.id === point.stock_location_id)?.name || 'Sem estoque'}</p><details className="stock-location-point-details"><summary>Link e QR</summary><p>Código: {point.short_code}</p><div className="stock-location-point-actions"><button type="button" className="secondary-button" onClick={() => void navigator.clipboard.writeText(pointLink(point.short_code)).then(() => showToast('Link deste ponto copiado.', 'success')).catch(() => showToast('Não foi possível copiar o link.', 'error'))}><Copy size={15}/> Copiar link</button>{pointQrs[point.id] && <a className="secondary-button" href={pointQrs[point.id]} download={`${point.short_code.toLowerCase()}-qr.png`}><Download size={15}/> Baixar QR</a>}</div>{pointQrs[point.id] && <img className="stock-location-point-qr" src={pointQrs[point.id]} alt={`QR Code do ponto ${point.name}`}/>}</details></div></article>)}</div>
+      <div className="stock-location-grid">{pickupPoints.map((point) => { const published = point.active && point.is_public; const stockLocation = locations.find((location) => location.id === point.stock_location_id); return <article className="stock-location-card stock-location-card--pickup" key={point.id}><MapPin size={18}/><div><strong>{point.name}</strong><p>{published ? 'Publicado na vitrine' : 'Arquivado · não recebe novos pedidos'}</p><p>Estoque: {stockLocation?.name || 'Sem estoque'}</p>{published ? <details className="stock-location-point-details"><summary>Link e QR</summary><p>Código: {point.short_code}</p><div className="stock-location-point-actions"><button type="button" className="secondary-button" onClick={() => void navigator.clipboard.writeText(pointLink(point.short_code)).then(() => showToast('Link deste ponto copiado.', 'success')).catch(() => showToast('Não foi possível copiar o link.', 'error'))}><Copy size={15}/> Copiar link</button>{pointQrs[point.id] && <a className="secondary-button" href={pointQrs[point.id]} download={`${point.short_code.toLowerCase()}-qr.png`}><Download size={15}/> Baixar QR</a>}</div>{pointQrs[point.id] && <img className="stock-location-point-qr" src={pointQrs[point.id]} alt={`QR Code do ponto ${point.name}`}/>}</details> : <p>O estoque e o histórico dos pedidos continuam vinculados ao local.</p>}<details className="stock-location-point-details"><summary>Gerenciar contatos deste ponto</summary><PointContactsEditor key={`${settings.id}:${point.id}`} storeId={settings.id} pointId={point.id} pointName={point.name}/></details><button type="button" className="stock-location-manage-button" disabled={saving || (!published && !stockLocation?.active)} onClick={() => void setPickupPointActive(point, !published)}>{published ? 'Arquivar ponto' : 'Reativar ponto'}</button></div></article>; })}</div>
       <form className="stock-location-create" onSubmit={submitPickupPoint}>
         <label>Nome do ponto<input required maxLength={80} value={pickupName} onChange={(event) => setPickupName(event.target.value)} placeholder="Ex.: Vendas com Ana"/></label>
         <label>Código QR<input required minLength={3} maxLength={16} value={pickupCode} onChange={(event) => setPickupCode(event.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))} placeholder="ANA-01"/></label>
@@ -438,6 +451,5 @@ export default function StockLocationsAdmin() {
         </form>
       </details></section>
     </div>
-    <ReceiptContactsSettings key={settings.id} storeId={settings.id} demo={dataMode==='demo'}/>
   </section>;
 }

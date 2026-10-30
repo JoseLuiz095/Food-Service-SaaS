@@ -5,7 +5,7 @@ export type ReceiptContact = { slot: number; name: string; phone: string };
 export type ReceiptDestinations = { mode:'general'|'point'|'unassigned'|'unavailable'; contacts:ReceiptContact[] };
 export function parseReceiptDestinations(value:unknown):ReceiptDestinations {
  const v=value as ReceiptDestinations;
- if(!v||!['general','point','unassigned','unavailable'].includes(v.mode)||!Array.isArray(v.contacts)||v.contacts.length>2||v.contacts.some(c=>!c||![1,2].includes(c.slot)||typeof c.name!=='string'||!c.name.trim()||c.name.length>60||!/^[1-9][0-9]{9,14}$/.test(c.phone))||new Set(v.contacts.map(c=>c.slot)).size!==v.contacts.length||(v.mode==='point'&&v.contacts.length!==1)||(v.mode==='unavailable'&&v.contacts.length))throw new Error('Contatos indisponíveis. Tente novamente.');
+ if(!v||!['general','point','unassigned','unavailable'].includes(v.mode)||!Array.isArray(v.contacts)||v.contacts.length>2||v.contacts.some(c=>!c||![1,2].includes(c.slot)||typeof c.name!=='string'||!c.name.trim()||c.name.length>60||!/^[1-9][0-9]{9,14}$/.test(c.phone))||new Set(v.contacts.map(c=>c.slot)).size!==v.contacts.length||(v.mode==='point'&&!v.contacts.length)||(['unavailable','unassigned'].includes(v.mode)&&v.contacts.length))throw new Error('Contatos indisponíveis. Tente novamente.');
  return v;
 }
 export async function getReceiptDestinations(storeId:string,pointId?:string){return parseReceiptDestinations(await restFetch('rpc/food_get_receipt_destinations_v1',{method:'POST',body:{p_store_id:storeId,p_pickup_location_id:pointId||null}}));}
