@@ -33,6 +33,13 @@ verify_jwt = false
 [functions.food-fitness-checkout]
 verify_jwt = false
 
+# Professional assistant and reminder worker validate session/service credentials in handler.
+[functions.food-professional-assistant]
+verify_jwt = false
+
+[functions.food-fitness-reminders]
+verify_jwt = false
+
 # Public resolve verifies an encrypted capability; issue verifies Auth, MFA and order RLS in handler.
 # Disabled until explicitly configured and deployed; no schema or RLS changes.
 [functions.food-order-payment]

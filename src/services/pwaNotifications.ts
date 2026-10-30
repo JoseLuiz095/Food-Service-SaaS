@@ -101,7 +101,7 @@ export const pwaPushStatus = () => {
 };
 
 /** Solicita permissão, cria a assinatura Web Push e a vincula à loja/usuário autenticado. */
-export const subscribeToPwaPush = async (storeId?: string, userId?: string): Promise<PushSubscription> => {
+export const subscribeToPwaPush = async (storeId?: string, userId?: string, audience: 'admin' | 'student' = 'admin'): Promise<PushSubscription> => {
   const status = pwaPushStatus();
   if (status === 'unsupported') throw new Error('Este navegador não oferece notificações push. No iPhone/iPad, adicione o app à Tela de Início pelo Safari; no Android, instale pelo Chrome ou Edge.');
   if (status === 'not_configured') throw new Error('As notificações do telefone ainda não foram configuradas no servidor (VAPID).');
@@ -114,7 +114,8 @@ export const subscribeToPwaPush = async (storeId?: string, userId?: string): Pro
   if (storeId && userId && isSupabaseConfigured) {
     const json = subscription.toJSON();
     if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) throw new Error('O navegador não retornou uma assinatura push válida.');
-    await restFetch('food_push_subscriptions?on_conflict=store_id,endpoint', {
+    const subscriptionTable = audience === 'student' ? 'food_fitness_student_push_subscriptions' : 'food_push_subscriptions';
+    await restFetch(`${subscriptionTable}?on_conflict=store_id,endpoint`, {
       method: 'POST',
       prefer: 'resolution=merge-duplicates,return=minimal',
       body: {

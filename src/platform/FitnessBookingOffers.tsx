@@ -6,11 +6,13 @@ import { getSupabaseClient } from '../lib/supabase';
 import { restFetch } from '../lib/supabaseRest';
 import { fitnessApi, type FitnessAppointment, type FitnessSlot, type FitnessSlots } from '../services/fitnessApi';
 import { FitnessStudentWorkouts } from './FitnessWorkouts';
+import { FitnessStudentPreferences } from './FitnessStudentPreferences';
 import './fitness.css';
 import { normalizeText } from '../utils/text';
 
 type Offer = {id:string;name:string;description:string;price_cents:number;duration_minutes:number;kind:string;professional?:{user_id:string;name:string;council:string;registration:string}};
-type PublicOffers = {services:Offer[];links?:{id:string;label:string;url:string}[]};
+type ProfessionalPost={id:string;title:string;body:string;category:string;published_at:string;author_name:string;author_council:string;author_registration:string};
+type PublicOffers = {services:Offer[];links?:{id:string;label:string;url:string}[];publications?:ProfessionalPost[]};
 type OfferWithSlots = {service:Offer;availability:FitnessSlots};
 const dateTime = (value:string) => new Date(value).toLocaleString('pt-BR',{dateStyle:'full',timeStyle:'short'});
 const money = (cents:number) => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(cents/100);
@@ -26,6 +28,7 @@ export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:
   const [offers,setOffers]=useState<OfferWithSlots[]>([]);
   const [otherServices,setOtherServices]=useState<Offer[]>([]);
   const [contentLinks,setContentLinks]=useState<{id:string;label:string;url:string}[]>([]);
+  const [publications,setPublications]=useState<ProfessionalPost[]>([]);
   const [published,setPublished]=useState<OfferWithSlots[]>([]);
   const [appointments,setAppointments]=useState<FitnessAppointment[]>([]);
   const [appointmentsError,setAppointmentsError]=useState('');
@@ -46,7 +49,7 @@ export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:
 
   useEffect(()=>{
     let active=true;
-    setOffers([]);setPublished([]);setOtherServices([]);setContentLinks([]);setSelected('');setSlot(null);setAccepted(false);setError('');setLoading(true);
+    setOffers([]);setPublished([]);setOtherServices([]);setContentLinks([]);setPublications([]);setSelected('');setSlot(null);setAccepted(false);setError('');setLoading(true);
     if(!store){setLoading(false);return;}
     // Inclui o dia local em fusos a oeste de UTC; o servidor descarta horários passados.
     const from=new Date(Date.now()-86_400_000).toISOString().slice(0,10);
@@ -61,7 +64,7 @@ export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:
           if(!Array.isArray(availability?.slots)||typeof availability.cancel_policy!=='string'||!availability.cancel_policy.trim()||typeof availability.reschedule_policy!=='string'||!availability.reschedule_policy.trim())throw new Error('O servidor retornou regras ou horários inválidos.');
           return result.value;
         });
-        if(active){setPublished(valid);setOffers(valid.filter(item=>item.availability.slots.length>0));setOtherServices(data.services.filter(service=>['general','nutrition'].includes(service.kind)&&identified(service)&&service.price_cents>0&&service.duration_minutes>0&&Boolean(service.description?.trim())));setContentLinks((data.links||[]).filter(link=>{try{const url=new URL(link.url);return url.protocol==='https:'&&!url.username&&!url.password;}catch{return false;}}));}
+        if(active){setPublished(valid);setOffers(valid.filter(item=>item.availability.slots.length>0));setOtherServices(data.services.filter(service=>['general','nutrition'].includes(service.kind)&&identified(service)&&service.price_cents>0&&service.duration_minutes>0&&Boolean(service.description?.trim())));setContentLinks((data.links||[]).filter(link=>{try{const url=new URL(link.url);return url.protocol==='https:'&&!url.username&&!url.password;}catch{return false;}}));setPublications(data.publications||[]);}
       })
       .catch(cause=>{if(active)setError((cause as Error).message);})
       .finally(()=>{if(active)setLoading(false);});
@@ -130,6 +133,7 @@ export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:
   const visibleServices=otherServices.filter(item=>item.kind==='general'&&matches(`${item.name} ${item.description}`));
   const visibleConsultations=otherServices.filter(item=>item.kind==='nutrition'&&matches(`${item.name} ${item.description}`));
   const visibleLinks=contentLinks.filter(item=>matches(item.label));
+  const visiblePublications=publications.filter(item=>matches(`${item.title} ${item.body} ${item.author_name}`));
   const showAppointments=type==='all'||type==='consultations';
   const showServices=type==='all'||type==='services';
   const showContent=type==='all'||type==='content';
@@ -148,12 +152,12 @@ export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:
       </div>}
     </>)}
     {showServices&&!loading&&<div className="fitness-other-services"><h2>Serviços</h2>{visibleServices.length?<div className="business-public-grid">{visibleServices.map(service=><article className="business-card" key={service.id}><span className="business-badge">{service.duration_minutes} min</span><h3>{service.name}</h3><p>{service.description}</p><p className="business-provider">Atendimento: <strong>{service.professional!.name}</strong> · {service.professional!.council} {service.professional!.registration}</p><strong>{money(service.price_cents)}</strong><small>Agendamento online ainda não disponível para este serviço.</small></article>)}</div>:<p role="status" className="business-muted">{query?'Nenhum serviço corresponde à busca.':'Nenhum serviço publicado no momento.'}</p>}</div>}
-    {showContent&&!loading&&<div className="fitness-other-services"><h2>Conteúdos</h2>{visibleLinks.length?<div className="business-public-grid">{visibleLinks.map(link=><a className="business-card" href={link.url} target="_blank" rel="noopener noreferrer" key={link.id}>{link.label} ↗</a>)}</div>:<p role="status" className="business-muted">{query?'Nenhum conteúdo corresponde à busca.':'Nenhum conteúdo publicado no momento.'}</p>}</div>}
+    {showContent&&!loading&&<div className="fitness-other-services"><h2>Conteúdos</h2>{visibleLinks.length||visiblePublications.length?<div className="business-public-grid">{visiblePublications.map(post=><article className="business-card" key={post.id}><span className="business-badge">{post.category==='nutrition'?'Nutrição':post.category==='training'?'Treinamento':'Conteúdo da loja'}</span><h3>{post.title}</h3><p>{post.body}</p><p className="business-provider">Responsável: <strong>{post.author_name}</strong> · {post.author_council} {post.author_registration}</p></article>)}{visibleLinks.map(link=><a className="business-card" href={link.url} target="_blank" rel="noopener noreferrer" key={link.id}>{link.label} ↗</a>)}</div>:<p role="status" className="business-muted">{query?'Nenhum conteúdo corresponde à busca.':'Nenhum conteúdo publicado no momento.'}</p>}</div>}
     {user&&!isStoreStaff&&<div className="business-card fitness-my-appointments"><h3>Meus agendamentos</h3>{appointmentsError?<p role="alert">Não foi possível consultar seus agendamentos: {appointmentsError}</p>:appointments.length===0?<p>Nenhum agendamento encontrado para esta conta e loja.</p>:<ul className="fitness-records">{appointments.map(item=>{
       const service=published.find(offer=>offer.service.id===item.service_id);
       const open=['scheduled','confirmed'].includes(item.status);
       return <li key={item.id}><strong>{service?.service.name||'Acompanhamento'} · {dateTime(item.starts_at)}</strong><span>Situação: {appointmentStatus[item.status]||item.status}</span>{open&&<><div className="fitness-policies"><p><strong>Cancelamento:</strong> {item.cancel_policy||service?.availability.cancel_policy||'Consulte as condições informadas na reserva.'}</p><p><strong>Reagendamento:</strong> {item.reschedule_policy||service?.availability.reschedule_policy||'Consulte as condições informadas na reserva.'}</p></div><div className="fitness-appointment-actions"><button type="button" className="secondary-button" disabled={busy} onClick={()=>void cancel(item)}>Cancelar reserva</button>{service&&service.availability.slots.length>0&&<><label>Novo horário<select value={newSlot[item.id]||''} onChange={event=>setNewSlot(current=>({...current,[item.id]:event.target.value}))}><option value="">Selecione</option>{service.availability.slots.map(option=><option key={`${option.starts_at}:${option.professional_id}`} value={`${option.starts_at}:${option.professional_id}`}>{dateTime(option.starts_at)}</option>)}</select></label><button type="button" className="secondary-button" disabled={busy||!newSlot[item.id]} onClick={()=>void reschedule(item)}>Reagendar</button></>}</div></>}</li>;
     })}</ul>}</div>}
-    {user&&!isStoreStaff&&<FitnessStudentWorkouts store={store}/>}
+    {user&&!isStoreStaff&&<><FitnessStudentWorkouts store={store}/><FitnessStudentPreferences store={store} userId={user.id}/></>}
   </section>;
 }
