@@ -36,7 +36,7 @@ async function openInventory(page:Page, initial=inventoryItem()){
 
 const metrics={timezone:'America/Sao_Paulo',asOf:now,ordersTotal:150,cancelledOrders:11,ordersToday:16,
   pendingPayments:8,pendingAmount:78.4,processingOrders:5,scheduledToday:3,paidOrders:82,
-  totalReceived:9012.75,receivedToday:432.1,receivedTodayCount:7};
+  totalReceived:9012.75,receivedToday:432.1,receivedTodayCount:7,receiptsToReview:2,receiptsToReviewAmount:61};
 
 test('Dashboard usa totais da RPC, inclusive além dos 100 pedidos do snapshot',async({page})=>{
   await mockBackend(page,{auth:true});
@@ -55,6 +55,7 @@ test('Dashboard usa totais da RPC, inclusive além dos 100 pedidos do snapshot',
   const today=page.locator('.dashboard-today-card');
   await expect(today.locator('.dashboard-today-metric').filter({hasText:'Recebido hoje'})).toContainText('R$ 432,10');
   await expect(today.locator('.dashboard-today-metric').filter({hasText:'A receber'})).toContainText('R$ 78,40');
+  await expect(today.locator('.dashboard-today-metric').filter({hasText:'Comprovantes a conferir'})).toContainText('R$ 61,00');
   expect(calls).toBeGreaterThan(0);
 });
 
@@ -66,6 +67,7 @@ test('falha da RPC não exibe faturamento derivado de pedidos parciais',async({p
   const today=page.locator('.dashboard-today-card');
   await expect(today.locator('.dashboard-today-metric').filter({hasText:'Recebido hoje'})).toContainText('—');
   await expect(today.locator('.dashboard-today-metric').filter({hasText:'A receber'})).toContainText('—');
+  await expect(today.locator('.dashboard-today-metric').filter({hasText:'Comprovantes a conferir'})).toContainText('—');
   await expect(today).not.toContainText('R$ 0,00');
 });
 

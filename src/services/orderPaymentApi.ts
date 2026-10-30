@@ -2,7 +2,7 @@ import { parseReceiptDestinations, type ReceiptDestinations } from './receiptCon
 import { getSupabaseClient } from '../lib/supabase';
 import { platformOrigin } from '../lib/brand';
 export const paymentLinksEnabled = import.meta.env.VITE_PIX_PAYMENT_LINK_ENABLED === 'true';
-export type OrderPayment = { receiptToken?:string;paymentReportedByCustomer?:boolean; status: 'pending' | 'paid' | 'cancelled'; storeName: string; orderNumber: number; total?: number; receiver?: string; pixPayload?: string; expiresAt?: string; receiptDestinations?:ReceiptDestinations };
+export type OrderPayment = { receiptToken?:string;paymentReportedByCustomer?:boolean;fulfillmentStatus?:string; status: 'pending' | 'paid' | 'cancelled'; storeName: string; orderNumber: number; total?: number; receiver?: string; pixPayload?: string; expiresAt?: string; receiptDestinations?:ReceiptDestinations };
 async function invoke(body: object) {
   const { data, error } = await getSupabaseClient().functions.invoke('food-order-payment', { body, timeout: 15000 });
   if (error) {
@@ -26,4 +26,4 @@ export async function resolveOrderPayment(token: string): Promise<OrderPayment> 
   return data;
 }
 
-export async function reportOrderReceipt(token:string):Promise<void>{const data=await invoke({action:'report_receipt',token});if(data?.ok!==true||data.status!=='paid')throw new Error('Não foi possível registrar o aviso de pagamento. Tente novamente.');}
+export async function reportOrderReceipt(token:string):Promise<{autoPickedUp:boolean}>{const data=await invoke({action:'report_receipt',token});if(data?.ok!==true||data.status!=='paid'||typeof data.autoPickedUp!=='boolean')throw new Error('Não foi possível registrar o aviso de pagamento. Tente novamente.');return{autoPickedUp:data.autoPickedUp};}

@@ -14,16 +14,23 @@ const owner=randomUUID(),outsider=randomUUID(),a=randomUUID(),b=randomUUID(),emp
 const actor=id=>q("select set_config('test.user',$1,false)",[id]);
 const metrics=async id=>(await one('select food_dashboard_metrics_v1($1) result',[id])).result;
 try{
- await db.exec(`create role anon;create role authenticated;
+ await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
  create schema auth;
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('test.user',true),'')::uuid$$;
  create function auth.jwt() returns jsonb language sql stable as $$select '{"aal":"aal1"}'::jsonb$$;
  create table food_platform_admins(user_id uuid,active boolean);
- create table food_stores(id uuid primary key,opening_hours jsonb,active boolean default true,archived_at timestamptz,approval_status text default 'approved');
+ create table food_stores(id uuid primary key,opening_hours jsonb,active boolean default true,archived_at timestamptz,approval_status text default 'approved',receipt_click_marks_paid boolean not null default false);
  create table food_store_users(store_id uuid,user_id uuid,active boolean default true,role text default 'owner');
- create table food_orders(id uuid primary key default gen_random_uuid(),store_id uuid,status text,payment_status text,total numeric,created_at timestamptz,payment_received_at timestamptz,scheduled_for timestamptz);`);
+ create function food_save_receipt_policy_v1(uuid,jsonb,jsonb,boolean) returns void language sql as $$select null::void$$;
+ create function food_declare_order_receipt_v1(uuid,uuid,numeric,integer) returns jsonb language sql as $$select '{}'::jsonb$$;
+ create table food_stock_locations(id uuid primary key,store_id uuid,active boolean default true);
+ create table food_pickup_locations(id uuid primary key,store_id uuid,stock_location_id uuid,name text,active boolean default true,is_public boolean default true,auto_pickup_on_receipt boolean default false,updated_at timestamptz default now());
+ create table food_financial_entries(store_id uuid,order_id uuid,source text,status text,paid_at timestamptz,notes text,created_by uuid,updated_at timestamptz);
+ create table food_platform_event_log(id uuid default gen_random_uuid(),actor_user_id uuid,store_id uuid,kind text,action text,result text,route text,metadata jsonb,app_version text);
+ create table food_orders(id uuid primary key default gen_random_uuid(),store_id uuid,status text,payment_status text,total numeric,created_at timestamptz,payment_received_at timestamptz,scheduled_for timestamptz,payment_reported_by_customer boolean not null default false,payment_reported_at timestamptz,payment_method text default 'pix',source text default 'site',delivery_type text default 'pickup',pickup_location_id uuid,stock_location_id uuid,inventory_status text default 'not_tracked');`);
  for(const f of guards.authorization)await db.exec(f.definition);
  await db.exec(migration);await db.exec(migration);
+ await db.exec(readFileSync('supabase/migrations/20261030160000_food_pickup_receipt_closeout.sql','utf8'));
  await q("insert into food_stores(id,opening_hours) values($1,'{\"timezone\":\"America/Sao_Paulo\"}'),($2,'{}'),($3,'{\"timezone\":\"invalid/fuso\"}')",[a,b,empty]);
  await q('insert into food_store_users(store_id,user_id) values($1,$2),($3,$4),($5,$2)',[a,owner,b,outsider,empty]);
  await q(`insert into food_orders(store_id,status,payment_status,total,created_at,scheduled_for)
@@ -37,11 +44,14 @@ try{
  ('preparing','paid',10,0,0,true),('delivered','paid',20,0,0,false),('picked_up','paid',30,0,-1,false),
  ('cancelled','paid',999,0,0,false),('cancelled','pending',999,0,0,false),('received','pending',4,-1,0,true),('delivered','paid',7,-1,-1,false)
  )v(status,payment,total,created_offset,received_offset,scheduled)`,[a]);
+ await q(`with t as(select date_trunc('day',now() at time zone 'America/Sao_Paulo')+interval '12 hours' d)
+ insert into food_orders(store_id,status,payment_status,total,created_at,payment_received_at,payment_reported_by_customer,payment_reported_at)
+ select $1,'picked_up','paid',80,(d at time zone 'America/Sao_Paulo'),(d at time zone 'America/Sao_Paulo'),true,(d at time zone 'America/Sao_Paulo') from t`,[a]);
  await q("insert into food_orders(store_id,status,payment_status,total,created_at) values($1,'received','pending',99999,now())",[b]);
  const before=await one('select count(*) n,sum(total) total from food_orders');
  await actor(owner);await db.exec('set role authenticated');
  const m=await metrics(a);
- for(const [key,value] of Object.entries({ordersTotal:157,cancelledOrders:2,ordersToday:151,pendingPayments:151,pendingAmount:304,processingOrders:1,scheduledToday:5,paidOrders:4,totalReceived:67,receivedToday:30,receivedTodayCount:2}))eq(m[key],value,key);
+ for(const [key,value] of Object.entries({ordersTotal:158,cancelledOrders:2,ordersToday:151,pendingPayments:151,pendingAmount:304,processingOrders:1,scheduledToday:5,paidOrders:4,totalReceived:67,receivedToday:30,receivedTodayCount:2,receiptsToReview:1,receiptsToReviewAmount:80}))eq(m[key],value,key);
  eq(m.timezone,'America/Sao_Paulo','fuso da loja');
  eq(Number.isFinite(Date.parse(m.asOf)),true,'timestamp explícito');
  const zero=await metrics(empty);
@@ -52,7 +62,7 @@ try{
  await db.exec('set role anon');await reject(()=>metrics(a),/permission denied/);
  await db.exec('reset role');await actor(owner);
  await q("update food_store_users set active=false where store_id=$1",[a]);await reject(()=>metrics(a),/Sem permissão/);
- await q("update food_store_users set active=true,role='manager' where store_id=$1",[a]);eq((await metrics(a)).ordersTotal,157,'helper atual de manager preservado');
+ await q("update food_store_users set active=true,role='manager' where store_id=$1",[a]);eq((await metrics(a)).ordersTotal,158,'helper atual de manager preservado');
  await q('update food_stores set active=false where id=$1',[a]);await reject(()=>metrics(a),/Sem permissão/);await q('update food_stores set active=true where id=$1',[a]);
  eq(await one('select count(*) n,sum(total) total from food_orders'),before,'RPC não modifica pedidos');
  // Divergência futura deve bloquear substituição silenciosa.

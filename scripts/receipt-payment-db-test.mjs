@@ -11,14 +11,17 @@ try{
  await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;create schema auth;
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('test.user',true),'')::uuid$$;
  grant usage on schema auth to anon,authenticated,service_role;
- create table food_stores(id uuid primary key,active boolean default true,access_status text default 'online',updated_at timestamptz);
+ create table food_stores(id uuid primary key,active boolean default true,access_status text default 'online',updated_at timestamptz,opening_hours jsonb default '{}');
  create table food_store_users(store_id uuid,user_id uuid,active boolean default true,role text default 'owner');
  create function food_is_store_admin(uuid) returns boolean language sql stable security definer set search_path=public,pg_temp as $$select exists(select 1 from food_store_users where store_id=$1 and user_id=auth.uid() and active and role in ('owner','admin','manager'))$$;
  create function food_is_platform_admin() returns boolean language sql as $$select false$$;
  create function food_store_accessible(uuid) returns boolean language sql stable security definer as $$select true$$;
+ create function food_dashboard_metrics_v1(uuid) returns jsonb language sql as $$select '{}'::jsonb$$;
  create table food_stock_locations(id uuid primary key,store_id uuid,active boolean default true);
- create table food_pickup_locations(id uuid primary key,store_id uuid references food_stores,stock_location_id uuid,name text,active boolean default true,is_public boolean default true,unique(id,store_id));
- create table food_orders(id uuid primary key,store_id uuid references food_stores,order_number integer default 1,total numeric default 12.5,payment_status text default 'pending',payment_method text default 'pix',status text default 'received',payment_received_at timestamptz,payment_confirmed_by uuid,customer_name text default 'Cliente fictício',created_at timestamptz default now(),updated_at timestamptz default now(),stock_snapshot integer default 7,stock_location_id uuid,inventory_status text default 'not_tracked');
+ create table food_pickup_locations(id uuid primary key,store_id uuid references food_stores,stock_location_id uuid,name text,active boolean default true,is_public boolean default true,auto_pickup_on_receipt boolean not null default false,updated_at timestamptz default now(),unique(id,store_id));
+ create table food_orders(id uuid primary key,store_id uuid references food_stores,order_number integer default 1,total numeric default 12.5,payment_status text default 'pending',payment_method text default 'pix',status text default 'received',payment_received_at timestamptz,payment_confirmed_by uuid,customer_name text default 'Cliente fictício',created_at timestamptz default now(),updated_at timestamptz default now(),stock_snapshot integer default 7,stock_location_id uuid,inventory_status text default 'not_tracked',source text default 'site',delivery_type text default 'pickup',pickup_location_id uuid,scheduled_for timestamptz);
+ create function test_commit_inventory_on_fulfillment() returns trigger language plpgsql as $$begin if new.status in ('delivered','picked_up') and old.status is distinct from new.status then if new.inventory_status='awaiting_restock' then raise exception 'Estoque insuficiente';end if;new.inventory_status:='committed';end if;return new;end$$;
+ create trigger test_commit_inventory before update of status on food_orders for each row execute function test_commit_inventory_on_fulfillment();
  create table food_platform_event_log(id uuid default gen_random_uuid(),actor_user_id uuid,store_id uuid,kind text,action text,result text,route text,metadata jsonb,app_version text);
  create table food_financial_categories(id uuid default gen_random_uuid(),store_id uuid,name text);
  create function food_seed_financial_categories(uuid) returns void language sql as $$insert into food_financial_categories(store_id,name) select $1,'Vendas' where not exists(select 1 from food_financial_categories where store_id=$1)$$;
@@ -34,7 +37,9 @@ try{
  await db.exec(finance.slice(finance.indexOf('create or replace function public.food_sync_order_financial_entry()'),finance.indexOf('create or replace function public.food_confirm_order_payment_v1')));
  await db.exec(readFileSync('scripts/fixtures/food-confirm-payment-installed-20261029.sql','utf8'));
  await db.exec(readFileSync('supabase/migrations/20261029171540_food_customer_receipt_payment.sql','utf8'));
- const declare=()=>q('select food_declare_order_receipt_v1($1,$2,$3,$4)',[A,O,12.5,0]);
+ await db.exec(readFileSync('supabase/migrations/20261030160000_food_pickup_receipt_closeout.sql','utf8'));
+ const declareFor=(orderId,storeId=A,amount=12.5,version=0)=>q('select food_declare_order_receipt_v1($1,$2,$3,$4)',[storeId,orderId,amount,version]);
+ const declare=()=>declareFor(O);
  const review=accept=>q('select food_review_receipt_report_v1($1,$2)',[O,accept]);
  const order=async()=>(await q('select * from food_orders where id=$1',[O]))[0];
  const ledger=async()=>(await q('select * from food_financial_entries where order_id=$1',[O]))[0];
@@ -51,10 +56,10 @@ try{
   await q(`update food_orders set ${column}=$1 where id=$2`,[value,O]);await fail(declare);await q(`update food_orders set ${column}=$1 where id=$2`,[reset,O]);
  }
  await q('delete from food_financial_entries');
- await declare();check((await order()).payment_reported_by_customer,'origem cliente persistida');check((await ledger()).status==='paid','receita paga na mesma transação');
+ await declare();check((await order()).payment_reported_by_customer,'origem cliente persistida');check((await ledger()).status==='pending'&&(await ledger()).paid_at===null,'declaração permanece fora do caixa recebido');
  check((await order()).status==='received'&&(await order()).stock_snapshot===7&&(await order()).stock_location_id===B,'não altera entrega, estoque ou local');
  await declare();check((await q('select * from food_financial_entries')).length===1,'retry não duplica receita');check((await q("select * from food_platform_event_log where action='order_receipt_declared'")).length===1,'retry não duplica auditoria');
- await q('update food_orders set total=13 where id=$1',[O]);check((await ledger()).notes.includes('informado pelo cliente'),'editar total preserva origem da receita');await q('update food_orders set total=12.5 where id=$1',[O]);
+ await q('update food_orders set total=13 where id=$1',[O]);check((await ledger()).notes.includes('aguardando conferência bancária'),'editar total preserva origem da receita');await q('update food_orders set total=12.5 where id=$1',[O]);
  await db.exec(`set role authenticated;select set_config('test.user','${V}',false)`);await fail(()=>review(false));
  await db.exec(`select set_config('test.user','${U}',false)`);await review(false);
  check((await order()).payment_status==='pending'&&!(await order()).payment_reported_by_customer,'admin devolve A receber');check((await ledger()).status==='pending'&&(await ledger()).paid_at===null,'receita também volta pendente');
@@ -63,11 +68,18 @@ try{
  // Novo pedido para conferência positiva, sem fabricar movimentos de estoque.
  await db.exec(`reset role;delete from food_orders where id='${O}';delete from food_financial_entries;insert into food_orders(id,store_id)values('${O}','${A}');set role service_role;`);
  await declare();await db.exec(`set role authenticated;select set_config('test.user','${U}',false)`);await review(true);
- check((await order()).payment_status==='paid'&&!(await order()).payment_reported_by_customer&&(await order()).payment_confirmed_by===U,'conferência identifica responsável');
+ check((await order()).payment_status==='paid'&&!(await order()).payment_reported_by_customer&&(await order()).payment_confirmed_by===U,'conferência identifica responsável');check((await ledger()).status==='paid'&&(await ledger()).paid_at!==null,'conferência administrativa reconhece entrada no caixa');
  await fail(()=>review(false));await review(true);check((await order()).payment_receipt_version===1,'conferência idempotente');
  await db.exec(`reset role;delete from food_orders where id='${O}';delete from food_financial_entries;insert into food_orders(id,store_id)values('${O}','${A}');set role service_role;`);
  await declare();await db.exec(`set role authenticated;select set_config('test.user','${U}',false)`);await q('select food_confirm_order_payment_v1($1)',[O]);
  check(!(await order()).payment_reported_by_customer&&(await order()).payment_receipt_version===1,'confirmação legada invalida declaração após corrida de interface');
+ const point='60000000-0000-4000-8000-000000000001',location='70000000-0000-4000-8000-000000000001',autoOrder='40000000-0000-4000-8000-000000000001',scheduledOrder='40000000-0000-4000-8000-000000000002';
+ await db.exec(`reset role;insert into food_stock_locations(id,store_id)values('${location}','${A}');insert into food_pickup_locations(id,store_id,stock_location_id,name,active,is_public)values('${point}','${A}','${location}','Ponto fictício',true,true);insert into food_orders(id,store_id,stock_location_id,pickup_location_id,delivery_type,source,inventory_status)values('${autoOrder}','${A}','${location}','${point}','pickup','site','reserved'),('${scheduledOrder}','${A}','${location}','${point}','pickup','site','reserved');update food_orders set scheduled_for=now()+interval '1 day' where id='${scheduledOrder}';set role authenticated;`);
+ await q('select food_save_receipt_policy_v2($1,$2::jsonb,$3::jsonb,$4,$5::jsonb)',[A,contacts,'[]',true,JSON.stringify([point])]);
+ await db.exec('reset role');
+ check((await q('select auto_pickup_on_receipt from food_pickup_locations where id=$1',[point]))[0].auto_pickup_on_receipt,'política automática vinculada somente ao ponto escolhido');
+ await db.exec('set role service_role');await declareFor(autoOrder);const auto=await q('select status,inventory_status,payment_reported_by_customer from food_orders where id=$1',[autoOrder]);check(auto[0].status==='picked_up'&&auto[0].inventory_status==='committed'&&auto[0].payment_reported_by_customer,'retirada imediata baixa estoque ao informar envio');check((await q('select status from food_financial_entries where order_id=$1',[autoOrder]))[0].status==='pending','auto-retirada não registra caixa bancário sem conferência');
+ await declareFor(scheduledOrder);const scheduled=await q('select status,inventory_status from food_orders where id=$1',[scheduledOrder]);check(scheduled[0].status==='received'&&scheduled[0].inventory_status==='reserved','pedido agendado não é auto-retirado');
  if(concurrentCases)await concurrentCases({db,A,B,U,V,O,check});
  // A auditoria participa da mesma transação: falha de gravação não deixa pedido pago.
  await db.exec(`reset role;delete from food_orders where id='${O}';delete from food_financial_entries;insert into food_orders(id,store_id)values('${O}','${A}');create function reject_test_audit() returns trigger language plpgsql as $$begin raise exception 'audit unavailable';end$$;create trigger test_audit before insert on food_platform_event_log for each row execute function reject_test_audit();set role service_role;`);

@@ -14,6 +14,7 @@ export default function OrderPayment() {
   const [qr, setQr] = useState('');
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  const [receiptOpened,setReceiptOpened]=useState(false);
   const retry = useCallback(() => setAttempt(a => a + 1), []);
   useEffect(() => {
     document.title = 'Pagamento Pix · VendeWeb';
@@ -60,8 +61,8 @@ export default function OrderPayment() {
         <button type="button" className="secondary-button" onClick={retry}>Já paguei · verificar status</button>
 
         <small>O pagamento é feito no seu banco. A cópia do Pix não confirma o recebimento bancário.</small>
-      </> : <p role="status">{payment.status === 'paid' ? payment.paymentReportedByCustomer?'Pago informado pelo cliente. Envie o comprovante para a loja conferir.':'Pagamento confirmado pela loja. Não pague novamente.' : 'Pedido cancelado. Não efetue o pagamento.'}</p>}
-        {payment.status!=='cancelled'&&payment.receiptDestinations&&<ReceiptDestination receiptToken={payment.receiptToken} onReported={()=>setPayment(current=>current?{...current,status:'paid',paymentReportedByCustomer:true}:current)} destinations={payment.receiptDestinations} message={`Olá! Quero enviar o comprovante do pedido #${formatOrderNumber(payment.orderNumber)} da ${payment.storeName}, no valor de ${currency.format(payment.total!)}.`}/>}
+      </> : <p role="status">{payment.status === 'paid' ? payment.paymentReportedByCustomer?`Pago informado pelo cliente${payment.fulfillmentStatus==='picked_up'?' · retirada registrada':''}. A loja pode conferir o recebimento.`:'Pagamento confirmado pela loja. Não pague novamente.' : 'Pedido cancelado. Não efetue o pagamento.'}</p>}
+        {payment.status!=='cancelled'&&payment.receiptDestinations&&<ReceiptDestination opened={receiptOpened} onOpen={()=>setReceiptOpened(true)} receiptToken={payment.receiptToken} onReported={(autoPickedUp)=>setPayment(current=>current?{...current,status:'paid',paymentReportedByCustomer:true,fulfillmentStatus:autoPickedUp?'picked_up':current.fulfillmentStatus}:current)} destinations={payment.receiptDestinations} message={`Olá! Quero enviar o comprovante do pedido #${formatOrderNumber(payment.orderNumber)} da ${payment.storeName}, no valor de ${currency.format(payment.total!)}.`}/>}
     </>}
   </section></main>;
 }

@@ -16,11 +16,13 @@ export type DashboardMetrics = {
   totalReceived: number;
   receivedToday: number;
   receivedTodayCount: number;
+  receiptsToReview: number;
+  receiptsToReviewAmount: number;
 };
 
 const numericFields: Array<keyof Omit<DashboardMetrics, 'timezone' | 'asOf'>> = [
   'ordersTotal', 'cancelledOrders', 'ordersToday', 'pendingPayments', 'pendingAmount',
-  'processingOrders', 'scheduledToday', 'paidOrders', 'totalReceived', 'receivedToday', 'receivedTodayCount',
+  'processingOrders', 'scheduledToday', 'paidOrders', 'totalReceived', 'receivedToday', 'receivedTodayCount', 'receiptsToReview', 'receiptsToReviewAmount',
 ];
 
 export const dashboardApi = {
