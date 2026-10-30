@@ -284,6 +284,9 @@ try {
   assert.equal(adminSessions.students.length,2);
   assert.ok(adminSessions.students.every(item=>item.session_active));
 
+  await session(owner);
+  const otherService=(await rpc('food_business_operate',[other,'services.save',JSON.stringify({name:'Acompanhamento Loja 2',kind:'training',price_cents:5000,duration_minutes:60,active:true})])).item;
+  await rpc('food_service_professional_assign',[other,otherService.id,owner]);
   await session(student);
   const otherUnregistered=await rpc('food_fitness_student_status_v1',[other]);
   assert.equal(otherUnregistered.registered,false);
