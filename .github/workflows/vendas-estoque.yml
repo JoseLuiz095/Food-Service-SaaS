@@ -39,6 +39,7 @@ jobs:
       - run: node scripts/receipt-source-db-test.mjs
       - run: npm run test:payment-links
       - run: npm run test:fitness
+      - run: npm run test:fitness-pilot-db
       - run: npm run smoke
       - run: npm run test:critical
       - run: npm run test:integrations

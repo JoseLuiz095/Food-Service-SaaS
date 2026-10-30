@@ -15,6 +15,7 @@ const AdminLogin=lazy(()=>import('./pages/admin/Login'));
 const ForgotPassword=lazy(()=>import('./pages/admin/ForgotPassword'));
 const ResetPassword=lazy(()=>import('./pages/admin/ResetPassword'));
 const FitnessAccess=lazy(()=>import('./pages/fitness/FitnessAccess'));
+const FitnessStudentPortal=lazy(()=>import('./pages/fitness/FitnessStudentPortal'));
 const FirstAccessPassword=lazy(()=>import('./pages/admin/FirstAccessPassword'));
 const OrdersAdmin=lazy(()=>import('./pages/admin/Orders'));
 const Onboarding=lazy(()=>import('./pages/admin/Onboarding'));
@@ -97,6 +98,7 @@ export function CanonicalPlatformBoundary({ children }: { children: ReactNode })
 
 export default function App() {
   return <Suspense fallback={fallback}><Routes>
+    <Route path="/fitness/:storeId/treinos" element={<FitnessStudentPortal/>} />
     <Route path="/fitness/:storeId" element={import.meta.env.DEV?<FitnessAccess/>:<Navigate to="/" replace/>} />
     <Route path="/profissional" element={<ProfessionalPortal />} />
     <Route path="/modulos/eventos/:sellerId" element={<EventsPage />} />

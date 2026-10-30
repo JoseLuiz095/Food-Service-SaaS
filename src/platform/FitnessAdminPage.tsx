@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { businessApi, moduleIsActive, type BusinessRecord } from './api';
 import { useBusinessStatus } from './useBusinessStatus';
-import { fitnessApi, type FitnessBlock, type FitnessStatus, type FitnessWindow } from '../services/fitnessApi';
+import { fitnessApi, type FitnessBlock, type FitnessStatus, type FitnessStudent, type FitnessWindow } from '../services/fitnessApi';
 import { FitnessWorkouts } from './FitnessWorkouts';
 import './fitness.css';
 
@@ -22,6 +22,8 @@ export default function FitnessAdminPage() {
   const {state:business,loading:businessLoading,error:businessError}=useBusinessStatus(store);
   const [status,setStatus]=useState<FitnessStatus|null>(null);
   const [services,setServices]=useState<BusinessRecord[]>([]);
+  const [studentSessions,setStudentSessions]=useState<FitnessStudent[]>([]);
+  const [studentSessionsError,setStudentSessionsError]=useState('');
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -73,6 +75,27 @@ export default function FitnessAdminPage() {
     return()=>{current=false;};
   },[store]);
 
+  const reloadStudentSessions=useCallback(async()=>{
+    if(!store)return;
+    const result=await fitnessApi.listStudentSessions(store);
+    if(activeStore.current!==store)return;
+    if(!Array.isArray(result.students))throw new Error('O servidor não retornou os alunos Fitness esperados.');
+    setStudentSessions(result.students);
+  },[store]);
+
+  useEffect(()=>{
+    let current=true;
+    setStudentSessions([]);setStudentSessionsError('');
+    if(!store)return;
+    void fitnessApi.listStudentSessions(store).then(result=>{
+      if(current){
+        if(!Array.isArray(result.students))throw new Error('O servidor não retornou os alunos Fitness esperados.');
+        setStudentSessions(result.students);
+      }
+    }).catch(cause=>{if(current)setStudentSessionsError((cause as Error).message);});
+    return()=>{current=false;};
+  },[store,user?.id]);
+
   const run=async(action:()=>Promise<unknown>,message:string):Promise<boolean>=>{
     if(busy)return false;
     setBusy(true);setError('');setNotice('');
@@ -100,6 +123,16 @@ export default function FitnessAdminPage() {
   const editBlock=(item:FitnessBlock)=>{setBlockId(item.id);setBlockStart(toLocal(item.starts_at));setBlockEnd(toLocal(item.ends_at));setBlockReason(item.reason);};
   const disableWindow=(item:FitnessWindow)=>{if(!window.confirm('Desativar esta janela? Reservas existentes permanecem no histórico.'))return;void run(()=>fitnessApi.disableWindow(store,item.id),'Janela desativada no servidor.');};
   const deleteBlock=(item:FitnessBlock)=>{if(!window.confirm('Remover este bloqueio? O período poderá voltar a aparecer como disponível.'))return;void run(()=>fitnessApi.deleteBlock(store,item.id),'Bloqueio removido no servidor.');};
+  const releaseStudentSession=(student:FitnessStudent)=>{
+    if(!student.session_active||busy)return;
+    if(!window.confirm(`Liberar uma nova sessão Fitness para ${student.name}? A sessão atual será revogada.`))return;
+    void (async()=>{
+      const released=await run(()=>fitnessApi.releaseStudentSession(store,student.client_id,'user_request'),'Sessão atual revogada. O aluno pode entrar novamente por SMS.');
+      if(!released)return;
+      try{await reloadStudentSessions();setStudentSessionsError('');}
+      catch(cause){setStudentSessionsError((cause as Error).message);}
+    })();
+  };
   const publish=(event:FormEvent)=>{
     event.preventDefault();
     if(!serviceId||!cancelPolicy.trim()||!reschedulePolicy.trim()||!priceConfirmed){setError('Confirme o serviço, o preço e as regras antes de publicar.');return;}
@@ -142,6 +175,13 @@ export default function FitnessAdminPage() {
     </div>
     <section className="business-card"><h2>Publicar acompanhamento</h2><InfoHint label="Sobre Publicar acompanhamento">Cadastre o serviço no painel antes de publicá-lo. Nenhuma cobrança é feita pela agenda.</InfoHint><form className="business-form-grid" onSubmit={publish}><label>Serviço<select required value={serviceId} onChange={e=>{setServiceId(e.target.value);setPriceConfirmed(false);const term=status?.terms.find(item=>item.service_id===e.target.value);setCancelPolicy(term?.cancel_policy||'');setReschedulePolicy(term?.reschedule_policy||'');setCancelBefore((term?.cancel_before_minutes||1440)/60);}}><option value="">Selecione</option>{services.filter(item=>item.active!==false&&item.kind==='training').map(item=><option value={item.id} key={item.id}>{String(item.name)} · {money(item.price_cents)}</option>)}</select></label><div className="fitness-price">{selectedService?<><strong>Preço registrado: {money(selectedService.price_cents)}</strong><span>{isPublished?'Publicado':'Não publicado'}</span></>:<span>Selecione um serviço de treino ativo.</span>}</div><label className="fitness-wide">Regra de cancelamento<textarea required maxLength={1000} value={cancelPolicy} onChange={e=>setCancelPolicy(e.target.value)} placeholder="Informe a regra definida pelo negócio."/></label><label className="fitness-wide">Regra de reagendamento<textarea required maxLength={1000} value={reschedulePolicy} onChange={e=>setReschedulePolicy(e.target.value)} placeholder="Informe a regra definida pelo negócio."/></label><label>Antecedência mínima para cancelar (horas)<input required type="number" min="0" max="168" value={cancelBefore} onChange={e=>setCancelBefore(Number(e.target.value))}/></label><label className="fitness-check"><input type="checkbox" checked={priceConfirmed} onChange={e=>setPriceConfirmed(e.target.checked)}/><span>Conferi o preço deste serviço com o responsável.</span></label><div className="business-actions"><button className="primary-button" disabled={busy||!professional||!selectedService||!priceConfirmed}>Publicar condições</button></div></form></section>
     <section className="business-card"><h2>Agendamentos</h2>{status?.appointments.length?<ul className="fitness-records">{status.appointments.map(item=><li key={item.id}><strong>{dateTime(item.starts_at)} · {String(services.find(service=>service.id===item.service_id)?.name||'Serviço')}</strong><span>Situação: {appointmentStatus[item.status]||item.status}</span></li>)}</ul>:<p className="business-muted">Nenhum agendamento registrado.</p>}</section>
+    {moduleIsActive(business,'training')&&<section className="business-card" aria-labelledby="fitness-student-sessions-title">
+      <h2 id="fitness-student-sessions-title">Alunos e sessões Fitness</h2>
+      <p>Consultar e liberar sessões exige uma sessão Admin com MFA validada. Liberar a troca revoga a sessão atual e permite que o aluno entre de novo por SMS.</p>
+      {studentSessionsError?<div className="business-message business-message--error" role="alert"><p>{studentSessionsError.includes('FITNESS_ADMIN_MFA_REQUIRED')?'Valide o MFA (AAL2) no Admin para consultar ou liberar sessões de alunos.':studentSessionsError}</p><button type="button" className="secondary-button" disabled={busy} onClick={()=>{setStudentSessionsError('');void reloadStudentSessions().catch(cause=>setStudentSessionsError((cause as Error).message));}}>Tentar novamente</button></div>
+      :studentSessions.length===0?<p className="business-muted">Nenhum aluno cadastrado nesta loja.</p>
+      :<ul className="fitness-records">{studentSessions.map(student=><li key={student.client_id}><strong>{student.name}</strong><span>{student.session_active?'Sessão autorizada':'Sem sessão ativa'}</span>{student.session_active&&<button type="button" className="secondary-button" disabled={busy} onClick={()=>releaseStudentSession(student)}>Liberar troca de sessão</button>}</li>)}</ul>}
+    </section>}
     {moduleIsActive(business,'training')&&<div id="treinos"><FitnessWorkouts store={store} professional={professional}/></div>}
   </div>;
 }

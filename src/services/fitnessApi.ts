@@ -20,7 +20,10 @@ export type FitnessAppointment = { id: string; service_id: string; professional_
 export type FitnessStatus = { professionals: FitnessProfessional[]; windows: FitnessWindow[]; blocks: FitnessBlock[]; terms: FitnessTerm[]; appointments: FitnessAppointment[] };
 export type FitnessExercise = { id:string; position:number; name:string; sets:number; repetitions:string; rest_seconds:number; load_or_effort:string; instructions:string; alternative:string };
 export type FitnessWorkout = { id:string; title:string; level:'basic'|'medium'|'advanced'; source:'custom'|'pilot'; status:'draft'|'approved'; description:string; approved_at:string|null; professional?:{user_id:string;name:string;council:string;registration:string}; exercises:FitnessExercise[] };
-export type FitnessStudent = { client_id:string; name:string };
+export type FitnessStudent = { client_id:string; name:string; session_active?:boolean };
+export type FitnessStudentAccess = { registered:boolean; store_id:string; client_id?:string; name?:string };
+export type FitnessStudentSession = { authorized:boolean; reason?:'SESSION_LIMIT'|'SESSION_REVOKED'|null; released?:boolean };
+export type FitnessStudentSessionAction = 'claim'|'release'|'check';
 
 export type FitnessWindowInput = {
   store: string;
@@ -95,25 +98,40 @@ export const fitnessApi = {
   listSlots: (store:string, service:string, from:string, days:number) => restFetch<FitnessSlots>('rpc/food_fitness_list_slots', {
     method: 'POST', body: {p_store:store,p_service:service,p_from:from,p_days:days},
   }),
-  myAppointments: (store:string) => restFetch<{appointments:FitnessAppointment[]}>('rpc/food_fitness_my_appointments', {
-    method: 'POST', body: {p_store:store},
+  myAppointments: (store:string, accessToken?:string) => restFetch<{appointments:FitnessAppointment[]}>('rpc/food_fitness_my_appointments', {
+    method: 'POST', body: {p_store:store},...(accessToken?{token:accessToken}:{}),
   }),
-  registerStudent: (store:string,name:string,phone:string) => restFetch<unknown>('rpc/food_fitness_register_student', {
-    method: 'POST', body: {p_store:store,p_name:name,p_phone:phone},
+  registerStudent: (store:string,name:string,phone:string,accessToken?:string) => restFetch<{store_id:string;client_id:string;professional:false}>('rpc/food_fitness_register_student', {
+    method: 'POST', body: {p_store:store,p_name:name,p_phone:phone},...(accessToken?{token:accessToken}:{}),
   }),
-  book: (store:string,service:string,starts:string,professional:string,termsAccepted:boolean) => restFetch<unknown>('rpc/food_fitness_book', {
-    method: 'POST', body: {p_store:store,p_service:service,p_starts:starts,p_professional:professional,p_terms_accepted:termsAccepted},
+  book: (store:string,service:string,starts:string,professional:string,termsAccepted:boolean,accessToken?:string) => restFetch<unknown>('rpc/food_fitness_book', {
+    method: 'POST', body: {p_store:store,p_service:service,p_starts:starts,p_professional:professional,p_terms_accepted:termsAccepted},...(accessToken?{token:accessToken}:{}),
   }),
-  reschedule: (appointment:string,starts:string,professional:string) => restFetch<unknown>('rpc/food_fitness_reschedule', {
-    method: 'POST', body: {p_appointment:appointment,p_starts:starts,p_professional:professional},
+  reschedule: (appointment:string,starts:string,professional:string,accessToken?:string) => restFetch<unknown>('rpc/food_fitness_reschedule', {
+    method: 'POST', body: {p_appointment:appointment,p_starts:starts,p_professional:professional},...(accessToken?{token:accessToken}:{}),
   }),
-  cancel: (appointment:string) => restFetch<unknown>('rpc/food_fitness_cancel', {
-    method: 'POST', body: {p_appointment:appointment},
+  cancel: (appointment:string,accessToken?:string) => restFetch<unknown>('rpc/food_fitness_cancel', {
+    method: 'POST', body: {p_appointment:appointment},...(accessToken?{token:accessToken}:{}),
   }),
-  listWorkouts: (store:string) => restFetch<FitnessWorkout[]>('rpc/food_fitness_list_workouts', {
-    method:'POST',body:{p_store:store},
+  listWorkouts: (store:string, accessToken?:string) => restFetch<FitnessWorkout[]>('rpc/food_fitness_list_workouts', {
+    method:'POST',body:{p_store:store},...(accessToken?{token:accessToken}:{}),
+  }),
+  studentStatus: (store:string, accessToken:string) => restFetch<FitnessStudentAccess>('rpc/food_fitness_student_status_v1', {
+    method:'POST',body:{p_store:store},token:accessToken,
+  }),
+  registerFitnessStudent: (store:string, name:string, accessToken:string) => restFetch<{store_id:string;client_id:string;professional:false}>('rpc/food_fitness_register_student', {
+    method:'POST',body:{p_store:store,p_name:name,p_phone:''},token:accessToken,
+  }),
+  studentSession: (store:string, client:string, action:FitnessStudentSessionAction, accessToken:string) => restFetch<FitnessStudentSession>('rpc/food_fitness_student_session_v1', {
+    method:'POST',body:{p_store:store,p_client:client,p_action:action},token:accessToken,
+  }),
+  releaseStudentSession: (store:string, client:string, reason:'lost_device'|'security_review'|'user_request'='lost_device') => restFetch<{revoked_count:number;student_id:string}>('rpc/food_fitness_student_session_admin_v1', {
+    method:'POST',body:{p_store:store,p_client:client,p_reason:reason},
   }),
   listStudents: (store:string) => restFetch<{students:FitnessStudent[]}>('rpc/food_fitness_list_students', {
+    method:'POST',body:{p_store:store},
+  }),
+  listStudentSessions: (store:string) => restFetch<{students:FitnessStudent[]}>('rpc/food_fitness_student_session_admin_list_v1', {
     method:'POST',body:{p_store:store},
   }),
   seedWorkouts: (store:string) => restFetch<{created_ids:string[];status:'draft'}>('rpc/food_fitness_seed_workouts', {
