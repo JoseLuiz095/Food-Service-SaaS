@@ -28,6 +28,7 @@ function StorefrontHome(){
   const traditionalPresentation=segment.id==='food'||settings.visualTheme.preset==='doce_lua';
   const [selectedCategory,setSelectedCategory]=useState('all');
   const [query,setQuery]=useState('');
+  const [fitnessType,setFitnessType]=useState<'all'|'products'|'services'|'consultations'|'content'>('all');
   const pickup = usePickupAvailability(segment.id!=='fitness');
   const [searchParams]=useSearchParams();
   const resolvingPoint=Boolean((searchParams.get('ponto') || pickup.pickupLocationId) && (pickup.pointsLoading || !pickup.selectedPoint && !pickup.invalidQr && !pickup.pointsError));
@@ -58,7 +59,10 @@ function StorefrontHome(){
   if(error)return <div className="container page-center"><ErrorState message={error} onRetry={()=>void reloadPublic()}/></div>;
   if(segment.id==='fitness')return <>
     <header className="container fitness-store-header"><span className="eyebrow">VENDEWEB · FITNESS/ACADEMIA</span><h1>{settings.name}</h1><p>{[settings.city,settings.state].filter(Boolean).join(' · ')}</p></header>
-    <section id="cardapio" className="container storefront-body"><FitnessBookingOffers/><FitnessCatalog products={activeProducts} categories={categories}/></section>
+    <section id="cardapio" className="container storefront-body">
+      <div className="fitness-discovery" role="search"><label className="fitness-catalog-search"><Search size={19}/><span className="sr-only">Buscar no catálogo</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Buscar produtos, serviços e conteúdos"/></label><label className="fitness-type-select">Tipo<select value={fitnessType} onChange={event=>setFitnessType(event.target.value as typeof fitnessType)}><option value="all">Tudo</option><option value="products">Produtos</option><option value="services">Serviços</option><option value="consultations">Consultas com agenda</option><option value="content">Conteúdos</option></select></label></div>
+      <FitnessBookingOffers query={query} type={fitnessType}/><FitnessCatalog products={activeProducts} categories={categories} query={query} visible={fitnessType==='all'||fitnessType==='products'}/>
+    </section>
   </>;
 
   return <>

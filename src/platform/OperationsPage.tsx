@@ -28,7 +28,7 @@ export default function OperationsPage() {
   const [loading,setLoading]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [notice,setNotice]=useState('');
   const [query,setQuery]=useState('');
   const profile=state?.profile?getBusinessSegment(state.profile.primary_segment):null;
-  const clientLabel=profile?.id==='personal'?'Alunos':'Clientes';
+  const clientLabel=['personal','fitness'].includes(profile?.id||'')?'Alunos':'Clientes';
   const labels:Record<Tab,string>={clients:clientLabel,services:'Serviços e pacotes',appointments:'Agenda',followups:'Acompanhamentos',campaigns:'Campanhas',links:'Links comerciais'};
   const permitted=(Object.keys(tabModules) as Tab[]).filter(key=>moduleIsActive(state,tabModules[key]));
   const permissionKey=permitted.join(',');

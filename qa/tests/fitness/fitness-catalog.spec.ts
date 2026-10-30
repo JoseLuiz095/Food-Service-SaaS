@@ -16,15 +16,15 @@ async function mockStore(page:Page, products:unknown[] = [productRow], services:
   });
 }
 
-for (const width of [375, 1280]) test(`Fitness catalog is read only and responsive at ${width}px`, async ({page}) => {
+for (const width of [320, 390, 768, 1366]) test(`Fitness catalog is read only and responsive at ${width}px`, async ({page}) => {
   await page.setViewportSize({width,height:900});
   await mockStore(page);
   await page.goto('/fabriciofitness');
   await expect(page.getByRole('heading',{name:'Produtos da loja'})).toBeVisible();
   await expect(page.getByRole('link',{name:/Produto publicado/})).toBeVisible();
-  await page.getByPlaceholder('Buscar produtos').fill('inexistente');
+  await page.getByPlaceholder('Buscar produtos, serviços e conteúdos').fill('inexistente');
   await expect(page.getByText('Nenhum produto corresponde à busca.')).toBeVisible();
-  await page.getByPlaceholder('Buscar produtos').fill('publicado');
+  await page.getByPlaceholder('Buscar produtos, serviços e conteúdos').fill('publicado');
   await page.getByRole('link',{name:/Produto publicado/}).click();
   await expect(page.getByRole('heading',{name:'Produto publicado'})).toBeVisible();
   await expect(page.getByText('Compra online ainda não disponível para este item.')).toBeVisible();
@@ -48,4 +48,15 @@ test('confirmed general service is consultable without offering a reservation', 
   await expect(page.getByRole('heading',{name:'Avaliação física'})).toBeVisible();
   await expect(page.getByText('Agendamento online ainda não disponível para este serviço.')).toBeVisible();
   await expect(page.getByRole('button',{name:'Ver horários'})).toHaveCount(0);
+});
+
+test('type filters keep product, service and content interactions distinct', async ({page}) => {
+  await mockStore(page, [productRow], [{id:'service-1',name:'Avaliação física',description:'Consulta presencial',price_cents:10000,duration_minutes:60,kind:'general'}]);
+  await page.goto('/fabriciofitness');
+  await page.getByLabel('Tipo').selectOption('services');
+  await expect(page.getByRole('heading',{name:'Avaliação física'})).toBeVisible();
+  await expect(page.getByRole('link',{name:/Produto publicado/})).toHaveCount(0);
+  await page.getByLabel('Tipo').selectOption('products');
+  await expect(page.getByRole('heading',{name:'Avaliação física'})).toHaveCount(0);
+  await expect(page.getByRole('link',{name:/Produto publicado/})).toBeVisible();
 });

@@ -66,9 +66,9 @@ const navSections: Array<{ label: string; items: Array<{ to: string; label: stri
     ],
   },
   {
-    label: 'Produtos e entregas',
+    label: 'Catálogo e entregas',
     items: [
-      { to: '/admin/produtos', label: 'Produtos', icon: Package },
+      { to: '/admin/produtos', label: 'Catálogo', icon: Package },
       { to: '/admin/estoque', label: 'Estoque e locais', icon: Boxes },
       { to: '/admin/categorias', label: 'Categorias', icon: Tags },
       { to: '/admin/entregas', label: 'Entregas', icon: Truck },
@@ -190,8 +190,8 @@ export default function AdminLayout() {
         )}
 
         <nav id="admin-navigation" className="admin-nav" aria-label="Navegação do negócio">
-          {business?.profile?.primary_segment==='fitness'&&!membership?.limitedAccess&&<div className="admin-nav__group"><span className="admin-nav__label">Personal Trainer</span><NavLink to="/admin/fitness" onClick={()=>setOpen(false)}><Clock3 size={18}/><span className="admin-nav-text">Agenda e horários</span></NavLink></div>}
-          {business?.profile&&['clients','appointments','creator','training','nutrition'].some(code=>moduleIsActive(business,code as 'clients'|'appointments'|'creator'|'training'|'nutrition'))&&!membership?.limitedAccess&&<div className="admin-nav__group"><span className="admin-nav__label">Rotina do negócio</span><NavLink to="/admin/operacao" onClick={()=>setOpen(false)}><LayoutDashboard size={18}/><span className="admin-nav-text">{getBusinessSegment(business.profile.primary_segment).adminTitle}</span></NavLink></div>}
+          {segment.id==='fitness'&&!membership?.limitedAccess&&business?.profile&&['clients','training','appointments'].some(code=>moduleIsActive(business,code as 'clients'|'training'|'appointments'))&&<div className="admin-nav__group"><span className="admin-nav__label">Academia</span>{moduleIsActive(business,'clients')&&<NavLink to="/admin/operacao?tab=clients" onClick={()=>setOpen(false)}><LayoutDashboard size={18}/><span className="admin-nav-text">Alunos</span></NavLink>}{moduleIsActive(business,'training')&&<NavLink to="/admin/fitness#treinos" onClick={()=>setOpen(false)}><Boxes size={18}/><span className="admin-nav-text">Treinos</span></NavLink>}{moduleIsActive(business,'appointments')&&<NavLink to="/admin/fitness" onClick={()=>setOpen(false)}><Clock3 size={18}/><span className="admin-nav-text">Agenda e horários</span></NavLink>}</div>}
+          {business?.profile&&segment.id!=='fitness'&&['clients','appointments','creator','training','nutrition'].some(code=>moduleIsActive(business,code as 'clients'|'appointments'|'creator'|'training'|'nutrition'))&&!membership?.limitedAccess&&<div className="admin-nav__group"><span className="admin-nav__label">Rotina do negócio</span><NavLink to="/admin/operacao" onClick={()=>setOpen(false)}><LayoutDashboard size={18}/><span className="admin-nav-text">{getBusinessSegment(business.profile.primary_segment).adminTitle}</span></NavLink></div>}
           {navSections.map((section) => {
             const preparationNavAllowed = new Set(['/admin','/admin/primeiros-passos','/admin/produtos','/admin/estoque','/admin/categorias','/admin/entregas','/admin/configuracoes','/admin/negocio']);
             const deliverySegments = ['food', 'confectionery', 'retail', 'printing3d', 'rentals', 'florist'];
@@ -201,7 +201,7 @@ export default function AdminLayout() {
               && (item.to !== '/admin/estoque' || deliverySegments.includes(segment.id) || products.some((product) => product.trackStock)));
             if (!items.length) return null;
             const links = items.map(({ to, label, icon: Icon, end }) => {
-              const itemLabel = segmentPresentation && to === '/admin/produtos' ? segment.catalogLabel : label;
+              const itemLabel = to === '/admin/produtos' ? 'Catálogo' : label;
               return <NavLink key={to} to={to} end={end} title={itemLabel} aria-label={itemLabel} onClick={() => setOpen(false)}><Icon size={18} /><span className="admin-nav-text">{itemLabel}</span></NavLink>;
             });
             if (section.label === 'Mais ferramentas') return (
@@ -210,7 +210,7 @@ export default function AdminLayout() {
               </details>
             );
             return <div className="admin-nav__group" key={section.label}>
-              <span className="admin-nav__label">{section.label==='Produtos e entregas'&&segmentPresentation?segment.catalogLabel:section.label}</span>{links}{section.label === 'Operação' && !membership?.limitedAccess && location.pathname.startsWith('/admin/pedidos') && <div className="admin-nav__subitems"><NavLink to="/admin/pedidos?queue=payment" className={location.search === '?queue=payment' ? 'active' : ''} onClick={() => setOpen(false)}>Conferir pagamentos</NavLink><NavLink to="/admin/pedidos?queue=fulfillment" className={location.search === '?queue=fulfillment' ? 'active' : ''} onClick={() => setOpen(false)}>Entregas pendentes</NavLink><NavLink to="/admin/pedidos?queue=scheduled" className={location.search === '?queue=scheduled' ? 'active' : ''} onClick={() => setOpen(false)}>Agendados</NavLink></div>}
+              <span className="admin-nav__label">{section.label}</span>{links}
             </div>;
           })}
         </nav>

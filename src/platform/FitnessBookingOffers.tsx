@@ -7,20 +7,22 @@ import { restFetch } from '../lib/supabaseRest';
 import { fitnessApi, type FitnessAppointment, type FitnessSlot, type FitnessSlots } from '../services/fitnessApi';
 import { FitnessStudentWorkouts } from './FitnessWorkouts';
 import './fitness.css';
+import { normalizeText } from '../utils/text';
 
 type Offer = {id:string;name:string;description:string;price_cents:number;duration_minutes:number;kind:string};
-type PublicOffers = {services:Offer[]};
+type PublicOffers = {services:Offer[];links?:{id:string;label:string;url:string}[]};
 type OfferWithSlots = {service:Offer;availability:FitnessSlots};
 const dateTime = (value:string) => new Date(value).toLocaleString('pt-BR',{dateStyle:'full',timeStyle:'short'});
 const money = (cents:number) => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(cents/100);
 const appointmentStatus:Record<string,string>={scheduled:'Agendado',confirmed:'Confirmado',completed:'Concluído',cancelled:'Cancelado'};
 
-export function FitnessBookingOffers(){
+export function FitnessBookingOffers({query='',type='all'}:{query?:string;type?:'all'|'products'|'services'|'consultations'|'content'}){
   const {settings}=useStore();
   const {user,memberships}=useAuth();
   const store=settings.id;
   const [offers,setOffers]=useState<OfferWithSlots[]>([]);
   const [otherServices,setOtherServices]=useState<Offer[]>([]);
+  const [contentLinks,setContentLinks]=useState<{id:string;label:string;url:string}[]>([]);
   const [published,setPublished]=useState<OfferWithSlots[]>([]);
   const [appointments,setAppointments]=useState<FitnessAppointment[]>([]);
   const [appointmentsError,setAppointmentsError]=useState('');
@@ -41,7 +43,7 @@ export function FitnessBookingOffers(){
 
   useEffect(()=>{
     let active=true;
-    setOffers([]);setPublished([]);setOtherServices([]);setSelected('');setSlot(null);setAccepted(false);setError('');setLoading(true);
+    setOffers([]);setPublished([]);setOtherServices([]);setContentLinks([]);setSelected('');setSlot(null);setAccepted(false);setError('');setLoading(true);
     if(!store){setLoading(false);return;}
     // Inclui o dia local em fusos a oeste de UTC; o servidor descarta horários passados.
     const from=new Date(Date.now()-86_400_000).toISOString().slice(0,10);
@@ -56,7 +58,7 @@ export function FitnessBookingOffers(){
           if(!Array.isArray(availability?.slots)||typeof availability.cancel_policy!=='string'||!availability.cancel_policy.trim()||typeof availability.reschedule_policy!=='string'||!availability.reschedule_policy.trim())throw new Error('O servidor retornou regras ou horários inválidos.');
           return result.value;
         });
-        if(active){setPublished(valid);setOffers(valid.filter(item=>item.availability.slots.length>0));setOtherServices(data.services.filter(service=>service.kind==='general'&&service.price_cents>0&&service.duration_minutes>0&&Boolean(service.description?.trim())));}
+        if(active){setPublished(valid);setOffers(valid.filter(item=>item.availability.slots.length>0));setOtherServices(data.services.filter(service=>service.kind==='general'&&service.price_cents>0&&service.duration_minutes>0&&Boolean(service.description?.trim())));setContentLinks((data.links||[]).filter(link=>{try{const url=new URL(link.url);return url.protocol==='https:'&&!url.username&&!url.password;}catch{return false;}}));}
       })
       .catch(cause=>{if(active)setError((cause as Error).message);})
       .finally(()=>{if(active)setLoading(false);});
@@ -120,20 +122,29 @@ export function FitnessBookingOffers(){
     finally{setBusy(false);}
   };
 
+  const matches=(value:string)=>normalizeText(value).includes(normalizeText(query));
+  const visibleOffers=offers.filter(item=>matches(`${item.service.name} ${item.service.description}`));
+  const visibleServices=otherServices.filter(item=>matches(`${item.name} ${item.description}`));
+  const visibleLinks=contentLinks.filter(item=>matches(item.label));
+  const showAppointments=type==='all'||type==='consultations';
+  const showServices=type==='all'||type==='services';
+  const showContent=type==='all'||type==='content';
+
   return <section className="business-public fitness-booking" aria-label="Agendamento Fitness/Academia">
-    <div className="food-section-title"><div><span>FITNESS/ACADEMIA</span><h2>Acompanhamento com horário reservado</h2><InfoHint label="Sobre Acompanhamento com horário reservado">Escolha um horário disponível. As regras aparecem antes da confirmação.</InfoHint></div></div>
+    {showAppointments&&<div className="food-section-title"><div><span>CONSULTAS</span><h2>Acompanhamento com horário reservado</h2><InfoHint label="Sobre Acompanhamento com horário reservado">Escolha um horário disponível. As regras aparecem antes da confirmação.</InfoHint></div></div>}
     {error&&<div className="business-message business-message--error" role="alert"><strong>Agenda indisponível</strong><p>{error}</p><button type="button" onClick={()=>setRefresh(value=>value+1)}>Tentar novamente</button></div>}
     {notice&&<div className="business-message" role="status">{notice}</div>}
-    {loading?<p role="status">Consultando horários no servidor…</p>:offers.length===0?<p className="business-muted">Não há horários publicados e disponíveis para reserva neste momento.</p>:<>
-      <div className="business-public-grid">{offers.map(({service,availability})=><article className="business-card" key={service.id}><span className="business-badge">{service.duration_minutes} min por sessão</span><h3>{service.name}</h3><p>{service.description}</p><strong>{money(service.price_cents)}</strong><small>Pagamento não habilitado nesta etapa.</small><button className="primary-button" type="button" onClick={()=>{setSelected(service.id);setSlot(null);setAccepted(false);}}>{selected===service.id?'Horários exibidos':'Ver horários'}</button><small>{availability.slots.length} horário(s) disponíveis nos próximos 14 dias</small></article>)}</div>
+    {showAppointments&&(loading?<p role="status">Consultando horários no servidor…</p>:visibleOffers.length===0?<p role="status" className="business-muted">{query?'Nenhuma consulta corresponde à busca.':'Não há horários publicados e disponíveis para reserva neste momento.'}</p>:<>
+      <div className="business-public-grid">{visibleOffers.map(({service,availability})=><article className="business-card" key={service.id}><span className="business-badge">{service.duration_minutes} min por sessão</span><h3>{service.name}</h3><p>{service.description}</p><strong>{money(service.price_cents)}</strong><small>Pagamento não habilitado nesta etapa.</small><button className="primary-button" type="button" onClick={()=>{setSelected(service.id);setSlot(null);setAccepted(false);}}>{selected===service.id?'Horários exibidos':'Ver horários'}</button><small>{availability.slots.length} horário(s) disponíveis nos próximos 14 dias</small></article>)}</div>
       {chosen&&<div className="business-card fitness-booking-panel"><h3>{chosen.service.name}</h3><div className="fitness-slot-grid" role="group" aria-label="Horários disponíveis">{chosen.availability.slots.map(item=><button key={`${item.starts_at}:${item.professional_id}`} type="button" aria-pressed={slot?.starts_at===item.starts_at&&slot.professional_id===item.professional_id} onClick={()=>{setSlot(item);setAccepted(false);}}>{dateTime(item.starts_at)}</button>)}</div>
         <div className="fitness-policies"><h4>Regras antes da reserva</h4><p><strong>Cancelamento:</strong> {chosen.availability.cancel_policy}</p><p><strong>Reagendamento:</strong> {chosen.availability.reschedule_policy}</p></div>
         {!user?<form className="fitness-access-form" onSubmit={sendAccessLink}><p>Entre por um link enviado ao seu e-mail para reservar como aluno.</p><label>E-mail<input required type="email" autoComplete="email" value={studentEmail} onChange={e=>setStudentEmail(e.target.value)}/></label><button className="secondary-button" disabled={busy}>Enviar link de acesso</button></form>
           :isStoreStaff?<p className="business-muted">Esta conta administra a loja. Para testar uma reserva como aluno, use uma conta de aluno separada.</p>
           :<form className="fitness-access-form" onSubmit={book}><p>Conta conectada: {user.email}</p><label>Seu nome<input required minLength={2} maxLength={120} value={studentName} onChange={e=>setStudentName(e.target.value)}/></label><label>Telefone<input required type="tel" maxLength={30} value={studentPhone} onChange={e=>setStudentPhone(e.target.value)}/></label><label className="fitness-check"><input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)}/><span>Li e aceito as regras de cancelamento e reagendamento exibidas acima.</span></label><button className="primary-button" disabled={busy||!slot||!accepted}>{busy?'Confirmando no servidor…':'Confirmar reserva'}</button></form>}
       </div>}
-    </>}
-    {otherServices.length>0&&<div className="fitness-other-services"><h3>Outros serviços</h3><div className="business-public-grid">{otherServices.map(service=><article className="business-card" key={service.id}><span className="business-badge">{service.duration_minutes} min</span><h4>{service.name}</h4><p>{service.description}</p><strong>{money(service.price_cents)}</strong><small>Agendamento online ainda não disponível para este serviço.</small></article>)}</div></div>}
+    </>)}
+    {showServices&&!loading&&<div className="fitness-other-services"><h2>Serviços</h2>{visibleServices.length?<div className="business-public-grid">{visibleServices.map(service=><article className="business-card" key={service.id}><span className="business-badge">{service.duration_minutes} min</span><h3>{service.name}</h3><p>{service.description}</p><strong>{money(service.price_cents)}</strong><small>Agendamento online ainda não disponível para este serviço.</small></article>)}</div>:<p role="status" className="business-muted">{query?'Nenhum serviço corresponde à busca.':'Nenhum serviço publicado no momento.'}</p>}</div>}
+    {showContent&&!loading&&<div className="fitness-other-services"><h2>Conteúdos</h2>{visibleLinks.length?<div className="business-public-grid">{visibleLinks.map(link=><a className="business-card" href={link.url} target="_blank" rel="noopener noreferrer" key={link.id}>{link.label} ↗</a>)}</div>:<p role="status" className="business-muted">{query?'Nenhum conteúdo corresponde à busca.':'Nenhum conteúdo publicado no momento.'}</p>}</div>}
     {user&&!isStoreStaff&&<div className="business-card fitness-my-appointments"><h3>Meus agendamentos</h3>{appointmentsError?<p role="alert">Não foi possível consultar seus agendamentos: {appointmentsError}</p>:appointments.length===0?<p>Nenhum agendamento encontrado para esta conta e loja.</p>:<ul className="fitness-records">{appointments.map(item=>{
       const service=published.find(offer=>offer.service.id===item.service_id);
       const open=['scheduled','confirmed'].includes(item.status);
