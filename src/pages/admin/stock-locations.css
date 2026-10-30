@@ -21,9 +21,6 @@
 .admin-page>.page-header .secondary-button{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
 
 .stock-location-workspace{margin-bottom:18px}
-.stock-location-tabs{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin-bottom:20px}
-.stock-location-tabs button{border:0;border-radius:9px;background:transparent;color:var(--muted);padding:9px 16px;font:inherit;font-weight:700;cursor:pointer}
-.stock-location-tabs button.is-active{background:var(--green);color:#fff}
 .stock-location-workspace__heading{display:flex;justify-content:space-between;align-items:end;gap:20px}
 .stock-location-workspace__heading h2{margin:0}
 .stock-location-workspace__heading p{margin:6px 0 0}
@@ -107,7 +104,7 @@
 @media(max-width:720px){
   .stock-location-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.stock-location-summary span{display:grid;align-content:start;gap:4px;padding:10px 7px;font-size:.78rem}.stock-location-summary strong{font-size:1.25rem}
   .stock-location-product__overview{display:grid;gap:7px}.stock-location-product__overview>span{font-size:.94rem}.stock-location-product__action{display:grid;grid-template-columns:1fr 1fr}.stock-location-product__action button{min-width:0;font-size:.85rem}
-  .stock-location-matrix{display:none}.stock-location-tabs{display:flex}.stock-location-tabs button{flex:1;min-height:44px;padding:9px 8px}.stock-location-grid{grid-template-columns:minmax(0,1fr)}
+  .stock-location-matrix{display:none}.stock-location-grid{grid-template-columns:minmax(0,1fr)}
   .stock-location-card strong{overflow-wrap:anywhere}.stock-location-point-actions .secondary-button,.stock-location-manage button,.stock-location-manage-button{min-height:44px;font-size:.82rem}
   .stock-transfer-route{grid-template-columns:minmax(0,1fr) 44px;align-items:end}.stock-transfer-route label:last-child{grid-column:1/-1}.stock-transfer-swap{width:44px;height:44px}.stock-transfer-route select{min-height:44px;padding:10px;font-size:1rem}
   .stock-transfer-check{min-height:44px;font-size:.85rem}.stock-transfer-clear,.stock-transfer-max{min-height:44px;font-size:.82rem}.stock-transfer-row input{min-height:44px;font-size:1rem}.stock-transfer-row__name small{font-size:.8rem}.stock-transfer-row__name strong{font-size:.9rem}.stock-transfer-tools{gap:5px 14px}.stock-transfer-footer{position:static;margin-bottom:0}.stock-location-create input,.stock-location-create select,.stock-location-form input,.stock-location-form select{font-size:1rem;min-height:44px}
