@@ -1,5 +1,5 @@
 import { isDemoMode } from '../lib/config';
-import { restFetch } from '../lib/supabaseRest';
+import { restFetch, SupabaseHttpError } from '../lib/supabaseRest';
 import type { SubscriptionBillingMode, SubscriptionCharge, SubscriptionPayment } from '../types';
 
 const num=(value:number|string|null|undefined)=>value==null?0:Number(value);
@@ -86,7 +86,10 @@ export const billingApi={
           introFreeMonths:rows[0].intro_free_months||undefined,introFirstChargeOn:rows[0].intro_first_charge_on||undefined};
       }catch(error){
         const message=error instanceof Error?error.message:'';
-        if(!/(intro_free_months|intro_first_charge_on|billing_mode)/i.test(message)||!/(column|schema cache)/i.test(message))throw error;
+        const missingLegacyColumn = error instanceof SupabaseHttpError && error.status === 400 &&
+          (error.details === '42703' || error.details === 'PGRST204') &&
+          /(intro_free_months|intro_first_charge_on|billing_mode)/i.test(message);
+        if(!missingLegacyColumn)throw error;
       }
     }
     return overview;

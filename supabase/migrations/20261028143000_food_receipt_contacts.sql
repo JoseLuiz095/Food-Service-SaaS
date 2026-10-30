@@ -58,7 +58,7 @@ begin
   select contact_slot into v_slot from public.food_pickup_receipt_contacts where store_id=p_store_id and pickup_location_id=p_pickup_location_id;
   v_mode:=case when v_slot is null then 'unassigned' else 'point' end;
  end if;
- return jsonb_build_object('mode',v_mode,'contacts',coalesce((select jsonb_agg(jsonb_build_object('slot',slot,'name',name,'phone',phone) order by slot) from public.food_receipt_contacts where store_id=p_store_id and (v_slot is null or slot=v_slot)),'[]'::jsonb));
+ return jsonb_build_object('mode',v_mode,'contacts',coalesce((select jsonb_agg(jsonb_build_object('slot',slot,'name',name,'phone',phone) order by slot) from public.food_receipt_contacts where store_id=p_store_id and (p_pickup_location_id is null or slot=v_slot)),'[]'::jsonb));
 end; $$;
 revoke all on function public.food_get_receipt_destinations_v1(uuid,uuid) from public;
 grant execute on function public.food_get_receipt_destinations_v1(uuid,uuid) to anon,authenticated,service_role;

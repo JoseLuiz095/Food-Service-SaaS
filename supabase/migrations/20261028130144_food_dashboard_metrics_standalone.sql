@@ -5,7 +5,7 @@ begin;
 do $baseline$
 begin
   if exists (select 1 from pg_proc where oid=to_regprocedure('public.food_dashboard_metrics_v1(uuid)')
-    and md5(regexp_replace(prosrc, '\s+', '', 'g')) <> '4b103960045d44acd56dcce31c5eff0c') then
+    and md5(regexp_replace(prosrc, '\s+', '', 'g')) not in ('4b103960045d44acd56dcce31c5eff0c','adebfe037473dda2d9d27fa2259d7c51')) then
     raise exception 'A função de indicadores diverge da versão revisada; compare a definição antes de continuar.';
   end if;
 end;
@@ -32,7 +32,9 @@ begin
     'paidOrders',count(*) filter(where status<>'cancelled' and payment_status='paid'),
     'totalReceived',coalesce(sum(total) filter(where status<>'cancelled' and payment_status='paid'),0),
     'receivedToday',coalesce(sum(total) filter(where status<>'cancelled' and payment_status='paid' and payment_received_at is not null and (payment_received_at at time zone v_tz)::date=v_today),0),
-    'receivedTodayCount',count(*) filter(where status<>'cancelled' and payment_status='paid' and payment_received_at is not null and (payment_received_at at time zone v_tz)::date=v_today)
+    'receivedTodayCount',count(*) filter(where status<>'cancelled' and payment_status='paid' and payment_received_at is not null and (payment_received_at at time zone v_tz)::date=v_today),
+    -- The customer declaration feature is not installed with this standalone RPC.
+    'receiptsToReview',0,'receiptsToReviewAmount',0
   ) into v_result from public.food_orders where store_id=p_store_id;
   return v_result;
 end $$;

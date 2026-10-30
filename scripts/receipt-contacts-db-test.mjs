@@ -30,7 +30,7 @@ try{
  await db.exec('reset role;update food_pickup_locations set is_public=false where store_id=\''+A+'\';set role anon');
  check((await get(A,P)).mode==='unavailable','ponto privado bloqueado');await fail(()=>q('select * from food_receipt_contacts'));await fail(()=>save(A));check((await get(A)).contacts.length===2,'somente contatos comerciais publicados pela RPC');
  await db.exec(`reset role;update food_pickup_locations set is_public=true where store_id='${A}';update food_stock_locations set active=false where store_id='${A}'`);check((await get(A,P)).mode==='unavailable','local inativo bloqueado');
- await db.exec(`update food_stock_locations set active=true;set role authenticated;select set_config('test.user','${U}',false)`);await save(A,contacts,[]);check((await get(A,P)).mode==='unassigned','ponto sem vínculo oferece escolha');await save(A,[],[]);check((await get(A)).contacts.length===0,'zerocontatos compatível');
+ await db.exec(`update food_stock_locations set active=true;set role authenticated;select set_config('test.user','${U}',false)`);await save(A,contacts,[]);check((await get(A,P)).mode==='unassigned'&&(await get(A,P)).contacts.length===0,'ponto sem vínculo não herda contato geral');await save(A,[],[]);check((await get(A)).contacts.length===0,'zerocontatos compatível');
  await db.exec(`reset role;update food_stores set active=false where id='${B}'`);check((await get(B)).mode==='unavailable','loja suspensa não publica contato');
  console.log(`${checks} verificações de contatos/tenant/grants/rollback aprovadas. Nenhum banco remoto alterado.`);
 }finally{await db.close()}
