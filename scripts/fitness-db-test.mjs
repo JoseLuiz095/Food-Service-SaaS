@@ -287,6 +287,7 @@ try {
   await session(student);
   const otherUnregistered=await rpc('food_fitness_student_status_v1',[other]);
   assert.equal(otherUnregistered.registered,false);
+  await rpc('food_fitness_student_authorize_professional',[store,owner,'training',true]);
   const otherStoreStudentProfile=await rpc('food_fitness_register_student',[other,'Aluno Teste Loja 2','']);
   const otherClaim=await rpc('food_fitness_student_session_v1',[other,otherStoreStudentProfile.client_id,'claim']);
   assert.equal(otherClaim.authorized,true);

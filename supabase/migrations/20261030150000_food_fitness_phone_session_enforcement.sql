@@ -91,7 +91,12 @@ begin
   return jsonb_build_object('students',(
     select coalesce(jsonb_agg(jsonb_build_object(
       'client_id',s.client_id,'name',c.name,
-      'session_active',food_fitness_private.student_session_active(s.store_id,s.client_id)
+      'session_active',exists(
+        select 1 from public.food_fitness_student_sessions fs
+        join auth.sessions a on a.id=fs.auth_session_id and a.user_id=fs.user_id
+        where fs.store_id=s.store_id and fs.client_id=s.client_id and fs.user_id=s.user_id
+          and fs.revoked_at is null and (a.not_after is null or a.not_after>now())
+      )
     ) order by c.name),'[]'::jsonb)
     from public.food_fitness_students s
     join public.food_business_clients c on c.id=s.client_id and c.store_id=s.store_id
