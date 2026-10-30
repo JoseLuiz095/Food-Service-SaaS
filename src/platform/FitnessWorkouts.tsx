@@ -57,6 +57,17 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
     {notice&&<div className="business-message" role="status">{notice}</div>}
     {loading?<p role="status">Consultando fichas no servidor…</p>:<>
       <button type="button" className="secondary-button" disabled={busy} onClick={()=>void run(()=>fitnessApi.seedWorkouts(store),'Modelos Básico, Médio e Avançado preparados como rascunho no servidor.')}>Preparar três fichas em rascunho</button>
+      <section aria-label="Acesso Fitness dos alunos">
+        <h3>Acesso dos alunos</h3>
+        <p className="business-muted">Cada sessão é limitada ao aluno e a esta loja. A liberação exige uma sessão Admin com MFA.</p>
+        {students.length===0?<p className="business-muted">Nenhum aluno cadastrado nesta loja.</p>:<div className="fitness-workout-list">{students.map(student=><article className="fitness-workout-card" key={student.client_id}>
+          <div className="business-card-heading"><h4>{student.name}</h4><span className="business-badge">{student.session_active?'Sessão ativa':'Sem sessão ativa'}</span></div>
+          {student.session_active&&<button type="button" className="secondary-button" disabled={busy} onClick={()=>{
+            if(!window.confirm('Revogar a sessão Fitness de '+student.name+' e liberar uma nova entrada por SMS?'))return;
+            void run(()=>fitnessApi.releaseStudentSession(store,student.client_id,'lost_device'),'Sessão revogada. O aluno precisa entrar novamente por SMS.');
+          }}>Revogar e liberar troca de sessão</button>}
+        </article>)}</div>}
+      </section>
       {workouts.length===0?<p className="business-muted">Nenhuma ficha cadastrada nesta loja.</p>:<div className="fitness-workout-list">{workouts.map(workout=><article className="fitness-workout-card" key={workout.id}>
         <div className="business-card-heading"><h3>{levels[workout.level]} · {workout.title}</h3><span className="business-badge">{workout.status==='approved'?'Aprovada':'Aguardando revisão'}</span></div>
         <p>{workout.description}</p>{workout.professional&&<p className="business-provider">Responsável: <strong>{workout.professional.name}</strong> · {workout.professional.council} {workout.professional.registration}</p>}
@@ -86,19 +97,19 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
   </section>;
 }
 
-export function FitnessStudentWorkouts({store}:{store:string}) {
+export function FitnessStudentWorkouts({store,accessToken}:{store:string;accessToken?:string}) {
   const [workouts,setWorkouts]=useState<FitnessWorkout[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
   useEffect(()=>{
     let active=true;
     setLoading(true);setError('');setWorkouts([]);
-    void fitnessApi.listWorkouts(store)
+    void fitnessApi.listWorkouts(store,accessToken)
       .then(rows=>{if(!Array.isArray(rows))throw new Error('Resposta inválida do servidor.');if(active)setWorkouts(rows);})
       .catch(cause=>{if(active)setError((cause as Error).message);})
       .finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
-  },[store]);
+  },[store,accessToken]);
   return <section className="business-card fitness-workouts" aria-label="Minhas fichas de treino">
     <h2>Minhas fichas de treino</h2>
     {loading?<p role="status">Consultando fichas atribuídas…</p>:error?<p role="alert">Não foi possível consultar suas fichas: {error}</p>:workouts.length===0?<p>Nenhuma ficha foi atribuída pelo Personal Trainer.</p>:<div className="fitness-workout-list">{workouts.map(workout=><article className="fitness-workout-card" key={workout.id}>

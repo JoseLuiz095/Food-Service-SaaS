@@ -7,9 +7,12 @@ const db = new PGlite();
 const query = async (sql, params=[]) => (await db.query(sql,params)).rows;
 const one = async (sql, params=[]) => (await query(sql,params))[0];
 const rpc = async (name, params=[]) => (await one(`select public.${name}(${params.map((_,i)=>`$${i+1}`).join(',')}) result`,params)).result;
-const session = async (user,role='authenticated',aal='aal1') => {
+const authSessionIds = new Map();
+const session = async (user,role='authenticated',aal='aal1',sessionId=authSessionIds.get(user)||randomUUID()) => {
+  authSessionIds.set(user,sessionId);
   await db.exec('reset role');
-  await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:user,role,aal})]);
+  await db.query('insert into auth.sessions(id,user_id,not_after) values($1,$2,null) on conflict(id) do update set not_after=null',[sessionId,user]);
+  await db.query("select set_config('request.jwt.claims',$1,false)",[JSON.stringify({sub:user,role,aal,session_id:sessionId})]);
   await db.exec(`set role ${role}`);
 };
 
@@ -17,11 +20,13 @@ try {
   await db.exec(`
     create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create schema storage;
-    create table auth.users(id uuid primary key,email text,raw_app_meta_data jsonb default '{}');
+    create table auth.users(id uuid primary key,email text,phone text,phone_confirmed_at timestamptz,raw_app_meta_data jsonb default '{}');
+    create table auth.sessions(id uuid primary key,user_id uuid not null references auth.users(id),not_after timestamptz);
     create function auth.jwt() returns jsonb language sql stable as $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
     create function auth.uid() returns uuid language sql stable as $$select nullif(auth.jwt()->>'sub','')::uuid$$;
     create table public.food_stores(id uuid primary key default gen_random_uuid(),slug text unique,name text,active boolean default true,archived_at timestamptz,access_status text default 'online',approval_status text default 'approved',visual_theme jsonb default '{}',updated_at timestamptz default now(),pix_enabled boolean default false,pix_receipt_mode text default 'key',pix_key text,pix_copy_paste text,pix_holder_name text,city text,delivery_enabled boolean default true,pickup_enabled boolean default true,confirmation_payment_enabled boolean default true);
     create table public.food_store_users(store_id uuid references public.food_stores,user_id uuid references auth.users,role text,active boolean default true,must_change_password boolean default false,unique(store_id,user_id));
+    create function public.food_is_store_admin(p_store uuid) returns boolean language sql stable security definer set search_path='' as $$select exists(select 1 from public.food_store_users where store_id=p_store and user_id=auth.uid() and active and role in ('owner','admin'))$$;
     create table public.food_platform_admins(user_id uuid,active boolean default true);
     create function public.food_is_platform_admin() returns boolean language sql stable security definer set search_path='' as $$select exists(select 1 from public.food_platform_admins where user_id=auth.uid() and active)$$;
     create table public.food_plans(id uuid primary key default gen_random_uuid(),code text,name text,active boolean default true,sort_order integer default 0);
@@ -39,6 +44,7 @@ try {
     select set_config('request.jwt.claims','{}',false);
   `);
   for (const file of [
+    '202610081500_foodweb_pwa_push.sql',
     '20261021143721_foodweb_optional_modules_foundation.sql',
     '20261021143724_foodweb_optional_modules_transactions.sql',
     '20261022215432_food_business_segments.sql',
@@ -48,15 +54,25 @@ try {
     '20261027182716_food_fitness_catalog_drafts_20261027.sql',
     '20261027182721_food_fitness_pilot_waiver_20261027.sql',
     '20261030114215_service_professional_identity.sql',
-    '202610081500_foodweb_pwa_push.sql',
+    '20261030120000_food_fitness_phone_student_sessions.sql',
     '20261030143000_professional_content_student_reminders.sql',
-  ]) {
+    '20261030150000_food_fitness_phone_session_enforcement.sql',
+  ]){
     try { await db.exec(readFileSync(`supabase/migrations/${file}`,'utf8')); }
     catch (error) { throw new Error(`Migração ${file}: ${error.message} (posição ${error.position ?? 'n/a'})`); }
   }
 
-  const owner=randomUUID(), nutritionist=randomUUID(), student=randomUUID(), stranger=randomUUID(), master=randomUUID(), manager=randomUUID(), store=randomUUID(), other=randomUUID(), plan=randomUUID();
-  await db.query('insert into auth.users(id,email) values($1,$2),($3,$4),($5,$6),($7,$8),($9,$10),($11,$12)',[owner,'owner@example.invalid',nutritionist,'nutrition@example.invalid',student,'student@example.invalid',stranger,'stranger@example.invalid',master,'master@example.invalid',manager,'manager@example.invalid']);
+  const owner=randomUUID(), nutritionist=randomUUID(), student=randomUUID(), student2=randomUUID(), stranger=randomUUID(), unverified=randomUUID(), master=randomUUID(), manager=randomUUID(), store=randomUUID(), other=randomUUID(), plan=randomUUID();
+  await db.query(`insert into auth.users(id,email,phone,phone_confirmed_at) values
+    ($1,'owner@example.invalid',null,null),
+    ($2,'nutrition@example.invalid',null,null),
+    ($3,null,'+5511999990001',now()),
+    ($4,null,'+5511999990002',now()),
+    ($5,'stranger@example.invalid',null,null),
+    ($6,null,'+5511999990005',null),
+    ($7,'master@example.invalid',null,null),
+    ($8,'manager@example.invalid',null,null)`,
+    [owner,nutritionist,student,student2,stranger,unverified,master,manager]);
   await db.query('insert into food_platform_admins(user_id,active) values($1,true)',[master]);
   await db.query("insert into food_plans(id,code,name) values($1,'demo','Teste')",[plan]);
   for (const [id,slug] of [[store,'fitness-test'],[other,'other-test']]) {
@@ -71,7 +87,11 @@ try {
   assert.equal(profile.profile.primary_segment,'fitness');
   assert.equal(profile.modules.find(x=>x.code==='training').effective,true);
   await rpc('food_fitness_set_professional',[store,owner,true]);
+  const otherProfile=await rpc('food_business_initialize',[other,'fitness']);
+  assert.equal(otherProfile.profile.primary_segment,'fitness');
+  await rpc('food_fitness_set_professional',[other,owner,true]);
   await rpc('food_service_professional_upsert',[store,owner,'Profissional Teste','training','CREF','000001-G/ES',true]);
+  await rpc('food_service_professional_upsert',[other,owner,'Profissional Loja 2','training','CREF','000002-G/ES',true]);
   await db.exec('reset role');
   await db.query("update food_store_subscriptions set billing_amount=0,due_day=null,next_due_date=null,expires_at=null,notes='FITNESS_PILOT_WAIVER: piloto sem cobrança' where store_id=$1",[store]);
   await assert.rejects(()=>db.query('insert into food_subscription_payments(store_id) values($1)',[store]));
@@ -137,8 +157,19 @@ try {
   await session(student);
   await assert.rejects(()=>rpc('food_service_professional_assign',[store,service.id,student]),'aluno não atribui prestador');
   await assert.rejects(()=>rpc('food_fitness_book',[store,service.id,offers.slots[0].starts_at,owner,true]));
+  const unregistered=await rpc('food_fitness_student_status_v1',[store]);
+  assert.equal(unregistered.registered,false);
+  assert.deepEqual(await rpc('food_fitness_list_workouts',[store]),[]);
+  assert.equal((await query('select * from food_fitness_workouts')).length,0);
+  await session(unverified);
+  await assert.rejects(()=>rpc('food_fitness_student_status_v1',[store]));
+  await assert.rejects(()=>rpc('food_fitness_register_student',[store,'Sem telefone verificado','']));
+  await session(student);
   const studentProfile=await rpc('food_fitness_register_student',[store,'Aluno Teste','']);
   assert.equal(studentProfile.professional,false);
+  assert.equal((await rpc('food_fitness_student_status_v1',[store])).registered,true);
+  const firstClaim=await rpc('food_fitness_student_session_v1',[store,studentProfile.client_id,'claim']);
+  assert.equal(firstClaim.authorized,true);
   const authOptions=await rpc('food_fitness_student_authorization_list',[store]);
   assert.ok(authOptions.professionals.some(item=>item.user_id===nutritionist&&item.council==='CRN'));
   await rpc('food_fitness_student_authorize_professional',[store,nutritionist,'nutrition',true]);
@@ -197,6 +228,7 @@ try {
   const own=await rpc('food_fitness_my_appointments',[store]);
   assert.equal(own.appointments.length,1);
   assert.ok(own.appointments[0].cancel_policy.includes('24 horas'));
+  assert.equal((await query('select * from food_business_appointments where id=$1',[booking.appointment_id])).length,1);
   await assert.rejects(()=>rpc('food_fitness_book',[store,service.id,offers.slots[0].starts_at,owner,true]));
   await assert.rejects(()=>rpc('food_fitness_book',[other,service.id,offers.slots[0].starts_at,owner,true]));
   const afterBooking=await rpc('food_fitness_list_slots',[store,service.id,localDate,1]);
@@ -208,8 +240,12 @@ try {
   const exposed=await query('select * from food_business_appointments where store_id=$1',[other]);
   assert.equal(exposed.length,0);
   await session(owner);
-  const approved=(await rpc('food_fitness_list_workouts',[store])).find(item=>item.status==='approved');
+  const storeWorkouts=await rpc('food_fitness_list_workouts',[store]);
+  const approved=storeWorkouts.find(item=>item.status==='approved');
+  const secondDraft=storeWorkouts.find(item=>item.status==='draft'&&item.id!==approved.id);
+  assert.ok(approved&&secondDraft);
   await rpc('food_fitness_assign_workout',[store,approved.id,studentProfile.client_id]);
+  await rpc('food_fitness_approve_workout',[store,secondDraft.id]);
   await session(student);
   assert.equal((await rpc('food_fitness_list_workouts',[store])).length,1);
   assert.equal((await one('select count(*)::integer as total from food_fitness_workouts')).total,1);
@@ -223,10 +259,84 @@ try {
   await assert.rejects(()=>rpc('food_professional_publication_list',[store]),'admin comercial não lê rascunhos profissionais');
   await assert.rejects(()=>rpc('food_fitness_list_students',[store]),'admin comercial não consulta alunos como prontuário');
   assert.equal((await query('select * from food_fitness_workouts where store_id=$1',[store])).length,0);
-  await session(stranger);
-  await assert.rejects(()=>rpc('food_fitness_status',[store]));
+  const studentSessionId=authSessionIds.get(student);
+
+  await session(student2);
+  const secondProfile=await rpc('food_fitness_register_student',[store,'Outra Aluna','']);
+  const secondClaim=await rpc('food_fitness_student_session_v1',[store,secondProfile.client_id,'claim']);
+  assert.equal(secondClaim.authorized,true);
+  await rpc('food_fitness_student_authorize_professional',[store,owner,'training',true]);
+  await session(owner);
+  await rpc('food_fitness_assign_workout',[store,secondDraft.id,secondProfile.client_id]);
+  await session(student2);
+  const onlySecond=await rpc('food_fitness_list_workouts',[store]);
+  assert.equal(onlySecond.length,1);
+  assert.equal(onlySecond[0].id,secondDraft.id);
+  assert.equal((await query('select * from food_business_appointments where id=$1',[booking.appointment_id])).length,0);
+  assert.deepEqual(await rpc('food_fitness_list_workouts',[other]),[],'aluno de outra loja não recebe fichas');
+  await session(student);
+  assert.equal((await rpc('food_fitness_list_workouts',[store])).some(row=>row.id===secondDraft.id),false);
+  await session(owner);
+  assert.equal((await rpc('food_fitness_list_students',[store])).students.length,1);
+  await assert.rejects(()=>rpc('food_fitness_student_session_admin_list_v1',[store]));
+  await session(owner,'authenticated','aal2');
+  const adminSessions=await rpc('food_fitness_student_session_admin_list_v1',[store]);
+  assert.equal(adminSessions.students.length,2);
+  assert.ok(adminSessions.students.every(item=>item.session_active));
+
+  await session(owner);
+  const otherService=(await rpc('food_business_operate',[other,'services.save',JSON.stringify({name:'Acompanhamento Loja 2',kind:'training',price_cents:5000,duration_minutes:60,active:true})])).item;
+  await rpc('food_service_professional_assign',[other,otherService.id,owner]);
+  await session(student);
+  const otherUnregistered=await rpc('food_fitness_student_status_v1',[other]);
+  assert.equal(otherUnregistered.registered,false);
+  await rpc('food_fitness_student_authorize_professional',[store,owner,'training',true]);
+  const otherStoreStudentProfile=await rpc('food_fitness_register_student',[other,'Aluno Teste Loja 2','']);
+  const otherClaim=await rpc('food_fitness_student_session_v1',[other,otherStoreStudentProfile.client_id,'claim']);
+  assert.equal(otherClaim.authorized,true);
+  await rpc('food_fitness_student_authorize_professional',[other,owner,'training',true]);
+  await session(owner);
+  const otherSeed=await rpc('food_fitness_seed_workouts',[other]);
+  const otherWorkouts=await rpc('food_fitness_list_workouts',[other]);
+  await rpc('food_fitness_approve_workout',[other,otherWorkouts[0].id]);
+  await rpc('food_fitness_assign_workout',[other,otherWorkouts[0].id,otherStoreStudentProfile.client_id]);
+  await session(student);
+  const otherStoreRows=await rpc('food_fitness_list_workouts',[other]);
+  const thisStoreRows=await rpc('food_fitness_list_workouts',[store]);
+  assert.equal(otherStoreRows.length,1);
+  assert.equal(otherStoreRows[0].id,otherWorkouts[0].id);
+  assert.equal(thisStoreRows.length,1);
+  assert.equal(thisStoreRows[0].id,approved.id);
+  assert.equal(thisStoreRows.some(row=>row.id===otherStoreRows[0].id),false);
+
+  const newStudentSessionId=randomUUID();
+  await session(student,'authenticated','aal1',newStudentSessionId);
+  const otherStoreLimit=await rpc('food_fitness_student_session_v1',[other,otherStoreStudentProfile.client_id,'claim']);
+  assert.equal(otherStoreLimit.authorized,false);
+  assert.equal(otherStoreLimit.reason,'SESSION_LIMIT');
+  const deniedSecondSession=await rpc('food_fitness_student_session_v1',[store,studentProfile.client_id,'claim']);
+  assert.equal(deniedSecondSession.authorized,false);
+  assert.equal(deniedSecondSession.reason,'SESSION_LIMIT');
+  await assert.rejects(()=>rpc('food_fitness_list_workouts',[store]));
+  assert.equal((await query('select * from food_business_appointments where id=$1',[booking.appointment_id])).length,0);
+  await session(owner,'authenticated','aal2');
+  const released=await rpc('food_fitness_student_session_admin_v1',[store,studentProfile.client_id,'lost_device']);
+  assert.equal(released.revoked_count,1);
+  await session(student,'authenticated','aal1',studentSessionId);
+  const oldSessionClaim=await rpc('food_fitness_student_session_v1',[store,studentProfile.client_id,'claim']);
+  assert.equal(oldSessionClaim.authorized,false);
+  assert.equal(oldSessionClaim.reason,'SESSION_REVOKED');
+  await assert.rejects(()=>rpc('food_fitness_list_workouts',[store]));
+  await assert.rejects(()=>rpc('food_fitness_student_reminders_list',[store]));
+  assert.equal((await query('select * from food_fitness_student_reminders where store_id=$1',[store])).length,0,'sessão revogada não lê lembretes por tabela');
+  await session(student,'authenticated','aal1',newStudentSessionId);
+  const refreshedClaim=await rpc('food_fitness_student_session_v1',[store,studentProfile.client_id,'claim']);
+  assert.equal(refreshedClaim.authorized,true);
+  await session(stranger,'authenticated','aal2');
+  await assert.rejects(()=>rpc('food_fitness_student_session_admin_list_v1',[store]));
+  await assert.rejects(()=>rpc('food_fitness_student_session_admin_v1',[store,studentProfile.client_id,'lost_device']));
   assert.equal((await query('select * from food_fitness_workouts')).length,0);
-  console.log('OK Fitness: segmento, papéis, fichas, agenda, reserva, conflito, histórico e isolamento.');
+  console.log('OK Fitness: sessão por aluno/loja, MFA de Admin e isolamento entre alunos e lojas.');
 } finally {
   await db.close();
 }
