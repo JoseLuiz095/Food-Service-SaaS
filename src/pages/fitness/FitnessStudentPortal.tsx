@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 import { TurnstileWidget } from '../../components/ui/TurnstileWidget';
 import { appConfig } from '../../lib/config';
@@ -7,6 +7,7 @@ import { getFitnessStudentAuthClient } from '../../lib/fitnessStudentAuth';
 import { isFitnessStoreId } from '../../services/fitnessAccessApi';
 import { fitnessApi, type FitnessStudentAccess } from '../../services/fitnessApi';
 import { FitnessStudentWorkouts } from '../../platform/FitnessWorkouts';
+import { FitnessOfferCheckout } from '../../platform/FitnessOfferCheckout';
 import '../../platform/fitness.css';
 
 const messageOf = (error: unknown) => error instanceof Error ? error.message : 'Não foi possível concluir. Tente novamente.';
@@ -23,6 +24,7 @@ type StudentIdentity = { client_id: string; name: string };
 
 export default function FitnessStudentPortal() {
   const { storeId = '' } = useParams();
+  const [searchParams] = useSearchParams();
   const validStore = isFitnessStoreId(storeId);
   const auth = useMemo(() => {
     try { return getFitnessStudentAuthClient(); } catch { return null; }
@@ -252,6 +254,7 @@ export default function FitnessStudentPortal() {
         : authorized && student ? <>
           <p>Olá, <strong>{student.name}</strong>. A sessão Fitness está autorizada nesta loja.</p>
           <p>Telefone confirmado: <strong>{identityPhone.replace(/\d(?=\d{4})/g, '•')}</strong></p>
+          <FitnessOfferCheckout store={storeId} token={session.access_token} selected={searchParams.get('oferta')}/>
           <FitnessStudentWorkouts store={storeId} accessToken={session.access_token}/>
           <p className="auth-security-note">A autorização vale para esta conta, aluno e loja. Ela não identifica o aparelho de forma infalível.</p>
           <button className="secondary-button full-button" disabled={busy} onClick={() => void signOutLocal(true)}>Sair do Fitness</button>
