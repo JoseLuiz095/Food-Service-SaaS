@@ -144,7 +144,7 @@ end; $$;
 create function public.food_fitness_order_v1(p_store uuid,p_offer uuid,p_request uuid)
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare v public.food_fitness_offers%rowtype; student uuid; result public.food_fitness_offer_orders%rowtype;
-  purpose text;
+  v_purpose text;
 begin
   if auth.uid() is null or p_request is null then raise exception 'Sessão de aluno obrigatória.' using errcode='42501'; end if;
   select client_id into student from public.food_fitness_students where store_id=p_store and user_id=auth.uid();
@@ -153,10 +153,10 @@ begin
   end if;
   select * into v from public.food_fitness_offers where id=p_offer and store_id=p_store;
   if v.id is null or not food_fitness_private.offer_ready(v) then raise exception 'Oferta indisponível.' using errcode='22023'; end if;
-  purpose:=case when v.kind in ('nutrition_consult','nutrition_plan') then 'nutrition' else 'training' end;
+  v_purpose:=case when v.kind in ('nutrition_consult','nutrition_plan') then 'nutrition' else 'training' end;
   if not exists(select 1 from public.food_fitness_professional_authorizations au where au.store_id=p_store
       and au.student_user_id=auth.uid() and au.professional_user_id=v.professional_user_id
-      and au.purpose=purpose and au.active) then
+      and au.purpose=v_purpose and au.active) then
     raise exception 'Autorize o profissional desta oferta antes de comprar.' using errcode='42501';
   end if;
   insert into public.food_fitness_offer_orders(store_id,offer_id,student_user_id,client_id,request_id,price_cents,offer_name)
