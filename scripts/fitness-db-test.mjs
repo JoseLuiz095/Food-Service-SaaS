@@ -57,6 +57,7 @@ try {
     '20261030120000_food_fitness_phone_student_sessions.sql',
     '20261030143000_professional_content_student_reminders.sql',
     '20261030150000_food_fitness_phone_session_enforcement.sql',
+    '20261030170000_food_fitness_pilot_offers.sql',
   ]){
     try { await db.exec(readFileSync(`supabase/migrations/${file}`,'utf8')); }
     catch (error) { throw new Error(`Migração ${file}: ${error.message} (posição ${error.position ?? 'n/a'})`); }
@@ -332,6 +333,31 @@ try {
   await session(student,'authenticated','aal1',newStudentSessionId);
   const refreshedClaim=await rpc('food_fitness_student_session_v1',[store,studentProfile.client_id,'claim']);
   assert.equal(refreshedClaim.authorized,true);
+  await session(owner);
+  const offer=await rpc('food_fitness_offer_save_v1',[store,null,'workout','Ficha Iniciante','Modelo aprovado de treino iniciante.',5000,approved.id,null,owner,true]);
+  assert.equal(offer.published,true);
+  assert.equal((await rpc('food_fitness_offers_v1',[store,false])).length,1);
+  assert.deepEqual(await rpc('food_fitness_offers_v1',[other,false]),[]);
+  await session(student2);
+  const purchase=await rpc('food_fitness_order_v1',[store,offer.id,randomUUID()]);
+  assert.equal(purchase.state,'pending');
+  assert.equal((await rpc('food_fitness_list_workouts',[store])).some(row=>row.id===approved.id),false,'pedido pendente não libera ficha');
+  await assert.rejects(()=>rpc('food_fitness_confirm_order_v1',[store,purchase.id,'confirm']),'aluno não confirma Pix');
+  await session(owner);
+  await assert.rejects(()=>rpc('food_fitness_confirm_order_v1',[store,purchase.id,'confirm']),'MFA obrigatório');
+  await session(owner,'authenticated','aal2');
+  await assert.rejects(()=>rpc('food_fitness_confirm_order_v1',[other,purchase.id,'confirm']),'loja cruzada não confirma');
+  const paid=await rpc('food_fitness_confirm_order_v1',[store,purchase.id,'confirm']);
+  assert.equal(paid.state,'paid');
+  assert.equal((await rpc('food_fitness_confirm_order_v1',[store,purchase.id,'confirm'])).state,'paid','confirmação idempotente');
+  await session(student2);
+  assert.equal((await rpc('food_fitness_list_workouts',[store])).some(row=>row.id===approved.id),true,'pagamento libera ficha aprovada');
+  assert.equal((await rpc('food_fitness_my_orders_v1',[store])).length,1);
+  assert.deepEqual(await rpc('food_fitness_my_orders_v1',[other]),[],'compras isoladas por loja');
+  await session(owner,'authenticated','aal2');
+  assert.equal((await rpc('food_fitness_confirm_order_v1',[store,purchase.id,'refund'])).state,'refunded');
+  await session(student2);
+  assert.equal((await rpc('food_fitness_list_workouts',[store])).some(row=>row.id===approved.id),false,'reembolso revoga concessão da compra');
   await session(stranger,'authenticated','aal2');
   await assert.rejects(()=>rpc('food_fitness_student_session_admin_list_v1',[store]));
   await assert.rejects(()=>rpc('food_fitness_student_session_admin_v1',[store,studentProfile.client_id,'lost_device']));
