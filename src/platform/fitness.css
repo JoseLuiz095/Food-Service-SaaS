@@ -15,3 +15,43 @@
 .fitness-discovery{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:20px 0 8px}.fitness-discovery .fitness-catalog-search{flex:1 1 260px;max-width:none}.fitness-type-select{display:grid;gap:4px;font-weight:600;color:#245b41}.fitness-type-select select{min-height:48px;padding:8px 12px;border:1px solid #bdcebf;border-radius:10px;background:#fff;color:#245b41;font:inherit}.fitness-type-select select:focus-visible{outline:3px solid #80a58b;outline-offset:2px}.fitness-other-services{display:grid;gap:14px}.fitness-other-services h2{margin:0}.fitness-other-services .business-card:focus-visible{outline:3px solid #80a58b;outline-offset:2px}@media(max-width:390px){.fitness-type-select{width:100%}.fitness-type-select select{width:100%}}
 
 .fitness-student-preferences{display:grid;gap:14px;margin-top:18px}.fitness-student-preferences h2,.fitness-student-preferences h3{margin:0}.fitness-student-preferences form{align-items:end}.fitness-student-preferences textarea{width:100%;min-height:70px;padding:10px;border:1px solid #bdcebf;border-radius:9px;font:inherit;resize:vertical}.fitness-student-preferences fieldset{border:1px solid #dce7df;border-radius:10px;padding:10px}.fitness-student-days{display:flex;flex-wrap:wrap;gap:7px}.fitness-student-days label{position:relative;display:block!important;cursor:pointer}.fitness-student-days input{position:absolute;opacity:0;inset:0}.fitness-student-days span{display:grid;place-items:center;width:40px;height:40px;border:1px solid #bdcebf;border-radius:50%;background:#fff}.fitness-student-days input:checked+span{background:#245b41;color:#fff;border-color:#245b41}.fitness-student-days input:focus-visible+span{outline:3px solid #80a58b;outline-offset:2px}.fitness-student-preferences>ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}.fitness-student-preferences>ul>li{display:grid;gap:8px;border-top:1px solid #dce7df;padding:12px 0}.fitness-student-preferences>ul>li span{color:#52675a;font-size:.88rem}.fitness-student-preferences .fitness-check{display:flex;align-items:center;gap:8px}.fitness-student-preferences .fitness-check input{width:20px;min-width:20px;min-height:20px}.fitness-student-preferences .fitness-check span{color:inherit;font-size:inherit}
+
+
+/* Fitness pilot: sample programs remain readable before any media loads. */
+.fitness-pilot-examples{margin:1rem 0 2.5rem;padding:clamp(1rem,2.5vw,1.75rem);border:1px solid #dce7df;border-radius:14px;background:#f8fbf8;color:#173d2a}
+.fitness-examples-heading{display:flex;justify-content:space-between;align-items:start;gap:1rem;margin-bottom:1.25rem}
+.fitness-examples-heading h2{margin:.3rem 0;font-size:clamp(1.45rem,3vw,2rem)}
+.fitness-examples-heading p{margin:.35rem 0 0;color:#52675a;max-width:54rem}
+.fitness-demo-status{border:1px solid #b5ccbb;border-radius:999px;padding:.35rem .75rem;white-space:nowrap;font-size:.8rem;font-weight:700}
+.fitness-example-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(270px,.8fr);gap:1rem;align-items:stretch}
+.fitness-example-programs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem}
+.fitness-example-program,.fitness-demo-motion{border:1px solid #dce7df;border-radius:11px;background:#fff;padding:1rem;min-width:0}
+.fitness-example-program-top{display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.fitness-example-program-top strong{white-space:nowrap}
+.fitness-level{display:inline-flex;padding:.25rem .55rem;border-radius:5px;font-size:.78rem;font-weight:700;background:#e9f2ea;color:#245b41}
+.fitness-level--medium{background:#eef1e1;color:#5b5e22}.fitness-level--advanced{background:#f7ebdf;color:#7c4826}
+.fitness-example-program h3{font-size:1.05rem;margin:1rem 0 .25rem}
+.fitness-example-program p{margin:0 0 .75rem;color:#52675a;font-size:.9rem}
+.fitness-example-program details{border-top:1px solid #e4eae4;padding-top:.65rem}
+.fitness-example-program summary{cursor:pointer;font-weight:650;font-size:.88rem}
+.fitness-example-program ol{margin:.75rem 0 0;padding-left:1.25rem;color:#3f5748;font-size:.88rem;line-height:1.5}
+.fitness-demo-motion{display:grid;align-content:start;gap:.65rem}
+.fitness-demo-motion-heading,.fitness-example-services article>div{display:flex;justify-content:space-between;align-items:start;gap:.75rem}
+.fitness-demo-motion-heading span{font-size:.78rem;color:#52675a}
+.fitness-demo-motion-heading h3{margin:.15rem 0 0}
+.fitness-demo-diagram{display:block;width:100%;max-height:170px;color:#245b41;background:#edf4ee;border-radius:8px}
+.fitness-demo-motion p,.fitness-demo-motion small{margin:0;color:#52675a;font-size:.85rem}
+.fitness-demo-motion button{justify-self:start;min-height:44px}
+.fitness-demo-viewer{display:grid;gap:.5rem}
+.fitness-demo-viewer model-viewer{display:block;width:100%;height:260px;background:#edf4ee;border-radius:8px}
+.fitness-example-services{border-top:1px solid #dce7df;margin-top:1rem;padding-top:1rem}
+.fitness-example-services h3{margin:0 0 .7rem;font-size:1rem}
+.fitness-example-services>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem}
+.fitness-example-services article{padding:.8rem;background:#fff;border:1px solid #dce7df;border-radius:9px}
+.fitness-example-services article span{font-weight:700;white-space:nowrap}
+.fitness-example-services article p,.fitness-example-services>p{margin:.4rem 0 0;color:#52675a;font-size:.85rem}
+.fitness-admin-nav{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 1rem}
+.fitness-admin-nav a{padding:.65rem .9rem;border:1px solid #bdcebf;border-radius:8px;background:#fff;color:#245b41;font-weight:650;text-decoration:none}
+.fitness-admin-nav a:focus-visible,.fitness-demo-motion button:focus-visible,.fitness-example-program summary:focus-visible{outline:3px solid #80a58b;outline-offset:2px}
+@media(max-width:1100px){.fitness-example-layout{grid-template-columns:1fr}.fitness-example-services>div{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.fitness-examples-heading{display:block}.fitness-demo-status{display:inline-block;margin-top:.75rem}.fitness-example-programs,.fitness-example-services>div{grid-template-columns:1fr}.fitness-example-program{padding:.85rem}.fitness-example-services article>div{align-items:center}}
