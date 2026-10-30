@@ -218,11 +218,20 @@ begin
   return jsonb_build_object('id',v.id,'state',case when p_action='confirm' then 'paid' else 'refunded' end);
 end; $$;
 
+create function public.food_fitness_pix_v1(p_store uuid)
+returns jsonb language sql stable security definer set search_path='' as $
+  select case when s.active and s.access_status='online' and s.pix_enabled
+    then jsonb_build_object('pix_key',s.pix_key,'pix_copy_paste',s.pix_copy_paste,'holder_name',s.pix_holder_name)
+    else '{}'::jsonb end
+  from public.food_stores s join public.food_business_profiles b on b.store_id=s.id and b.primary_segment='fitness'
+  where s.id=p_store
+$;
+
 revoke all on function public.food_fitness_offer_save_v1(uuid,uuid,text,text,text,integer,uuid,uuid,uuid,boolean),
   public.food_fitness_offers_v1(uuid,boolean),public.food_fitness_order_v1(uuid,uuid,uuid),
   public.food_fitness_my_orders_v1(uuid),public.food_fitness_admin_orders_v1(uuid),
-  public.food_fitness_confirm_order_v1(uuid,uuid,text) from public,anon,authenticated;
-grant execute on function public.food_fitness_offers_v1(uuid,boolean) to anon,authenticated;
+  public.food_fitness_confirm_order_v1(uuid,uuid,text),public.food_fitness_pix_v1(uuid) from public,anon,authenticated;
+grant execute on function public.food_fitness_offers_v1(uuid,boolean),public.food_fitness_pix_v1(uuid) to anon,authenticated;
 grant execute on function public.food_fitness_offer_save_v1(uuid,uuid,text,text,text,integer,uuid,uuid,uuid,boolean),
   public.food_fitness_order_v1(uuid,uuid,uuid),public.food_fitness_my_orders_v1(uuid),
   public.food_fitness_admin_orders_v1(uuid),public.food_fitness_confirm_order_v1(uuid,uuid,text) to authenticated;
