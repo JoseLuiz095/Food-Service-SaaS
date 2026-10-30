@@ -14,7 +14,7 @@
     "validate": "npm run smoke && npm run test:cart && npm run test:critical && npm run test:segments && npm run test:domains && npm run test:pwa && npm run test:notifications && npm run test:security && npm run test:simple-stock && npm run test:demo-provision && npm run test:integrations && npm run test:platform && npm run test:provision && npm run build",
     "test:notifications": "node --test scripts/notification-delivery-test.mjs scripts/push-preferences-test.mjs",
     "test:fitness": "node scripts/fitness-access-db-test.mjs && node --test scripts/fitness-billing-handler-test.mjs scripts/fitness-checkout-handler-test.mjs",
-    "test:fitness-pilot-db": "node scripts/fitness-db-test.mjs",
+    "test:fitness-pilot-db": "node scripts/fitness-db-test.mjs && node --test scripts/fitness-reminders-worker-test.mjs scripts/professional-assistant-test.mjs",
     "test:fitness:ui": "npm --prefix qa run test:fitness",
     "test:integrations": "node scripts/integration-repair-db-test.mjs && node scripts/tenant-write-guards-db-test.mjs && node scripts/product-stock-db-test.mjs && node scripts/inventory-transaction-db-test.mjs && node scripts/stock-transfer-batch-db-test.mjs",
     "test:domains": "node scripts/domain-unit-test.mjs",

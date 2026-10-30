@@ -48,13 +48,15 @@ try {
     '20261027182716_food_fitness_catalog_drafts_20261027.sql',
     '20261027182721_food_fitness_pilot_waiver_20261027.sql',
     '20261030114215_service_professional_identity.sql',
+    '202610081500_foodweb_pwa_push.sql',
+    '20261030143000_professional_content_student_reminders.sql',
   ]) {
     try { await db.exec(readFileSync(`supabase/migrations/${file}`,'utf8')); }
     catch (error) { throw new Error(`Migração ${file}: ${error.message} (posição ${error.position ?? 'n/a'})`); }
   }
 
-  const owner=randomUUID(), nutritionist=randomUUID(), student=randomUUID(), stranger=randomUUID(), master=randomUUID(), store=randomUUID(), other=randomUUID(), plan=randomUUID();
-  await db.query('insert into auth.users(id,email) values($1,$2),($3,$4),($5,$6),($7,$8),($9,$10)',[owner,'owner@example.invalid',nutritionist,'nutrition@example.invalid',student,'student@example.invalid',stranger,'stranger@example.invalid',master,'master@example.invalid']);
+  const owner=randomUUID(), nutritionist=randomUUID(), student=randomUUID(), stranger=randomUUID(), master=randomUUID(), manager=randomUUID(), store=randomUUID(), other=randomUUID(), plan=randomUUID();
+  await db.query('insert into auth.users(id,email) values($1,$2),($3,$4),($5,$6),($7,$8),($9,$10),($11,$12)',[owner,'owner@example.invalid',nutritionist,'nutrition@example.invalid',student,'student@example.invalid',stranger,'stranger@example.invalid',master,'master@example.invalid',manager,'manager@example.invalid']);
   await db.query('insert into food_platform_admins(user_id,active) values($1,true)',[master]);
   await db.query("insert into food_plans(id,code,name) values($1,'demo','Teste')",[plan]);
   for (const [id,slug] of [[store,'fitness-test'],[other,'other-test']]) {
@@ -63,11 +65,13 @@ try {
     await db.query("insert into food_store_subscriptions(store_id,plan_id,status,expires_at) values($1,$2,'trial',now()+interval '14 days')",[id,plan]);
   }
   await db.query("insert into food_store_users(store_id,user_id,role) values($1,$2,'attendant')",[store,nutritionist]);
+  await db.query("insert into food_store_users(store_id,user_id,role) values($1,$2,'admin')",[store,manager]);
   await session(owner);
   const profile=await rpc('food_business_initialize',[store,'fitness']);
   assert.equal(profile.profile.primary_segment,'fitness');
   assert.equal(profile.modules.find(x=>x.code==='training').effective,true);
   await rpc('food_fitness_set_professional',[store,owner,true]);
+  await rpc('food_service_professional_upsert',[store,owner,'Profissional Teste','training','CREF','000001-G/ES',true]);
   await db.exec('reset role');
   await db.query("update food_store_subscriptions set billing_amount=0,due_day=null,next_due_date=null,expires_at=null,notes='FITNESS_PILOT_WAIVER: piloto sem cobrança' where store_id=$1",[store]);
   await assert.rejects(()=>db.query('insert into food_subscription_payments(store_id) values($1)',[store]));
@@ -77,7 +81,7 @@ try {
   await db.query("insert into food_products(store_id,name,slug,description,price,active) values($1,'Whey','whey','Rascunho',0,false)",[store]);
   await db.exec('reset role');
   assert.equal((await one('select count(*)::int as total from food_store_users where store_id=$1 and user_id=$2',[store,master])).total,0);
-  await session(master,'authenticated','aal2');
+  await session(owner);
   const seed=await rpc('food_fitness_seed_workouts',[store]);
   assert.equal(seed.created_ids.length,3);
   await session(owner);
@@ -89,9 +93,11 @@ try {
   const service=(await rpc('food_business_operate',[store,'services.save',JSON.stringify({name:'Acompanhamento de treino',kind:'training',price_cents:5000,duration_minutes:60,active:true})])).item;
   assert.equal((await rpc('food_business_public',[store])).services.length,0,'serviço sem prestador não aparece na vitrine');
   await assert.rejects(()=>rpc('food_fitness_publish_service',[store,service.id,'Cancelamento com antecedência mínima de 24 horas.','Reagendamento com antecedência mínima de 24 horas.',1440,true]),'serviço sem prestador não pode ser publicado');
-  await rpc('food_service_professional_upsert',[store,owner,'Profissional Teste','training','CREF','000001-G/ES',true]);
   await rpc('food_service_professional_upsert',[store,nutritionist,'Nutricionista Teste','nutrition','CRN','000001/ES',true]);
   await assert.rejects(()=>rpc('food_service_professional_upsert',[other,nutritionist,'Nutricionista Teste','nutrition','CRN','000001/ES',true]),'conta não pertence à outra loja');
+  await db.exec('reset role');
+  await db.query("insert into food_business_entitlements(store_id,module_code,enabled,source,reason,granted_by) values($1,'nutrition',true,'exception','Teste de habilitação Nutrição',$2)",[store,owner]);
+  await session(owner);
   await rpc('food_service_professional_assign',[store,service.id,owner]);
   await assert.rejects(()=>rpc('food_service_professional_assign',[store,service.id,nutritionist]),'CRN não pode prestar treino');
   await assert.rejects(()=>rpc('food_service_professional_upsert',[store,owner,'Profissional Teste','nutrition','CRN','000001/ES',true]),'não altera habilitação com treino ativo');
@@ -106,6 +112,20 @@ try {
   const publicService=(await rpc('food_business_public',[store])).services[0];
   assert.equal(publicService.professional.name,'Profissional Teste');
   assert.equal(publicService.professional.council,'CREF');
+  await rpc('food_professional_publication_save',[store,null,'Dica de treino','Conteúdo educativo aprovado por profissional.','training','storefront']);
+  const draft=(await rpc('food_professional_publication_list',[store]))[0];
+  assert.equal(draft.author_council,'CREF');
+  await session(student);
+  await assert.rejects(()=>rpc('food_professional_publication_approve',[store,draft.id,new Date(Date.now()+60_000).toISOString()]),'outro usuário não aprova');
+  await session(owner);
+  const scheduled=await rpc('food_professional_publication_approve',[store,draft.id,new Date(Date.now()+300_000).toISOString()]);
+  assert.equal(scheduled.status,'scheduled');
+  assert.equal(scheduled.approved_by,owner,'aprovação explícita fica registrada no profissional autor');
+  await rpc('food_professional_publication_cancel',[store,draft.id]);
+  const cancelled=await rpc('food_professional_publication_list',[store]);
+  assert.equal(cancelled[0].status,'cancelled');
+  const nutritionService=(await rpc('food_business_operate',[store,'services.save',JSON.stringify({name:'Consulta de Nutrição',kind:'nutrition',price_cents:10000,duration_minutes:40,active:true})])).item;
+  await rpc('food_service_professional_assign',[store,nutritionService.id,nutritionist]);
   const date=new Date(Date.now()+5*86400000);
   const localDate=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
   const weekday=new Date(`${localDate}T12:00:00Z`).getUTCDay();
@@ -119,6 +139,59 @@ try {
   await assert.rejects(()=>rpc('food_fitness_book',[store,service.id,offers.slots[0].starts_at,owner,true]));
   const studentProfile=await rpc('food_fitness_register_student',[store,'Aluno Teste','']);
   assert.equal(studentProfile.professional,false);
+  const authOptions=await rpc('food_fitness_student_authorization_list',[store]);
+  assert.ok(authOptions.professionals.some(item=>item.user_id===nutritionist&&item.council==='CRN'));
+  await rpc('food_fitness_student_authorize_professional',[store,nutritionist,'nutrition',true]);
+  await rpc('food_fitness_student_authorize_professional',[store,owner,'training',true]);
+  await session(nutritionist);
+  assert.ok((await rpc('food_professional_authorized_students',[store])).some(item=>item.student_user_id===student&&item.purpose==='nutrition'));
+  assert.ok((await rpc('food_professional_message_recipients',[store])).length===0,'aluno não entra na lista de envio sem opt-in');
+  await session(student);
+  await rpc('food_fitness_student_message_permission_set',[store,nutritionist,true]);
+  await session(nutritionist);
+  const recipients=await rpc('food_professional_message_recipients',[store]);
+  assert.ok(recipients.some(item=>item.student_user_id===student&&item.nutrition_authorized),'mensagem clínica só lista aluno que também autorizou leitura clínica');
+  const messageDraft=await rpc('food_professional_publication_save',[store,null,'Retorno da consulta','Conteúdo profissional individual, aprovado pela nutricionista.','nutrition','student_message',student]);
+  await session(owner);
+  await assert.rejects(()=>rpc('food_professional_publication_approve',[store,messageDraft.id,new Date(Date.now()+60_000).toISOString()]),'aprovação não pode vir de outro profissional');
+  await session(nutritionist);
+  const messageScheduled=await rpc('food_professional_publication_approve',[store,messageDraft.id,new Date(Date.now()+300_000).toISOString()]);
+  assert.equal(messageScheduled.status,'scheduled');
+  await session(student);
+  await assert.rejects(()=>rpc('food_professional_publication_list',[store]),'aluno não lê rascunhos/calendário profissional');
+  await db.exec('reset role');
+  await db.query("update food_professional_publications set scheduled_at=now()-interval '1 second' where id=$1",[messageDraft.id]);
+  await rpc('food_professional_publication_publish_due',[]);
+  await session(student);
+  const inboxMessages=await rpc('food_fitness_student_messages_list',[store]);
+  assert.equal(inboxMessages.length,1);
+  assert.equal(inboxMessages[0].author_council,'CRN');
+  assert.equal((await query('select * from food_professional_publications where id=$1',[messageDraft.id])).length,0,'aluno recebe conteúdo pelo inbox sem leitura direta da tabela profissional');
+  await rpc('food_fitness_student_message_mark_seen',[store,inboxMessages[0].id]);
+  await rpc('food_fitness_student_message_permission_set',[store,nutritionist,true]);
+  await session(nutritionist);
+  const revocableDraft=await rpc('food_professional_publication_save',[store,null,'Aviso comercial','Uma atualização da loja para o aluno.','commercial','student_message',student]);
+  await rpc('food_professional_publication_approve',[store,revocableDraft.id,new Date(Date.now()+300_000).toISOString()]);
+  await session(student);
+  await rpc('food_fitness_student_message_permission_set',[store,nutritionist,false]);
+  await db.exec('reset role');
+  await db.query("update food_professional_publications set scheduled_at=now()-interval '1 second' where id=$1",[revocableDraft.id]);
+  await rpc('food_professional_publication_publish_due',[]);
+  await session(nutritionist);
+  assert.equal((await rpc('food_professional_publication_list',[store])).find(item=>item.id===revocableDraft.id).status,'cancelled','revogar opt-in impede envio agendado');
+  await session(student);
+  const hydration=await rpc('food_fitness_student_reminder_save',[store,null,'hydration','Lembrete de hidratação','08:00','America/Sao_Paulo',[1,2,3,4,5],'in_app']);
+  assert.equal(hydration.status,'active');
+  const preference=await rpc('food_fitness_student_reminders_list',[store]);
+  assert.ok(preference.reminders.some(item=>item.id===hydration.id&&item.channel==='in_app'));
+  await rpc('food_fitness_student_reminder_action',[store,hydration.id,'pause',new Date(Date.now()+86_400_000).toISOString()]);
+  assert.equal((await rpc('food_fitness_student_reminders_list',[store])).reminders.find(item=>item.id===hydration.id).status,'paused');
+  await rpc('food_fitness_student_reminder_action',[store,hydration.id,'cancel',null]);
+  assert.equal((await rpc('food_fitness_student_reminders_list',[store])).reminders.find(item=>item.id===hydration.id).status,'cancelled');
+  await rpc('food_fitness_student_authorize_professional',[store,nutritionist,'nutrition',false]);
+  await session(nutritionist);
+  assert.equal((await rpc('food_professional_authorized_students',[store])).length,0);
+  await session(student);
   const booking=await rpc('food_fitness_book',[store,service.id,offers.slots[0].starts_at,owner,true]);
   assert.equal(booking.status,'scheduled');
   const own=await rpc('food_fitness_my_appointments',[store]);
@@ -142,6 +215,14 @@ try {
   assert.equal((await one('select count(*)::integer as total from food_fitness_workouts')).total,1);
   assert.equal((await one('select count(*)::integer as total from food_fitness_exercises')).total,3);
   assert.equal((await one('select count(*)::integer as total from food_fitness_professionals')).total,0);
+  await rpc('food_fitness_student_authorize_professional',[store,owner,'training',false]);
+  assert.equal((await one('select count(*)::integer as total from food_fitness_workouts')).total,0,'revogação bloqueia leitura direta da ficha');
+  assert.equal((await one('select count(*)::integer as total from food_fitness_exercises')).total,0,'revogação bloqueia leitura direta dos exercícios');
+  await session(manager);
+  assert.deepEqual(await rpc('food_fitness_list_workouts',[store]),[],'admin comercial não lê fichas clínicas');
+  await assert.rejects(()=>rpc('food_professional_publication_list',[store]),'admin comercial não lê rascunhos profissionais');
+  await assert.rejects(()=>rpc('food_fitness_list_students',[store]),'admin comercial não consulta alunos como prontuário');
+  assert.equal((await query('select * from food_fitness_workouts where store_id=$1',[store])).length,0);
   await session(stranger);
   await assert.rejects(()=>rpc('food_fitness_status',[store]));
   assert.equal((await query('select * from food_fitness_workouts')).length,0);

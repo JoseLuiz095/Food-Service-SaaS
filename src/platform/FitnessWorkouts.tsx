@@ -59,7 +59,7 @@ export function FitnessWorkouts({store,professional}:{store:string;professional:
       <button type="button" className="secondary-button" disabled={busy} onClick={()=>void run(()=>fitnessApi.seedWorkouts(store),'Modelos Básico, Médio e Avançado preparados como rascunho no servidor.')}>Preparar três fichas em rascunho</button>
       {workouts.length===0?<p className="business-muted">Nenhuma ficha cadastrada nesta loja.</p>:<div className="fitness-workout-list">{workouts.map(workout=><article className="fitness-workout-card" key={workout.id}>
         <div className="business-card-heading"><h3>{levels[workout.level]} · {workout.title}</h3><span className="business-badge">{workout.status==='approved'?'Aprovada':'Aguardando revisão'}</span></div>
-        <p>{workout.description}</p>
+        <p>{workout.description}</p>{workout.professional&&<p className="business-provider">Responsável: <strong>{workout.professional.name}</strong> · {workout.professional.council} {workout.professional.registration}</p>}
         <ol>{workout.exercises.map(exercise=><li key={exercise.id}><strong>{exercise.name}</strong><span>{exercise.sets} séries · {exercise.repetitions} repetições · {exercise.rest_seconds}s de descanso</span><span>Carga/esforço: {exercise.load_or_effort}</span><span>Instruções: {exercise.instructions}</span><span>Alternativa: {exercise.alternative}</span></li>)}</ol>
         {workout.status==='draft'&&<div className="fitness-appointment-actions"><button type="button" className="secondary-button" disabled={busy||!professional} onClick={()=>setEditing({...workout,exercises:workout.exercises.map(exercise=>({...exercise}))})}>Revisar e editar</button><button type="button" className="primary-button" disabled={busy||!professional||editing?.id===workout.id} onClick={()=>void run(()=>fitnessApi.approveWorkout(store,workout.id),'Ficha aprovada pelo Personal Trainer no servidor.')}>Aprovar após revisão profissional</button></div>}
         {editing?.id===workout.id&&<form className="fitness-workout-edit" onSubmit={saveEdit}>
@@ -102,7 +102,7 @@ export function FitnessStudentWorkouts({store}:{store:string}) {
   return <section className="business-card fitness-workouts" aria-label="Minhas fichas de treino">
     <h2>Minhas fichas de treino</h2>
     {loading?<p role="status">Consultando fichas atribuídas…</p>:error?<p role="alert">Não foi possível consultar suas fichas: {error}</p>:workouts.length===0?<p>Nenhuma ficha foi atribuída pelo Personal Trainer.</p>:<div className="fitness-workout-list">{workouts.map(workout=><article className="fitness-workout-card" key={workout.id}>
-      <h3>{levels[workout.level]} · {workout.title}</h3><p>{workout.description}</p>
+      <h3>{levels[workout.level]} · {workout.title}</h3><p>{workout.description}</p>{workout.professional&&<p className="business-provider">Responsável: <strong>{workout.professional.name}</strong> · {workout.professional.council} {workout.professional.registration}</p>}
       <ol>{workout.exercises.map(exercise=><li key={exercise.id}><strong>{exercise.name}</strong><span>{exercise.sets} séries · {exercise.repetitions} repetições · {exercise.rest_seconds}s de descanso</span><span>Carga/esforço: {exercise.load_or_effort}</span><span>Instruções: {exercise.instructions}</span><span>Alternativa: {exercise.alternative}</span></li>)}</ol>
     </article>)}</div>}
   </section>;

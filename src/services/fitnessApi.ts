@@ -19,7 +19,7 @@ export type FitnessTerm = { service_id: string; published_at: string | null; pri
 export type FitnessAppointment = { id: string; service_id: string; professional_id: string; starts_at: string; ends_at: string; status: string; client_id?: string; cancel_policy?:string|null; reschedule_policy?:string|null };
 export type FitnessStatus = { professionals: FitnessProfessional[]; windows: FitnessWindow[]; blocks: FitnessBlock[]; terms: FitnessTerm[]; appointments: FitnessAppointment[] };
 export type FitnessExercise = { id:string; position:number; name:string; sets:number; repetitions:string; rest_seconds:number; load_or_effort:string; instructions:string; alternative:string };
-export type FitnessWorkout = { id:string; title:string; level:'basic'|'medium'|'advanced'; source:'custom'|'pilot'; status:'draft'|'approved'; description:string; approved_at:string|null; exercises:FitnessExercise[] };
+export type FitnessWorkout = { id:string; title:string; level:'basic'|'medium'|'advanced'; source:'custom'|'pilot'; status:'draft'|'approved'; description:string; approved_at:string|null; professional?:{user_id:string;name:string;council:string;registration:string}; exercises:FitnessExercise[] };
 export type FitnessStudent = { client_id:string; name:string };
 
 export type FitnessWindowInput = {
