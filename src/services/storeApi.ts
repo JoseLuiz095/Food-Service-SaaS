@@ -936,13 +936,21 @@ export const storeApi = {
       if (index < 0) throw new Error('Pedido não encontrado.');
       if (input.items) {
         if (db.orders[index].paymentStatus === 'paid') throw new Error('Itens de um pedido já recebido não podem ser alterados.');
-        const quantities = new Map(input.items.map((item) => [item.itemId, Math.max(0, Math.min(99, Math.floor(item.quantity)))]));
+        const quantities = new Map(input.items.filter((item) => item.itemId).map((item) => [item.itemId, Math.max(0, Math.min(99, Math.floor(item.quantity)))]));
         const currentItems = db.orders[index].items || [];
         const nextItems = currentItems.filter((item) => quantities.has(item.id) && (quantities.get(item.id) || 0) > 0).map((item) => {
           const quantity = quantities.get(item.id) ?? item.quantity;
           const unitPrice = item.quantity > 0 ? item.itemTotal / item.quantity : item.unitPrice + item.variantPriceDelta;
           return { ...item, quantity, itemTotal: roundMoney(unitPrice * quantity) };
         });
+        for (const entry of input.items.filter((item) => item.productId)) {
+          const product = db.products.find((row) => row.id === entry.productId && row.storeId === storeId && row.active);
+          if (!product) throw new Error('Produto não disponível para edição.');
+          const quantity = Math.max(1, Math.min(99, Math.floor(entry.quantity)));
+          const unitPrice = product.promotionalPrice ?? product.price;
+          nextItems.push({ id: crypto.randomUUID(), orderId, productId: product.id, productName: product.name,
+            quantity, unitPrice, variantPriceDelta: 0, itemTotal: roundMoney(unitPrice * quantity), options: [] });
+        }
         if (!nextItems.length) throw new Error('Mantenha pelo menos um produto no pedido.');
         const subtotal = roundMoney(nextItems.reduce((sum, item) => sum + item.itemTotal, 0));
         db.orders[index] = { ...db.orders[index], items: nextItems, subtotal, total: roundMoney(subtotal + (db.orders[index].deliveryFee || 0)) };
@@ -963,7 +971,7 @@ export const storeApi = {
         p_order_id: orderId, p_pickup_id: input.pickupLocationId, p_expected_pickup_id: input.expectedPickupLocationId || null,
         p_details: { customerName, customerPhone: input.customerPhone || null, notes: input.notes || null,
           scheduledFor: serializeScheduledDateTime(input.scheduledFor),
-          ...(input.items ? {items: input.items.map(item => ({item_id:item.itemId,quantity:item.quantity}))} : {}) },
+          ...(input.items ? {items: input.items.map(item => ({...(item.itemId ? {item_id:item.itemId} : {product_id:item.productId}),quantity:item.quantity}))} : {}) },
       }}).catch(error => {
         if (error instanceof SupabaseHttpError && error.status === 404) throw new Error('A troca de ponto aguarda a atualização segura do banco. As alterações não foram salvas.');
         throw error;
@@ -973,7 +981,7 @@ export const storeApi = {
     if (input.items) {
       await restFetch<{ subtotal: number; total: number }>('rpc/food_update_order_items_v1', {
         method: 'POST',
-        body: { p_order_id: orderId, p_items: input.items.map((item) => ({ item_id: item.itemId, quantity: item.quantity })) },
+        body: { p_order_id: orderId, p_items: input.items.map((item) => ({ ...(item.itemId ? { item_id: item.itemId } : { product_id: item.productId }), quantity: item.quantity })) },
       });
     }
 
