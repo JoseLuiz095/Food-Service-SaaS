@@ -27,7 +27,7 @@ export function FitnessCatalog({ products, categories, query = '', visible: show
   if (!showProducts) return null;
   return <section className="fitness-catalog" aria-labelledby="fitness-catalog-title">
     <div className="food-section-title"><div><span>CATÁLOGO</span><h2 id="fitness-catalog-title">Treinos, serviços e produtos</h2><InfoHint>Veja os exemplos de treino e as ofertas efetivamente publicadas pela loja.</InfoHint></div></div>
-    <FitnessPilotExamples/>
+    <FitnessPilotExamples query={query}/>
     {offers.length > 0 && <><h3>Disponíveis para compra</h3><div className="fitness-catalog-grid" aria-label="Fichas, avaliações e nutrição">{offers.filter(offer => normalizeText(`${offer.name} ${offer.description} ${offer.professional_name}`).includes(normalizeText(query))).map(offer => <Link className="fitness-catalog-card" key={offer.id} to={`/fitness/${settings.id}/treinos?oferta=${offer.id}`}><span>{offer.kind.startsWith('nutrition') ? 'Nutrição' : offer.kind === 'workout' ? 'Ficha de treino' : offer.kind === 'combo' ? 'Combo' : 'Avaliação'}</span><h3>{offer.name}</h3><p>{offer.description}</p><small>{offer.professional_name} · {offer.professional_council}</small><strong>{currency.format(offer.price_cents / 100)}</strong><small>Comprar com Pix</small></Link>)}</div></>}
     {published.length > 0 ? <><h3>Produtos físicos</h3>
       <div className="fitness-catalog-filters" role="group" aria-label="Categorias de produtos"><button type="button" aria-pressed={categoryId === 'all'} onClick={() => setCategoryId('all')}>Todos</button>{visibleCategories.map(category => <button type="button" key={category.id} aria-pressed={categoryId === category.id} onClick={() => setCategoryId(category.id)}>{category.name}</button>)}</div>
