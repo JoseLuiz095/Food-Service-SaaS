@@ -1,3 +1,4 @@
+import './admin-clarity.css';
 import { InfoHint } from '../../components/ui/InfoHint';
 import { CheckCircle2, Edit3, EyeOff, Layers, PackageCheck, Plus, Save, Search, Trash2, X } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
@@ -83,9 +84,9 @@ export default function CategoriesAdmin() {
     </div>
 
     <div className="category-stat-grid">
-      <article><span><Layers size={18}/></span><div><small>Total</small><strong>{stats.total}</strong><p>categorias cadastradas</p></div></article>
-      <article><span><CheckCircle2 size={18}/></span><div><small>Publicadas</small><strong>{stats.active}</strong><p>visíveis no catálogo</p></div></article>
-      <article><span><PackageCheck size={18}/></span><div><small>Produtos</small><strong>{stats.linkedProducts}</strong><p>itens organizados</p></div></article>
+      <article><span><Layers size={18}/></span><div><small>Total</small><strong>{stats.total}</strong></div></article>
+      <article><span><CheckCircle2 size={18}/></span><div><small>Ativas</small><strong>{stats.active}</strong></div></article>
+      <article><span><PackageCheck size={18}/></span><div><small>Itens</small><strong>{stats.linkedProducts}</strong></div></article>
     </div>
 
     <div className="categories-workspace">
@@ -95,7 +96,7 @@ export default function CategoriesAdmin() {
             <span className="eyebrow">CATÁLOGO</span>
             <h2>Suas categorias</h2>
           </div>
-          <div className="admin-search category-search"><Search size={17}/><input value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Buscar categoria..."/></div>
+          <div className="admin-search category-search"><Search size={17}/><input value={query} onChange={(event)=>setQuery(event.target.value)} aria-label="Buscar categoria" placeholder="Buscar categoria..."/></div>
         </div>
 
         <div className="category-table-head" aria-hidden="true"><span>Categoria</span><span>Produtos</span><span>Status</span><span>Ordem</span><span>Ações</span></div>
@@ -116,14 +117,17 @@ export default function CategoriesAdmin() {
 
       <section className="admin-card category-editor-card">
         <div className="admin-card__header">
-          <div><span className="eyebrow">{selected ? 'EDITAR' : 'NOVA'} CATEGORIA</span><h2>{selected ? 'Atualizar categoria' : 'Adicionar categoria'}</h2><p>{selected ? 'As alterações refletem no catálogo após salvar.' : 'Crie grupos simples para o cliente encontrar os produtos.'}</p></div>
+          <div><span className="eyebrow">{selected ? 'EDITAR' : 'NOVA'} CATEGORIA</span><h2>{selected ? 'Atualizar categoria' : 'Adicionar categoria'}</h2><InfoHint label="Sobre o cadastro de categoria">Crie grupos simples para o cliente encontrar os itens. As alterações aparecem na vitrine após salvar.</InfoHint></div>
           {selected && <button className="icon-button" type="button" onClick={() => setSelected(null)} aria-label="Cancelar edição"><X size={18}/></button>}
         </div>
         <form className="stack-form category-form" key={selected?.id ?? 'new'} onSubmit={submit}>
           <label>Nome<input name="name" required defaultValue={form.name} placeholder="Ex.: Orquídeas" /></label>
-          <label>Slug <small>Endereço amigável da categoria</small><input name="slug" defaultValue={form.slug} placeholder="Gerado automaticamente" /></label>
-          <label>Descrição <small>Opcional</small><textarea name="description" rows={3} defaultValue={form.description} placeholder="Ex.: Arranjos e vasos com orquídeas selecionadas." /></label>
-          <div className="category-form-inline"><label>Ordem<input name="sortOrder" type="number" min="0" defaultValue={form.sortOrder} /></label><label className="switch-row category-active-switch"><span><strong>Categoria ativa</strong><small>Aparece na loja pública</small></span><input name="active" type="checkbox" defaultChecked={form.active}/></label></div>
+          <label className="switch-row category-active-switch"><span><strong>Visível na vitrine</strong></span><input name="active" type="checkbox" defaultChecked={form.active}/></label>
+          <details className="admin-secondary-details"><summary>Mais detalhes (opcional)</summary><div className="stack-form">
+            <label>Endereço da categoria (slug)<input name="slug" defaultValue={form.slug} placeholder="Gerado automaticamente" /></label>
+            <label>Descrição<textarea name="description" rows={3} defaultValue={form.description} /></label>
+            <label>Ordem de exibição<input name="sortOrder" type="number" min="0" defaultValue={form.sortOrder} /></label>
+          </div></details>
           <button className="primary-button" disabled={busy} type="submit">{selected ? <Save size={18}/> : <Plus size={18}/>} {busy ? 'Salvando...' : selected ? 'Salvar alterações' : 'Adicionar categoria'}</button>
         </form>
       </section>

@@ -10,6 +10,11 @@ on:
       - 'wrangler.jsonc'
       - 'index.html'
       - 'scripts/**'
+      - 'qa/admin-clarity.config.ts'
+      - 'qa/tests/modules/admin-clarity.spec.ts'
+      - 'qa/tests/modules/fixtures.ts'
+      - 'qa/package.json'
+      - 'qa/package-lock.json'
       - 'supabase/migrations/**'
       - 'supabase/functions/_shared/**'
       - 'supabase/functions/food-order-payment/**'
@@ -19,6 +24,29 @@ on:
       - '.github/workflows/vendas-estoque.yml'
   workflow_dispatch:
 jobs:
+  admin-ux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            qa/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix qa
+      - run: npm exec --prefix qa -- playwright install --with-deps chromium
+      - run: npm exec --prefix qa -- playwright test --config qa/admin-clarity.config.ts
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: admin-ux-failure
+          path: qa/test-results/admin-clarity
+          retention-days: 7
   regression:
     runs-on: ubuntu-latest
     permissions:
