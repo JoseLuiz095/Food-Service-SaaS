@@ -1,6 +1,6 @@
 import { InfoHint } from '../components/ui/InfoHint';
 import { ArrowLeft } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ProductMedia } from '../components/ProductMedia';
 import { useStore } from '../contexts/StoreContext';
@@ -8,6 +8,7 @@ import type { Category, Product } from '../types';
 import { currency } from '../utils/format';
 import { storefrontPath } from '../utils/storefrontRoute';
 import { normalizeText } from '../utils/text';
+import { fitnessOffersApi, type FitnessOffer } from '../services/fitnessOffersApi';
 import './fitness.css';
 
 type CatalogProps = { products: Product[]; categories: Category[]; query?: string; visible?: boolean };
@@ -15,7 +16,9 @@ type CatalogProps = { products: Product[]; categories: Category[]; query?: strin
 /** Only published rows from the tenant-scoped public snapshot reach this view. */
 export function FitnessCatalog({ products, categories, query = '', visible: showProducts = true }: CatalogProps) {
   const [categoryId, setCategoryId] = useState('all');
-  const { storeBasePath } = useStore();
+  const { storeBasePath, settings } = useStore();
+  const [offers, setOffers] = useState<FitnessOffer[]>([]);
+  useEffect(() => { let active = true; if (!settings.id) return; void fitnessOffersApi.list(settings.id).then(items => { if (active) setOffers(items); }).catch(() => { if (active) setOffers([]); }); return () => { active = false; }; }, [settings.id]);
   const published = useMemo(() => products.filter(product => product.active && categories.some(category => category.id === product.categoryId && category.active)), [products, categories]);
   const visibleCategories = categories.filter(category => category.active && published.some(product => product.categoryId === category.id));
   const visible = published.filter(product => (categoryId === 'all' || product.categoryId === categoryId) && normalizeText(`${product.name} ${product.description}`).includes(normalizeText(query)));
@@ -23,10 +26,11 @@ export function FitnessCatalog({ products, categories, query = '', visible: show
   if (!showProducts) return null;
   return <section className="fitness-catalog" aria-labelledby="fitness-catalog-title">
     <div className="food-section-title"><div><span>CATÁLOGO</span><h2 id="fitness-catalog-title">Produtos da loja</h2><InfoHint>Consulte os itens publicados e seus detalhes.</InfoHint></div></div>
+    {offers.length > 0 && <div className="fitness-catalog-grid" aria-label="Fichas, avaliações e nutrição">{offers.filter(offer => normalizeText(`${offer.name} ${offer.description} ${offer.professional_name}`).includes(normalizeText(query))).map(offer => <Link className="fitness-catalog-card" key={offer.id} to={`/fitness/${settings.id}/treinos?oferta=${offer.id}`}><span>{offer.kind.startsWith('nutrition') ? 'Nutrição' : offer.kind === 'workout' ? 'Ficha de treino' : offer.kind === 'combo' ? 'Combo' : 'Avaliação'}</span><h3>{offer.name}</h3><p>{offer.description}</p><small>{offer.professional_name} · {offer.professional_council}</small><strong>{currency.format(offer.price_cents / 100)}</strong><small>Comprar com Pix</small></Link>)}</div>}
     {published.length > 0 ? <>
       <div className="fitness-catalog-filters" role="group" aria-label="Categorias de produtos"><button type="button" aria-pressed={categoryId === 'all'} onClick={() => setCategoryId('all')}>Todos</button>{visibleCategories.map(category => <button type="button" key={category.id} aria-pressed={categoryId === category.id} onClick={() => setCategoryId(category.id)}>{category.name}</button>)}</div>
       {visible.length ? <div className="fitness-catalog-grid">{visible.map(product => <Link className="fitness-catalog-card" key={product.id} to={storefrontPath(storeBasePath, `/produto/${product.slug}`)}><ProductMedia src={product.imageUrl} imageCount={product.images.length} alt={product.name}/><span>{visibleCategories.find(category => category.id === product.categoryId)?.name}</span><h3>{product.name}</h3><p>{product.description}</p><strong>{product.price > 0 ? currency.format(product.promotionalPrice ?? product.price) : 'Preço não informado'}</strong><small>Ver detalhes</small></Link>)}</div> : <p role="status" className="business-muted">Nenhum produto corresponde à busca. Tente outro termo ou categoria.</p>}
-    </> : <p role="status" className="business-muted">Ainda não há produtos publicados nesta loja. Os itens em preparação aparecem aqui somente após a confirmação dos dados comerciais.</p>}
+    </> : <p role="status" className="business-muted">Ainda não há produtos físicos publicados nesta loja. Os itens em preparação aparecem aqui somente após a confirmação dos dados comerciais.</p>}
   </section>;
 }
 
