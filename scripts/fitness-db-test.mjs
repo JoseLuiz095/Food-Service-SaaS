@@ -47,13 +47,14 @@ try {
     '20261027182706_food_fitness_workouts_20261027.sql',
     '20261027182716_food_fitness_catalog_drafts_20261027.sql',
     '20261027182721_food_fitness_pilot_waiver_20261027.sql',
+    '20261030114215_service_professional_identity.sql',
   ]) {
     try { await db.exec(readFileSync(`supabase/migrations/${file}`,'utf8')); }
     catch (error) { throw new Error(`Migração ${file}: ${error.message} (posição ${error.position ?? 'n/a'})`); }
   }
 
-  const owner=randomUUID(), student=randomUUID(), stranger=randomUUID(), master=randomUUID(), store=randomUUID(), other=randomUUID(), plan=randomUUID();
-  await db.query('insert into auth.users(id,email) values($1,$2),($3,$4),($5,$6),($7,$8)',[owner,'owner@example.invalid',student,'student@example.invalid',stranger,'stranger@example.invalid',master,'master@example.invalid']);
+  const owner=randomUUID(), nutritionist=randomUUID(), student=randomUUID(), stranger=randomUUID(), master=randomUUID(), store=randomUUID(), other=randomUUID(), plan=randomUUID();
+  await db.query('insert into auth.users(id,email) values($1,$2),($3,$4),($5,$6),($7,$8),($9,$10)',[owner,'owner@example.invalid',nutritionist,'nutrition@example.invalid',student,'student@example.invalid',stranger,'stranger@example.invalid',master,'master@example.invalid']);
   await db.query('insert into food_platform_admins(user_id,active) values($1,true)',[master]);
   await db.query("insert into food_plans(id,code,name) values($1,'demo','Teste')",[plan]);
   for (const [id,slug] of [[store,'fitness-test'],[other,'other-test']]) {
@@ -61,6 +62,7 @@ try {
     await db.query('insert into food_store_users(store_id,user_id,role) values($1,$2,$3)',[id,owner,'owner']);
     await db.query("insert into food_store_subscriptions(store_id,plan_id,status,expires_at) values($1,$2,'trial',now()+interval '14 days')",[id,plan]);
   }
+  await db.query("insert into food_store_users(store_id,user_id,role) values($1,$2,'attendant')",[store,nutritionist]);
   await session(owner);
   const profile=await rpc('food_business_initialize',[store,'fitness']);
   assert.equal(profile.profile.primary_segment,'fitness');
@@ -85,7 +87,25 @@ try {
   await rpc('food_fitness_approve_workout',[store,workouts[0].id]);
 
   const service=(await rpc('food_business_operate',[store,'services.save',JSON.stringify({name:'Acompanhamento de treino',kind:'training',price_cents:5000,duration_minutes:60,active:true})])).item;
+  assert.equal((await rpc('food_business_public',[store])).services.length,0,'serviço sem prestador não aparece na vitrine');
+  await assert.rejects(()=>rpc('food_fitness_publish_service',[store,service.id,'Cancelamento com antecedência mínima de 24 horas.','Reagendamento com antecedência mínima de 24 horas.',1440,true]),'serviço sem prestador não pode ser publicado');
+  await rpc('food_service_professional_upsert',[store,owner,'Profissional Teste','training','CREF','000001-G/ES',true]);
+  await rpc('food_service_professional_upsert',[store,nutritionist,'Nutricionista Teste','nutrition','CRN','000001/ES',true]);
+  await assert.rejects(()=>rpc('food_service_professional_upsert',[other,nutritionist,'Nutricionista Teste','nutrition','CRN','000001/ES',true]),'conta não pertence à outra loja');
+  await rpc('food_service_professional_assign',[store,service.id,owner]);
+  await assert.rejects(()=>rpc('food_service_professional_assign',[store,service.id,nutritionist]),'CRN não pode prestar treino');
+  await assert.rejects(()=>rpc('food_service_professional_upsert',[store,owner,'Profissional Teste','nutrition','CRN','000001/ES',true]),'não altera habilitação com treino ativo');
+  await session(nutritionist);
+  const ownServices=await rpc('food_service_professional_mine');
+  assert.equal(ownServices.length,1);
+  assert.equal(ownServices[0].store_id,store);
+  assert.deepEqual(ownServices[0].services,[]);
+  await assert.rejects(()=>rpc('food_service_professional_staff',[store]),'profissional não acessa lista da equipe');
+  await session(owner);
   await rpc('food_fitness_publish_service',[store,service.id,'Cancelamento com antecedência mínima de 24 horas.','Reagendamento com antecedência mínima de 24 horas.',1440,true]);
+  const publicService=(await rpc('food_business_public',[store])).services[0];
+  assert.equal(publicService.professional.name,'Profissional Teste');
+  assert.equal(publicService.professional.council,'CREF');
   const date=new Date(Date.now()+5*86400000);
   const localDate=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
   const weekday=new Date(`${localDate}T12:00:00Z`).getUTCDay();
@@ -95,6 +115,7 @@ try {
   assert.ok(offers.cancel_policy.includes('24 horas'));
 
   await session(student);
+  await assert.rejects(()=>rpc('food_service_professional_assign',[store,service.id,student]),'aluno não atribui prestador');
   await assert.rejects(()=>rpc('food_fitness_book',[store,service.id,offers.slots[0].starts_at,owner,true]));
   const studentProfile=await rpc('food_fitness_register_student',[store,'Aluno Teste','']);
   assert.equal(studentProfile.professional,false);
