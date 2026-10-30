@@ -3,9 +3,9 @@ import { normalizeText } from '../utils/text';
 import './fitness.css';
 
 const programs = [
-  { level: 'Iniciante', price: 'R$ 49,00', focus: 'Primeiros movimentos', muscles: 'Pernas, costas e glúteos', equipment: 'Banco, elástico e solo', exercises: ['Sentar e levantar de banco', 'Remada com elástico', 'Ponte de quadril'], tone: 'basic' },
-  { level: 'Intermediário', price: 'R$ 79,00', focus: 'Força e controle', muscles: 'Pernas, costas e glúteos', equipment: 'Halteres e banco', exercises: ['Agachamento com halter', 'Remada unilateral', 'Terra romeno com halteres'], tone: 'medium' },
-  { level: 'Avançado', price: 'R$ 119,00', focus: 'Progressão supervisionada', muscles: 'Pernas, costas e glúteos', equipment: 'Barra e halteres', exercises: ['Agachamento com barra', 'Remada curvada', 'Avanço com halteres'], tone: 'advanced' },
+  { level: 'Iniciante', title: 'Ficha iniciante', price: 'R$ 49,00', focus: 'Primeiros movimentos', muscles: 'Pernas, costas e glúteos', equipment: 'Banco, elástico e solo', exercises: ['Sentar e levantar de banco', 'Remada com elástico', 'Ponte de quadril'], tone: 'basic' },
+  { level: 'Intermediário', title: 'Ficha intermediária', price: 'R$ 79,00', focus: 'Força e controle', muscles: 'Pernas, costas e glúteos', equipment: 'Halteres e banco', exercises: ['Agachamento com halter', 'Remada unilateral', 'Terra romeno com halteres'], tone: 'medium' },
+  { level: 'Avançado', title: 'Ficha avançada', price: 'R$ 119,00', focus: 'Progressão supervisionada', muscles: 'Pernas, costas e glúteos', equipment: 'Barra e halteres', exercises: ['Agachamento com barra', 'Remada curvada', 'Avanço com halteres'], tone: 'advanced' },
 ] as const;
 
 const demoOffers = [
@@ -65,7 +65,7 @@ export function FitnessPilotExamples({ query = '' }: { query?: string }) {
         {filtered.length === 0 && <p role="status" className="business-muted">Nenhuma ficha de exemplo corresponde à busca ou aos filtros.</p>}
         {filtered.map(program => <article className="fitness-example-program" key={program.level}>
           <div className="fitness-example-program-top"><span className={'fitness-level fitness-level--' + program.tone}>{program.level}</span><strong>{program.price}</strong></div>
-          <h3>Ficha {program.level.toLowerCase()}</h3><p>{program.focus}</p><small>{program.muscles} · {program.equipment}</small>
+          <h3>{program.title}</h3><p>{program.focus}</p><small>{program.muscles} · {program.equipment}</small>
           <details><summary>Ver exercícios de exemplo</summary><ol>{program.exercises.map(item => <li key={item}>{item}</li>)}</ol></details>
         </article>)}
       </div>
