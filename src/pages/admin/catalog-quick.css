@@ -27,3 +27,5 @@
   .catalog-disclosure>summary{padding:16px}
   .catalog-disclosure__body{padding:0 12px 16px}
 }
+
+.catalog-create-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.catalog-create-actions a{min-height:44px}.catalog-create-actions a:focus-visible{outline:3px solid #39734c;outline-offset:2px}@media(max-width:390px){.catalog-create-actions{width:100%}.catalog-create-actions a{width:100%;justify-content:center}}
