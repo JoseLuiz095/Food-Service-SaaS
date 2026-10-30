@@ -1,3 +1,4 @@
+import './admin-clarity.css';
 import { InfoHint } from '../../components/ui/InfoHint';
 import { ArrowDownRight, ArrowUpRight, Camera, ChevronDown, Download, FileSearch2, Loader2, Pencil, Plus, ReceiptText, Save, ShoppingCart, TrendingUp, Upload, WalletCards, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
@@ -381,9 +382,9 @@ export default function Finance(){
     </div>
 
     <section className="finance-summary-band finance-summary-band-v4">
-      <div className="income"><span>Entradas realizadas</span><strong>{currency.format(summary.income)}</strong><small><ArrowUpRight size={14}/>Vendas e outras receitas</small></div>
-      <div className="expense"><span>Saídas realizadas</span><strong>{currency.format(summary.expense)}</strong><small><ArrowDownRight size={14}/>Custos e despesas pagas</small></div>
-      <div className={`result ${summary.result>=0?'positive':'negative'}`}><span>Resultado gerencial</span><strong>{currency.format(summary.result)}</strong><small>Entradas realizadas − saídas realizadas</small></div>
+      <div className="income"><span>Entradas realizadas <InfoHint label="Sobre entradas realizadas">Vendas e outras receitas com recebimento confirmado.</InfoHint></span><strong>{currency.format(summary.income)}</strong></div>
+      <div className="expense"><span>Saídas realizadas <InfoHint label="Sobre saídas realizadas">Custos e despesas com pagamento realizado.</InfoHint></span><strong>{currency.format(summary.expense)}</strong></div>
+      <div className={`result ${summary.result>=0?'positive':'negative'}`}><span>Resultado gerencial <InfoHint label="Sobre o resultado gerencial">Entradas realizadas menos saídas realizadas.</InfoHint></span><strong>{currency.format(summary.result)}</strong></div>
       <div className="pending"><span>Próximos compromissos</span><strong>{currency.format(summary.pendingExpense)}</strong><small>A receber: {currency.format(summary.pendingIncome)}</small></div>
     </section>
 

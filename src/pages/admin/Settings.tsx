@@ -273,7 +273,7 @@ export default function SettingsAdmin() {
           <div className="admin-card__header"><div><span className="eyebrow">IDENTIDADE</span><h2>Dados do estabelecimento</h2></div></div>
           <div className="form-grid">
             <StoreNameField key={settings.id} storeId={form.id} value={form.name} originalName={settings.name} disabled={saving} onChange={name => update('name', name)} />
-            <div className="full"><strong>Segmento: {businessProfile.label}</strong><p className="field-help">As regras iniciais e os módulos são gerenciados em <a href="/admin/negocio">Segmento e permissões</a>. A troca do segmento principal exige o Admin Master. As cores e a identidade continuam editáveis aqui.</p></div>
+            <div className="full"><strong>Segmento: {businessProfile.label}</strong><InfoHint label="Sobre o segmento da loja">As regras iniciais e os módulos são gerenciados em <a href="/admin/negocio">Segmento e permissões</a>. A troca do segmento principal exige o Admin Master. Cores e identidade podem ser editadas aqui.</InfoHint></div>
             <label className="full">Frase da loja<input value={form.tagline} onChange={(e) => update('tagline', e.target.value)} /></label>
             <label>Cidade<input value={form.city} onChange={(e) => update('city', e.target.value)} /></label>
             <label>UF<input value={form.state} onChange={(e) => update('state', e.target.value.toUpperCase())} maxLength={2} /></label>
@@ -337,7 +337,7 @@ export default function SettingsAdmin() {
             {sectionToggle('alerts', 'Notificações do painel')}
             <span className="eyebrow">ALERTAS DA OPERAÇÃO</span>
             <h2>Notificações do painel</h2>
-            <p className="muted">Receba novos pedidos na barra de notificações mesmo com o PWA em segundo plano. Instale o Admin no telefone e permita as notificações quando ativar.</p>
+            <InfoHint label="Sobre notificações no celular">Instale o Admin no telefone e permita notificações para receber avisos de novos pedidos, inclusive em segundo plano.</InfoHint>
             <label className="switch-row"><span><strong>Novo pedido</strong><small>Avisa assim que um pedido novo for registrado.</small></span><input type="checkbox" checked={form.notificationsNewOrderEnabled} onChange={(e)=>update('notificationsNewOrderEnabled',e.target.checked)} /></label>
             <label className="switch-row"><span><strong>Pedido agendado próximo</strong><small>Avisa antes do horário de um pedido agendado para você se preparar.</small></span><input type="checkbox" checked={form.notificationsScheduledEnabled} onChange={(e)=>update('notificationsScheduledEnabled',e.target.checked)} /></label>
             {form.notificationsScheduledEnabled && <label>Antecedência do lembrete (minutos)<input type="number" min="5" max="1440" step="5" value={form.notificationsScheduledLeadMinutes} onChange={(e)=>update('notificationsScheduledLeadMinutes',Math.min(1440,Math.max(5,Number(e.target.value)||5)))} /><small>Ex.: 30 avisa quando faltarem aproximadamente 30 minutos.</small></label>}
@@ -448,7 +448,7 @@ export default function SettingsAdmin() {
           <section id="settings-order" className={`admin-card form-section payment-admin-section settings-collapsible ${collapsedSections.order ? 'is-collapsed' : ''}`}>
             {sectionToggle('order', 'Ordem no checkout')}
             <div className="admin-card__header"><div><span className="eyebrow">EXIBIÇÃO</span><h2>Ordem no checkout</h2></div></div>
-            <p>Defina a sequência das formas de pagamento mostradas ao cliente. Opções desativadas ficam ocultas, mas mantêm sua posição.</p>
+            <InfoHint label="Sobre a ordem dos pagamentos">Defina a sequência das formas de pagamento mostradas ao cliente. Opções desativadas ficam ocultas, mas mantêm sua posição.</InfoHint>
             <div className="payment-order-admin">
               {form.paymentMethodOrder.map((method, index) => {
                 const labels: Record<PaymentMethod, string> = { confirm: 'Confirmar com a loja', pix: 'PIX', card: 'Cartão', cash: 'Dinheiro' };

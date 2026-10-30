@@ -115,7 +115,7 @@ export default function DeliveryZonesAdmin() {
       <div className="delivery-admin-layout">
         <section className="admin-card no-padding delivery-zone-list-card">
           <div className="delivery-zone-toolbar">
-            <div className="admin-search"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar bairro, cidade ou UF" /></div>
+            <div className="admin-search"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Buscar área de entrega" placeholder="Buscar bairro, cidade ou UF" /></div>
             <span>{filtered.length} área(s)</span>
           </div>
 
@@ -143,7 +143,7 @@ export default function DeliveryZonesAdmin() {
         <aside className="admin-card delivery-new-zone-card">
           <span className="eyebrow">NOVA ÁREA</span>
           <h2>Adicionar bairro ou cidade</h2>
-          <InfoHint label="Sobre Adicionar bairro ou cidade">Use também para atender municípios ou regiões fora de Linhares.</InfoHint>
+          <InfoHint label="Sobre Adicionar bairro ou cidade">Cadastre bairros, municípios ou regiões atendidas pela sua loja.</InfoHint>
           <form onSubmit={addZone}>
             <label>Nome da área<input required value={newZone.name} onChange={(e) => setNewZone((current) => ({ ...current, name: e.target.value }))} placeholder="Ex.: Bairro Novo" /></label>
             <div className="form-grid">
