@@ -71,6 +71,7 @@ jobs:
       - run: node --test scripts/appearance-editor-test.mjs scripts/receipt-payment-test.mjs
       - run: node scripts/receipt-payment-db-test.mjs
       - run: node scripts/receipt-contacts-db-test.mjs
+      - run: node scripts/point-contacts-location-db-test.mjs
       - run: node scripts/receipt-source-db-test.mjs
       - run: npm run test:payment-links
       - run: npm run test:fitness

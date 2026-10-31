@@ -22,7 +22,8 @@ Regra confirmada pelo usuário nesta revisão: após confirmar o envio do compro
 3. Retirada automática exige local do pedido igual ao do ponto e reserva integral dos itens controlados; não completa reserva com saldo de outro local. Datas de recebimento bancário permanecem vazias até conferência administrativa.
 4. Permite ativar a política com WhatsApp próprio do ponto sem duplicar contato geral. Retira o seletor de vínculo legado que concorria com o editor exclusivo do ponto; preserva vínculos existentes válidos.
 5. Integra testes de comprovante à CI e adiciona teste com funções reais de reserva, baixa e ledger. O teste anterior de comprovante simulava a baixa apenas trocando o status.
-6. Gera `build-info.json` com commit e instante do build e cabeçalho sem cache para conferir a versão após implantação.
+6. Acrescenta edição e exclusão genéricas de pontos: nome e estoque ativo da própria loja; estoque não muda depois de pedidos vinculados; exclusão sem pedidos remove o ponto e seus contatos, e com histórico apenas arquiva. QR/código e estoques físicos são preservados. Fluxos testados em duas lojas.
+7. Gera `build-info.json` com commit e instante do build e cabeçalho sem cache para conferir a versão após implantação.
 
 ## Verificação executada
 
@@ -35,7 +36,7 @@ Regra confirmada pelo usuário nesta revisão: após confirmar o envio do compro
 | Edição de itens / troca de ponto | 87 / 12 verificações, inclui dois tenants e rollback |
 | Contatos exclusivos e ciclo de locais | Aprovado |
 | Origem transacional de comprovante | 17 verificações, RPC legada simulada |
-| Comprovante/pagamento/contatos no navegador | 34 testes existentes, mais 3 de editor do ponto e 1 de loja sem contato geral |
+| Comprovante/pagamento/contatos no navegador | 34 testes existentes, mais 8 de criação/edição/exclusão e editor do ponto e 1 de loja sem contato geral |
 | QR, disponibilidade e edição preservada | 13 testes no navegador |
 
 Testes de navegador usam backend simulado e dados fictícios, em larguras de 320 a 1440 px conforme a suíte. Os testes SQL usam banco isolado. Não equivalem a homologação autenticada no ambiente publicado. Nenhum pedido real, saldo ou movimento foi corrigido por esta auditoria. Não foi executado novo teste de concorrência em PostgreSQL neste ambiente; os runners existentes permanecem na CI.
@@ -44,13 +45,14 @@ Testes de navegador usam backend simulado e dados fictícios, em larguras de 320
 
 Não executar `db push`: versões remotas diferem dos nomes locais. A aplicação tentada do pacote abaixo foi rejeitada pela revisão automática por exigir autorização específica de implantação de alto impacto. Nenhum comando alternativo foi usado para contornar a rejeição.
 
-Aplicar em UMA transação, após aprovação, os conteúdos destes arquivos nesta ordem (remover os `begin/commit` internos e usar apenas uma transação externa):
+Aplicar, após aprovação, os conteúdos destes arquivos nesta ordem; as três primeiras precisam compartilhar UMA transação (remover os `begin/commit` internos e usar apenas uma transação externa):
 
 1. `supabase/migrations/20261029171540_food_customer_receipt_payment.sql`
 2. `supabase/migrations/20261030160000_food_pickup_receipt_closeout.sql`
 3. `supabase/migrations/20261031004025_food_receipt_pickup_integrity.sql`
+4. `supabase/migrations/20261031005232_food_pickup_point_management.sql` (gestão genérica, ainda não aplicada)
 
-As versões intermediárias não devem ser expostas: a primeira escreve data de recebimento e a última corrige esse comportamento. O pacote cria colunas, funções e triggers; não atualiza pedidos antigos por conta própria. O risco é mudar transações futuras de pagamento, financeiro e retirada no banco compartilhado, razão para implantação coordenada e teste antes de ativar políticas.
+As versões intermediárias não devem ser expostas: a primeira escreve data de recebimento e a terceira corrige esse comportamento. O pacote cria colunas, funções e triggers; não atualiza pedidos antigos por conta própria. O risco é mudar transações futuras de pagamento, financeiro e retirada no banco compartilhado, razão para implantação coordenada e teste antes de ativar políticas.
 
 Depois: publicar as versões revisadas de `food-public-checkout` e `food-order-payment`; configurar pelo provedor `ORDER_RECEIPT_CONTACTS_ENABLED`, `ORDER_RECEIPT_AUTOPAID_ENABLED`, `ORDER_PAYMENT_LINK_ENABLED`, `ORDER_PAYMENT_ALLOWED_ORIGINS` e segredo `ORDER_PAYMENT_LINK_SECRET` (mínimo 32 caracteres); frontend com `VITE_RECEIPT_CONTACTS_ENABLED` e, para links Pix, `VITE_PIX_PAYMENT_LINK_ENABLED`. Não colocar segredo no Git, frontend ou chat. Esta sessão não possui credenciais CLI de Supabase/Cloudflare nem ferramenta para gravar secrets; não se presume que os secrets estejam configurados.
 
