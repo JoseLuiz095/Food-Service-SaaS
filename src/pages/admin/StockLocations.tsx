@@ -238,7 +238,8 @@ export default function StockLocationsAdmin() {
       setEditingLocationId('');
       await refresh();
     } catch (cause) {
-      showToast(cause instanceof Error ? cause.message : 'Não foi possível retirar o local.', 'error');
+      const missingRpc=cause instanceof SupabaseHttpError && (cause.status===404 || /food_retire_stock_location_v1.*schema cache/i.test(cause.message));
+      showToast(missingRpc ? 'A retirada de locais aguarda a atualização do banco. Nenhum local foi alterado; tente novamente após a implantação.' : cause instanceof Error ? cause.message : 'Não foi possível retirar o local.', 'error');
     } finally { setSaving(false); }
   };
   const submitAdjustment = async (event: FormEvent) => {

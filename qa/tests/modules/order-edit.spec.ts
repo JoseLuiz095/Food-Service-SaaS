@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { mockBackend, ORDER, PRODUCT, STORE } from './fixtures';
+import { mockBackend, ORDER, PRODUCT, STORE, product } from './fixtures';
 
 test('editar pedido envia quantidade à RPC correta e atualiza preço sem nova venda', async ({ page }) => {
   await mockBackend(page, { auth: true });
@@ -31,4 +31,40 @@ test('editar pedido envia quantidade à RPC correta e atualiza preço sem nova v
   await expect(modal.getByText('2x Produto teste', { exact: true })).toBeVisible();
   await expect(modal.locator('.order-details-modal__summary .is-total')).toContainText('20,00');
   expect(calls).toEqual([{ p_order_id: ORDER, p_items: [{ item_id: itemId, quantity: 2 }] }]);
+});
+
+test('troca um sabor sem criar venda extra e reserva o novo produto no pedido', async ({ page }) => {
+  await mockBackend(page, { auth: true });
+  const otherId='20000000-0000-4000-8000-000000000002';
+  const itemId='30000000-0000-4000-8000-000000000001';
+  const row={id:ORDER,order_number:322,store_id:STORE,customer_name:'Cliente teste',
+    delivery_type:'pickup',payment_method:'pix',payment_status:'pending',status:'received',
+    subtotal:10,total:10,delivery_fee:0,inventory_status:'reserved',created_at:new Date().toISOString()};
+  const item={id:itemId,order_id:ORDER,product_id:PRODUCT,product_name:'Sabor A',quantity:1,
+    unit_price:10,item_total:10,variant_price_delta:0,addons:[],created_at:row.created_at};
+  const calls:unknown[]=[];
+  await page.route(/\/rest\/v1\/food_products(?:\?|$)/,route=>route.fulfill({json:[
+    product,{...product,id:otherId,name:'Sabor B',slug:'sabor-b',price:12,stock_quantity:5}
+  ]}));
+  await page.route(/\/rest\/v1\/food_orders(?:\?|$)/,async route=>{
+    if(route.request().method()==='PATCH')Object.assign(row,route.request().postDataJSON());
+    await route.fulfill({json:[row]});
+  });
+  await page.route(/\/rest\/v1\/food_order_items(?:\?|$)/,route=>route.fulfill({json:[item]}));
+  await page.route('**/rest/v1/rpc/food_update_order_items_v1',async route=>{
+    const body=route.request().postDataJSON();calls.push(body);
+    item.product_id=otherId;item.product_name='Sabor B';item.unit_price=12;item.item_total=12;
+    row.subtotal=12;row.total=12;
+    await route.fulfill({json:[{subtotal:12,total:12}]});
+  });
+  await page.goto('/admin/pedidos');
+  await page.getByRole('button',{name:'Detalhes / editar',exact:true}).first().click();
+  const modal=page.getByRole('dialog');
+  await modal.getByRole('button',{name:'Editar pedido',exact:true}).click();
+  await modal.getByRole('combobox',{name:'Trocar Sabor A'}).selectOption(otherId);
+  await expect(modal.getByText('Substitui Sabor A')).toBeVisible();
+  await expect(modal.getByText(/Novo total estimado:/)).toContainText('12,00');
+  await modal.getByRole('button',{name:'Salvar alterações'}).click();
+  await expect(modal.getByText('1x Sabor B',{exact:true})).toBeVisible();
+  expect(calls).toEqual([{p_order_id:ORDER,p_items:[{product_id:otherId,quantity:1}]}]);
 });
