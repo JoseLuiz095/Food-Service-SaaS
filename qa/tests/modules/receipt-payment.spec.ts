@@ -40,8 +40,8 @@ for(const width of [320,390,768,1366])for(const failFirst of [false,true])test(`
  await expect(section.getByRole('button',{name:'Já enviei o comprovante'})).toBeVisible();expect(reports).toHaveLength(0);await expect(page.getByText('Aguardando confirmação do pagamento pela loja.')).toBeVisible();
  await section.getByRole('button',{name:'Já enviei o comprovante'}).click();
  if(failFirst){await expect(section.getByRole('alert')).toContainText('alterado');await expect(section.getByRole('link',{name:'Abrir o WhatsApp novamente'})).toHaveAttribute('href',/^https:\/\/wa.me\/5511000000001/);await expect(page.getByText('Aguardando confirmação do pagamento pela loja.')).toBeVisible();await section.getByRole('button',{name:'Já enviei o comprovante'}).click();}
- await expect(section.getByRole('status')).toContainText('Pago informado pelo cliente');
- await expect(page.getByText('Pago informado pelo cliente. A loja pode conferir o recebimento ou devolver para A receber.',{exact:true})).toBeVisible();
+ await expect(section.getByRole('status')).toContainText('Comprovante informado');
+ await expect(page.getByText('Pago informado pelo cliente. A loja pode conferir o recebimento.',{exact:true})).toBeVisible();
  expect(reports).toEqual(Array(failFirst?2:1).fill({action:'report_receipt',token:'receipt.capability'}));
  await expect.poll(()=>popups.some(p=>p.url().startsWith('https://wa.me/5511000000001'))).toBe(true);
  for(const p of popups)if(!p.isClosed())await p.close();
@@ -79,7 +79,7 @@ test('política é opt-in e salva com os contatos confirmados numa única RPC',a
  await page.route('**/rest/v1/food_pickup_locations?**',r=>r.fulfill({json:[]}));
  await page.route('**/functions/v1/food-order-payment',r=>r.fulfill({json:{autoPaidConfigured:true}}));
  await page.route('**/rest/v1/rpc/food_save_receipt_policy_v2',r=>{saved=r.request().postDataJSON();return r.fulfill({json:null})});
- await page.goto('/admin/configuracoes');const card=page.getByRole('region',{name:'Telefones para confirmação e comprovantes'});
+ await page.goto('/admin/configuracoes');const card=page.getByRole('region',{name:'Contatos gerais para comprovantes'});
  const policy=card.getByRole('checkbox',{name:/Permitir que o cliente informe o pagamento/});await expect(policy).not.toBeChecked();await policy.check();
  await card.getByRole('button',{name:'Salvar contatos de comprovantes'}).click();await expect(card.getByRole('alert')).toContainText('Confira os números');expect(saved).toBeUndefined();
  await card.getByRole('checkbox',{name:'Conferi os números e o contato que receberá o comprovante de cada ponto.'}).check();
@@ -95,8 +95,27 @@ test('retirada automática fica opt-in por ponto e exige aviso de pagamento habi
  await page.route('**/rest/v1/food_pickup_locations?**',r=>r.fulfill({json:[{id:'60000000-0000-4000-8000-000000000001',name:'Ponto da loja amiga',auto_pickup_on_receipt:false}]}));
  await page.route('**/functions/v1/food-order-payment',r=>r.fulfill({json:{autoPaidConfigured:true}}));
  await page.route('**/rest/v1/rpc/food_save_receipt_policy_v2',r=>{saved=r.request().postDataJSON();return r.fulfill({json:null})});
- await page.goto('/admin/configuracoes');const card=page.getByRole('region',{name:'Telefones para confirmação e comprovantes'});
+ await page.goto('/admin/configuracoes');const card=page.getByRole('region',{name:'Contatos gerais para comprovantes'});
  const pickup=card.getByRole('checkbox',{name:/Concluir e baixar a retirada imediata/});await expect(pickup).not.toBeChecked();await pickup.check();
  await card.getByRole('checkbox',{name:/Conferi os números/}).check();await card.getByRole('button',{name:'Salvar contatos de comprovantes'}).click();
  await expect(card.getByRole('status')).toContainText('salvos');expect(saved).toMatchObject({p_auto_pickup_points:['60000000-0000-4000-8000-000000000001']});
+});
+
+test('loja que só vende por pontos ativa comprovante sem duplicar contato geral',async({page})=>{
+ await isolated(page,true);let saved:unknown;
+ await page.route('**/rest/v1/food_stores?**',r=>r.fulfill({json:[{...store,receipt_click_marks_paid:false}]}));
+ await page.route('**/rest/v1/food_receipt_contacts?**',r=>r.fulfill({json:[]}));
+ await page.route('**/rest/v1/food_pickup_receipt_contacts?**',r=>r.fulfill({json:[]}));
+ await page.route('**/rest/v1/food_pickup_locations?**',r=>r.fulfill({json:[{id:'60000000-0000-4000-8000-000000000001',name:'Ponto com WhatsApp próprio',auto_pickup_on_receipt:false}]}));
+ await page.route('**/functions/v1/food-order-payment',r=>r.fulfill({json:{autoPaidConfigured:true}}));
+ await page.route('**/rest/v1/rpc/food_save_receipt_policy_v2',r=>{saved=r.request().postDataJSON();return r.fulfill({json:null})});
+ await page.goto('/admin/configuracoes');const card=page.getByRole('region',{name:'Contatos gerais para comprovantes'});
+ await card.getByRole('checkbox',{name:/Permitir que o cliente informe o pagamento/}).check();
+ await card.getByRole('checkbox',{name:/Concluir e baixar a retirada imediata/}).check();
+ await card.getByRole('button',{name:'Salvar contatos de comprovantes'}).click();
+ await expect(card.getByRole('alert')).toContainText('Confira os números');expect(saved).toBeUndefined();
+ await card.getByRole('checkbox',{name:/Conferi os números/}).check();
+ await card.getByRole('button',{name:'Salvar contatos de comprovantes'}).click();
+ await expect(card.getByRole('status')).toContainText('salvos');
+ expect(saved).toEqual({p_store_id:STORE,p_contacts:[],p_points:[],p_auto_paid:true,p_auto_pickup_points:['60000000-0000-4000-8000-000000000001']});
 });

@@ -23,7 +23,7 @@ function fixture(){
  const env={ORDER_PAYMENT_LINK_ENABLED:'true',ORDER_RECEIPT_AUTOPAID_ENABLED:'true',ORDER_RECEIPT_CONTACTS_ENABLED:'true',ORDER_PAYMENT_LINK_SECRET:secret,ORDER_PAYMENT_ALLOWED_ORIGINS:origin};
  const writes=[];let fail=false;
  const handler=createOrderPaymentHandler({env:k=>env[k],now:()=>now,authorizedOrder:async()=>order,order:async()=>order,store:async()=>store,
-   reportReceipt:async claim=>{writes.push(claim);if(fail)throw new Error('conflict')},receiptDestinations:async()=>({mode:'general',contacts:[]})});
+   reportReceipt:async claim=>{writes.push(claim);if(fail)throw new Error('conflict');return{ok:true,autoPickedUp:false}},receiptDestinations:async()=>({mode:'general',contacts:[]})});
  const call=async body=>{const r=await handler(new Request('https://api.example.invalid',{method:'POST',headers:{Origin:origin,Authorization:'Bearer synthetic'},body:JSON.stringify(body)}));return {status:r.status,body:await r.json()}};
  return{call,env,order,store,writes,fail:()=>{fail=true}};
 }
@@ -43,4 +43,13 @@ test('flags, política e versão bloqueiam nova emissão; falha do servidor não
  f.store.receipt_click_marks_paid=false;assert.equal((await f.call({action:'resolve',token:issued.body.token})).body.receiptToken,undefined);
  f.store.receipt_click_marks_paid=true;f.order.payment_receipt_version=1;assert.equal((await f.call({action:'resolve',token:issued.body.token})).body.receiptToken,undefined);
  f.fail();const r=await f.call({action:'report_receipt',token});assert.equal(r.status,409);assert.equal(r.body.status,undefined);
+});
+test('resposta incompleta ou rejeitada pelo banco nunca anuncia pedido pago',async()=>{
+ const token=await mintReceiptClaim(input,secret,now);
+ for(const invalid of [null,undefined,{}, {ok:false,autoPickedUp:true},{ok:true},{ok:true,autoPickedUp:'true'}]){
+  const handler=createOrderPaymentHandler({env:k=>({ORDER_RECEIPT_AUTOPAID_ENABLED:'true',ORDER_RECEIPT_CONTACTS_ENABLED:'true',ORDER_PAYMENT_LINK_SECRET:secret,ORDER_PAYMENT_ALLOWED_ORIGINS:origin})[k],now:()=>now,
+   reportReceipt:async()=>invalid,authorizedOrder:async()=>null,order:async()=>null,store:async()=>null});
+  const response=await handler(new Request('https://api.example.invalid',{method:'POST',headers:{Origin:origin},body:JSON.stringify({action:'report_receipt',token})}));
+  assert.equal(response.status,409);assert.equal((await response.json()).status,undefined);
+ }
 });
