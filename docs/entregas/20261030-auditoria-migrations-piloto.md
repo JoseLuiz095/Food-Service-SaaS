@@ -1,3 +1,5 @@
+> Atualização posterior: foram aplicadas no projeto remoto as migrations `20261031002455_food_receipt_contacts_20261030`, `20261031002542_food_point_contacts_location_lifecycle_20261030`, `20261031002717_food_single_point_receipt_contact_20261030`, `20261031002732_food_order_receipt_source_20261030` e `20261031002815_food_order_relocation_20261030`. As referências abaixo descrevem o levantamento anterior à aplicação. Conferir histórico antes de qualquer push: os timestamps remotos diferem dos arquivos locais. Funções e grants foram conferidos; falta validação autenticada completa no aplicativo e ativação coordenada do fluxo de comprovantes.
+
 # Auditoria das entregas de 30/10/2026 no Supabase compartilhado
 
 Projeto verificado: `elttryavkeartoxgdgse`. Leitura do histórico de migrations, catálogo de tabelas/funções e lista de Edge Functions. Código comparado com a `main` após o merge do PR #142. A presença de código no GitHub não instala SQL nem Edge Functions.
