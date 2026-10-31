@@ -20,3 +20,13 @@ assert.equal(canAddWithoutOptions({...product,optionGroups:[{active:true,minChoi
 assert.equal(canAddWithoutOptions({...product,partyOrderConfig:{enabled:true}}),false);
 assert.equal(canAddWithoutOptions({...product,optionGroups:[{active:false,minChoices:0,name:'__foodweb_party_order_config__'}]}),false);
 console.log('14 cart availability checks passed');
+const rankJs=ts.transpileModule(readFileSync('src/utils/storefrontAvailability.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+const {storefrontAvailabilityRank:rank}=await import(`data:text/javascript;base64,${Buffer.from(rankJs).toString('base64')}`);
+const available={...product,availabilityStatus:'available',stockStatus:'available'};
+assert.equal(rank(available,0),1,'zero at point overrides global stock');
+assert.equal(rank({...available,stockQuantity:0},3),0,'point stock overrides global zero');
+assert.equal(rank(available,null),1,'unknown point stock is not advertised ready');
+assert.equal(rank({...available,availabilityStatus:'unavailable'},3),2,'unpublished availability cannot be overridden');
+assert.equal(rank({...available,trackStock:false},null),0,'non-stock product remains available');
+assert.equal(rank({...available,stockReservedQuantity:23}),1,'reservations reduce ready stock');
+console.log('6 storefront availability checks passed');

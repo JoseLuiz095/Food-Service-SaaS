@@ -21,3 +21,17 @@
  .food-marketplace-body .food-discovery-bar{margin-top:12px;margin-bottom:16px}
  .food-marketplace-body .food-featured-section{margin-top:14px}
 }
+@media(max-width:600px){
+ .food-storefront-header-v43 .food-store-hero-v43{height:48px;min-height:48px;padding:8px 0}
+ .food-storefront-header-v43 .food-store-hero-v43>.container{padding-bottom:8px}
+ .food-storefront-header-v43 .food-store-profile-v43{margin-top:0;padding:10px;gap:8px}
+ .food-store-profile-more{padding-top:8px}
+ .food-store-profile-more>h2{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+ .food-store-profile-more .food-open-details{display:none}
+ .food-store-profile-more .food-store-profile-actions{gap:6px}
+ .food-store-profile-more .food-store-profile-actions>a:not(.food-social-link--instagram),.food-store-profile-more .food-store-profile-actions>button{grid-column:auto;min-height:44px}
+ .food-store-profile-more .food-store-profile-actions>button small{display:none}
+ .food-store-profile-more .food-store-profile-actions>a.food-social-link--instagram{grid-column:1/-1;min-height:58px}
+ .food-marketplace-body .food-featured-section{padding:12px}
+ .food-marketplace-body .food-featured-section .food-section-title{margin-bottom:6px}
+}

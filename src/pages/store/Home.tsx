@@ -16,6 +16,7 @@ import { FitnessBookingOffers } from '../../platform/FitnessBookingOffers';
 import { FitnessCatalog } from '../../platform/FitnessCatalog';
 import { PickupPointSelector, PointStockNotice } from './PickupPointSelector';
 import { pointStock, usePickupAvailability } from './usePickupAvailability';
+import { storefrontAvailabilityRank } from '../../utils/storefrontAvailability';
 
 export default function Home(){
   if (typeof window !== 'undefined' && isFoodWebMarketingRoot(window.location.pathname, window.location.hostname)) return <Landing/>;
@@ -47,13 +48,17 @@ function StorefrontHome(){
   useEffect(()=>{if(!loading&&!error&&settings.id)void trackPublicEvent(settings.id,'storefront_view')},[loading,error,settings.id]);
 
   const activeProducts=useMemo(()=>products.filter((product)=>product.active),[products]);
+  const availabilityRanks=useMemo(()=>new Map(activeProducts.map(product=>[product.id,
+    storefrontAvailabilityRank(product,resolvingPoint||pickup.invalidQr?null:pickup.selectedPoint
+      ? pickup.availability===null?null:Number(pointStock(pickup.availability,product.id)?.available||0)
+      : undefined)])),[activeProducts,resolvingPoint,pickup.invalidQr,pickup.selectedPoint,pickup.availability]);
   const normalizedQuery=normalizeText(query);
   const visible=useMemo(()=>activeProducts.filter((product)=>{
     const categoryMatch=selectedCategory==='all'||product.categoryId===selectedCategory;
     const textMatch=!normalizedQuery||normalizeText(`${product.name} ${product.description}`).includes(normalizedQuery);
     return categoryMatch&&textMatch;
-  }),[activeProducts,selectedCategory,normalizedQuery]);
-  const featured=useMemo(()=>visible.filter((product)=>product.featured).slice(0,6),[visible]);
+  }).sort((a,b)=>(availabilityRanks.get(a.id)||0)-(availabilityRanks.get(b.id)||0)),[activeProducts,selectedCategory,normalizedQuery,availabilityRanks]);
+  const featured=useMemo(()=>visible.filter((product)=>product.featured&&availabilityRanks.get(product.id)===0).slice(0,6),[visible,availabilityRanks]);
   const grouped=useMemo(()=>categories.filter((category)=>category.active).map((category)=>({category,items:visible.filter((product)=>product.categoryId===category.id&&(!featured.some((featuredProduct)=>featuredProduct.id===product.id)||selectedCategory!=='all'||Boolean(normalizedQuery)))})).filter((group)=>group.items.length),[categories,featured,normalizedQuery,selectedCategory,visible]);
 
   if(loading)return <div className="page-center"><LoadingState label={traditionalPresentation?'Carregando cardápio...':'Carregando catálogo...'}/></div>;
