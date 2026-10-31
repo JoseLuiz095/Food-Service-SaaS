@@ -1,6 +1,18 @@
 import { expect, test } from '@playwright/test';
 import { mockBackend, PRODUCT, STORE, snapshot, ORDER } from './fixtures';
 const point={id:'60000000-0000-4000-8000-000000000001',name:'Trabalho',short_code:'trabalho'};
+test('comprar agora vai direto ao checkout preservando o ponto e sem duplicar item já adicionado',async({page})=>{
+ await page.setViewportSize({width:390,height:844});await mockBackend(page);await pickup(page);
+ await page.goto('/doce-lua?ponto=trabalho');
+ const card=page.locator('.product-card-shell').first();
+ await card.getByRole('button',{name:'Adicionar Brigadeiro teste',exact:true}).click();
+ await card.getByRole('button',{name:'Compra relâmpago: Brigadeiro teste',exact:true}).click();
+ await expect(page).toHaveURL(/finalizar\?quick=.*qty=1.*ponto=trabalho/);
+ await expect(page.locator('.summary-total')).toContainText('10,00');
+ await expect(page.getByRole('button',{name:/Retirada Buscar/})).toHaveAttribute('aria-pressed','true');
+ const saved=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)||'[]'),`foodservice_cart_v1:${STORE}`);
+ expect(saved).toHaveLength(1);expect(saved[0].quantity).toBe(1);
+});
 async function pickup(page:any,available=3){
  await page.route('**/rest/v1/rpc/food_get_public_pickup_locations_v1', (r:any)=>r.fulfill({json:[point]}));
  await page.route('**/rest/v1/rpc/food_get_public_location_availability_v1', (r:any)=>r.fulfill({json:[{product_id:PRODUCT,available}]}));

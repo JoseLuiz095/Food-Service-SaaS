@@ -11,3 +11,4 @@
 .product-card-checking{padding:10px;text-align:center;font-size:.8rem;color:#56665b}
 .product-card-actions :is(button,a):focus-visible{outline:3px solid #172d67;outline-offset:-3px}
 .product-card-actions button:disabled{opacity:.5;cursor:not-allowed}
+.product-card-buy:is(button){border:0;background:transparent;font-family:inherit;cursor:pointer;min-height:44px}

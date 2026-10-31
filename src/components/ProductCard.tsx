@@ -1,6 +1,6 @@
 import { Minus, Plus, Zap } from 'lucide-react';
 import './product-card-quick.css';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { Category, Product } from '../types';
 import { currency } from '../utils/format';
 import { Badge } from './Badge';
@@ -20,6 +20,7 @@ export function ProductCard({product,category,pointAvailable}:ProductCardProps){
   const {items,addItem,updateQuantity,removeItem}=useCart();
   const {showToast}=useToast();
   const [searchParams] = useSearchParams();
+  const navigate=useNavigate();
   const pointCode = searchParams.get('ponto');
   const profile=getBusinessSegment(settings.visualTheme);
   const unavailable=product.stockStatus==='unavailable'||product.availabilityStatus!=='available';
@@ -42,9 +43,16 @@ export function ProductCard({product,category,pointAvailable}:ProductCardProps){
     void trackPublicEvent(settings.id,'add_to_cart',product.id);
     if(!quantity)showToast(`${product.name} adicionado.`, 'success');
   };
+  const buyNow=()=>{
+    if(unavailable||checkingPointStock||outOfStock||(!quantity&&limit<1))return;
+    if(!quantity)add();
+    const params=new URLSearchParams({quick:lineId,qty:String(quantity||1)});
+    if(pointCode)params.set('ponto',pointCode);
+    navigate(`${storefrontPath(storeBasePath,'/finalizar')}?${params.toString()}`);
+  };
   return <div className="product-card-shell"><Link to={productUrl} className={`product-card product-card--food ${unavailable?'is-unavailable':''}`}>
     <div className="product-card__content">
-      {product.featured&&<span className="product-card__featured">Mais pedido</span>}
+      {product.featured&&<span className="product-card__featured">Destaque</span>}
       <span className="product-card__category">{category?.name??profile.catalogLabel}</span>
       <h3>{product.name}</h3>
       <p>{product.description}</p>
@@ -63,6 +71,6 @@ export function ProductCard({product,category,pointAvailable}:ProductCardProps){
     </div> : <button type="button" className="product-card-add" onClick={add} disabled={limit<1} aria-label={`Adicionar ${product.name}`}><Plus size={18}/>Adicionar</button>
     : checkingPointStock ? <span role="status" className="product-card-checking">Consultando disponibilidade…</span>
     : <Link className="product-card-add" to={productUrl}>{outOfStock ? hasPointContext ? 'Ver disponibilidade' : 'Encomendar' : 'Escolher opções'}</Link>}
-    {!outOfStock && !checkingPointStock && <Link className="product-card-buy" to={`${productPath}?${quickParams.toString()}`} aria-label={`Compra relâmpago: ${product.name}`}><Zap size={14} aria-hidden="true"/>Comprar agora</Link>}
+    {!outOfStock && !checkingPointStock && (simple ? <button type="button" className="product-card-buy" onClick={buyNow} disabled={!quantity&&limit<1} aria-label={`Compra relâmpago: ${product.name}`}><Zap size={14} aria-hidden="true"/>Comprar agora</button> : <Link className="product-card-buy" to={`${productPath}?${quickParams.toString()}`} aria-label={`Compra relâmpago: ${product.name}`}><Zap size={14} aria-hidden="true"/>Comprar agora</Link>)}
   </div>}</div>;
 }

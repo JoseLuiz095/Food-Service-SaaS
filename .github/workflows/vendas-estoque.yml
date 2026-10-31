@@ -51,6 +51,7 @@ jobs:
       - run: npm exec --prefix qa -- playwright test --config qa/admin-clarity.config.ts
       - run: npm exec --prefix qa -- playwright test --config qa/admin-routine.config.ts
       - run: npm exec --prefix qa -- playwright test --config qa/receipt-contacts.config.ts
+      - run: npm exec --prefix qa -- playwright test --config qa/storefront-conversion.config.ts
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -69,6 +70,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run test:cart
       - run: npm run test:seo
       - run: node --test scripts/password-recovery-test.mjs
       - run: node --test scripts/appearance-editor-test.mjs scripts/receipt-payment-test.mjs
