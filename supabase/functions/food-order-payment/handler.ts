@@ -51,7 +51,11 @@ export const createOrderPaymentHandler = (deps: Dependencies) => async (req: Req
     if(body.action==='report_receipt'){
       if(!autoPaidReady||!deps.reportReceipt)return reply(503,{error:'A declaração de pagamento ainda não está ativada. Fale com a loja.'});
       let claim:ReceiptClaim;try{claim=await openReceiptClaim(body.token,secret,now);}catch{return reply(410,{error:'A autorização deste comprovante expirou. Solicite orientação à loja.'});}
-      try{const result=await deps.reportReceipt(claim) as {autoPickedUp?:unknown}|null;return reply(200,{ok:true,status:'paid',paymentReportedByCustomer:true,autoPickedUp:result?.autoPickedUp===true});}
+      try{
+        const result=await deps.reportReceipt(claim) as {ok?:unknown;autoPickedUp?:unknown}|null;
+        if(result?.ok!==true||typeof result.autoPickedUp!=='boolean')throw new Error('RECEIPT_REPORT_INVALID');
+        return reply(200,{ok:true,status:'paid',paymentReportedByCustomer:true,autoPickedUp:result.autoPickedUp});
+      }
       catch{return reply(409,{error:'O pedido foi alterado ou revisado pela loja. Consulte seu pagamento antes de reenviar.'});}
     }
   if (deps.env('ORDER_PAYMENT_LINK_ENABLED') !== 'true' || secret.length < 32) return reply(503, { error: 'Link de pagamento ainda não habilitado. Solicite o QR Code à loja.' });

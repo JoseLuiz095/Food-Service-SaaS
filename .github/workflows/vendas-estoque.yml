@@ -11,6 +11,12 @@ on:
       - 'index.html'
       - 'scripts/**'
       - 'qa/admin-clarity.config.ts'
+      - 'qa/receipt-contacts.config.ts'
+      - 'qa/tests/modules/receipt-contacts.spec.ts'
+      - 'qa/tests/modules/receipt-payment.spec.ts'
+      - 'qa/tests/modules/point-receipt-editor.spec.ts'
+      - 'qa/tests/modules/payment-status.spec.ts'
+      - 'vite.config.ts'
       - 'qa/tests/modules/admin-clarity.spec.ts'
       - 'qa/tests/modules/fixtures.ts'
       - 'qa/package.json'
@@ -41,11 +47,12 @@ jobs:
       - run: npm ci --prefix qa
       - run: npm exec --prefix qa -- playwright install --with-deps chromium
       - run: npm exec --prefix qa -- playwright test --config qa/admin-clarity.config.ts
+      - run: npm exec --prefix qa -- playwright test --config qa/receipt-contacts.config.ts
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: admin-ux-failure
-          path: qa/test-results/admin-clarity
+          path: qa/test-results
           retention-days: 7
   regression:
     runs-on: ubuntu-latest
@@ -64,6 +71,7 @@ jobs:
       - run: node --test scripts/appearance-editor-test.mjs scripts/receipt-payment-test.mjs
       - run: node scripts/receipt-payment-db-test.mjs
       - run: node scripts/receipt-contacts-db-test.mjs
+      - run: node scripts/point-contacts-location-db-test.mjs
       - run: node scripts/receipt-source-db-test.mjs
       - run: npm run test:payment-links
       - run: npm run test:fitness

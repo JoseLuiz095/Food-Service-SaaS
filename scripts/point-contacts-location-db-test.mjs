@@ -52,6 +52,38 @@ try{
  assert.equal((await q('select * from food_pickup_point_contacts')).length,1);
  await q('select food_save_pickup_point_contacts_v1($1,$2,$3::jsonb)',[A,P,'[]']);
  assert.deepEqual((await one('select food_get_receipt_destinations_v1($1,$2) as v',[A,P])).v,{mode:'unassigned',contacts:[]});
+
+ await db.exec(`reset role;alter table food_orders add pickup_location_id uuid;
+ create table food_order_receipt_sources(order_id uuid,store_id uuid,pickup_location_id uuid);
+ create table food_platform_event_log(actor_user_id uuid,store_id uuid,kind text,action text,result text,route text,metadata jsonb);`);
+ await db.exec(readFileSync('supabase/migrations/20261031005232_food_pickup_point_management.sql','utf8'));
+ await db.exec('grant select on food_pickup_locations,food_stock_locations,food_orders to authenticated;set role authenticated');
+ const edit=(point,name,stock=D,expected=D,store=A)=>q('select food_edit_pickup_point_v1($1,$2,$3,$4,$5)',[store,point,name,stock,expected]);
+ await edit(P,'Nome atualizado');assert.equal((await one('select name from food_pickup_locations where id=$1',[P])).name,'Nome atualizado');
+ await edit(P,'Nome atualizado',E);await edit(P,'Nome atualizado',D,E);
+ await assert.rejects(()=>edit(P,'Sem acesso',D,D,B),/Acesso negado/);
+ await assert.rejects(()=>edit(P,'Estoque de outro tenant',B),/estoque ativo/);
+ await assert.rejects(()=>edit(P,'Concorrência',D,E),/mudou/);
+ await assert.rejects(()=>edit(P,'   '),/nome/);
+ await db.exec(`reset role;insert into food_orders(id,store_id,stock_location_id,pickup_location_id)values('${U}','${A}','${D}','${P}');set role authenticated;`);
+ await assert.rejects(()=>edit(P,'Outro estoque',E),/pedidos vinculados/);
+ await edit(P,'Renomeado com histórico');
+ assert.equal((await one('select food_retire_pickup_point_v1($1,$2) v',[A,P])).v.action,'archived');
+ assert.equal((await one('select active from food_pickup_locations where id=$1',[P])).active,false);
+ assert.equal((await one('select count(*) n from food_orders where pickup_location_id=$1',[P])).n,1);
+ assert.equal((await one('select food_retire_pickup_point_v1($1,$2) v',[A,P2])).v.action,'deleted');
+ assert.equal((await one('select count(*) n from food_pickup_locations where id=$1',[P2])).n,0);
+ assert.equal((await one('select active from food_stock_locations where id=$1',[D])).active,true);
+ await db.exec('set role anon');await assert.rejects(()=>edit(P,'Anon'));await assert.rejects(()=>q('select food_retire_pickup_point_v1($1,$2)',[A,P]));await db.exec('set role authenticated');
+ const otherUser='20000000-0000-4000-8000-000000000002',otherPoint='40000000-0000-4000-8000-000000000003';
+ await db.exec(`reset role;insert into food_store_users values('${B}','${otherUser}',true);insert into food_pickup_locations(id,store_id,stock_location_id,name)values('${otherPoint}','${B}','${B}','Ponto da segunda loja');set role authenticated;select set_config('test.user','${otherUser}',false);`);
+ await edit(otherPoint,'Outra loja atualizada',B,B,B);
+ assert.equal((await one('select name from food_pickup_locations where id=$1',[otherPoint])).name,'Outra loja atualizada');
+ await assert.rejects(()=>edit(P,'Outra loja tentando editar',D,D,A),/Acesso negado/);
+ await assert.rejects(()=>q('select food_retire_pickup_point_v1($1,$2)',[A,P]),/Acesso negado/);
+ assert.equal((await one('select food_retire_pickup_point_v1($1,$2) v',[B,otherPoint])).v.action,'deleted');
+ await q("select set_config('test.user',$1,false)",[U]);
+
  await assert.rejects(()=>q('select food_retire_stock_location_v1($1,$2)',[A,L]));
  await db.exec('set role authenticated');
  assert.equal((await one('select food_retire_stock_location_v1($1,$2) as v',[A,E])).v.action,'deleted');
@@ -64,5 +96,5 @@ try{
  assert.equal((await one('select food_retire_stock_location_v1($1,$2) as v',[A,D])).v.action,'archived');
  await db.exec('reset role');assert.equal((await one('select active from food_pickup_locations where id=$1',[P])).active,false);
  assert.equal((await one('select active from food_stock_locations where id=$1',[D])).active,false);
- console.log('OK: WhatsApp único do ponto, destino do comprovante, isolamento, saldo, principal e arquivamento.');
+ console.log('OK: WhatsApp único, edição/exclusão de pontos em dois tenants, destino, saldo, principal e arquivamento.');
 }finally{await db.close()}
