@@ -11,6 +11,8 @@ on:
       - 'index.html'
       - 'scripts/**'
       - 'qa/admin-clarity.config.ts'
+      - 'qa/admin-routine.config.ts'
+      - 'qa/tests/modules/admin-routine.spec.ts'
       - 'qa/receipt-contacts.config.ts'
       - 'qa/tests/modules/receipt-contacts.spec.ts'
       - 'qa/tests/modules/receipt-payment.spec.ts'
@@ -47,6 +49,7 @@ jobs:
       - run: npm ci --prefix qa
       - run: npm exec --prefix qa -- playwright install --with-deps chromium
       - run: npm exec --prefix qa -- playwright test --config qa/admin-clarity.config.ts
+      - run: npm exec --prefix qa -- playwright test --config qa/admin-routine.config.ts
       - run: npm exec --prefix qa -- playwright test --config qa/receipt-contacts.config.ts
       - uses: actions/upload-artifact@v4
         if: failure()
