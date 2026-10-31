@@ -589,8 +589,8 @@ export type OrderDetailsUpdate = {
   customerPhone?: string;
   scheduledFor?: string;
   notes?: string;
-  /** Ajustes de quantidade dos itens enquanto o pagamento ainda está pendente. */
-  items?: Array<{ itemId?: string; productId?: string; quantity: number }>;
+  /** A troca cria uma nova linha; a RPC libera a reserva antiga e reserva o novo produto no local do pedido. */
+  items?: Array<{ itemId: string; productId?: never; quantity: number } | { itemId?: never; productId: string; quantity: number }>;
 };
 export type SaveProductInput = Omit<Product, 'imageUrl' | 'gallery' | 'images'> & {
   images?: ProductImage[];

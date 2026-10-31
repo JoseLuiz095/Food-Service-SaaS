@@ -130,6 +130,21 @@ try {
     eq(await physical(tenant,tenant.point),8,'cancelamento não fabrica físico');
     eq(Number((await one('select count(*) n from food_order_stock_movements where order_id=$1',[cancelled.order])).n),0,'cancelamento sem saída fictícia');
   }
+  const flavorB=randomUUID();
+  await q("insert into food_products(id,store_id,name,price,stock_quantity) values($1,$2,'Outro sabor',12,4)",[flavorB,a.store]);
+  await q('insert into food_product_location_stock(store_id,product_id,location_id,stock_quantity) values($1,$2,$3,4),($1,$2,$4,4)',[a.store,flavorB,a.main,a.point]);
+  await asUser(a.owner);
+  const swapped=await createOrder(a);
+  await edit(swapped.order,[{item_id:swapped.item,quantity:1}]);
+  const oldPhysical=await physical(a,a.point);
+  await edit(swapped.order,[{product_id:flavorB,quantity:1}]);
+  eq(await reserved(a,a.point),0,'troca libera a reserva do sabor original');
+  eq(Number((await one('select stock_reserved_quantity n from food_product_location_stock where product_id=$1 and location_id=$2',[flavorB,a.point])).n),1,'troca reserva o novo sabor no ponto do pedido');
+  eq(await physical(a,a.point),oldPhysical,'troca não simula saída física antecipada');
+  eq(Number((await one('select total from food_orders where id=$1',[swapped.order])).total),12,'troca recalcula o valor pelo novo produto');
+  await q("update food_orders set status='picked_up' where id=$1",[swapped.order]);
+  eq(Number((await one('select stock_quantity n from food_product_location_stock where product_id=$1 and location_id=$2',[flavorB,a.point])).n),3,'retirada debita apenas o novo sabor');
+  eq(await physical(a,a.point),oldPhysical,'sabor original não sofre baixa');
   await asUser(b.owner);
   const delivery=await createOrder(b);
   await edit(delivery.order,[{item_id:delivery.item,quantity:2}]);
